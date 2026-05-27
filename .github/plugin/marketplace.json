@@ -1,5 +1,5 @@
 {
-  "name": "devantler-copilot-plugins",
+  "name": "devantler-plugins",
   "metadata": {
     "description": "Curated agent skills bundled by category from devantler-tech/skills",
     "version": "1.0.0"

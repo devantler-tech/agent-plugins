@@ -52,6 +52,10 @@ Each plugin directory is self-contained with a `plugin.json` manifest and a `ski
 
 See [`devantler-tech/skills`](https://github.com/devantler-tech/skills) for the curated skill index and upstream links.
 
+## Scope
+
+This marketplace bundles **agent skills only**. It does not bundle or manage **MCP servers** — those ship with the product that provides them (e.g. ksail's MCP server is part of the ksail binary), and a skill that needs one declares that dependency in its own `SKILL.md`. See [ADR-0001](docs/adr/0001-mcp-server-bundling.md) for the rationale and revisit triggers.
+
 ## Contributing
 
 See the [devantler-tech organisation guidelines](https://github.com/devantler-tech/.github) for PR/issue templates and contribution rules.

@@ -61,6 +61,17 @@ metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; f
 `devantler-tech/skills` and let the update workflow pull it through. Only the marketplace structure
 (manifests, `plugin.json`, plugin membership) is authored here.
 
+## Scope — skills only (MCP servers are out of scope)
+
+The marketplace bundles **agent skills and nothing else.** It does **not** bundle, ship, or manage
+**MCP servers** — those are product runtime interfaces with their own release cadence and live with
+the product that ships them (e.g. ksail's MCP server is part of the ksail binary; the Flux MCP server
+is an upstream `fluxcd` artifact). A skill that *needs* an MCP server declares that dependency in its
+own `SKILL.md`; the user installs the server from the product's own channel. This keeps the repo a
+thin, single-source, tool-neutral skill bundler with the two manifests in parity. The full rationale
+and the revisit triggers are recorded in [ADR-0001](docs/adr/0001-mcp-server-bundling.md)
+(resolves the MCP question from [#7](https://github.com/devantler-tech/plugins/issues/7)).
+
 ## Conventions
 
 1. **Two manifests in parity.** Every plugin appears in **both** `marketplace.json` files with the same
@@ -147,9 +158,10 @@ are the gate. Never weaken a security control or a check to pass.
 - **Keep bundled skills fresh:** let the daily `update-agent-skills` PR flow through; fix it when CI
   fails. Never hand-edit a bundled `SKILL.md` to diverge from its upstream — fix it in
   `devantler-tech/skills`.
-- **Tool-neutral rescope** ([#7](https://github.com/devantler-tech/plugins/issues/7)): de-Copilot-brand
-  remaining surface; keep manifests/README cross-tool; evaluate broadening to additional standards
-  (e.g. MCP) and record the decision as an ADR if non-trivial.
+- **Tool-neutral rescope** ([#7](https://github.com/devantler-tech/plugins/issues/7)): keep the
+  remaining surface de-Copilot-branded and manifests/README cross-tool. The MCP-broadening question is
+  **decided** — skills only, MCP out of scope ([ADR-0001](docs/adr/0001-mcp-server-bundling.md)); honour
+  that scope and only reopen it against the ADR's revisit triggers.
 - **Workflow & action hygiene:** keep third-party actions pinned & aligned with the sibling CI repos;
   bundle Dependabot `github_actions` PRs; flag majors; keep CI `actionlint`-clean.
 - **Consistency** with [devantler-tech/skills](https://github.com/devantler-tech/skills) (the single

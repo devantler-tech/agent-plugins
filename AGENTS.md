@@ -75,8 +75,11 @@ metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; f
    Claude Code today); don't bake in a single agent's assumptions.
 5. **Pin all external actions to commit SHAs** in workflows — never floating tags. Format:
    `uses: owner/repo@<sha> # <version-comment>`.
-6. **`permissions: {}` at the workflow top level**, granting specific permissions per-job; set
-   `persist-credentials: false` on `actions/checkout` unless a job must push.
+6. **Least-privilege permissions.** Default to `permissions: {}` at the workflow top level and grant
+   specific permissions per-job (as `ci.yaml` does); a workflow that genuinely needs to write — e.g.
+   `update-agent-skills.yaml` opening a PR — declares only the minimal `contents`/`pull-requests: write`
+   it needs at the workflow or job level. Set `persist-credentials: false` on `actions/checkout` unless
+   a job must push.
 7. **Conventional-commit messages** (`feat:`/`fix:`/`chore:`/`ci:`/`docs:`/`refactor:`). The repo is
    consumed directly as a marketplace (no release pipeline), so the type drives the changelog and PR
    intent, not a version bump.
@@ -85,7 +88,8 @@ metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; f
 
 ## Validation
 
-Run before opening any PR (the same gates CI enforces):
+Run before opening any PR. Steps 1–4 mirror the CI gates; step 5 is a best-effort local lint that CI
+does not currently enforce but that keeps workflow changes clean:
 
 ```bash
 # 1. Both manifests are valid JSON with name + plugins.
@@ -100,16 +104,18 @@ for pj in plugins/*/plugin.json; do
   jq -e '.name | test("^[a-z0-9-]+$")' "$pj" >/dev/null || echo "BAD: $pj"
 done
 
-# 4. Validate each bundled skill against the agentskills.io spec (the matrixed CI check).
-python -m pip install "skills-ref @ git+https://github.com/agentskills/agentskills.git#subdirectory=skills-ref"
+# 4. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
+#    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
+python -m pip install "skills-ref @ git+https://github.com/agentskills/agentskills.git@8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3#subdirectory=skills-ref"
 find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -printf '%h\n' | while read -r d; do skills-ref validate "$d"; done
 
-# 5. Lint changed workflows.
+# 5. (local only) Lint changed workflows.
 actionlint
 ```
 
 The required gate is the aggregated **`CI - Required Checks`** job (validate-manifests +
-discover-skills + validate-spec). Never weaken a check to pass — fix the root cause.
+discover-skills + validate-spec); `actionlint` above is a local-only convenience, not a CI gate. Never
+weaken a check to pass — fix the root cause.
 
 ## Maintenance (autonomous AI assistant)
 

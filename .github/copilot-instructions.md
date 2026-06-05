@@ -42,13 +42,15 @@ A tool-neutral **agent-plugin marketplace** that bundles curated skills from
 
 ## CI & security
 
-- **Pin third-party actions** (non-`actions/*`, non-`github/*`, non-`devantler-tech/*`) to a full commit
-  SHA with a `# v<version>` comment — flag unpinned or tag-pinned refs.
-- **Least privilege:** `permissions: {}` at the workflow top level, grant the minimum per job; set
-  `persist-credentials: false` on `actions/checkout` unless a job must push. Keep workflows
-  `actionlint`-clean.
+- **Pin every external action** to a full commit SHA with a `# v<version>` comment — this repo SHA-pins
+  all `uses:` refs (including `actions/*`), so flag any unpinned or tag-pinned ref.
+- **Least privilege:** give each workflow the minimum `permissions` it needs — prefer `{}` at the top
+  level and grant per job; a workflow that genuinely needs write (e.g. the PR-opening
+  `update-agent-skills`) scopes it explicitly. Set `persist-credentials: false` on `actions/checkout`
+  unless a job must push. Keep workflows `actionlint`-clean.
 - Bundle Dependabot `github_actions` bumps; call out **major** bumps. Never weaken a security control or
   a check to make CI pass.
 
-Copilot code review reads this file + `.github/instructions/**/*.instructions.md` at **≤4000 chars**
-and does **not** read `AGENTS.md` — when unsure, defer to [`AGENTS.md`](../AGENTS.md).
+Copilot code review reads this file (and any `.github/instructions/**/*.instructions.md`, if present)
+at **≤4000 chars** and does **not** read [`AGENTS.md`](../AGENTS.md). When a rule here is ambiguous,
+flag it and request human clarification rather than assuming.

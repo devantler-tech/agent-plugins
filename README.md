@@ -42,7 +42,14 @@ copilot plugin install gitops-kubernetes@devantler-plugins
 
 ### Claude Code
 
-The repo includes a `.claude-plugin/marketplace.json` for automatic discovery.
+Add the marketplace, then install a plugin — run these inside Claude Code:
+
+```text
+/plugin marketplace add devantler-tech/plugins
+/plugin install gitops-kubernetes@devantler-plugins
+```
+
+Browse everything on offer with `/plugin` (**Discover** tab) or list it with `/plugin list`. The bundled [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) is also discovered automatically when this repo is added as a plugin source.
 
 ## How it works
 

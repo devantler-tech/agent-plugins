@@ -1,6 +1,6 @@
-# devantler-tech/plugins
+# devantler-tech/agent-plugins
 
-A tool-neutral [agent-plugin marketplace](https://code.visualstudio.com/docs/copilot/customization/agent-plugins) that bundles the curated agent skills from [`devantler-tech/skills`](https://github.com/devantler-tech/skills) into category-based plugins.
+A tool-neutral [agent-plugin marketplace](https://code.visualstudio.com/docs/copilot/customization/agent-plugins) that bundles the curated agent skills from [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills) into category-based plugins.
 
 Supports **VS Code**, **GitHub Copilot CLI**, and **Claude Code** via dual marketplace manifests.
 
@@ -24,7 +24,7 @@ Add the marketplace to your settings:
 ```jsonc
 // settings.json
 "chat.plugins.marketplaces": [
-    "devantler-tech/plugins"
+    "devantler-tech/agent-plugins"
 ]
 ```
 
@@ -34,7 +34,7 @@ Then browse **Extensions → Agent Plugins** (`@agentPlugins` search) to install
 
 ```sh
 # Browse available plugins
-copilot plugin marketplace browse devantler-tech/plugins
+copilot plugin marketplace browse devantler-tech/agent-plugins
 
 # Install a plugin
 copilot plugin install gitops-kubernetes@devantler-plugins
@@ -45,7 +45,7 @@ copilot plugin install gitops-kubernetes@devantler-plugins
 Add the marketplace, then install a plugin — run these inside Claude Code:
 
 ```text
-/plugin marketplace add devantler-tech/plugins
+/plugin marketplace add devantler-tech/agent-plugins
 /plugin install gitops-kubernetes@devantler-plugins
 ```
 
@@ -57,7 +57,7 @@ Skills are installed from their upstream repositories using [`gh skill install`]
 
 Each plugin directory is self-contained with a `plugin.json` manifest and a `skills/` subdirectory holding the installed `SKILL.md` files (plus any supporting assets). Each `SKILL.md` contains `metadata.github-*` frontmatter for upstream provenance — no lockfile needed.
 
-See [`devantler-tech/skills`](https://github.com/devantler-tech/skills) for the curated skill index and upstream links.
+See [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills) for the curated skill index and upstream links.
 
 ## Contributing
 

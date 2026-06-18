@@ -1,10 +1,10 @@
-# devantler-tech/plugins
+# devantler-tech/agent-plugins
 
 A tool-neutral [agent-plugin marketplace](https://code.visualstudio.com/docs/copilot/customization/agent-plugins)
 that bundles the curated [agent skills](https://agentskills.io) from
-[`devantler-tech/skills`](https://github.com/devantler-tech/skills) into category-based plugins. A
+[`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills) into category-based plugins. A
 single marketplace install works across **VS Code**, **GitHub Copilot CLI**, and **Claude Code** via
-two parity-checked manifests. Sibling repo to [devantler-tech/skills](https://github.com/devantler-tech/skills)
+two parity-checked manifests. Sibling repo to [devantler-tech/agent-skills](https://github.com/devantler-tech/agent-skills)
 (the curated skill index this marketplace draws from).
 
 This file is the single canonical instructions file for the repository. It is read natively by GitHub
@@ -42,13 +42,13 @@ plugins to different tools. **Any change to the plugin set updates both manifest
 they are the source of truth for what the marketplace offers.
 
 Each entry's `source` is a **relative path** (`./plugins/<name>`), so the repo rename
-(`copilot-plugins` → `plugins`, see [#7](https://github.com/devantler-tech/plugins/issues/7)) and any
+(`copilot-plugins` → `agent-plugins`, see [#7](https://github.com/devantler-tech/agent-plugins/issues/7)) and any
 future move stay link-safe. Keep the manifest `name` and per-plugin wording **tool-neutral** — the
 marketplace is cross-tool, so avoid Copilot-only framing where the capability isn't.
 
 ## Skills come from upstream — no lockfile
 
-Plugins are **thin, additive bundles over [`devantler-tech/skills`](https://github.com/devantler-tech/skills)**
+Plugins are **thin, additive bundles over [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills)**
 (the single source of skills). Each `plugins/<plugin>/skills/<skill>/SKILL.md` is installed with
 [`gh skill install`](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/),
 which records the true upstream in the skill's `metadata.github-*` frontmatter (`github-repo`,
@@ -58,7 +58,7 @@ which records the true upstream in the skill's `metadata.github-*` frontmatter (
 the [`update-agent-skills`](https://github.com/devantler-tech/reusable-workflows/blob/main/.github/workflows/update-agent-skills.yaml)
 reusable workflow and opens a PR when upstream content drifts — **no lockfile, no sync bot, no custom
 metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; fix it in
-`devantler-tech/skills` and let the update workflow pull it through. Only the marketplace structure
+`devantler-tech/agent-skills` and let the update workflow pull it through. Only the marketplace structure
 (manifests, `plugin.json`, plugin membership) is authored here.
 
 ## Conventions
@@ -146,13 +146,13 @@ are the gate. Never weaken a security control or a check to pass.
   always editing **both** manifests and the README together.
 - **Keep bundled skills fresh:** let the daily `update-agent-skills` PR flow through; fix it when CI
   fails. Never hand-edit a bundled `SKILL.md` to diverge from its upstream — fix it in
-  `devantler-tech/skills`.
-- **Tool-neutral rescope** ([#7](https://github.com/devantler-tech/plugins/issues/7)): de-Copilot-brand
+  `devantler-tech/agent-skills`.
+- **Tool-neutral rescope** ([#7](https://github.com/devantler-tech/agent-plugins/issues/7)): de-Copilot-brand
   remaining surface; keep manifests/README cross-tool; evaluate broadening to additional standards
   (e.g. MCP) and record the decision as an ADR if non-trivial.
 - **Workflow & action hygiene:** keep third-party actions pinned & aligned with the sibling CI repos;
   bundle Dependabot `github_actions` PRs; flag majors; keep CI `actionlint`-clean.
-- **Consistency** with [devantler-tech/skills](https://github.com/devantler-tech/skills) (the single
+- **Consistency** with [devantler-tech/agent-skills](https://github.com/devantler-tech/agent-skills) (the single
   source of skills) and with how consumer tools install this marketplace.
 - **Triage** new issues/PRs; one insightful comment on the oldest uncommented item.
 - **Maintain your own PRs:** fix CI you caused, resolve conflicts.

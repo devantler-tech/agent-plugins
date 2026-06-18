@@ -1,7 +1,7 @@
-# Copilot code review — devantler-tech/plugins
+# Copilot code review — devantler-tech/agent-plugins
 
 A tool-neutral **agent-plugin marketplace** that bundles curated skills from
-[`devantler-tech/skills`](https://github.com/devantler-tech/skills) into category-based plugins for
+[`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills) into category-based plugins for
 **VS Code**, **GitHub Copilot CLI**, and **Claude Code**. Canonical conventions live in
 [`AGENTS.md`](../AGENTS.md); this is the concise review checklist — flag violations of the rules below.
 
@@ -37,7 +37,7 @@ A tool-neutral **agent-plugin marketplace** that bundles curated skills from
   a non-kebab plugin name.
 - **Skills come from upstream — no lockfile.** Each bundled `SKILL.md` is installed with
   `gh skill install` and validates against the [agentskills.io](https://agentskills.io) spec. **Never
-  hand-edit a bundled `SKILL.md` to diverge from its upstream** — fix it in `devantler-tech/skills` and
+  hand-edit a bundled `SKILL.md` to diverge from its upstream** — fix it in `devantler-tech/agent-skills` and
   let the daily `update-agent-skills` PR pull it through. Flag a hand-authored or spec-invalid `SKILL.md`.
 
 ## CI & security

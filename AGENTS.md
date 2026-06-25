@@ -19,7 +19,7 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 ├── plugin/
 │   └── marketplace.json        # Copilot / VS Code marketplace manifest (kept in parity with the Claude one)
 └── workflows/
-    ├── ci.yaml                 # Validate both manifests + parity + plugin.json + agentskills.io spec per skill
+    ├── ci.yaml                 # Validate manifests + cross-tool & filesystem parity + plugin.json completeness + agentskills.io spec per skill
     └── update-agent-skills.yaml  # Daily gh skill update --all; opens a PR when upstream skills drift
 plugins/
 └── <plugin>/
@@ -39,7 +39,10 @@ The repo ships **two marketplace manifests that must stay byte-for-byte in sync*
 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) for Claude Code. CI **diffs the
 two** (`jq -S` normalised) and fails on drift, so a cross-tool install can never offer different
 plugins to different tools. **Any change to the plugin set updates both manifests in the same PR** —
-they are the source of truth for what the marketplace offers.
+they are the source of truth for what the marketplace offers. CI also checks each manifest entry against
+the **filesystem**: every plugin must have a matching `plugins/<name>/plugin.json` (with the same
+`name`/`description`/`version` and `source` `./plugins/<name>`), and no `plugins/<name>/` may exist
+without a manifest entry — so the manifests can never drift from what the repo actually ships.
 
 Each entry's `source` is a **relative path** (`./plugins/<name>`), so the repo rename
 (`copilot-plugins` → `agent-plugins`, see [#7](https://github.com/devantler-tech/agent-plugins/issues/7)) and any
@@ -88,7 +91,7 @@ metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; f
 
 ## Validation
 
-Run before opening any PR. Steps 1–4 mirror the CI gates; step 5 is a best-effort local lint that CI
+Run before opening any PR. Steps 1–5 mirror the CI gates; step 6 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:
 
 ```bash
@@ -99,17 +102,35 @@ jq -e '.name and .plugins' .claude-plugin/marketplace.json
 # 2. The two manifests are in sync (CI fails on any diff).
 diff <(jq -S . .github/plugin/marketplace.json) <(jq -S . .claude-plugin/marketplace.json)
 
-# 3. Every plugin.json has a kebab-case name.
+# 3. Every plugin.json is complete: kebab-case name, non-empty description + version, skills == "skills/",
+#    and a skills/ dir holding at least one <skill>/SKILL.md.
 for pj in plugins/*/plugin.json; do
-  jq -e '.name | test("^[a-z0-9-]+$")' "$pj" >/dev/null || echo "BAD: $pj"
+  d=$(dirname "$pj")
+  jq -e '.name | test("^[a-z0-9-]+$")' "$pj" >/dev/null || echo "BAD name: $pj"
+  jq -e '(.description | length > 0) and (.version | length > 0) and (.skills == "skills/")' "$pj" >/dev/null \
+    || echo "BAD fields: $pj"
+  find "$d/skills" -mindepth 2 -maxdepth 2 -name SKILL.md -print -quit | grep -q . || echo "BAD skills: $d"
 done
 
-# 4. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
+# 4. Marketplace ↔ plugins filesystem parity: every manifest entry has a matching plugins/<name>/ with a
+#    plugin.json whose name/description/version match and source == ./plugins/<name>; no orphan plugin dir.
+m=.claude-plugin/marketplace.json
+while IFS=$'\t' read -r name description version source; do
+  [ "$source" = "./plugins/$name" ] && [ -f "plugins/$name/plugin.json" ] \
+    && [ "$(jq -r '[.name,.description,.version]|@tsv' "plugins/$name/plugin.json")" = "$(printf '%s\t%s\t%s' "$name" "$description" "$version")" ] \
+    || echo "BAD parity: $name"
+done < <(jq -r '.plugins[] | [.name,.description,.version,.source] | @tsv' "$m")
+for pj in plugins/*/plugin.json; do
+  n=$(jq -r '.name' "$pj")
+  jq -e --arg n "$n" '.plugins[]|select(.name==$n)' "$m" >/dev/null || echo "BAD orphan: plugins/$n"
+done
+
+# 5. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
 python -m pip install "skills-ref @ git+https://github.com/agentskills/agentskills.git@8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3#subdirectory=skills-ref"
 find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -printf '%h\n' | while read -r d; do skills-ref validate "$d"; done
 
-# 5. (local only) Lint changed workflows.
+# 6. (local only) Lint changed workflows.
 actionlint
 ```
 

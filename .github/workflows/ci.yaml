@@ -25,111 +25,32 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: ✅ Validate marketplace.json (Copilot)
-        run: |
-          if ! jq -e '.name and .plugins' .github/plugin/marketplace.json > /dev/null 2>&1; then
-            echo "::error::Invalid .github/plugin/marketplace.json"
-            exit 1
-          fi
-          echo "✓ .github/plugin/marketplace.json is valid"
+      - name: ✅ Validate manifests
+        # Single source of truth in scripts/validate-manifests.sh (documented in
+        # AGENTS.md, self-tested in the lint-scripts job) — no inline/doc drift.
+        run: ./scripts/validate-manifests.sh
 
-      - name: ✅ Validate marketplace.json (Claude)
-        run: |
-          if ! jq -e '.name and .plugins' .claude-plugin/marketplace.json > /dev/null 2>&1; then
-            echo "::error::Invalid .claude-plugin/marketplace.json"
-            exit 1
-          fi
-          echo "✓ .claude-plugin/marketplace.json is valid"
+  lint-scripts:
+    name: Lint scripts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📄 Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
-      - name: ✅ Validate marketplace parity
-        run: |
-          if ! diff <(jq -S . .github/plugin/marketplace.json) <(jq -S . .claude-plugin/marketplace.json) > /dev/null 2>&1; then
-            echo "::error::Marketplace manifests are out of sync"
-            diff <(jq -S . .github/plugin/marketplace.json) <(jq -S . .claude-plugin/marketplace.json) || true
-            exit 1
-          fi
-          echo "✓ Marketplace manifests are in sync"
+      - name: 🐚 ShellCheck scripts
+        run: shellcheck scripts/*.sh
 
-      - name: ✅ Validate plugin.json files
-        run: |
-          failed=0
-          for pj in plugins/*/plugin.json; do
-            plugin_dir=$(dirname "$pj")
-            ok=1
-            plugin_name=$(jq -r '.name // ""' "$pj")
-            if ! echo "$plugin_name" | grep -qE '^[a-z0-9-]+$'; then
-              echo "::error::$pj: name '$plugin_name' must be kebab-case (a-z, 0-9, hyphens)"
-              ok=0
-            fi
-            if [ "$(jq -r '.description // "" | length' "$pj")" -eq 0 ]; then
-              echo "::error::$pj: missing or empty 'description' field"
-              ok=0
-            fi
-            if [ "$(jq -r '.version // "" | length' "$pj")" -eq 0 ]; then
-              echo "::error::$pj: missing or empty 'version' field"
-              ok=0
-            fi
-            if [ "$(jq -r '.skills // ""' "$pj")" != "skills/" ]; then
-              echo "::error::$pj: 'skills' must be \"skills/\""
-              ok=0
-            fi
-            if ! find "$plugin_dir/skills" -mindepth 2 -maxdepth 2 -name SKILL.md -print -quit 2>/dev/null | grep -q .; then
-              echo "::error::$plugin_dir: 'skills/' must contain at least one <skill>/SKILL.md"
-              ok=0
-            fi
-            if [ "$ok" -eq 1 ]; then
-              echo "✓ $pj ($plugin_name)"
-            else
-              failed=1
-            fi
-          done
-          exit $failed
-
-      - name: ✅ Validate marketplace ↔ plugins parity
-        run: |
-          failed=0
-          manifest=.claude-plugin/marketplace.json
-          # Every plugin entry in the manifest resolves to a matching plugins/<name>/ on disk.
-          while IFS=$'\t' read -r name description version source; do
-            ok=1
-            if [ "$source" != "./plugins/$name" ]; then
-              echo "::error::$manifest: plugin '$name' source '$source' must be './plugins/$name'"
-              ok=0
-            fi
-            pj="plugins/$name/plugin.json"
-            if [ ! -f "$pj" ]; then
-              echo "::error::$manifest: plugin '$name' has no $pj on disk"
-              failed=1
-              continue
-            fi
-            if [ "$(jq -r '.name' "$pj")" != "$name" ]; then
-              echo "::error::$pj: name does not match manifest entry '$name'"
-              ok=0
-            fi
-            if [ "$(jq -r '.description' "$pj")" != "$description" ]; then
-              echo "::error::$pj: description differs from manifest entry '$name'"
-              ok=0
-            fi
-            if [ "$(jq -r '.version' "$pj")" != "$version" ]; then
-              echo "::error::$pj: version differs from manifest entry '$name'"
-              ok=0
-            fi
-            if [ "$ok" -eq 1 ]; then
-              echo "✓ $name ↔ $pj"
-            else
-              failed=1
-            fi
-          done < <(jq -r '.plugins[] | [.name, .description, .version, .source] | @tsv' "$manifest")
-          # Every plugins/<name>/ on disk appears in the manifest (no orphan plugin).
-          for pj in plugins/*/plugin.json; do
-            name=$(jq -r '.name' "$pj")
-            if ! jq -e --arg n "$name" '.plugins[] | select(.name == $n)' "$manifest" > /dev/null; then
-              echo "::error::plugins/$name is not listed in $manifest"
-              failed=1
-            fi
-          done
-          exit $failed
-
+      - name: 🧪 Self-test the manifest guard
+        # Proves validate-manifests.sh PASSES a consistent fixture and FAILS each
+        # drift scenario it exists to catch (malformed/desynced manifests, every
+        # plugin.json completeness rule, every manifest↔plugins lockstep rule), so
+        # a refactor that silently weakens a check is caught here — not by a broken
+        # plugin reaching consumers. Self-contained: throwaway fixtures, no network.
+        run: ./scripts/validate-manifests.test.sh
 
   discover-skills:
     name: Discover skills
@@ -200,12 +121,13 @@ jobs:
       statuses: read
       pull-requests: read
     timeout-minutes: 5
-    needs: [validate-manifests, discover-skills, validate-spec]
+    needs: [validate-manifests, lint-scripts, discover-skills, validate-spec]
     if: ${{ always() }}
     steps:
       - uses: devantler-tech/actions/require-checks-in-pr@1f66c91d45d374ceac9fe830a783444ebc9be958 # v3.2.0
         with:
           job-results: >-
             ${{ needs.validate-manifests.result }}
+            ${{ needs.lint-scripts.result }}
             ${{ needs.discover-skills.result }}
             ${{ needs.validate-spec.result }}

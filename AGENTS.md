@@ -19,13 +19,16 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 ├── plugin/
 │   └── marketplace.json        # Copilot / VS Code marketplace manifest (kept in parity with the Claude one)
 └── workflows/
-    ├── ci.yaml                 # Validate manifests + cross-tool & filesystem parity + plugin.json completeness + agentskills.io spec per skill
+    ├── ci.yaml                 # Runs scripts/validate-manifests.sh + lint-scripts (shellcheck + self-test) + agentskills.io spec per skill
     └── update-agent-skills.yaml  # Daily gh skill update --all; opens a PR when upstream skills drift
 plugins/
 └── <plugin>/
     ├── plugin.json             # Plugin manifest (kebab-case name, description, version, skills: "skills/")
     └── skills/
         └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
+scripts/
+├── validate-manifests.sh       # Manifest + parity + plugin.json guard (single source of truth; run locally before pushing)
+└── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
 README.md                       # Human-facing index — the plugin table + per-tool install instructions
 ```
 
@@ -43,6 +46,12 @@ they are the source of truth for what the marketplace offers. CI also checks eac
 the **filesystem**: every plugin must have a matching `plugins/<name>/plugin.json` (with the same
 `name`/`description`/`version` and `source` `./plugins/<name>`), and no `plugins/<name>/` may exist
 without a manifest entry — so the manifests can never drift from what the repo actually ships.
+
+All of these checks live in one place — [`scripts/validate-manifests.sh`](scripts/validate-manifests.sh),
+which CI runs and you can run locally (`./scripts/validate-manifests.sh`) before pushing. Its behaviour
+is pinned by [`scripts/validate-manifests.test.sh`](scripts/validate-manifests.test.sh) (run in the
+`lint-scripts` CI job), so a refactor that silently weakens a check fails the self-test rather than
+letting a malformed plugin reach consumers.
 
 Each entry's `source` is a **relative path** (`./plugins/<name>`), so the repo rename
 (`copilot-plugins` → `agent-plugins`, see [#7](https://github.com/devantler-tech/agent-plugins/issues/7)) and any

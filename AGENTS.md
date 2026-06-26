@@ -7,6 +7,10 @@ single marketplace install works across **VS Code**, **GitHub Copilot CLI**, and
 two parity-checked manifests. Sibling repo to [devantler-tech/agent-skills](https://github.com/devantler-tech/agent-skills)
 (the curated skill index this marketplace draws from).
 
+By design the marketplace is **not scoped to skills-only** — a plugin may bundle any agent resource
+(agent skills today; [MCP](https://modelcontextprotocol.io) servers and custom agents as they prove out
+across the supported tools), which is what keeps it a tool-neutral, industry-standard marketplace.
+
 This file is the single canonical instructions file for the repository. It is read natively by GitHub
 Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 

@@ -4,6 +4,10 @@ A tool-neutral [agent-plugin marketplace](https://code.visualstudio.com/docs/cop
 
 Supports **VS Code**, **GitHub Copilot CLI**, and **Claude Code** via dual marketplace manifests.
 
+## Scope
+
+This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every plugin published today bundles [agent skills](https://github.com/devantler-tech/agent-skills), but a plugin may bundle **any agent resource** — skills, [MCP](https://modelcontextprotocol.io) servers, and custom agents — so the marketplace can grow with the cross-tool agent ecosystem instead of being pinned to one tool or one resource type. Additional resource types are added as they prove out across the supported tools.
+
 ## Plugins
 
 | Plugin | Skills | Description |

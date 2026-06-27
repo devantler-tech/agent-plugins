@@ -94,19 +94,24 @@ check_exit "-e without a value fails" 1 "--exclude requires" \
 
 # --- prerequisite checks (each tool reported independently) ---
 
+# These run on a stub-ONLY PATH (no BASE_PATH): the script reaches only shell
+# builtins before it exits, so it needs no coreutils — and excluding the real
+# bin dirs is what makes "<tool> is not installed" deterministic on CI runners
+# that ship a real yq/kustomize/kubeconform in /usr/bin (which would otherwise
+# shadow the intentionally-absent stub).
 empty_fix="$(mktemp -d)"
 
 no_yq="$(make_tools x 0 0)"
 check_exit "missing yq is reported" 1 "yq is not installed" \
-  -- env PATH="$no_yq:$BASE_PATH" "$BASH_BIN" "$SCRIPT" -d "$empty_fix"
+  -- env PATH="$no_yq" "$BASH_BIN" "$SCRIPT" -d "$empty_fix"
 
 no_kustomize="$(make_tools 0 x 0)"
 check_exit "missing kustomize is reported" 1 "kustomize is not installed" \
-  -- env PATH="$no_kustomize:$BASE_PATH" "$BASH_BIN" "$SCRIPT" -d "$empty_fix"
+  -- env PATH="$no_kustomize" "$BASH_BIN" "$SCRIPT" -d "$empty_fix"
 
 no_kubeconform="$(make_tools 0 0 x)"
 check_exit "missing kubeconform is reported" 1 "kubeconform is not installed" \
-  -- env PATH="$no_kubeconform:$BASE_PATH" "$BASH_BIN" "$SCRIPT" -d "$empty_fix"
+  -- env PATH="$no_kubeconform" "$BASH_BIN" "$SCRIPT" -d "$empty_fix"
 
 # --- exit-code contract (tools stubbed; real schemas dir present in the repo) ---
 

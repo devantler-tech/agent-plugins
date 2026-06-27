@@ -52,6 +52,25 @@ jobs:
         # plugin reaching consumers. Self-contained: throwaway fixtures, no network.
         run: ./scripts/validate-manifests.test.sh
 
+      - name: 🧪 Self-test skill helper scripts
+        # Runs every hermetic *.test.sh bundled alongside a skill's helper scripts
+        # (plugins/**/skills/**/scripts/), so a regression in a script that ships
+        # to users is caught here rather than mid-audit. New script tests are picked
+        # up automatically — no workflow edit needed. Self-contained: each test
+        # stubs its external tools (no network, no cluster).
+        run: |
+          shopt -s nullglob
+          tests=(plugins/*/skills/*/scripts/*.test.sh)
+          if [ ${#tests[@]} -eq 0 ]; then
+            echo "No skill helper-script self-tests found."
+            exit 0
+          fi
+          for t in "${tests[@]}"; do
+            echo "::group::$t"
+            bash "$t"
+            echo "::endgroup::"
+          done
+
   discover-skills:
     name: Discover skills
     runs-on: ubuntu-latest

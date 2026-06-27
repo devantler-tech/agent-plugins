@@ -57,6 +57,11 @@ is pinned by [`scripts/validate-manifests.test.sh`](scripts/validate-manifests.t
 `lint-scripts` CI job), so a refactor that silently weakens a check fails the self-test rather than
 letting a malformed plugin reach consumers.
 
+Skill-bundled helper scripts (`plugins/**/skills/**/scripts/*.sh`) follow the same discipline: each
+gets a hermetic `*.test.sh` next to it that stubs any external tool on `PATH` (no network, no cluster)
+and asserts the script's contract. The `lint-scripts` CI job auto-discovers and runs every
+`plugins/*/skills/*/scripts/*.test.sh`, so a new script test is picked up without editing the workflow.
+
 Each entry's `source` is a **relative path** (`./plugins/<name>`), so the repo rename
 (`copilot-plugins` → `agent-plugins`, see [#7](https://github.com/devantler-tech/agent-plugins/issues/7)) and any
 future move stay link-safe. Keep the manifest `name` and per-plugin wording **tool-neutral** — the

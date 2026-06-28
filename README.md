@@ -14,7 +14,7 @@ This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every 
 |--------|--------|-------------|
 | [`gitops-kubernetes`](plugins/gitops-kubernetes/) | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-repo-audit` | Flux CD debugging, knowledge, and repository auditing |
 | [`github`](plugins/github/) | `gh-cli`, `gh-stack`, `github-actions-docs`, `github-issues` | GitHub CLI, stacked PRs, Actions docs, and issue management |
-| [`copilot`](plugins/copilot/) | `copilot-instructions-blueprint-generator`, `copilot-sdk`, `find-skills` | Copilot customisation and skill discovery |
+| [`agentic-engineering`](plugins/agentic-engineering/) | `copilot-instructions-blueprint-generator`, `copilot-sdk`, `find-skills` | Agentic AI framework SDKs, AI-assistant instruction authoring, and skill discovery |
 | [`go`](plugins/go/) | `golang-pro` | Go best practices, concurrency, generics, interfaces, and testing |
 | [`engineering-practices`](plugins/engineering-practices/) | `git-commit`, `refactor`, `test-driven-development` | Git commits, refactoring, and TDD |
 | [`frontend-design`](plugins/frontend-design/) | `astro`, `frontend-design`, `web-design-guidelines` | Astro, frontend design, and web design guidelines |

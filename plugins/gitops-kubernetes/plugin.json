@@ -1,6 +1,6 @@
 {
   "name": "gitops-kubernetes",
-  "description": "Flux CD debugging, knowledge, and repository auditing skills",
+  "description": "Flux CD debugging, knowledge, repository auditing, and tenant onboarding skills",
   "version": "1.0.0",
   "author": {
     "name": "devantler-tech",

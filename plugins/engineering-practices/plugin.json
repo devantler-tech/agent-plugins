@@ -1,6 +1,6 @@
 {
   "name": "engineering-practices",
-  "description": "Git commits, refactoring, and test-driven development skills",
+  "description": "Git commits, conventional releases, refactoring, test-driven development, and engineering ways of working skills",
   "version": "1.0.0",
   "author": {
     "name": "devantler-tech",

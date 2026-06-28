@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "gitops-kubernetes",
-      "description": "Flux CD debugging, knowledge, and repository auditing skills",
+      "description": "Flux CD debugging, knowledge, repository auditing, and tenant onboarding skills",
       "version": "1.0.0",
       "source": "./plugins/gitops-kubernetes"
     },
@@ -35,7 +35,7 @@
     },
     {
       "name": "engineering-practices",
-      "description": "Git commits, refactoring, and test-driven development skills",
+      "description": "Git commits, conventional releases, refactoring, test-driven development, and engineering ways of working skills",
       "version": "1.0.0",
       "source": "./plugins/engineering-practices"
     },

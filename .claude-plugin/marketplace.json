@@ -22,10 +22,10 @@
       "source": "./plugins/github"
     },
     {
-      "name": "copilot",
-      "description": "Copilot customisation and skill discovery skills",
+      "name": "agentic-engineering",
+      "description": "Agentic AI framework SDKs, AI-assistant instruction authoring, and skill discovery",
       "version": "1.0.0",
-      "source": "./plugins/copilot"
+      "source": "./plugins/agentic-engineering"
     },
     {
       "name": "go",

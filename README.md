@@ -12,11 +12,11 @@ This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every 
 
 | Plugin | Skills | Description |
 |--------|--------|-------------|
-| [`gitops-kubernetes`](plugins/gitops-kubernetes/) | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-repo-audit` | Flux CD debugging, knowledge, and repository auditing |
+| [`gitops-kubernetes`](plugins/gitops-kubernetes/) | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-repo-audit`, `gitops-tenant-onboarding` | Flux CD debugging, knowledge, repository auditing, and tenant onboarding |
 | [`github`](plugins/github/) | `gh-cli`, `gh-stack`, `github-actions-docs`, `github-issues` | GitHub CLI, stacked PRs, Actions docs, and issue management |
-| [`agentic-engineering`](plugins/agentic-engineering/) | `copilot-instructions-blueprint-generator`, `copilot-sdk`, `find-skills` | Agentic AI framework SDKs, AI-assistant instruction authoring, and skill discovery |
+| [`agentic-engineering`](plugins/agentic-engineering/) | `agent-instructions`, `copilot-instructions-blueprint-generator`, `copilot-sdk`, `find-skills` | Agentic AI framework SDKs, AI-assistant instruction authoring, and skill discovery |
 | [`go`](plugins/go/) | `golang-pro` | Go best practices, concurrency, generics, interfaces, and testing |
-| [`engineering-practices`](plugins/engineering-practices/) | `git-commit`, `refactor`, `test-driven-development` | Git commits, refactoring, and TDD |
+| [`engineering-practices`](plugins/engineering-practices/) | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working` | Git commits, conventional releases, refactoring, TDD, and engineering ways of working |
 | [`frontend-design`](plugins/frontend-design/) | `astro`, `frontend-design`, `web-design-guidelines` | Astro, frontend design, and web design guidelines |
 
 ## Installation

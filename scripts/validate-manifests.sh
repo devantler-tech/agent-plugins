@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Validate the plugin marketplace manifests and every plugins/<name>/plugin.json.
+# Validate the plugin marketplace manifests, every plugins/<name>/plugin.json, and the
+# README plugin table.
 #
 # Single source of truth for the checks the 🧪 CI "Validate manifests" job runs:
 #   1. Both marketplace manifests (Copilot + Claude) are well-formed (.name + .plugins).
@@ -7,6 +8,8 @@
 #   3. Every plugins/<name>/plugin.json is complete and well-shaped.
 #   4. Manifest entries and on-disk plugins are in lockstep (no missing/orphan plugin,
 #      no name/description/version/source divergence).
+#   5. The README plugin table and on-disk plugins/skills are in lockstep (every plugin
+#      has a row and vice versa; each row's Skills column matches the plugin's skills/).
 #
 # Operates on the current working directory (run from the repo root, exactly as CI
 # does). Documented in AGENTS.md for local runs and self-tested by
@@ -17,6 +20,7 @@ set -euo pipefail
 
 COPILOT_MANIFEST=".github/plugin/marketplace.json"
 CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
+README="README.md"
 
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
@@ -122,12 +126,75 @@ validate_marketplace_plugins_parity() {
   return "$failed"
 }
 
+# Skill directory names (sorted, space-separated) bundled under plugins/<name>/skills/.
+# Count EVERY skill directory, not only those that already carry a SKILL.md, so a
+# stray/half-added skill folder (the exact drift this parity check guards against)
+# is surfaced rather than silently hidden.
+plugin_disk_skills() {
+  local name="$1" d
+  for d in "plugins/$name/skills"/*/; do
+    [ -d "$d" ] || continue
+    basename "$d"
+  done | sort | tr '\n' ' '
+}
+
+# 5. The README plugin table and on-disk plugins/skills are in lockstep.
+#    Table rows look like:
+#      | [`<name>`](plugins/<name>/) | `skill-a`, `skill-b` | <editorial description> |
+#    The Description column stays free prose (plugin.json↔manifest already guards it).
+# The backticks below are literal table-cell markers in regex/sed patterns, not command
+# substitution — SC2016 (won't-expand) is a false positive here.
+# shellcheck disable=SC2016
+validate_readme_parity() {
+  local failed=0
+  local line name readme_skills disk_skills
+  local readme_names=()
+  # Each README plugin row: parse the plugin name (col 1) and its Skills column (col 3).
+  while IFS= read -r line; do
+    name=$(printf '%s' "$line" | sed -nE 's/^\| \[`([a-z0-9-]+)`\].*/\1/p')
+    [ -z "$name" ] && continue
+    readme_names+=("$name")
+    readme_skills=$(printf '%s' "$line" | awk -F'|' '{print $3}' \
+      | grep -oE '`[a-z0-9-]+`' | tr -d '`' | sort | tr '\n' ' ')
+    # Require the manifest, not just the directory: a stray plugins/<name>/ without a
+    # plugin.json would otherwise pass here yet stay invisible to the orphan scan below
+    # (which only iterates plugins/*/plugin.json).
+    if [ ! -f "plugins/$name/plugin.json" ]; then
+      echo "::error::$README lists plugin '$name' with no plugins/$name/plugin.json on disk"
+      failed=1
+      continue
+    fi
+    disk_skills=$(plugin_disk_skills "$name")
+    if [ "$readme_skills" != "$disk_skills" ]; then
+      echo "::error::$README Skills for '$name' (${readme_skills% }) differ from plugins/$name/skills/ (${disk_skills% })"
+      failed=1
+    else
+      echo "✓ $README ↔ plugins/$name (skills: ${disk_skills% })"
+    fi
+  done < <(grep -E '^\| \[`[a-z0-9-]+`\]' "$README")
+  # Every plugins/<name>/ on disk appears as a README row (no plugin missing from the table).
+  local pj listed rn
+  for pj in plugins/*/plugin.json; do
+    name=$(jq -r '.name' "$pj")
+    listed=0
+    for rn in "${readme_names[@]}"; do
+      [ "$rn" = "$name" ] && listed=1 && break
+    done
+    if [ "$listed" -eq 0 ]; then
+      echo "::error::plugins/$name is not listed in the $README plugin table"
+      failed=1
+    fi
+  done
+  return "$failed"
+}
+
 main() {
   validate_marketplace_json "$COPILOT_MANIFEST"
   validate_marketplace_json "$CLAUDE_MANIFEST"
   validate_marketplace_parity
   validate_plugin_json
   validate_marketplace_plugins_parity
+  validate_readme_parity
 }
 
 main "$@"

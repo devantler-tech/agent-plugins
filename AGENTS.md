@@ -31,7 +31,7 @@ plugins/
     └── skills/
         └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
 scripts/
-├── validate-manifests.sh       # Manifest + parity + plugin.json guard (single source of truth; run locally before pushing)
+├── validate-manifests.sh       # Manifest + parity + plugin.json + README-table guard (single source of truth; run locally before pushing)
 └── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
 README.md                       # Human-facing index — the plugin table + per-tool install instructions
 ```
@@ -49,7 +49,10 @@ plugins to different tools. **Any change to the plugin set updates both manifest
 they are the source of truth for what the marketplace offers. CI also checks each manifest entry against
 the **filesystem**: every plugin must have a matching `plugins/<name>/plugin.json` (with the same
 `name`/`description`/`version` and `source` `./plugins/<name>`), and no `plugins/<name>/` may exist
-without a manifest entry — so the manifests can never drift from what the repo actually ships.
+without a manifest entry — so the manifests can never drift from what the repo actually ships. CI also
+checks the human-facing **README plugin table** against the filesystem: every plugin has a table row
+(and vice versa) and each row's **Skills** column matches that plugin's on-disk `skills/` directories,
+so the catalogue a reader sees can never drift from what ships either.
 
 All of these checks live in one place — [`scripts/validate-manifests.sh`](scripts/validate-manifests.sh),
 which CI runs and you can run locally (`./scripts/validate-manifests.sh`) before pushing. Its behaviour
@@ -105,7 +108,9 @@ metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; f
    consumed directly as a marketplace (no release pipeline), so the type drives the changelog and PR
    intent, not a version bump.
 8. **README and manifests stay in lockstep.** The README plugin table mirrors the manifests; update it
-   in the same PR whenever the plugin set changes.
+   in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
+   vice versa, and each row's **Skills** column matches that plugin's `skills/` directories on disk (the
+   **Description** column stays editorial).
 
 ## Validation
 

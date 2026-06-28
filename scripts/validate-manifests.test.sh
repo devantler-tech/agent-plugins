@@ -156,7 +156,22 @@ check_fail "orphan plugin not in manifest fails" "plugins/gamma is not listed in
 d=$(fresh)
 # shellcheck disable=SC2016
 printf '| [`gamma`](plugins/gamma/) | `example-skill` | Ghost plugin |\n' >> "$d/README.md"
-check_fail "README row for nonexistent plugin fails" "README.md lists plugin 'gamma' with no plugins/gamma/ on disk" "$d"
+check_fail "README row for nonexistent plugin fails" "README.md lists plugin 'gamma' with no plugins/gamma/plugin.json on disk" "$d"
+
+# A README row whose plugins/<name>/ exists but has no plugin.json (a stray dir the
+# orphan scan can't see) must be rejected, not silently accepted.
+d=$(fresh)
+mkdir -p "$d/plugins/gamma/skills/example-skill"
+printf 'Ghost skill.\n' > "$d/plugins/gamma/skills/example-skill/SKILL.md"
+# shellcheck disable=SC2016
+printf '| [`gamma`](plugins/gamma/) | `example-skill` | Ghost plugin |\n' >> "$d/README.md"
+check_fail "README row for dir without plugin.json fails" "README.md lists plugin 'gamma' with no plugins/gamma/plugin.json on disk" "$d"
+
+# A stray skill directory with no SKILL.md is still counted, so the README Skills
+# column drifts out of lockstep and the guard fails (it is not silently hidden).
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/skills/half-added-skill"
+check_fail "skill dir without SKILL.md still counted (drift caught)" "README.md Skills for 'alpha'" "$d"
 
 # A skill added on disk but not reflected in the README Skills column.
 d=$(fresh)

@@ -127,10 +127,14 @@ validate_marketplace_plugins_parity() {
 }
 
 # Skill directory names (sorted, space-separated) bundled under plugins/<name>/skills/.
+# Count EVERY skill directory, not only those that already carry a SKILL.md, so a
+# stray/half-added skill folder (the exact drift this parity check guards against)
+# is surfaced rather than silently hidden.
 plugin_disk_skills() {
   local name="$1" d
   for d in "plugins/$name/skills"/*/; do
-    [ -f "$d/SKILL.md" ] && basename "$d"
+    [ -d "$d" ] || continue
+    basename "$d"
   done | sort | tr '\n' ' '
 }
 
@@ -152,8 +156,11 @@ validate_readme_parity() {
     readme_names+=("$name")
     readme_skills=$(printf '%s' "$line" | awk -F'|' '{print $3}' \
       | grep -oE '`[a-z0-9-]+`' | tr -d '`' | sort | tr '\n' ' ')
-    if [ ! -d "plugins/$name" ]; then
-      echo "::error::$README lists plugin '$name' with no plugins/$name/ on disk"
+    # Require the manifest, not just the directory: a stray plugins/<name>/ without a
+    # plugin.json would otherwise pass here yet stay invisible to the orphan scan below
+    # (which only iterates plugins/*/plugin.json).
+    if [ ! -f "plugins/$name/plugin.json" ]; then
+      echo "::error::$README lists plugin '$name' with no plugins/$name/plugin.json on disk"
       failed=1
       continue
     fi

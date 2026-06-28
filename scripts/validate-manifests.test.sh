@@ -30,6 +30,15 @@ make_fixture() {
   printf '%s\n' "$manifest" > "$root/.claude-plugin/marketplace.json"
   make_plugin "$root" alpha "Alpha plugin" "1.0.0"
   make_plugin "$root" beta "Beta plugin" "1.0.0"
+  # A README plugin table in lockstep with the two plugins + their example-skill.
+  cat > "$root/README.md" <<'EOF'
+# fixture
+
+| Plugin | Skills | Description |
+|--------|--------|-------------|
+| [`alpha`](plugins/alpha/) | `example-skill` | Alpha plugin |
+| [`beta`](plugins/beta/) | `example-skill` | Beta plugin |
+EOF
 }
 
 # Write plugins/<name>/plugin.json + one skill with a SKILL.md.
@@ -140,6 +149,26 @@ check_fail "plugin.json name drift vs manifest fails" "name does not match manif
 
 d=$(fresh); make_plugin "$d" gamma "Orphan plugin" "1.0.0"
 check_fail "orphan plugin not in manifest fails" "plugins/gamma is not listed in" "$d"
+
+# --- check 5: README plugin table <-> plugins/skills lockstep ---
+# A README row for a plugin that does not exist on disk.
+# (literal backticks in the table cell, not command substitution — SC2016 false positive)
+d=$(fresh)
+# shellcheck disable=SC2016
+printf '| [`gamma`](plugins/gamma/) | `example-skill` | Ghost plugin |\n' >> "$d/README.md"
+check_fail "README row for nonexistent plugin fails" "README.md lists plugin 'gamma' with no plugins/gamma/ on disk" "$d"
+
+# A skill added on disk but not reflected in the README Skills column.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/skills/second-skill"
+printf 'Second skill.\n' > "$d/plugins/alpha/skills/second-skill/SKILL.md"
+check_fail "README skills drift vs disk fails" "README.md Skills for 'alpha'" "$d"
+
+# A plugin on disk (and in the manifests) with no README table row.
+d=$(fresh)
+# shellcheck disable=SC2016
+grep -v '`beta`' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
+check_fail "plugin missing from README table fails" "plugins/beta is not listed in the README.md plugin table" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

@@ -72,18 +72,22 @@ marketplace is cross-tool, so avoid Copilot-only framing where the capability is
 
 ## Skills come from upstream — no lockfile
 
-Plugins are **thin, additive bundles over [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills)**
-(the single source of skills). Each `plugins/<plugin>/skills/<skill>/SKILL.md` is installed with
+Plugins are **thin, additive bundles of curated skills sourced from across the agent-skill ecosystem** —
+each skill is pulled from **its own upstream**, not from a single repository. Each
+`plugins/<plugin>/skills/<skill>/SKILL.md` is installed with
 [`gh skill install`](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/),
 which records the true upstream in the skill's `metadata.github-*` frontmatter (`github-repo`,
-`github-path`, `github-ref`, `github-tree-sha`). The daily
+`github-path`, `github-ref`, `github-tree-sha`) — so the bundled skills today come from many upstreams
+(e.g. `github/awesome-copilot`, `fluxcd/agent-skills`, `astrolicious/agent-skills`, `vercel-labs/skills`,
+`anthropics/skills`, our own sibling [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills),
+…), each tracked independently. The daily
 [`update-agent-skills.yaml`](.github/workflows/update-agent-skills.yaml) workflow runs
 [`gh skill update --all`](https://github.com/devantler-tech/actions/tree/main/update-agent-skills) via
 the [`update-agent-skills`](https://github.com/devantler-tech/reusable-workflows/blob/main/.github/workflows/update-agent-skills.yaml)
-reusable workflow and opens a PR when upstream content drifts — **no lockfile, no sync bot, no custom
-metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; fix it in
-`devantler-tech/agent-skills` and let the update workflow pull it through. Only the marketplace structure
-(manifests, `plugin.json`, plugin membership) is authored here.
+reusable workflow and opens a PR when any upstream's content drifts — **no lockfile, no sync bot, no
+custom metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; fix it in the
+skill's **own** upstream (the repo named in its `metadata.github-repo`) and let the update workflow pull
+it through. Only the marketplace structure (manifests, `plugin.json`, plugin membership) is authored here.
 
 ## Conventions
 
@@ -189,8 +193,8 @@ are the gate. Never weaken a security control or a check to pass.
   it from upstream with `gh skill install`, never hand-copy); recategorise; retire a stale plugin —
   always editing **both** manifests and the README together.
 - **Keep bundled skills fresh:** let the daily `update-agent-skills` PR flow through; fix it when CI
-  fails. Never hand-edit a bundled `SKILL.md` to diverge from its upstream — fix it in
-  `devantler-tech/agent-skills`.
+  fails. Never hand-edit a bundled `SKILL.md` to diverge from its upstream — fix it in the skill's **own**
+  upstream (the repo named in its `metadata.github-repo`).
 - **Tool-neutral rescope** ([#7](https://github.com/devantler-tech/agent-plugins/issues/7)): de-Copilot-brand
   remaining surface; keep manifests/README cross-tool; evaluate broadening to additional standards
   (e.g. MCP) and record the decision as an ADR if non-trivial.

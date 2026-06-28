@@ -1,6 +1,6 @@
 # devantler-tech/agent-plugins
 
-A tool-neutral [agent-plugin marketplace](https://code.visualstudio.com/docs/copilot/customization/agent-plugins) that bundles the curated agent skills from [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills) into category-based plugins.
+A tool-neutral [agent-plugin marketplace](https://code.visualstudio.com/docs/copilot/customization/agent-plugins) that bundles curated agent skills — sourced from across the agent-skill ecosystem — into category-based plugins.
 
 Supports **VS Code**, **GitHub Copilot CLI**, and **Claude Code** via dual marketplace manifests.
 
@@ -61,7 +61,7 @@ Skills are installed from their upstream repositories using [`gh skill install`]
 
 Each plugin directory is self-contained with a `plugin.json` manifest and a `skills/` subdirectory holding the installed `SKILL.md` files (plus any supporting assets). Each `SKILL.md` contains `metadata.github-*` frontmatter for upstream provenance — no lockfile needed.
 
-See [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills) for the curated skill index and upstream links.
+Each bundled skill is pulled from its own upstream (recorded in its `SKILL.md` `metadata.github-*` frontmatter), spanning many sources — including our in-house sibling library [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills).
 
 ## Contributing
 

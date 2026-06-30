@@ -32,22 +32,39 @@ this change stays documentation-only and low-blast-radius.
 ## Cross-tool capability matrix
 
 How each supported tool consumes the three resource types. Grounded in the official docs (Claude Code
-[plugins reference](https://code.claude.com/docs/en/plugins-reference), Copilot
-[MCP](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers) /
-[custom agents](https://docs.github.com/en/copilot/reference/custom-agents-configuration), VS Code
-[MCP config](https://code.visualstudio.com/docs/agents/reference/mcp-configuration) /
+[plugins reference](https://code.claude.com/docs/en/plugins-reference); GitHub Copilot
+[about plugins](https://docs.github.com/en/copilot/concepts/agents/about-plugins) +
+[CLI plugin reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference);
+VS Code [MCP config](https://code.visualstudio.com/docs/agents/reference/mcp-configuration) /
 [custom agents](https://code.visualstudio.com/docs/agent-customization/custom-agents)).
 
-| Capability | Claude Code | GitHub Copilot CLI | VS Code (Copilot) |
+> **Correction (2026-06-30, on maintainer review):** an earlier draft of this ADR claimed only Claude
+> Code bundles MCP servers / custom agents and that *"there is no cross-tool plugin-bundle standard."*
+> That is **wrong**. **GitHub Copilot CLI (and the Copilot cloud agent) ship a first-class plugin
+> system** — a `plugin.json` manifest plus a `marketplace.json` catalog that bundles skills, **agents,
+> MCP servers**, hooks, commands and LSP servers as one installable unit — and its schema **overlaps
+> Claude Code's almost exactly**. Copilot CLI's manifest search order even *includes*
+> `.claude-plugin/plugin.json`, so **this repo's existing `.claude-plugin/marketplace.json` is already a
+> valid Copilot CLI marketplace.** The real surface that *can't* bundle is **VS Code** (plugins aren't a
+> VS Code concept; it consumes MCP/agents as per-workspace/repo config). The matrix and analysis below
+> are the corrected version.
+
+| Capability | Claude Code | GitHub Copilot CLI / cloud agent | VS Code (Copilot) |
 |---|---|---|---|
-| **Plugin / marketplace bundle** | ✅ `marketplace.json` + a plugin dir that bundles skills, `agents/`, `.mcp.json`, hooks, commands — installed as one unit | ❌ No bundle concept; MCP from a registry or hand-edited config | ❌ No bundle concept; extensions are the closest mechanism but are VS-Code-specific |
-| **Agent Skills** | ✅ `skills/<skill>/SKILL.md` ([agentskills.io](https://agentskills.io) open spec) | ✅ Agent Skills | ✅ Agent Skills |
-| **MCP servers** | ✅ **bundled** — `.mcp.json` at plugin root (or inline `mcpServers` in `plugin.json`), auto-discovered | ✅ consumed, **not bundled** — `~/.copilot/mcp-config.json`, key `mcpServers` | ✅ consumed, **not bundled** — `.vscode/mcp.json` / user `mcp.json`, key `servers` |
-| **Custom agents** | ✅ **bundled** — `agents/*.md` (md + YAML frontmatter), auto-discovered, namespaced `plugin:agent` | ✅ consumed, **not bundled** — `.github/agents/*.agent.md` | ✅ consumed, **not bundled** — `.github/agents/*.agent.md` (renamed from `.chatmode.md`) |
+| **Plugin / marketplace bundle** | ✅ `.claude-plugin/marketplace.json` + a plugin dir (`plugin.json`) bundling skills, `agents/`, `.mcp.json`, hooks, commands — installed as one unit | ✅ **`plugin.json` + `marketplace.json`** bundling `skills`, `agents`, `mcpServers`, `hooks`, `commands`, `lspServers`; installed via `copilot plugin install` or `enabledPlugins` in `~/.copilot/settings.json` / `.github/copilot/settings.json` | ❌ Not a plugin surface; consumes MCP/agents as per-workspace/repo config |
+| **Agent Skills** | ✅ `skills/<skill>/SKILL.md` ([agentskills.io](https://agentskills.io) open spec) | ✅ `skills` field (default `skills/`), `SKILL.md` | ✅ Agent Skills |
+| **MCP servers** | ✅ **bundled** — `.mcp.json` at plugin root (or inline `mcpServers` in `plugin.json`), auto-discovered | ✅ **bundled** — `mcpServers` field → `.mcp.json` / `.github/mcp.json` (or inline), key `mcpServers` | ✅ consumed, **not bundled** — `.vscode/mcp.json` / user `mcp.json`, key `servers` |
+| **Custom agents** | ✅ **bundled** — `agents/*.md` (md + YAML frontmatter), auto-discovered, namespaced `plugin:agent` | ✅ **bundled** — `agents` field (default `agents/`), `*.agent.md`, ID from filename | ✅ consumed, **not bundled** — `.github/agents/*.agent.md` (renamed from `.chatmode.md`) |
 
 ### What is tool-neutral vs tool-specific
 
-- **Tool-neutral (the marketplace's contract):**
+- **Tool-neutral (the marketplace's contract — now spanning *two* native plugin systems):**
+  - **The plugin-bundle format itself.** Claude Code and Copilot CLI share a near-identical model: a
+    `plugin.json` with the same optional component-path fields (`skills`, `agents`, `mcpServers`,
+    `hooks`, `commands`) and the same on-disk defaults (`skills/`, `agents/`, `.mcp.json`), catalogued by
+    a `marketplace.json` whose plugin entries carry the same `name`/`source`/`description`/`version`.
+    Copilot CLI even searches `.claude-plugin/plugin.json`, so one plugin dir is consumed by both tools
+    **without per-tool restructuring**.
   - **Skills** — a real open standard (Agent Skills, released 2025-12-18, adopted by 26+ tools). Already
     how every plugin works today; nothing changes.
   - **The MCP *server definition*** — the per-server shape converges across all three tools: stdio =
@@ -55,53 +72,60 @@ How each supported tool consumes the three resource types. Grounded in the offic
     for every tool.
   - **The custom-agent *body*** — markdown + YAML frontmatter with the neutral core `name` +
     `description` + `tools` + `model`. Converged de-facto across all three.
-- **Tool-specific (cannot be made neutral today):**
-  - **The bundle mechanism itself.** Only **Claude Code** ships MCP servers and custom agents *inside an
-    installable plugin*. Copilot CLI and VS Code consume the same resources, but **only as per-user /
-    per-workspace configuration** — there is **no cross-tool plugin-bundle standard** for MCP or agents.
-  - **The MCP wrapper key:** `mcpServers` (Claude Code, Copilot CLI) vs `servers` (VS Code); the `type`
-    enum (`stdio`/`local`); VS Code's `inputs`/`oauth`/`sandbox`; Copilot's `tools` allow-list.
-  - **Custom-agent packaging:** file extension (`.md` vs `.agent.md`), directory (`agents/` in a plugin
-    vs `.github/agents/`), and Copilot-only frontmatter (`target`, `mcp-servers`, `user-invocable`).
+- **Tool-specific (the residual divergence — now small):**
+  - **VS Code is not a plugin surface.** It is the one supported tool with no plugin/marketplace bundle;
+    it consumes MCP via `.vscode/mcp.json` (key **`servers`**, not `mcpServers`) and agents via
+    `.github/agents/*.agent.md`. A bundled MCP/agent must be delivered to VS Code as documented config.
+  - **The MCP wrapper key:** `mcpServers` (Claude Code, Copilot) vs `servers` (VS Code); the `type` enum
+    (`stdio`/`local`); VS Code's `inputs`/`oauth`/`sandbox`; Copilot's per-agent `tools` allow-list.
+  - **Custom-agent file convention:** `agents/*.md` (Claude Code) vs `agents/*.agent.md` (Copilot, where
+    the ID derives from the filename) vs `.github/agents/*.agent.md` (VS Code), plus Copilot-only
+    frontmatter (`target`, `mcp-servers`, `user-invocable`).
 
-**The load-bearing consequence:** bundling an MCP server or a custom agent is **fully bundled only on
-Claude Code**. For Copilot CLI and VS Code the *same* resource must be delivered as documented
-configuration the user adds to their own environment. A non-skill plugin therefore has two delivery
-paths from **one canonical definition** — bundled (Claude Code) and documented (Copilot CLI + VS Code) —
-and the marketplace must be honest about that asymmetry rather than implying byte-identical bundling
-everywhere.
+**The load-bearing consequence (corrected):** bundling an MCP server or a custom agent is **natively
+supported by both Claude Code *and* Copilot CLI** from a single plugin dir — the marketplace's committed
+"not skills-only" promise is realizable as a *true cross-tool bundle*, not a Claude-only bundle plus
+docs. Only **VS Code** needs the same resource delivered as documented per-workspace config. So a
+non-skill plugin has **one bundled path serving both plugin-native tools** (from the canonical
+`.mcp.json` / `agents/`) and **one documented path for VS Code** — and the marketplace must be honest
+that VS Code is the sole consume-via-config surface, not imply that Copilot needs hand-configuration.
 
 ## Decision
 
 ### D1 — Resource model: a plugin may provide skills, MCP servers, and/or custom agents
 
 A plugin is valid if it provides **at least one** recognized resource. The three resource types and
-their on-disk conventions (matching Claude Code auto-discovery, so no Claude-specific invention):
+their on-disk conventions use the component-path fields **shared by both the Claude Code and Copilot CLI
+plugin schemas** (same field names, same defaults — no tool-specific invention):
 
 | Resource | On-disk | `plugin.json` |
 |---|---|---|
-| Skills | `skills/<skill>/SKILL.md` (+ provenance frontmatter) | `"skills": "skills/"` |
-| MCP servers | `.mcp.json` at plugin root (`{ "mcpServers": { … } }`) | none required (auto-discovered); may add `"mcpServers": ".mcp.json"` |
-| Custom agents | `agents/<name>.md` (md + YAML frontmatter) | none required (auto-discovered); may add `"agents": ["agents/"]` |
+| Skills | `skills/<skill>/SKILL.md` (+ provenance frontmatter) | `"skills": "skills/"` (default `skills/` in both schemas) |
+| MCP servers | `.mcp.json` at plugin root (`{ "mcpServers": { … } }`) | optional `"mcpServers": ".mcp.json"` (Copilot resolves `mcpServers`→`.mcp.json`/`.github/mcp.json`; Claude Code auto-discovers `.mcp.json`) |
+| Custom agents | `agents/<name>.md` (md + YAML frontmatter; `.agent.md` for Copilot) | optional `"agents": "agents/"` (default `agents/` in both schemas) |
 
 `plugin.json` keeps `name` / `description` / `version` / `author`. The `"skills": "skills/"` field
-becomes **conditional** — present only when the plugin actually ships skills (Claude Code ignores
-unknown/absent component fields and auto-discovers `.mcp.json` / `agents/` by convention).
+becomes **conditional** — present only when the plugin actually ships skills (both tools treat the
+component-path fields as optional and fall back to the default dirs, so an absent field is safe). The
+component-path fields are explicit here so the manifest is self-describing for the CI gate (D3).
 
-### D2 — Canonical MCP model → bundled (Claude Code) + documented (Copilot CLI, VS Code)
+### D2 — Canonical MCP model → bundled (Claude Code + Copilot CLI) + documented (VS Code)
 
 A bundled MCP server is authored **once** as the plugin's `.mcp.json` (`mcpServers` map). That file is
-the canonical model. The two non-bundling tools are served from the same model:
+the canonical model, consumed natively by both plugin-native tools and documented for the one that isn't:
 
 - **Claude Code:** the `.mcp.json` is bundled and auto-loaded with the plugin. Use `${CLAUDE_PLUGIN_ROOT}`
   for any plugin-relative paths so it survives updates.
-- **Copilot CLI:** the plugin README documents the equivalent `~/.copilot/mcp-config.json` `mcpServers`
-  entry (same `command`/`args`/`env`).
-- **VS Code:** the plugin README documents the equivalent `.vscode/mcp.json` entry under the **`servers`**
-  key (key-renamed from the canonical `mcpServers`; same per-server shape).
+- **Copilot CLI / cloud agent:** the **same** `.mcp.json` is bundled — `plugin.json`'s `mcpServers`
+  field resolves to it (and the plugin installs via `copilot plugin install` or `enabledPlugins`). No
+  hand-configuration; the server ships *inside* the plugin exactly as on Claude Code.
+- **VS Code:** the only consume-via-config surface — the plugin README documents the equivalent
+  `.vscode/mcp.json` entry under the **`servers`** key (key-renamed from the canonical `mcpServers`;
+  same per-server shape).
 
-The README install snippets are the parity mechanism for the non-bundling tools — generated from the
-one canonical definition, never independently authored, so they cannot drift in substance.
+The README install snippet is the parity mechanism for VS Code alone — generated from the one canonical
+`.mcp.json`, never independently authored, so it cannot drift in substance. Claude Code and Copilot CLI
+need no snippet; they bundle the canonical file directly.
 
 ### D3 — CI / manifest changes (the gate stays the contract)
 
@@ -147,10 +171,12 @@ named in #39.
 
 ## Considered alternatives
 
-- **Add a new `mcpServers` / `agents` field to the marketplace.json plugin entry.** Rejected — the entry
-  is intentionally minimal (`name`/`description`/`version`/`source`) and Claude Code resolves a plugin's
-  resources from the plugin dir, not the marketplace entry. Adding resource fields to the entry would
-  duplicate on-disk truth and create a second drift surface for no consumer benefit.
+- **Add a new `mcpServers` / `agents` field to the marketplace.json plugin entry.** Rejected — although
+  the Copilot CLI marketplace-entry schema *does* permit `mcpServers`/`agents`/`skills` on the entry, the
+  entry is kept intentionally minimal (`name`/`description`/`version`/`source`) and both tools resolve a
+  plugin's resources from the plugin dir (`plugin.json` + on-disk files), not the marketplace entry.
+  Adding resource fields to the entry would duplicate on-disk truth and create a second drift surface for
+  no consumer benefit.
 - **A new standalone `mcp` plugin (MCP-only, unpaired).** Rejected as the *first* proof — less useful and
   higher-divergence than pairing with a skill that already requires the server. Viable later for servers
   with no skill counterpart.
@@ -167,6 +193,11 @@ named in #39.
 **Positive**
 
 - Realizes the committed "not skills-only" direction with a concrete, grounded plan instead of prose.
+- **Doubles the marketplace's native reach for free:** because Copilot CLI's plugin schema overlaps
+  Claude Code's (and its manifest search order includes `.claude-plugin/plugin.json`), the existing
+  `.claude-plugin/marketplace.json` is *already* a valid Copilot CLI marketplace — bundled MCP/agents
+  ship natively to both plugin-native tools with no per-tool packaging. (A possible follow-up is to
+  document/test Copilot CLI installation explicitly; the format work is already done.)
 - Keeps the manifests' parity contract and every existing skill check **intact** — changes are additive
   and generalize rather than weaken (pinned by the self-test).
 - One canonical MCP definition serves all three tools; cross-tool parity is explicit, not assumed.
@@ -174,9 +205,10 @@ named in #39.
 
 **Negative / risks**
 
-- **Asymmetric delivery:** MCP/agent bundles are auto-installed only on Claude Code; Copilot CLI and VS
-  Code require a documented manual config step. This must be stated plainly in each such plugin's README
-  so cross-tool expectations stay honest.
+- **Asymmetric delivery (VS Code only):** MCP/agent bundles are auto-installed on both Claude Code and
+  Copilot CLI; **VS Code** is the sole surface that requires a documented manual config step. This must
+  be stated plainly in each such plugin's README so cross-tool expectations stay honest — but the
+  asymmetry is now one tool, not two.
 - **CI surface grows:** the validator gains MCP/agent branches and new self-test fixtures — more to
   maintain, but bounded and self-tested.
 - **Versioning:** a bundled MCP server pins a server version/source; keeping it fresh is new maintenance

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "flux-operator-mcp": {
+      "command": "flux-operator-mcp",
+      "args": ["serve"]
+    }
+  }
+}

@@ -42,10 +42,22 @@ EOF
 }
 
 # Write plugins/<name>/plugin.json + one skill with a SKILL.md.
+# The SKILL.md carries upstream provenance frontmatter (metadata.github-repo), exactly
+# as `gh skill install` records it, so the provenance guard passes on the happy path.
 make_plugin() {
   local root="$1" name="$2" desc="$3" version="$4"
   mkdir -p "$root/plugins/$name/skills/example-skill"
-  printf 'Example skill.\n' > "$root/plugins/$name/skills/example-skill/SKILL.md"
+  cat > "$root/plugins/$name/skills/example-skill/SKILL.md" <<'EOF'
+---
+name: example-skill
+description: Example skill.
+metadata:
+    github-repo: https://github.com/devantler-tech/agent-skills
+    github-path: skills/example-skill
+    github-ref: refs/heads/main
+---
+Example skill.
+EOF
   cat > "$root/plugins/$name/plugin.json" <<EOF
 {
   "name": "$name",
@@ -184,6 +196,38 @@ d=$(fresh)
 # shellcheck disable=SC2016
 grep -v '`beta`' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
 check_fail "plugin missing from README table fails" "plugins/beta is not listed in the README.md plugin table" "$d"
+
+# --- check 6: bundled SKILL.md provenance ---
+# A skill whose frontmatter has its github-repo provenance stripped (e.g. hand-edited)
+# must be rejected.
+d=$(fresh)
+cat > "$d/plugins/alpha/skills/example-skill/SKILL.md" <<'EOF'
+---
+name: example-skill
+description: Hand-authored skill with no upstream provenance.
+metadata:
+    domain: testing
+---
+Body.
+EOF
+check_fail "SKILL.md without github-repo provenance fails" "missing upstream provenance" "$d"
+
+# A skill with no YAML frontmatter at all is likewise rejected.
+d=$(fresh)
+printf 'Just a body, no frontmatter.\n' > "$d/plugins/alpha/skills/example-skill/SKILL.md"
+check_fail "SKILL.md with no frontmatter fails provenance" "missing upstream provenance" "$d"
+
+# An empty github-repo value (present key, no value) is rejected.
+d=$(fresh)
+cat > "$d/plugins/alpha/skills/example-skill/SKILL.md" <<'EOF'
+---
+name: example-skill
+metadata:
+    github-repo:
+---
+Body.
+EOF
+check_fail "SKILL.md with empty github-repo fails" "missing upstream provenance" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

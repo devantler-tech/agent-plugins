@@ -188,6 +188,33 @@ validate_readme_parity() {
   return "$failed"
 }
 
+# 6. Every bundled SKILL.md carries its upstream provenance frontmatter.
+#    `gh skill install` records the true upstream in each skill's `metadata.github-*`
+#    frontmatter, and AGENTS.md forbids hand-authored/divergent skills — so a bundled
+#    skill MUST carry that provenance. We assert a non-empty `github-repo:` inside the
+#    YAML frontmatter (the block between the first two `---` lines), staying jq/grep-only
+#    like the rest of this guard (no yq dependency). A skill with no frontmatter, or with
+#    an empty/absent `github-repo`, is rejected — it can only have come from a hand edit.
+validate_skill_provenance() {
+  local failed=0
+  local skill fm
+  while IFS= read -r skill; do
+    # Slice the YAML frontmatter: the lines strictly between the first '---' and the
+    # next '---'. A file that does not open with '---' yields an empty slice (→ fail).
+    fm=$(awk 'NR==1 && $0 !~ /^---[[:space:]]*$/ {exit}
+              /^---[[:space:]]*$/ {c++; next}
+              c==1 {print}
+              c>=2 {exit}' "$skill")
+    if printf '%s\n' "$fm" | grep -qE '^[[:space:]]*github-repo:[[:space:]]*[^[:space:]]'; then
+      echo "✓ provenance $skill"
+    else
+      echo "::error::$skill: missing upstream provenance (metadata.github-repo) — bundled skills must come from 'gh skill install', never hand-authored"
+      failed=1
+    fi
+  done < <(find plugins -type f -path '*/skills/*/SKILL.md' | sort)
+  return "$failed"
+}
+
 main() {
   validate_marketplace_json "$COPILOT_MANIFEST"
   validate_marketplace_json "$CLAUDE_MANIFEST"
@@ -195,6 +222,7 @@ main() {
   validate_plugin_json
   validate_marketplace_plugins_parity
   validate_readme_parity
+  validate_skill_provenance
 }
 
 main "$@"

@@ -191,21 +191,37 @@ validate_readme_parity() {
 # 6. Every bundled SKILL.md carries its upstream provenance frontmatter.
 #    `gh skill install` records the true upstream in each skill's `metadata.github-*`
 #    frontmatter, and AGENTS.md forbids hand-authored/divergent skills — so a bundled
-#    skill MUST carry that provenance. We assert a non-empty `github-repo:` inside the
-#    YAML frontmatter (the block between the first two `---` lines), staying jq/grep-only
-#    like the rest of this guard (no yq dependency). A skill with no frontmatter, or with
-#    an empty/absent `github-repo`, is rejected — it can only have come from a hand edit.
+#    skill MUST carry a real `github-repo` value *inside the `metadata:` block* of the
+#    YAML frontmatter (the lines between the first two `---`). Staying jq/grep-only (no
+#    yq dependency), one awk pass both slices the frontmatter and scopes the lookup to
+#    `metadata:` so a TOP-LEVEL `github-repo:` cannot satisfy it, and rejects an empty,
+#    quoted-empty (`""`/`''`) or comment-only (`# …`) value — each of which can only
+#    come from a hand edit. A skill with no frontmatter yields no match → reject.
 validate_skill_provenance() {
   local failed=0
-  local skill fm
+  local skill
   while IFS= read -r skill; do
-    # Slice the YAML frontmatter: the lines strictly between the first '---' and the
-    # next '---'. A file that does not open with '---' yields an empty slice (→ fail).
-    fm=$(awk 'NR==1 && $0 !~ /^---[[:space:]]*$/ {exit}
-              /^---[[:space:]]*$/ {c++; next}
-              c==1 {print}
-              c>=2 {exit}' "$skill")
-    if printf '%s\n' "$fm" | grep -qE '^[[:space:]]*github-repo:[[:space:]]*[^[:space:]]'; then
+    if awk '
+      # Walk only the frontmatter (lines between the first two --- ); END decides via found.
+      NR==1 && $0 !~ /^---[[:space:]]*$/ { exit }
+      /^---[[:space:]]*$/ { fm++; next }
+      fm!=1 { next }
+      # A non-indented key (column 0) is a top-level mapping key. metadata: opens the
+      # block we care about; any other top-level key closes it (so a TOP-LEVEL
+      # github-repo: can never satisfy the guard).
+      /^metadata:[[:space:]]*$/ { in_meta=1; next }
+      /^[^[:space:]]/ { in_meta=0; next }
+      # Inside metadata:, an indented github-repo: with a real value is provenance.
+      in_meta && /^[[:space:]]+github-repo:/ {
+        v=$0
+        sub(/^[[:space:]]+github-repo:[[:space:]]*/, "", v)  # drop the key
+        sub(/[[:space:]]+#.*$/, "", v)                        # drop trailing " # comment"
+        if (v ~ /^#/) v=""                                    # whole value is a comment ⇒ null
+        gsub(/^[[:space:]"'"'"']+|[[:space:]"'"'"']+$/, "", v) # trim spaces and surrounding quotes
+        if (v != "") found=1
+      }
+      END { exit(found ? 0 : 1) }
+    ' "$skill"; then
       echo "✓ provenance $skill"
     else
       echo "::error::$skill: missing upstream provenance (metadata.github-repo) — bundled skills must come from 'gh skill install', never hand-authored"

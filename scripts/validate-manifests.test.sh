@@ -229,6 +229,44 @@ Body.
 EOF
 check_fail "SKILL.md with empty github-repo fails" "missing upstream provenance" "$d"
 
+# A TOP-LEVEL github-repo (outside the metadata: block) must NOT satisfy the guard —
+# provenance lives at metadata.github-repo, so a hand-edit faking a top-level key fails.
+d=$(fresh)
+cat > "$d/plugins/alpha/skills/example-skill/SKILL.md" <<'EOF'
+---
+name: example-skill
+github-repo: https://github.com/devantler-tech/agent-skills
+metadata:
+    domain: testing
+---
+Body.
+EOF
+check_fail "SKILL.md with top-level github-repo (not under metadata) fails" "missing upstream provenance" "$d"
+
+# A quoted-empty value ("") is still empty provenance and is rejected.
+d=$(fresh)
+cat > "$d/plugins/alpha/skills/example-skill/SKILL.md" <<'EOF'
+---
+name: example-skill
+metadata:
+    github-repo: ""
+---
+Body.
+EOF
+check_fail "SKILL.md with quoted-empty github-repo fails" "missing upstream provenance" "$d"
+
+# A comment-only value (github-repo: # …) is null in YAML and is rejected.
+d=$(fresh)
+cat > "$d/plugins/alpha/skills/example-skill/SKILL.md" <<'EOF'
+---
+name: example-skill
+metadata:
+    github-repo: # not a real value
+---
+Body.
+EOF
+check_fail "SKILL.md with comment-only github-repo fails" "missing upstream provenance" "$d"
+
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

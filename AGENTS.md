@@ -31,7 +31,7 @@ plugins/
     └── skills/
         └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
 scripts/
-├── validate-manifests.sh       # Manifest + parity + plugin.json + README-table guard (single source of truth; run locally before pushing)
+├── validate-manifests.sh       # Manifest + parity + plugin.json + README-table + skill-provenance guard (single source of truth; run locally before pushing)
 └── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
 README.md                       # Human-facing index — the plugin table + per-tool install instructions
 ```
@@ -87,7 +87,10 @@ the [`update-agent-skills`](https://github.com/devantler-tech/reusable-workflows
 reusable workflow and opens a PR when any upstream's content drifts — **no lockfile, no sync bot, no
 custom metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; fix it in the
 skill's **own** upstream (the repo named in its `metadata.github-repo`) and let the update workflow pull
-it through. Only the marketplace structure (manifests, `plugin.json`, plugin membership) is authored here.
+it through. `validate-manifests.sh` enforces this mechanically: every bundled `SKILL.md` must carry a
+non-empty `metadata.github-repo` provenance line, so a hand-authored or provenance-stripped skill fails
+CI rather than reaching consumers. Only the marketplace structure (manifests, `plugin.json`, plugin
+membership) is authored here.
 
 ## Conventions
 

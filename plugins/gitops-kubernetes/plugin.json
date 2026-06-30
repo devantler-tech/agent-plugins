@@ -1,6 +1,6 @@
 {
   "name": "gitops-kubernetes",
-  "description": "Flux CD debugging, knowledge, repository auditing, and tenant onboarding skills",
+  "description": "Flux CD debugging, knowledge, repository auditing, and tenant onboarding — skills plus the Flux MCP server for live-cluster debugging",
   "version": "1.0.0",
   "author": {
     "name": "devantler-tech",

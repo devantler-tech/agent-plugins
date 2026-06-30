@@ -53,8 +53,9 @@ the **filesystem**: every plugin must have a matching `plugins/<name>/plugin.jso
 `name`/`description`/`version` and `source` `./plugins/<name>`), and no `plugins/<name>/` may exist
 without a manifest entry — so the manifests can never drift from what the repo actually ships. CI also
 checks the human-facing **README plugin table** against the filesystem: every plugin has a table row
-(and vice versa) and each row's **Skills** column matches that plugin's on-disk `skills/` directories,
-so the catalogue a reader sees can never drift from what ships either.
+(and vice versa) and each row's **Resources** column matches that plugin's bundled resources — its
+on-disk `skills/` directories plus any MCP server keys in an optional `plugins/<name>/.mcp.json` — so
+the catalogue a reader sees can never drift from what ships either.
 
 All of these checks live in one place — [`scripts/validate-manifests.sh`](scripts/validate-manifests.sh),
 which CI runs and you can run locally (`./scripts/validate-manifests.sh`) before pushing. Its behaviour
@@ -99,9 +100,12 @@ membership) is authored here.
 1. **Two manifests in parity.** Every plugin appears in **both** `marketplace.json` files with the same
    `name`/`description`/`version`/`source`; CI enforces the diff. Edit both together.
 2. **Plugin layout.** A plugin is a directory under `plugins/` with a `plugin.json` (kebab-case `name`
-   matching `^[a-z0-9-]+$`, a `description`, a `version`, and `"skills": "skills/"`) plus a `skills/`
-   subdirectory of installed skills. Skill dirs sit at `plugins/<plugin>/skills/<skill>/` and each holds
-   a conformant `SKILL.md` (CI discovers them at depth 4).
+   matching `^[a-z0-9-]+$`, a `description`, a `version`) that declares **at least one resource**:
+   a `skills/` subdirectory (`"skills": "skills/"`), a bundled `.mcp.json` (MCP servers), and/or an
+   `agents/` directory. Skill dirs sit at `plugins/<plugin>/skills/<skill>/` and each holds a conformant
+   `SKILL.md` (CI discovers them at depth 4). A bundled `.mcp.json` is a `{ "mcpServers": { … } }` map
+   whose every server carries a `command` (stdio) or `url` (remote); see
+   [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md) for the cross-tool delivery model.
 3. **agentskills.io spec.** Every bundled `SKILL.md` must validate against the
    [`agentskills.io`](https://agentskills.io) spec — CI validates each discovered skill in a matrix.
 4. **Tool-neutral.** Keep names, descriptions, and README framing cross-tool (VS Code / Copilot CLI /

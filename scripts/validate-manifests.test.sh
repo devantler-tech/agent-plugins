@@ -179,17 +179,17 @@ printf 'Ghost skill.\n' > "$d/plugins/gamma/skills/example-skill/SKILL.md"
 printf '| [`gamma`](plugins/gamma/) | `example-skill` | Ghost plugin |\n' >> "$d/README.md"
 check_fail "README row for dir without plugin.json fails" "README.md lists plugin 'gamma' with no plugins/gamma/plugin.json on disk" "$d"
 
-# A stray skill directory with no SKILL.md is still counted, so the README Skills
+# A stray skill directory with no SKILL.md is still counted, so the README Resources
 # column drifts out of lockstep and the guard fails (it is not silently hidden).
 d=$(fresh)
 mkdir -p "$d/plugins/alpha/skills/half-added-skill"
-check_fail "skill dir without SKILL.md still counted (drift caught)" "README.md Skills for 'alpha'" "$d"
+check_fail "skill dir without SKILL.md still counted (drift caught)" "README.md Resources for 'alpha'" "$d"
 
-# A skill added on disk but not reflected in the README Skills column.
+# A skill added on disk but not reflected in the README Resources column.
 d=$(fresh)
 mkdir -p "$d/plugins/alpha/skills/second-skill"
 printf 'Second skill.\n' > "$d/plugins/alpha/skills/second-skill/SKILL.md"
-check_fail "README skills drift vs disk fails" "README.md Skills for 'alpha'" "$d"
+check_fail "README skills drift vs disk fails" "README.md Resources for 'alpha'" "$d"
 
 # A plugin on disk (and in the manifests) with no README table row.
 d=$(fresh)
@@ -266,6 +266,39 @@ metadata:
 Body.
 EOF
 check_fail "SKILL.md with comment-only github-repo fails" "missing upstream provenance" "$d"
+
+# --- check 7: bundled MCP servers (.mcp.json) ---
+# A plugin bundling a valid .mcp.json alongside its skills passes, and the bundled MCP
+# server name is required in the README Resources column (parity counts skills + servers).
+d=$(fresh)
+printf '%s\n' '{ "mcpServers": { "test-mcp": { "command": "test-mcp", "args": ["serve"] } } }' > "$d/plugins/alpha/.mcp.json"
+# shellcheck disable=SC2016
+sed 's/`example-skill` | Alpha plugin/`example-skill`, `test-mcp` | Alpha plugin/' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
+check_pass "plugin bundling a valid .mcp.json passes (MCP server in README resources)" "$d"
+
+# A remote (url) MCP server is equally valid.
+d=$(fresh)
+printf '%s\n' '{ "mcpServers": { "test-mcp": { "type": "http", "url": "https://example.com/mcp" } } }' > "$d/plugins/alpha/.mcp.json"
+# shellcheck disable=SC2016
+sed 's/`example-skill` | Alpha plugin/`example-skill`, `test-mcp` | Alpha plugin/' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
+check_pass "plugin bundling a remote (url) MCP server passes" "$d"
+
+# A bundled MCP server name missing from the README Resources column drifts out of lockstep.
+d=$(fresh)
+printf '%s\n' '{ "mcpServers": { "test-mcp": { "command": "test-mcp" } } }' > "$d/plugins/alpha/.mcp.json"
+check_fail "MCP server missing from README resources fails" "README.md Resources for 'alpha'" "$d"
+
+# An .mcp.json that is not valid JSON is rejected.
+d=$(fresh); printf '%s\n' 'not json' > "$d/plugins/alpha/.mcp.json"
+check_fail "non-JSON .mcp.json fails" "not valid JSON" "$d"
+
+# An empty '.mcpServers' object is rejected.
+d=$(fresh); printf '%s\n' '{ "mcpServers": {} }' > "$d/plugins/alpha/.mcp.json"
+check_fail "empty .mcpServers fails" "'.mcpServers' must be a non-empty object" "$d"
+
+# A server carrying neither 'command' (stdio) nor 'url' (remote) is rejected.
+d=$(fresh); printf '%s\n' '{ "mcpServers": { "bad": { "args": ["serve"] } } }' > "$d/plugins/alpha/.mcp.json"
+check_fail "MCP server with no command/url fails" "missing a 'command' (stdio) or 'url' (remote)" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

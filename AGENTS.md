@@ -9,7 +9,9 @@ two parity-checked manifests. Sibling repo to [devantler-tech/agent-skills](http
 
 By design the marketplace is **not scoped to skills-only** — a plugin may bundle any agent resource
 (agent skills today; [MCP](https://modelcontextprotocol.io) servers and custom agents as they prove out
-across the supported tools), which is what keeps it a tool-neutral, industry-standard marketplace.
+across the supported tools), which is what keeps it a tool-neutral, industry-standard marketplace. The
+cross-tool capability matrix and the manifest/CI plan for the first non-skill resource are recorded in
+[ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md).
 
 This file is the single canonical instructions file for the repository. It is read natively by GitHub
 Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).

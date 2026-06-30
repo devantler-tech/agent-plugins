@@ -172,12 +172,15 @@ validate_marketplace_plugins_parity() {
   return "$failed"
 }
 
-# Resource token names (sorted, space-separated) a plugin bundles: every skill
-# directory under plugins/<name>/skills/ PLUS every MCP server key in an optional
-# plugins/<name>/.mcp.json. These are the tokens the README "Resources" column must
-# list (ADR 0001 §D3). Count EVERY skill directory, not only those that already carry a
-# SKILL.md, so a stray/half-added skill folder (the exact drift this parity check guards
-# against) is surfaced rather than silently hidden.
+# Resource token names (sorted, space-separated) a plugin bundles, across ALL three
+# resource kinds validate_plugin_json accepts (ADR 0001 §D3): every skill directory under
+# plugins/<name>/skills/, every MCP server key in an optional plugins/<name>/.mcp.json, AND
+# every custom-agent entry under an optional plugins/<name>/agents/ (its basename, with a
+# trailing .md stripped). These are the tokens the README "Resources" column must list.
+# Count EVERY skill directory / agent entry, not only those already fleshed out, so a
+# stray/half-added folder (the exact drift this parity check guards against) is surfaced
+# rather than silently hidden. Kept in lockstep with validate_plugin_json's resource model
+# so a plugin can never satisfy that check with a resource kind this enumerator ignores.
 plugin_disk_resources() {
   local name="$1" d mcp="plugins/$1/.mcp.json"
   {
@@ -188,6 +191,10 @@ plugin_disk_resources() {
     if [ -f "$mcp" ]; then
       jq -r '.mcpServers // {} | keys[]' "$mcp"
     fi
+    for d in "plugins/$name/agents"/*; do
+      [ -e "$d" ] || continue
+      basename "$d" .md
+    done
   } | sort | tr '\n' ' '
 }
 

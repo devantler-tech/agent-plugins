@@ -54,8 +54,9 @@ the **filesystem**: every plugin must have a matching `plugins/<name>/plugin.jso
 without a manifest entry — so the manifests can never drift from what the repo actually ships. CI also
 checks the human-facing **README plugin table** against the filesystem: every plugin has a table row
 (and vice versa) and each row's **Resources** column matches that plugin's bundled resources — its
-on-disk `skills/` directories plus any MCP server keys in an optional `plugins/<name>/.mcp.json` — so
-the catalogue a reader sees can never drift from what ships either.
+on-disk `skills/` directories, any MCP server keys in an optional `plugins/<name>/.mcp.json`, and any
+custom-agent entries in an optional `plugins/<name>/agents/` — so the catalogue a reader sees can never
+drift from what ships either.
 
 All of these checks live in one place — [`scripts/validate-manifests.sh`](scripts/validate-manifests.sh),
 which CI runs and you can run locally (`./scripts/validate-manifests.sh`) before pushing. Its behaviour
@@ -122,8 +123,9 @@ membership) is authored here.
    intent, not a version bump.
 8. **README and manifests stay in lockstep.** The README plugin table mirrors the manifests; update it
    in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
-   vice versa, and each row's **Skills** column matches that plugin's `skills/` directories on disk (the
-   **Description** column stays editorial).
+   vice versa, and each row's **Resources** column matches that plugin's bundled resources on disk — its
+   `skills/` directories, any `.mcp.json` server keys, and any `agents/` entries (the **Description**
+   column stays editorial).
 
 ## Validation
 

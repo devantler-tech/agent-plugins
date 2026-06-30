@@ -300,6 +300,21 @@ check_fail "empty .mcpServers fails" "'.mcpServers' must be a non-empty object" 
 d=$(fresh); printf '%s\n' '{ "mcpServers": { "bad": { "args": ["serve"] } } }' > "$d/plugins/alpha/.mcp.json"
 check_fail "MCP server with no command/url fails" "missing a 'command' (stdio) or 'url' (remote)" "$d"
 
+# --- check 8: bundled custom agents (agents/) ---
+# validate_plugin_json accepts a non-empty agents/ as a standalone resource, so the parity
+# enumerator must list each agent entry (basename, trailing .md stripped) in the README too.
+# A plugin bundling agents/<name>.md passes when that agent name is in the README Resources.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/agents"; printf '%s\n' 'A custom agent.' > "$d/plugins/alpha/agents/test-agent.md"
+# shellcheck disable=SC2016
+sed 's/`example-skill` | Alpha plugin/`example-skill`, `test-agent` | Alpha plugin/' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
+check_pass "plugin bundling a custom agent passes (agent in README resources)" "$d"
+
+# A bundled agent name missing from the README Resources column drifts out of lockstep.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/agents"; printf '%s\n' 'A custom agent.' > "$d/plugins/alpha/agents/test-agent.md"
+check_fail "custom agent missing from README resources fails" "README.md Resources for 'alpha'" "$d"
+
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

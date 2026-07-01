@@ -12,7 +12,7 @@ This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every 
 
 | Plugin | Resources | Description |
 |--------|-----------|-------------|
-| [`gitops-kubernetes`](plugins/gitops-kubernetes/) | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-repo-audit`, `gitops-tenant-onboarding` (skills) · `flux-operator-mcp` (MCP server) | Flux CD debugging, knowledge, repository auditing, and tenant onboarding — bundles the Flux MCP server for live-cluster debugging |
+| [`gitops-kubernetes`](plugins/gitops-kubernetes/) | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-repo-audit`, `gitops-tenant-onboarding` (skills) · `flux-operator-mcp` (MCP server) · `flux-troubleshooter` (agent) | Flux CD debugging, knowledge, repository auditing, and tenant onboarding — bundles the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging |
 | [`github`](plugins/github/) | `gh-cli`, `gh-stack`, `github-actions-docs`, `github-issues` | GitHub CLI, stacked PRs, Actions docs, and issue management |
 | [`agentic-engineering`](plugins/agentic-engineering/) | `agent-instructions`, `copilot-instructions-blueprint-generator`, `copilot-sdk`, `find-skills` | Agentic AI framework SDKs, AI-assistant instruction authoring, and skill discovery |
 | [`go`](plugins/go/) | `golang-pro` | Go best practices, concurrency, generics, interfaces, and testing |
@@ -86,11 +86,31 @@ github.com/controlplaneio-fluxcd/flux-operator/cmd/mcp@latest` (it reads your ku
 [Flux MCP docs](https://fluxcd.control-plane.io/operator/mcp/) for read-only mode and remote
 transport.
 
+## Custom agents
+
+A plugin may also bundle **custom agents** (subagents). The
+[`gitops-kubernetes`](plugins/gitops-kubernetes/) plugin bundles
+[`flux-troubleshooter`](plugins/gitops-kubernetes/agents/flux-troubleshooter.md) — a **read-only**
+Flux CD triage agent that traces the GitOps dependency chain (source → Kustomization/HelmRelease →
+workloads), reads status conditions and controller logs via the bundled `flux-operator-mcp` server,
+and returns a root-cause diagnosis plus the human-applied fix. It has no apply/reconcile/suspend/
+delete tool by design, so it never mutates the cluster.
+
+The agent is authored once as `agents/<name>.md` (Markdown + YAML frontmatter, with the neutral
+`name`/`description`/`tools`/`model` core). How each tool consumes it differs (per
+[ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
+
+- **Claude Code** and **Copilot CLI** — the bundled `agents/` directory is loaded automatically when
+  the plugin is installed; the agent is namespaced `gitops-kubernetes:flux-troubleshooter`. (Copilot
+  reads the same file as `*.agent.md`.)
+- **VS Code** consumes agents but does not bundle them from a plugin. Copy the agent to your
+  workspace as `.github/agents/flux-troubleshooter.agent.md`.
+
 ## How it works
 
 Skills are installed from their upstream repositories using [`gh skill install`](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/). A [daily update workflow](.github/workflows/update-agent-skills.yaml) runs [`gh skill update --all`](https://github.com/devantler-tech/actions/tree/main/update-agent-skills) via the [`update-agent-skills`](https://github.com/devantler-tech/reusable-workflows/blob/main/.github/workflows/update-agent-skills.yaml) reusable workflow and opens a PR when upstream content has drifted.
 
-Each plugin directory is self-contained with a `plugin.json` manifest and its bundled resources — a `skills/` subdirectory holding the installed `SKILL.md` files (plus any supporting assets), and optionally an `.mcp.json` declaring bundled MCP servers. Each `SKILL.md` contains `metadata.github-*` frontmatter for upstream provenance — no lockfile needed.
+Each plugin directory is self-contained with a `plugin.json` manifest and its bundled resources — a `skills/` subdirectory holding the installed `SKILL.md` files (plus any supporting assets), and optionally an `.mcp.json` declaring bundled MCP servers and an `agents/` directory holding custom agents. Each `SKILL.md` contains `metadata.github-*` frontmatter for upstream provenance — no lockfile needed.
 
 Each bundled skill is pulled from its own upstream (recorded in its `SKILL.md` `metadata.github-*` frontmatter), spanning many sources — including our in-house sibling library [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills).
 

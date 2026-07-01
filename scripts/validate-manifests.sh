@@ -65,6 +65,59 @@ validate_mcp_json() {
   return 0
 }
 
+# Does a top-level key in a Markdown file's YAML frontmatter carry a non-empty value?
+# Frontmatter is the block between the first two '---' lines. The value counts as present
+# when it is a non-empty inline scalar (`key: value`) OR a block scalar (`key: >-` / `key: |`)
+# whose following indented lines are non-blank — so a folded multi-line description satisfies
+# it. An empty, quoted-empty (`""`/`''`), comment-only (`# …`), or bare-block-indicator value
+# with no body is rejected, and a file with no frontmatter yields no match. Staying awk-only
+# (no yq dependency), mirroring validate_skill_provenance.
+frontmatter_has_value() {
+  local file="$1" key="$2"
+  awk -v key="$key" '
+    NR==1 && $0 !~ /^---[[:space:]]*$/ { exit 1 }         # no frontmatter ⇒ absent
+    /^---[[:space:]]*$/ { fm++; if (fm==2) exit(found?0:1); next }
+    fm!=1 { next }
+    $0 ~ "^" key ":" {                                     # our top-level key
+      inkey=1
+      v=$0; sub("^" key ":[[:space:]]*","",v)             # drop the key
+      sub(/[[:space:]]+#.*$/,"",v)                         # drop trailing " # comment"
+      if (v ~ /^#/) v=""                                   # whole value is a comment ⇒ null
+      gsub(/^[[:space:]"'"'"']+|[[:space:]"'"'"']+$/,"",v) # trim spaces + surrounding quotes
+      if (v ~ /^[|>][0-9+-]*$/) v=""                       # bare block-scalar indicator ⇒ body decides
+      if (v != "") { found=1; inkey=0 }
+      next
+    }
+    /^[^[:space:]]/ { inkey=0; next }                      # another top-level key closes scope
+    inkey && /[^[:space:]]/ { found=1; inkey=0 }           # indented non-blank body of a block scalar
+    END { exit(found?0:1) }
+  ' "$file"
+}
+
+# A bundled custom-agents resource (ADR 0001 §D1/§D3): an agents/ directory must hold at least
+# one agents/*.md, and every agent file must carry YAML frontmatter with a non-empty 'name' and
+# 'description' (the neutral cross-tool core). A body-only or placeholder .md is rejected.
+validate_agent_dir() {
+  local dir="$1" md count=0 failed=0
+  for md in "$dir"/*.md; do
+    [ -e "$md" ] || continue
+    count=$((count + 1))
+    if ! frontmatter_has_value "$md" name; then
+      echo "::error::$md: agent must declare a non-empty 'name' in its YAML frontmatter"
+      failed=1
+    fi
+    if ! frontmatter_has_value "$md" description; then
+      echo "::error::$md: agent must declare a non-empty 'description' in its YAML frontmatter"
+      failed=1
+    fi
+  done
+  if [ "$count" -eq 0 ]; then
+    echo "::error::$dir: must contain at least one agents/*.md"
+    return 1
+  fi
+  return "$failed"
+}
+
 # 3. Every plugins/<name>/plugin.json is complete and well-shaped, declaring at least
 #    one recognized resource (skills/, a bundled .mcp.json, or agents/) — ADR 0001 §D3.
 validate_plugin_json() {
@@ -108,9 +161,14 @@ validate_plugin_json() {
         ok=0
       fi
     fi
-    # Custom-agents resource: an agents/ directory holding at least one entry.
+    # Custom-agents resource: an agents/ directory with at least one valid agents/*.md
+    # (each carrying name + description frontmatter — ADR 0001 §D3).
     if find "$plugin_dir/agents" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
-      resource_count=$((resource_count + 1))
+      if validate_agent_dir "$plugin_dir/agents"; then
+        resource_count=$((resource_count + 1))
+      else
+        ok=0
+      fi
     fi
     if [ "$resource_count" -eq 0 ]; then
       echo "::error::$plugin_dir: must declare at least one resource (skills/, .mcp.json, or agents/)"

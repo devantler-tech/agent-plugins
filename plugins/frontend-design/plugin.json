@@ -6,5 +6,15 @@
     "name": "devantler-tech",
     "url": "https://github.com/devantler-tech"
   },
+  "keywords": [
+    "frontend",
+    "ui",
+    "ux",
+    "astro",
+    "web-design",
+    "css",
+    "accessibility",
+    "design"
+  ],
   "skills": "skills/"
 }

@@ -6,5 +6,15 @@
     "name": "devantler-tech",
     "url": "https://github.com/devantler-tech"
   },
+  "keywords": [
+    "git",
+    "conventional-commits",
+    "releases",
+    "refactoring",
+    "tdd",
+    "test-driven-development",
+    "code-quality",
+    "engineering"
+  ],
   "skills": "skills/"
 }

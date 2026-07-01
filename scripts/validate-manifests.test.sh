@@ -303,17 +303,79 @@ check_fail "MCP server with no command/url fails" "missing a 'command' (stdio) o
 # --- check 8: bundled custom agents (agents/) ---
 # validate_plugin_json accepts a non-empty agents/ as a standalone resource, so the parity
 # enumerator must list each agent entry (basename, trailing .md stripped) in the README too.
-# A plugin bundling agents/<name>.md passes when that agent name is in the README Resources.
+# Per ADR 0001 §D3, every agents/*.md must carry name + description frontmatter.
+
+# make_agent <dir> <file> — write a conformant agent .md (name + description frontmatter).
+make_agent() {
+  cat > "$1/$2" <<'EOF'
+---
+name: test-agent
+description: A custom agent for the fixture.
+---
+Agent body.
+EOF
+}
+
+# A plugin bundling a conformant agents/<name>.md passes when that agent name is in the README.
 d=$(fresh)
-mkdir -p "$d/plugins/alpha/agents"; printf '%s\n' 'A custom agent.' > "$d/plugins/alpha/agents/test-agent.md"
+mkdir -p "$d/plugins/alpha/agents"; make_agent "$d/plugins/alpha/agents" test-agent.md
 # shellcheck disable=SC2016
 sed 's/`example-skill` | Alpha plugin/`example-skill`, `test-agent` | Alpha plugin/' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
 check_pass "plugin bundling a custom agent passes (agent in README resources)" "$d"
 
 # A bundled agent name missing from the README Resources column drifts out of lockstep.
 d=$(fresh)
-mkdir -p "$d/plugins/alpha/agents"; printf '%s\n' 'A custom agent.' > "$d/plugins/alpha/agents/test-agent.md"
+mkdir -p "$d/plugins/alpha/agents"; make_agent "$d/plugins/alpha/agents" test-agent.md
 check_fail "custom agent missing from README resources fails" "README.md Resources for 'alpha'" "$d"
+
+# An agents/ dir with no *.md (only a stray non-agent file) is not a valid agent resource.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/agents"; printf 'notes\n' > "$d/plugins/alpha/agents/README.txt"
+check_fail "agents/ with no *.md fails" "must contain at least one agents/*.md" "$d"
+
+# A body-only agent (no YAML frontmatter) is rejected — placeholders must not pass.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/agents"; printf '%s\n' 'Just a body, no frontmatter.' > "$d/plugins/alpha/agents/test-agent.md"
+check_fail "agent .md without frontmatter fails" "must declare a non-empty 'name'" "$d"
+
+# An agent whose frontmatter omits 'description' is rejected.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/agents"
+cat > "$d/plugins/alpha/agents/test-agent.md" <<'EOF'
+---
+name: test-agent
+---
+Body.
+EOF
+check_fail "agent .md missing description fails" "must declare a non-empty 'description'" "$d"
+
+# A folded/block-scalar description (>-) with a non-blank body satisfies the check.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/agents"
+cat > "$d/plugins/alpha/agents/test-agent.md" <<'EOF'
+---
+name: test-agent
+description: >-
+  A folded multi-line
+  description body.
+---
+Body.
+EOF
+# shellcheck disable=SC2016
+sed 's/`example-skill` | Alpha plugin/`example-skill`, `test-agent` | Alpha plugin/' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
+check_pass "agent with a folded (>-) description passes" "$d"
+
+# A bare block-scalar description indicator with no body is empty ⇒ rejected.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/agents"
+cat > "$d/plugins/alpha/agents/test-agent.md" <<'EOF'
+---
+name: test-agent
+description: >-
+---
+Body.
+EOF
+check_fail "agent with an empty block-scalar description fails" "must declare a non-empty 'description'" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

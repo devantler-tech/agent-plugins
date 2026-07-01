@@ -6,6 +6,19 @@
     "name": "devantler-tech",
     "url": "https://github.com/devantler-tech"
   },
+  "keywords": [
+    "gitops",
+    "flux",
+    "flux-cd",
+    "kubernetes",
+    "k8s",
+    "mcp",
+    "cluster-debugging",
+    "repository-audit",
+    "multi-tenancy",
+    "helm",
+    "kustomize"
+  ],
   "skills": "skills/",
   "agents": "agents/"
 }

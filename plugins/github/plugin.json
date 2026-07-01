@@ -6,5 +6,16 @@
     "name": "devantler-tech",
     "url": "https://github.com/devantler-tech"
   },
+  "keywords": [
+    "github",
+    "git",
+    "gh-cli",
+    "pull-requests",
+    "stacked-prs",
+    "github-actions",
+    "workflows",
+    "issues",
+    "ci-cd"
+  ],
   "skills": "skills/"
 }

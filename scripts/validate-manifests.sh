@@ -140,18 +140,27 @@ validate_plugin_json() {
       echo "::error::$pj: missing or empty 'version' field"
       ok=0
     fi
-    # Skills resource: when '.skills' is declared it must be "skills/" and contain at
-    # least one <skill>/SKILL.md. (Existing check — unchanged, only made conditional.)
-    if [ "$(jq -e 'has("skills")' "$pj")" = "true" ]; then
-      if [ "$(jq -r '.skills // ""' "$pj")" != "skills/" ]; then
-        echo "::error::$pj: 'skills' must be \"skills/\""
+    # Component-path fields (skills/agents), when present, MUST be arrays. Claude Code rejects
+    # the bare-string form ('"skills": "skills/"' → 'skills: Invalid input'), which breaks
+    # 'claude plugin install' even though Copilot CLI tolerates it. Both tools auto-discover
+    # the default skills/ and agents/ dirs when the field is omitted, so omitting it is the
+    # portable form and what these plugins do — this guard just stops the broken string form
+    # from returning.
+    for field in skills agents; do
+      if [ "$(jq -e --arg f "$field" 'has($f)' "$pj")" = "true" ] \
+        && [ "$(jq -r --arg f "$field" '.[$f] | type' "$pj")" != "array" ]; then
+        echo "::error::$pj: '$field' must be an array of paths, or omitted to auto-discover $field/ (Claude Code rejects the bare-string form)"
         ok=0
-      elif ! find "$plugin_dir/skills" -mindepth 2 -maxdepth 2 -name SKILL.md -print -quit 2>/dev/null | grep -q .; then
-        echo "::error::$plugin_dir: 'skills/' must contain at least one <skill>/SKILL.md"
-        ok=0
-      else
-        resource_count=$((resource_count + 1))
       fi
+    done
+    # Skills resource (ADR 0001 §D3): auto-discovered from the on-disk skills/ directory —
+    # both tools default to skills/ when the manifest omits the field — so detection is
+    # directory-based, not field-based. A skills/ dir must hold >=1 <skill>/SKILL.md to count.
+    if find "$plugin_dir/skills" -mindepth 2 -maxdepth 2 -name SKILL.md -print -quit 2>/dev/null | grep -q .; then
+      resource_count=$((resource_count + 1))
+    elif [ -d "$plugin_dir/skills" ]; then
+      echo "::error::$plugin_dir: 'skills/' present but contains no <skill>/SKILL.md"
+      ok=0
     fi
     # MCP resource: a bundled .mcp.json at the plugin root must validate.
     if [ -f "$plugin_dir/.mcp.json" ]; then

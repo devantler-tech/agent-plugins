@@ -18,7 +18,5 @@
     "multi-tenancy",
     "helm",
     "kustomize"
-  ],
-  "skills": "skills/",
-  "agents": "agents/"
+  ]
 }

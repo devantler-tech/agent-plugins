@@ -58,12 +58,14 @@ metadata:
 ---
 Example skill.
 EOF
+  # No "skills" field: skills are auto-discovered from the on-disk skills/ dir by both
+  # Claude Code and Copilot CLI. Claude Code rejects the bare-string "skills": "skills/"
+  # form, so the portable manifest omits it — the fixture mirrors the real plugins.
   cat > "$root/plugins/$name/plugin.json" <<EOF
 {
   "name": "$name",
   "description": "$desc",
-  "version": "$version",
-  "skills": "skills/"
+  "version": "$version"
 }
 EOF
 }
@@ -134,11 +136,25 @@ check_fail "missing plugin.json description fails" "missing or empty 'descriptio
 d=$(fresh); jq 'del(.version)' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
 check_fail "missing plugin.json version fails" "missing or empty 'version'" "$d"
 
-d=$(fresh); jq '.skills = "wrong/"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-check_fail "wrong 'skills' value fails" "'skills' must be" "$d"
+# The bare-string 'skills'/'agents' form is exactly what breaks 'claude plugin install'
+# ('skills: Invalid input'); the guard must reject it and demand the array-or-omitted form.
+d=$(fresh); jq '.skills = "skills/"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+check_fail "bare-string 'skills' field fails" "'skills' must be an array of paths" "$d"
 
+d=$(fresh); jq '.agents = "agents/"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+check_fail "bare-string 'agents' field fails" "'agents' must be an array of paths" "$d"
+
+# The array form is accepted (auto-discovery still finds the on-disk skills either way).
+d=$(fresh); jq '.skills = ["skills/example-skill"]' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+check_pass "array 'skills' field passes" "$d"
+
+# A skills/ dir present but holding no <skill>/SKILL.md is a broken bundle.
+d=$(fresh); rm -f "$d/plugins/alpha/skills/example-skill/SKILL.md"
+check_fail "skills/ dir with no SKILL.md fails" "'skills/' present but contains no <skill>/SKILL.md" "$d"
+
+# A plugin declaring no resource at all (no skills/, no .mcp.json, no agents/) is invalid.
 d=$(fresh); rm -rf "$d/plugins/alpha/skills"
-check_fail "plugin with no SKILL.md fails" "must contain at least one <skill>/SKILL.md" "$d"
+check_fail "plugin with no resource fails" "must declare at least one resource" "$d"
 
 # --- check 4: manifest <-> plugins lockstep ---
 d=$(fresh)

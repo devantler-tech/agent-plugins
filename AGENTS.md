@@ -29,7 +29,7 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
     └── update-agent-skills.yaml  # Daily gh skill update --all; opens a PR when upstream skills drift
 plugins/
 └── <plugin>/
-    ├── plugin.json             # Plugin manifest (kebab-case name, description, version, skills: "skills/")
+    ├── plugin.json             # Plugin manifest (kebab-case name, description, version; resources auto-discovered — no skills/agents path fields)
     └── skills/
         └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
 scripts/
@@ -102,12 +102,18 @@ membership) is authored here.
    `name`/`description`/`version`/`source`; CI enforces the diff. Edit both together.
 2. **Plugin layout.** A plugin is a directory under `plugins/` with a `plugin.json` (kebab-case `name`
    matching `^[a-z0-9-]+$`, a `description`, a `version`) that declares **at least one resource**:
-   a `skills/` subdirectory (`"skills": "skills/"`), a bundled `.mcp.json` (MCP servers), and/or an
-   `agents/` directory (`"agents": "agents/"`). Skill dirs sit at `plugins/<plugin>/skills/<skill>/` and
-   each holds a conformant `SKILL.md` (CI discovers them at depth 4). A bundled `.mcp.json` is a
-   `{ "mcpServers": { … } }` map whose every server carries a `command` (stdio) or `url` (remote). A
-   bundled `agents/` directory holds ≥1 `agents/*.md`, each with YAML frontmatter carrying a non-empty
-   `name` and `description` (the neutral cross-tool core). See
+   a `skills/` subdirectory, a bundled `.mcp.json` (MCP servers), and/or an `agents/` directory. Every
+   resource is **auto-discovered from its directory** — the `plugin.json` carries **no** component-path
+   fields. Both Claude Code and Copilot CLI default to `skills/` and `agents/` when the field is
+   omitted, and **Claude Code rejects the bare-string form** (`"skills": "skills/"` →
+   `skills: Invalid input`), which breaks `claude plugin install`; the portable manifest therefore omits
+   it (the field is only valid as a `string[]` path list, never a plain string). CI's
+   `validate-manifests.sh` enforces this — it counts resources by their on-disk directories and fails
+   any `plugin.json` that sets `skills`/`agents` to a non-array. Skill dirs sit at
+   `plugins/<plugin>/skills/<skill>/` and each holds a conformant `SKILL.md` (CI discovers them at
+   depth 4). A bundled `.mcp.json` is a `{ "mcpServers": { … } }` map whose every server carries a
+   `command` (stdio) or `url` (remote). A bundled `agents/` directory holds ≥1 `agents/*.md`, each with
+   YAML frontmatter carrying a non-empty `name` and `description` (the neutral cross-tool core). See
    [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md) for the cross-tool delivery model.
 3. **agentskills.io spec.** Every bundled `SKILL.md` must validate against the
    [`agentskills.io`](https://agentskills.io) spec — CI validates each discovered skill in a matrix.

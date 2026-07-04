@@ -78,9 +78,13 @@ local.
 | Concrete **trust-gate logins**, merge-queue / per-repo merge mechanics, prod-access facts | Facts about *this* org's accounts and infra |
 | **Memory** location & schema; **cadence** numbers; **maintainer channels** (the ask tool, draft-PR steering) | Deployment wiring, not role logic |
 
-The rule for a disputed section: **if it names a concrete repo, login, path, or number, it is
-configuration and stays local; if it describes *how to decide or act* independent of those, it is role and
-moves to the plugin.**
+The rule for a disputed section: **a section is configuration (stays local) only if it is a
+*deployment-owned fact* — one that identifies *this* org's repos, accounts, infrastructure, or wiring and
+so must change when the role is installed on another portfolio. Everything that describes *how to decide or
+act* is role and moves to the plugin — including decision thresholds (the `ship ≥1 artifact` floor, the
+`≤2 consecutive easy-tick` gate), which are portable rule logic even though they embed a number. A bare
+number is not the discriminator; *deployment-owned volatility* is: cadence frequencies and per-repo merge
+mechanics stay local because they parameterize this deployment, not because they contain digits.**
 
 ### D2 — Parameterization contract: skills cite named, consumer-supplied sections
 

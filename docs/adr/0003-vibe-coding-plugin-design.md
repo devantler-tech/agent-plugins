@@ -60,9 +60,13 @@ single-source-of-skills rule; the plugin bundles them via `gh skill install`:
 
 | Skill | What it does | ACs |
 |---|---|---|
-| **needs→stack mapping** | Translate plain-language product needs (an outcome, an audience, a workflow) into the deployment's building blocks behind the scenes; the conversation stays in the user's vocabulary | AC2, AC4 |
-| **allowed-stack guardrail** | Before agreeing to build anything, check the need against the consumer-supplied **Stack map** (D3); in-stack → proceed; out-of-stack → friendly decline + offer to file an issue on the owning repo | AC5 |
-| **jargon-free voice** | The conversational register: common language, glossary indirection, outcome-first reporting (D4) | AC3 |
+| **`needs-stack-mapping`** | Translate plain-language product needs (an outcome, an audience, a workflow) into the deployment's building blocks behind the scenes; the conversation stays in the user's vocabulary | AC2, AC4 |
+| **`allowed-stack-guardrail`** | Before agreeing to build anything, check the need against the consumer-supplied **Stack map** (D3); in-stack → proceed; out-of-stack → friendly decline + offer to file an issue on the owning repo | AC5 |
+| **`jargon-free-voice`** | The conversational register: common language, glossary indirection, outcome-first reporting (D4) | AC3 |
+
+The Skill column values are the **installable slugs** (the `SKILL.md` `name` and directory), already
+constrained to the [Agent Skills spec](https://agentskills.io/specification)'s lowercase-letters/
+numbers/hyphens charset so this repo's spec-validation gate accepts them as-is in child 2.
 
 [agent-skills#56](https://github.com/devantler-tech/agent-skills/issues/56) already frames exactly this
 family and defers its decomposition to this ADR; child 2 executes it there.
@@ -79,9 +83,24 @@ owning repo so an out-of-stack need can be redirected into a well-formed issue t
 half). devantler-tech's own Stack map (ksail for clusters/GitOps, the platform's application
 archetypes, the templates, the site) ships **with the deployment** (the monorepo), not with the plugin
 — the stack can evolve weekly without a plugin release, exactly the volatility argument that made
-ADR-0002's trade acceptable. The guardrail **fails closed**: a need that maps to nothing in the Stack
-map is declined kindly and captured as a suggested issue — never built best-effort out of stack, and
-the decline itself stays jargon-free.
+ADR-0002's trade acceptable.
+
+**The contract, pinned** (so child 2 can implement deterministically): the Stack map is a Markdown
+section titled **`## Stack map`** in the consumer deployment's canonical instructions file
+(`AGENTS.md`, reaching each assistant through its native shim — the same channel ADR-0002 chose for
+deployment-owned configuration). It contains a table whose rows each carry three **required** fields:
+**Building block** (the plain-language name), **Good for** (what needs it serves, in the user's
+vocabulary — the matching surface), and **Owning repo** (`owner/repo`, where a suggested issue for
+that block is filed). One additional field is **required once per map**: a **default intake repo** —
+the catch-all `owner/repo` that receives the suggested issue for any need that matches *no* row, so
+AC5's redirect is resolvable even for unmapped needs. Matching is semantic but **conservative**: the
+`allowed-stack-guardrail` skill maps the user's stated need against the rows' *Good for* purposes,
+and anything it cannot confidently match falls through to the catch-all decline-and-suggest path.
+**Fail-closed covers the map itself:** when the `## Stack map` section is absent or malformed (no
+table, or a row missing a required field), the guardrail treats **every** need as out-of-stack — it
+declines plainly, explains that its allowed-stack catalogue is unavailable, and suggests an issue on
+the default intake repo when one is parseable (otherwise it directs the user to whoever operates the
+deployment). It never builds best-effort out of stack, and the decline itself stays jargon-free.
 
 ### D4 — Voice: plain-language-first, glossary indirection, outcomes not artifacts
 
@@ -107,11 +126,17 @@ The persona's conversational contract (agent definition + the voice skill):
   specifics in skill bodies).
 - **Child 3 — assemble:** `plugins/vibe-coding/` — the companion agent under `agents/`, the three
   skills bundled from agent-skills, both manifests + README updated in parity, validated by the
-  standard gate (`scripts/validate-manifests.sh`, skill spec-validation).
+  standard gate (`scripts/validate-manifests.sh`, skill spec-validation). Bundled `agents/` auto-load
+  only in Claude Code and Copilot CLI (ADR-0001; repo README), so the plugin README must carry the
+  documented **VS Code delivery step** — copy the companion agent to `.github/agents/<name>.agent.md`
+  — for AC1's coverage of the marketplace's supported VS Code surface.
 - **Child 4 — consume & E2E:** author devantler-tech's Stack map in the consuming deployment and
-  validate the plugin end-to-end with a real vibe-coder scenario (a small app built purely
-  conversationally), per the verify-it-works-behaviourally rule — voice and guardrail quality cannot be
-  proven by manifest validation alone.
+  validate the plugin end-to-end per the verify-it-works-behaviourally rule — voice and guardrail
+  quality cannot be proven by manifest validation alone. The scenario set covers **both sides of the
+  guardrail and its failure mode**: an in-stack build (a small app built purely conversationally), an
+  out-of-stack request (asserting the plain-language decline *and* the suggested-issue payload lands
+  on the owning repo), an unmapped need (asserting the catch-all default-intake redirect), and a
+  missing/malformed Stack map (asserting the fail-closed decline of D3).
 
 This ADR itself changes no manifest, skill, or workflow (documentation-only).
 

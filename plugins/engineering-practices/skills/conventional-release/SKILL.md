@@ -3,9 +3,9 @@ description: Ship changes through a squash-merge + Conventional Commits release 
 license: Apache-2.0
 metadata:
     github-path: conventional-release
-    github-ref: refs/tags/v1.4.0
+    github-ref: refs/tags/v1.5.0
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 511fbcd9d69f6e4bd88319533a6a95899ef25779
+    github-tree-sha: 650e08053c6e52fc89fc68db9f074b122d9fbb24
 name: conventional-release
 ---
 # Conventional Release
@@ -54,7 +54,7 @@ So:
 
 ## Anatomy of the title
 
-```
+```text
 <type>(<optional scope>): <imperative summary>
 ```
 
@@ -92,7 +92,7 @@ A breaking change is a **major** bump (`X.0.0`), signalled either way:
 - a `!` after the type/scope: `feat(api)!: drop the v1 endpoint`, **or**
 - a `BREAKING CHANGE:` footer in the body:
 
-  ```
+  ```text
   feat(api): replace the auth header
 
   BREAKING CHANGE: clients must send `Authorization: Bearer` instead of `X-Token`.

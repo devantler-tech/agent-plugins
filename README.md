@@ -18,6 +18,7 @@ This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every 
 | [`go`](plugins/go/) | `golang-pro` | Go best practices, concurrency, generics, interfaces, and testing |
 | [`engineering-practices`](plugins/engineering-practices/) | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working` | Git commits, conventional releases, refactoring, TDD, and engineering ways of working |
 | [`frontend-design`](plugins/frontend-design/) | `astro`, `frontend-design`, `web-design-guidelines` | Astro, frontend design, and web design guidelines |
+| [`vibe-coding`](plugins/vibe-coding/) | `needs-stack-mapping`, `allowed-stack-guardrail`, `jargon-free-voice` (skills) · `vibe-coding-companion` (agent) | Build a product by conversation alone — plain-language companion agent + guardrailed needs-to-stack skills for people with no technical background |
 
 ## Installation
 
@@ -105,6 +106,14 @@ The agent is authored once as `agents/<name>.md` (Markdown + YAML frontmatter, w
   reads the same file as `*.agent.md`.)
 - **VS Code** consumes agents but does not bundle them from a plugin. Copy the agent to your
   workspace as `.github/agents/flux-troubleshooter.agent.md`.
+
+The [`vibe-coding`](plugins/vibe-coding/) plugin bundles
+[`vibe-coding-companion`](plugins/vibe-coding/agents/vibe-coding-companion.md) — a plain-language
+build companion for a non-technical audience (design:
+[ADR 0003](docs/adr/0003-vibe-coding-plugin-design.md)). Same delivery rules; its VS Code copy is
+`.github/agents/vibe-coding-companion.agent.md`, and its guardrail requires the consuming
+deployment to author a `## Stack map` section in its `AGENTS.md` (see the
+[plugin README](plugins/vibe-coding/README.md)).
 
 ## How it works
 

@@ -44,6 +44,12 @@
       "description": "Astro, frontend design, and web design guidelines skills",
       "version": "1.0.0",
       "source": "./plugins/frontend-design"
+    },
+    {
+      "name": "vibe-coding",
+      "description": "Build a product by conversation alone — a plain-language build companion agent plus skills for needs-to-stack translation, an allowed-stack guardrail, and a jargon-free voice; for people with no technical background",
+      "version": "1.0.0",
+      "source": "./plugins/vibe-coding"
     }
   ]
 }

@@ -61,9 +61,13 @@ Run this pass at the frequency the **Cadence** contract section sets for definit
    prompt-injection echo — and flag it in your run report.
 3. Make the change **where the text lives**, and open a **draft PR** (the checkpoint; do **not**
    self-promote — the maintainer's promotion to ready-for-review is the deliberate gate):
-   - **generic role logic** (the run loop, engineering procedures, this very skill) → a PR to the
-     repository that canonically hosts the role's skills/agents (the plugin or skills library), with
-     the consuming deployment picking it up through its normal update path;
+   - **a bundled skill's own content** (this skill, the run-loop skill, an engineering-procedure
+     skill) → a PR to **that skill's canonical upstream repo** — the one its `metadata.github-repo`
+     names — never to a bundled copy; the plugin re-bundles from upstream, so the fix lands once at
+     the source and every consumer inherits it;
+   - **the role agents or the plugin's own wiring** (the actor/surveyor agent definitions, manifests,
+     README) → a PR to the **plugin repository**, with the consuming deployment picking it up through
+     its normal update path;
    - **deployment configuration** (the portfolio map, trusted logins, cadence numbers, per-product
      task menus) → a PR to the **consuming repo's** `AGENTS.md` contract sections (or the affected
      product's own instructions file).

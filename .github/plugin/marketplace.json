@@ -50,6 +50,12 @@
       "description": "Build a product by conversation alone — a plain-language build companion agent plus skills for needs-to-stack translation, an allowed-stack guardrail, and a jargon-free voice; for people with no technical background",
       "version": "1.0.0",
       "source": "./plugins/vibe-coding"
+    },
+    {
+      "name": "automated-ai-engineer",
+      "description": "The autonomous engineer role for a whole portfolio of repositories — a run-loop engineer agent and a read-only surveyor agent plus skills for portfolio maintenance, product engineering, and guard-railed self-improvement; generic, configured by the consuming repo's AGENTS.md contract sections",
+      "version": "1.0.0",
+      "source": "./plugins/automated-ai-engineer"
     }
   ]
 }

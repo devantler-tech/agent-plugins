@@ -1,0 +1,19 @@
+{
+  "name": "automated-ai-engineer",
+  "description": "The autonomous engineer role for a whole portfolio of repositories — a run-loop engineer agent and a read-only surveyor agent plus skills for portfolio maintenance, product engineering, and guard-railed self-improvement; generic, configured by the consuming repo's AGENTS.md contract sections",
+  "version": "1.0.0",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "keywords": [
+    "autonomous-engineer",
+    "ai-engineer",
+    "portfolio-maintenance",
+    "product-engineering",
+    "self-improvement",
+    "run-loop",
+    "draft-pr",
+    "agents"
+  ]
+}

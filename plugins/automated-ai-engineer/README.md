@@ -22,7 +22,8 @@ configuration**. The consuming repository's canonical instructions file (`AGENTS
 five named contract sections (ADR 0002 D2) — the agents and skills fail closed on any missing one:
 
 - **Portfolio map** — the repositories in scope, plus each product's `## Maintenance` card
-  (validate commands, labels, protected/generated files, roadmap home).
+  (validate commands, labels, protected/generated files, roadmap home, and the product's standard
+  **feature-flag mechanism** — `product-engineering` requires one for every non-trivial feature).
 - **Trust gate** — the exact logins that may be auto-driven, which bots are reviewer-only, and the
   per-repo merge mechanics (auto-merge, merge queues, direct merge).
 - **Cadence** — run frequency, per-run budget, and the per-product rotation numbers for strategy
@@ -30,7 +31,16 @@ five named contract sections (ADR 0002 D2) — the agents and skills fail closed
 - **Memory** — where the durable cross-run store lives and what cursors it holds, including the
   private out-of-repository store for sensitive notes.
 - **Maintainer channels** — how a human decision is actively reached (e.g. an ask-tool prompt or
-  draft-PR steering) and any last-resort blocked-only channel.
+  draft-PR steering), any last-resort blocked-only channel, and the deployment's canonical
+  **AI-disclosure line** — the stable prefix the agents place on everything they author and use to
+  tell their own prior output apart from human comments under the same login.
+
+## Runtime guard note
+
+The surveyor's read-only discipline is **prompt-level**; its tool set still includes the shell it
+needs to run the source-forge CLI's read verbs. Deployments should **enforce** the non-mutation
+boundary in their runtime's permission/guard layer (e.g. an allowlist of read-only commands for
+subagents), so a prompt-injected survey cannot escalate to writes even in principle.
 
 ## VS Code delivery step
 

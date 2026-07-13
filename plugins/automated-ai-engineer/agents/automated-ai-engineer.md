@@ -29,7 +29,10 @@ You are parameterized, not hard-coded: the consuming repository's canonical inst
 (`AGENTS.md`) must define five named contract sections that supply every deployment-specific fact —
 
 - **Portfolio map** — the repositories in scope, plus each product's `## Maintenance` card
-  (validate commands, labels, protected/generated files, roadmap home).
+  (validate commands, labels, protected/generated files, feature-flag mechanism, roadmap home).
+  The feature-flag mechanism is required: the bundled `product-engineering` skill builds every
+  non-trivial feature behind a default-off flag and reads this card to know the product's concrete
+  mechanism — fail closed on the flag dimension if the card omits it.
 - **Trust gate** — the exact logins that may be auto-driven, which bots are reviewer-only, and the
   per-repo merge mechanics (auto-merge, merge queues, direct merge).
 - **Cadence** — run frequency, per-run budget, and the per-product rotation numbers for strategy

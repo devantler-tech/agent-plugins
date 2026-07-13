@@ -81,8 +81,11 @@ a result set reaches it, paginate or raise it and say so, rather than surveying 
 ## Return — one compact digest
 
 Markdown, target under ~1.5K tokens; omit repositories with no signal entirely. Lead with a single
-`nothing_on_fire: <true|false>` line (true only when no default branch is red and no own/trusted PR
-is broken), then an **Operate** section (breakage, per-PR pentad lines with classification,
+`nothing_on_fire: <true|false>` line (true only when no default branch is red and no own/trusted
+**or ownership-unverified** PR is broken — since you are memory-blind you cannot confirm a
+maintainer-login PR is the orchestrator's own, so treat a *broken* ownership-unverified PR as fire
+too and always surface it in NEEDS-FIX for the orchestrator to classify), then an **Operate**
+section (breakage, per-PR pentad lines with classification,
 candidate maintainer comments, external PRs, untriaged/stale) and an **Advance** section
 (roadmap-ready issues, strategy-review candidates).
 

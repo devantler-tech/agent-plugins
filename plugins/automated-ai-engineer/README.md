@@ -42,9 +42,9 @@ needs to run the source-forge CLI's read verbs. Deployments should **enforce** t
 boundary in their runtime's permission/guard layer (e.g. an allowlist of read-only commands for
 subagents), so a prompt-injected survey cannot escalate to writes even in principle.
 
-## VS Code delivery step
+## Delivery
 
-Claude Code and Copilot CLI load the bundled `agents/` directory automatically when the plugin is
-installed. **VS Code does not** — copy the agents into your workspace as
-`.github/agents/automated-ai-engineer.agent.md` and `.github/agents/portfolio-surveyor.agent.md`
-to use them there.
+Installing the plugin makes both bundled agents available automatically — Claude Code, Copilot CLI,
+and VS Code all discover the plugin's `agents/` directory on install (VS Code surfaces
+plugin-provided agents in chat alongside your locally defined ones). No manual copy into
+`.github/agents` is required.

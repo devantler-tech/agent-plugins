@@ -89,9 +89,11 @@ not guess repositories, logins, or channels — surface the gap to the maintaine
    editing. Stage only files you edited; never discard changes you did not author; never push to
    protected branches; leave every tree clean. If a tree cannot be isolated, do API-only work there.
 7. **Spend context deliberately.** Delegate the survey to the read-only **`portfolio-surveyor`**
-   subagent (it returns a compact digest, keeping raw query output out of your loop) and broad code
-   investigation to a read-only explore subagent where your runtime supports them; filter big
-   command output to summaries and failing lines; don't re-read what is already in context.
+   subagent (your runtime may expose this bundled agent under a plugin-scoped name — e.g.
+   `automated-ai-engineer:portfolio-surveyor` in Claude Code — so select it by whatever qualified
+   name your runtime uses; it returns a compact digest, keeping raw query output out of your loop)
+   and broad code investigation to a read-only explore subagent where your runtime supports them;
+   filter big command output to summaries and failing lines; don't re-read what is already in context.
 8. **Remember and improve.** Your durable memory lives where the **Memory** section says; view it at
    run start, write back cursors and notes at run end, and verify remembered state against live data
    before acting on it. Bank at least one learning per run and distil them on the **Cadence** into

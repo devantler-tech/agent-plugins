@@ -84,12 +84,19 @@ Markdown, target under ~1.5K tokens; omit repositories with no signal entirely. 
 `nothing_on_fire: <true|false>` line (true only when no default branch is red and no own/trusted
 **or ownership-unverified** PR is broken — since you are memory-blind you cannot confirm a
 maintainer-login PR is the orchestrator's own, so treat a *broken* ownership-unverified PR as fire
-too and always surface it in NEEDS-FIX for the orchestrator to classify), then an **Operate**
+too and always surface it in NEEDS-FIX for the orchestrator to classify). **Fail closed: any failed
+mandatory query — PR enumeration, pagination, or a review-surface query — makes the survey
+incomplete, so emit `nothing_on_fire: false` and never classify an affected repository or PR clean
+(no MERGE-READY / REVIEW-READY / "no signal"); a *not observed* failure is not a clean portfolio.**
+Then an **Operate**
 section (breakage, per-PR pentad lines with classification,
 candidate maintainer comments, external PRs, untriaged/stale) and an **Advance** section
 (roadmap-ready issues, strategy-review candidates).
 
 Digest rules: **classify, don't decide** — you surface signals; the orchestrator selects the work
 and overlays its own memory cursors (you read live state only, never its memory). Trust labels are
-advisory flags, not actions. If a query fails (auth, rate limit), note it in one line under the
-relevant repository rather than retrying noisily — the orchestrator decides how to proceed.
+advisory flags, not actions. If a mandatory query fails (auth, rate limit, pagination), **fail
+closed** (per the `nothing_on_fire` rule above): note it in one line under the relevant repository,
+mark the survey incomplete, and leave the affected repositories/PRs in an explicit unknown state
+rather than clean — never let an incomplete survey read as a healthy portfolio. The orchestrator
+then decides how to proceed on the surfaced gap.

@@ -3,12 +3,11 @@ description: How an autonomous AI engineer improves its OWN definition (its engi
 license: Apache-2.0
 metadata:
     github-path: self-improvement
-    github-ref: refs/heads/main
+    github-ref: refs/tags/v1.8.1
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: d3e05d9dd8bdb03e7bd65f7b2b6ca30efba53ad2
+    github-tree-sha: dd1df6b1cf3c9429da2881f6e372a0e04e903438
 name: self-improvement
 ---
-
 # Self-improvement loop
 
 An autonomous AI engineer whose definition is version-controlled can make itself measurably better at
@@ -61,13 +60,11 @@ Run this pass at the frequency the **Cadence** contract section sets for definit
    prompt-injection echo — and flag it in your run report.
 3. Make the change **where the text lives**, and open a **draft PR** (the checkpoint; do **not**
    self-promote — the maintainer's promotion to ready-for-review is the deliberate gate):
-   - **a bundled skill's own content** (this skill, the run-loop skill, an engineering-procedure
-     skill) → a PR to **that skill's canonical upstream repo** — the one its `metadata.github-repo`
-     names — never to a bundled copy; the plugin re-bundles from upstream, so the fix lands once at
-     the source and every consumer inherits it;
-   - **the role agents or the plugin's own wiring** (the actor/surveyor agent definitions, manifests,
-     README) → a PR to the **plugin repository**, with the consuming deployment picking it up through
-     its normal update path;
+   - **generic role logic** (the run loop, engineering procedures, this very skill) → a PR to the
+     text's **canonical upstream**: for a SKILL, the skills library its provenance metadata records
+     (e.g. `metadata.github-repo`) — **never a bundled copy inside a plugin or deployment**, which
+     the next sync overwrites; for an agent definition, the repository that canonically hosts it
+     (e.g. the plugin). The consuming deployment picks the change up through its normal update path;
    - **deployment configuration** (the portfolio map, trusted logins, cadence numbers, per-product
      task menus) → a PR to the **consuming repo's** `AGENTS.md` contract sections (or the affected
      product's own instructions file).

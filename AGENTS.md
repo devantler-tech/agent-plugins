@@ -137,48 +137,28 @@ membership) is authored here.
 
 ## Validation
 
-Run before opening any PR. Steps 1–5 mirror the CI gates; step 6 is a best-effort local lint that CI
+Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:
 
 ```bash
-# 1. Both manifests are valid JSON with name + plugins.
-jq -e '.name and .plugins' .github/plugin/marketplace.json
-jq -e '.name and .plugins' .claude-plugin/marketplace.json
+# 1. Manifests, plugin.json completeness, marketplace ↔ plugins parity, README table, and skill
+#    provenance — the exact checks CI's "Validate manifests" job runs, from the same script.
+./scripts/validate-manifests.sh
 
-# 2. The two manifests are in sync (CI fails on any diff).
-diff <(jq -S . .github/plugin/marketplace.json) <(jq -S . .claude-plugin/marketplace.json)
-
-# 3. Every plugin.json is complete: kebab-case name, non-empty description + version, skills == "skills/",
-#    and a skills/ dir holding at least one <skill>/SKILL.md.
-for pj in plugins/*/plugin.json; do
-  d=$(dirname "$pj")
-  jq -e '.name | test("^[a-z0-9-]+$")' "$pj" >/dev/null || echo "BAD name: $pj"
-  jq -e '(.description | length > 0) and (.version | length > 0) and (.skills == "skills/")' "$pj" >/dev/null \
-    || echo "BAD fields: $pj"
-  find "$d/skills" -mindepth 2 -maxdepth 2 -name SKILL.md -print -quit | grep -q . || echo "BAD skills: $d"
-done
-
-# 4. Marketplace ↔ plugins filesystem parity: every manifest entry has a matching plugins/<name>/ with a
-#    plugin.json whose name/description/version match and source == ./plugins/<name>; no orphan plugin dir.
-m=.claude-plugin/marketplace.json
-while IFS=$'\t' read -r name description version source; do
-  [ "$source" = "./plugins/$name" ] && [ -f "plugins/$name/plugin.json" ] \
-    && [ "$(jq -r '[.name,.description,.version]|@tsv' "plugins/$name/plugin.json")" = "$(printf '%s\t%s\t%s' "$name" "$description" "$version")" ] \
-    || echo "BAD parity: $name"
-done < <(jq -r '.plugins[] | [.name,.description,.version,.source] | @tsv' "$m")
-for pj in plugins/*/plugin.json; do
-  n=$(jq -r '.name' "$pj")
-  jq -e --arg n "$n" '.plugins[]|select(.name==$n)' "$m" >/dev/null || echo "BAD orphan: plugins/$n"
-done
-
-# 5. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
+# 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
 python -m pip install "skills-ref @ git+https://github.com/agentskills/agentskills.git@8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3#subdirectory=skills-ref"
 find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -printf '%h\n' | while read -r d; do skills-ref validate "$d"; done
 
-# 6. (local only) Lint changed workflows.
+# 3. (local only) Lint changed workflows.
 actionlint
 ```
+
+Step 1 deliberately calls the script rather than restating its checks: it is the single source of
+truth CI runs, and a hand-copied version of it drifts. It did — the snippet that used to live here
+asserted `.skills == "skills/"` in every `plugin.json`, long after the convention moved to omitting
+that field (skills are auto-discovered), so following this document reported all 8 plugins broken
+while CI was green (#65).
 
 The required gate is the aggregated **`CI - Required Checks`** job (validate-manifests +
 discover-skills + validate-spec); `actionlint` above is a local-only convenience, not a CI gate. Never
@@ -202,10 +182,10 @@ manifests drive what VS Code / Copilot CLI / Claude Code offer, so a malformed m
 pair, or a broken bundled `SKILL.md` ripples into every consumer. Prefer additive, backward-compatible
 changes; keep the two manifests in parity and the README in lockstep.
 
-**Validate before any PR:** run the five checks under *Validation* above (both manifests valid + in
-parity, kebab-case plugin names, spec-validate each skill, `actionlint` changed workflows). No app
-build here — manifest parity, `plugin.json` validity, `SKILL.md` spec-conformance, and pinned workflows
-are the gate. Never weaken a security control or a check to pass.
+**Validate before any PR:** run the steps under *Validation* above (`./scripts/validate-manifests.sh`,
+spec-validate each skill, `actionlint` changed workflows). No app build here — manifest parity,
+`plugin.json` validity, `SKILL.md` spec-conformance, and pinned workflows are the gate. Never weaken a
+security control or a check to pass.
 
 **Task menu** (1–2 items/run; high care):
 - **Curate the marketplace:** add a category plugin or a high-quality skill to an existing one (install

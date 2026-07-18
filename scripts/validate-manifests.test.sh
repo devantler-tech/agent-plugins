@@ -332,16 +332,17 @@ Agent body.
 EOF
 }
 
-# A plugin bundling a conformant agents/<name>.md passes when that agent name is in the README.
+# A conformant agent under the bare .md name FAILS: VS Code and Copilot CLI only discover
+# agents/*.agent.md, so a bare .md would pass CI while being invisible on two of three tools.
 d=$(fresh)
-mkdir -p "$d/plugins/alpha/agents"; make_agent "$d/plugins/alpha/agents" test-agent.md
+mkdir -p "$d/plugins/alpha/agents"; make_agent "$d/plugins/alpha/agents" bare-agent.md
 # shellcheck disable=SC2016
-sed 's/`example-skill` | Alpha plugin/`example-skill`, `test-agent` | Alpha plugin/' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
-check_pass "plugin bundling a custom agent passes (agent in README resources)" "$d"
+sed 's/`example-skill` | Alpha plugin/`example-skill`, `bare-agent` | Alpha plugin/' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
+check_fail "agent named bare .md fails (not VS Code/Copilot-discoverable)" "must use the <name>.agent.md suffix" "$d"
 
 # A bundled agent name missing from the README Resources column drifts out of lockstep.
 d=$(fresh)
-mkdir -p "$d/plugins/alpha/agents"; make_agent "$d/plugins/alpha/agents" test-agent.md
+mkdir -p "$d/plugins/alpha/agents"; make_agent "$d/plugins/alpha/agents" test-agent.agent.md
 check_fail "custom agent missing from README resources fails" "README.md Resources for 'alpha'" "$d"
 
 # VS Code's discovery suffix (<name>.agent.md, ADR 0001's 2026-07-18 correction) resolves to the
@@ -355,17 +356,17 @@ check_pass "agent named <name>.agent.md resolves to <name> in README resources" 
 # An agents/ dir with no *.md (only a stray non-agent file) is not a valid agent resource.
 d=$(fresh)
 mkdir -p "$d/plugins/alpha/agents"; printf 'notes\n' > "$d/plugins/alpha/agents/README.txt"
-check_fail "agents/ with no *.md fails" "must contain at least one agents/*.md" "$d"
+check_fail "agents/ with no *.md fails" "must contain at least one agents/*.agent.md" "$d"
 
 # A body-only agent (no YAML frontmatter) is rejected — placeholders must not pass.
 d=$(fresh)
-mkdir -p "$d/plugins/alpha/agents"; printf '%s\n' 'Just a body, no frontmatter.' > "$d/plugins/alpha/agents/test-agent.md"
+mkdir -p "$d/plugins/alpha/agents"; printf '%s\n' 'Just a body, no frontmatter.' > "$d/plugins/alpha/agents/test-agent.agent.md"
 check_fail "agent .md without frontmatter fails" "must declare a non-empty 'name'" "$d"
 
 # An agent whose frontmatter omits 'description' is rejected.
 d=$(fresh)
 mkdir -p "$d/plugins/alpha/agents"
-cat > "$d/plugins/alpha/agents/test-agent.md" <<'EOF'
+cat > "$d/plugins/alpha/agents/test-agent.agent.md" <<'EOF'
 ---
 name: test-agent
 ---
@@ -376,7 +377,7 @@ check_fail "agent .md missing description fails" "must declare a non-empty 'desc
 # A folded/block-scalar description (>-) with a non-blank body satisfies the check.
 d=$(fresh)
 mkdir -p "$d/plugins/alpha/agents"
-cat > "$d/plugins/alpha/agents/test-agent.md" <<'EOF'
+cat > "$d/plugins/alpha/agents/test-agent.agent.md" <<'EOF'
 ---
 name: test-agent
 description: >-
@@ -392,7 +393,7 @@ check_pass "agent with a folded (>-) description passes" "$d"
 # A bare block-scalar description indicator with no body is empty ⇒ rejected.
 d=$(fresh)
 mkdir -p "$d/plugins/alpha/agents"
-cat > "$d/plugins/alpha/agents/test-agent.md" <<'EOF'
+cat > "$d/plugins/alpha/agents/test-agent.agent.md" <<'EOF'
 ---
 name: test-agent
 description: >-

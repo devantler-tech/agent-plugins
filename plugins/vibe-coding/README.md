@@ -27,4 +27,10 @@ plugin is installed — there is no copy step on any of them. In VS Code this ne
 `chat.plugins.enabled` setting, which your organization may control.
 
 If you are not installing this as a plugin, place the companion agent in your workspace by hand as
-`.github/agents/vibe-coding-companion.agent.md`.
+`.github/agents/vibe-coding-companion.agent.md` — **and install its three load-bearing skills too**
+(the agent's guardrails defer to them), e.g.:
+
+```sh
+npx skills add devantler-tech/agent-plugins --skill needs-stack-mapping \
+  --skill allowed-stack-guardrail --skill jargon-free-voice
+```

@@ -95,13 +95,24 @@ frontmatter_has_value() {
 }
 
 # A bundled custom-agents resource (ADR 0001 §D1/§D3): an agents/ directory must hold at least
-# one agents/*.md, and every agent file must carry YAML frontmatter with a non-empty 'name' and
-# 'description' (the neutral cross-tool core). A body-only or placeholder .md is rejected.
+# one agents/*.agent.md, and every agent file must carry YAML frontmatter with a non-empty 'name'
+# and 'description' (the neutral cross-tool core). The .agent.md suffix is REQUIRED — it is the
+# discovery pattern VS Code and Copilot CLI use, while Claude Code is filename-agnostic, so a bare
+# .md agent would pass CI yet be invisible on two of the three supported tools. A body-only or
+# placeholder file is rejected.
 validate_agent_dir() {
   local dir="$1" md count=0 failed=0
   for md in "$dir"/*.md; do
     [ -e "$md" ] || continue
     count=$((count + 1))
+    case "$md" in
+      *.agent.md) ;;
+      *)
+        echo "::error::$md: agent files must use the <name>.agent.md suffix (VS Code/Copilot discovery; bare .md is invisible there)"
+        failed=1
+        continue
+        ;;
+    esac
     if ! frontmatter_has_value "$md" name; then
       echo "::error::$md: agent must declare a non-empty 'name' in its YAML frontmatter"
       failed=1
@@ -112,7 +123,7 @@ validate_agent_dir() {
     fi
   done
   if [ "$count" -eq 0 ]; then
-    echo "::error::$dir: must contain at least one agents/*.md"
+    echo "::error::$dir: must contain at least one agents/*.agent.md"
     return 1
   fi
   return "$failed"

@@ -120,7 +120,10 @@ The agent is authored once as `agents/<name>.agent.md` (Markdown + YAML frontmat
 `name`/`description`/`tools`/`model` core). The `.agent.md` filename is what VS Code and Copilot
 discover inside a plugin's `agents/` directory; Claude Code is filename-agnostic (it reads any
 Markdown in `agents/` and takes the agent's name from frontmatter), so one file serves all three
-tools (per [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
+tools. The same goes for the `tools:` allowlist: MCP tools are listed in both spellings — Claude
+Code's `mcp__<server>__<tool>` and VS Code / Copilot's `<server>/<tool>` — because each tool
+ignores entries it does not recognise (per
+[ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 
 - **Claude Code**, **Copilot CLI**, and **VS Code** — the bundled `agents/` directory is loaded
   automatically when the plugin is installed; in Claude Code the agent is namespaced

@@ -112,7 +112,9 @@ membership) is authored here.
    any `plugin.json` that sets `skills`/`agents` to a non-array. Skill dirs sit at
    `plugins/<plugin>/skills/<skill>/` and each holds a conformant `SKILL.md` (CI discovers them at
    depth 4). A bundled `.mcp.json` is a `{ "mcpServers": { … } }` map whose every server carries a
-   `command` (stdio) or `url` (remote). A bundled `agents/` directory holds ≥1 `agents/*.md`, each with
+   `command` (stdio) or `url` (remote). A bundled `agents/` directory holds ≥1 `agents/*.agent.md` —
+   the `.agent.md` suffix is REQUIRED (VS Code/Copilot discover agents by it; a bare `.md` is
+   invisible there, and CI's suffix guard rejects it) — each with
    YAML frontmatter carrying a non-empty `name` and `description` (the neutral cross-tool core). See
    [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md) for the cross-tool delivery model.
 3. **agentskills.io spec.** Every bundled `SKILL.md` must validate against the

@@ -176,8 +176,10 @@ check is added for MCP well-formedness:
      that is set to a non-array, so the Claude-Code-breaking bare-string form can never return.
    - `.mcp.json` present → it must be valid JSON with a non-empty `.mcpServers` object, and each server
      must have a `command` (stdio) **or** a `url` (remote). (New check.)
-   - `agents/` present → ≥1 `agents/*.md`, each with YAML frontmatter carrying `name` + `description`.
-     (New check.)
+   - `agents/` present → ≥1 `agents/*.agent.md`, each with YAML frontmatter carrying `name` +
+     `description`. (New check; the suffix requirement is the 2026-07-18 correction — VS Code/Copilot
+     discover agents by the `.agent.md` suffix, so the guard rejects a bare `agents/*.md` that would be
+     invisible on two of the three tools.)
 2. **`validate_readme_parity`** — generalize the README **Skills** column to a **Resources** column that
    lists the plugin's resources (skill dir names, MCP server names, and/or agent names), and match it
    against on-disk resources. Skill-only rows are unaffected in substance (the column simply lists the

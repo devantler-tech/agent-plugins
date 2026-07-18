@@ -57,6 +57,21 @@ Add the marketplace, then install a plugin — run these inside Claude Code:
 
 Browse everything on offer with `/plugin` (**Discover** tab) or list it with `/plugin list`. The bundled [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) is also discovered automatically when this repo is added as a plugin source.
 
+### Any other agent — skills only, via `npx skills`
+
+[`npx skills`](https://github.com/vercel-labs/skills) reads this repo's [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) and installs the bundled **skills** into any of its 70+ supported agents — useful when your agent isn't one of the three above:
+
+```sh
+# Browse the bundled skills without installing
+npx skills add devantler-tech/agent-plugins --list
+
+# Install specific skills for a specific agent
+npx skills add devantler-tech/agent-plugins --skill gitops-knowledge --agent cursor
+```
+
+> [!IMPORTANT]
+> This is a **partial** install path. It resolves all **27 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). For those, use **Claude Code** or **Copilot CLI** above — they are the only tools that load a plugin's bundled `.mcp.json` and `agents/` automatically. In **VS Code**, a plugin install delivers the skills only, and MCP servers and agents are added manually (see [MCP servers](#mcp-servers) and [custom agents](#custom-agents) for the exact steps).
+
 ## MCP servers
 
 A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as skills. The

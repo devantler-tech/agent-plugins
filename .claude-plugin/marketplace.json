@@ -53,7 +53,7 @@
     },
     {
       "name": "automated-ai-engineer",
-      "description": "The autonomous engineer role for a whole portfolio of repositories — a run-loop engineer agent and a read-only surveyor agent plus skills for portfolio maintenance, product engineering, and guard-railed self-improvement; generic, configured by the consuming repo's AGENTS.md contract sections",
+      "description": "The autonomous engineer role for a whole portfolio of repositories — a run-loop engineer agent, a read-only surveyor agent, and a meta-engineer that improves the engineer itself from measured evidence, plus skills for portfolio maintenance, product engineering, guard-railed self-improvement, and outside-in agent improvement; generic, configured by the consuming repo's AGENTS.md contract sections",
       "version": "1.0.0",
       "source": "./plugins/automated-ai-engineer"
     }

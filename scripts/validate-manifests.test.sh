@@ -344,6 +344,14 @@ d=$(fresh)
 mkdir -p "$d/plugins/alpha/agents"; make_agent "$d/plugins/alpha/agents" test-agent.md
 check_fail "custom agent missing from README resources fails" "README.md Resources for 'alpha'" "$d"
 
+# VS Code's discovery suffix (<name>.agent.md, ADR 0001's 2026-07-18 correction) resolves to the
+# same README token as <name>.md — the enumerator strips the whole .agent.md, never just .md.
+d=$(fresh)
+mkdir -p "$d/plugins/alpha/agents"; make_agent "$d/plugins/alpha/agents" test-agent.agent.md
+# shellcheck disable=SC2016
+sed 's/`example-skill` | Alpha plugin/`example-skill`, `test-agent` | Alpha plugin/' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
+check_pass "agent named <name>.agent.md resolves to <name> in README resources" "$d"
+
 # An agents/ dir with no *.md (only a stray non-agent file) is not a valid agent resource.
 d=$(fresh)
 mkdir -p "$d/plugins/alpha/agents"; printf 'notes\n' > "$d/plugins/alpha/agents/README.txt"

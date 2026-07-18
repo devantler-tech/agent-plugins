@@ -110,34 +110,36 @@ transport.
 
 A plugin may also bundle **custom agents** (subagents). The
 [`gitops-kubernetes`](plugins/gitops-kubernetes/) plugin bundles
-[`flux-troubleshooter`](plugins/gitops-kubernetes/agents/flux-troubleshooter.md) — a **read-only**
+[`flux-troubleshooter`](plugins/gitops-kubernetes/agents/flux-troubleshooter.agent.md) — a **read-only**
 Flux CD triage agent that traces the GitOps dependency chain (source → Kustomization/HelmRelease →
 workloads), reads status conditions and controller logs via the bundled `flux-operator-mcp` server,
 and returns a root-cause diagnosis plus the human-applied fix. It has no apply/reconcile/suspend/
 delete tool by design, so it never mutates the cluster.
 
-The agent is authored once as `agents/<name>.md` (Markdown + YAML frontmatter, with the neutral
-`name`/`description`/`tools`/`model` core). How each tool consumes it differs (per
-[ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
+The agent is authored once as `agents/<name>.agent.md` (Markdown + YAML frontmatter, with the neutral
+`name`/`description`/`tools`/`model` core). The `.agent.md` filename is what VS Code and Copilot
+discover inside a plugin's `agents/` directory; Claude Code is filename-agnostic (it reads any
+Markdown in `agents/` and takes the agent's name from frontmatter), so one file serves all three
+tools (per [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 
 - **Claude Code**, **Copilot CLI**, and **VS Code** — the bundled `agents/` directory is loaded
   automatically when the plugin is installed; in Claude Code the agent is namespaced
-  `gitops-kubernetes:flux-troubleshooter`. (Copilot reads the same file as `*.agent.md`.)
+  `gitops-kubernetes:flux-troubleshooter`.
 
 As with MCP, hand-placing an agent at `.github/agents/<name>.agent.md` is only for setups that aren't
 installing this as a plugin.
 
 The [`vibe-coding`](plugins/vibe-coding/) plugin bundles
-[`vibe-coding-companion`](plugins/vibe-coding/agents/vibe-coding-companion.md) — a plain-language
+[`vibe-coding-companion`](plugins/vibe-coding/agents/vibe-coding-companion.agent.md) — a plain-language
 build companion for a non-technical audience (design:
 [ADR 0003](docs/adr/0003-vibe-coding-plugin-design.md)). Same delivery rules. Its guardrail requires
 the consuming deployment to author a `## Stack map` section in its `AGENTS.md` (see the
 [plugin README](plugins/vibe-coding/README.md)).
 
 The [`automated-ai-engineer`](plugins/automated-ai-engineer/) plugin bundles two agents —
-[`automated-ai-engineer`](plugins/automated-ai-engineer/agents/automated-ai-engineer.md) (the
+[`automated-ai-engineer`](plugins/automated-ai-engineer/agents/automated-ai-engineer.agent.md) (the
 autonomous portfolio-engineer actor) and
-[`portfolio-surveyor`](plugins/automated-ai-engineer/agents/portfolio-surveyor.md) (its read-only
+[`portfolio-surveyor`](plugins/automated-ai-engineer/agents/portfolio-surveyor.agent.md) (its read-only
 survey subagent) — alongside its three engineering skills (design:
 [ADR 0002](docs/adr/0002-automated-ai-engineer-plugin-boundary.md)). Same delivery rules; the
 consuming deployment must define the five contract sections (Portfolio map, Trust gate, Cadence,

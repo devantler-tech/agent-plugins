@@ -152,13 +152,15 @@ the canonical model, consumed natively by both plugin-native tools and documente
 - **Copilot CLI / cloud agent:** the **same** `.mcp.json` is bundled — `plugin.json`'s `mcpServers`
   field resolves to it (and the plugin installs via `copilot plugin install` or `enabledPlugins`). No
   hand-configuration; the server ships *inside* the plugin exactly as on Claude Code.
-- **VS Code:** the only consume-via-config surface — the plugin README documents the equivalent
-  `.vscode/mcp.json` entry under the **`servers`** key (key-renamed from the canonical `mcpServers`;
-  same per-server shape).
+- **VS Code:** ~~the only consume-via-config surface~~ **now a plugin-native consumer too** (see the
+  2026-07-18 correction above): it discovers the bundled `.mcp.json` automatically when the plugin
+  loads, and the server starts with the plugin. The plugin README's `.vscode/mcp.json` snippet
+  (**`servers`** key, key-renamed from the canonical `mcpServers`; same per-server shape) remains
+  **only** for setups that consume the server without installing the plugin.
 
-The README install snippet is the parity mechanism for VS Code alone — generated from the one canonical
-`.mcp.json`, never independently authored, so it cannot drift in substance. Claude Code and Copilot CLI
-need no snippet; they bundle the canonical file directly.
+The README install snippet is the parity mechanism for non-plugin setups alone — generated from the one
+canonical `.mcp.json`, never independently authored, so it cannot drift in substance. Plugin installs
+need no snippet on any of the three tools; they bundle the canonical file directly.
 
 ### D3 — CI / manifest changes (the gate stays the contract)
 
@@ -199,8 +201,9 @@ the first proof. Rationale: the bundled `gitops-cluster-debug` skill already dec
 `compatibility: Requires flux-operator-mcp` and, on failure, tells the user *"the `flux-operator-mcp`
 server is not running. Provide the install command."* Bundling the server makes that skill
 **self-sufficient on Claude Code** and is the highest-utility, lowest-divergence first bundle — a skill
-and the MCP it already depends on, shipped together. Copilot CLI / VS Code get the documented config per
-D2. This is exactly the "MCP paired with an existing plugin where the skills already assume it" candidate
+and the MCP it already depends on, shipped together. Copilot CLI and VS Code load the same bundle
+(per the 2026-07-18 correction; D2's documented config remains only for non-plugin setups). This is
+exactly the "MCP paired with an existing plugin where the skills already assume it" candidate
 named in #39.
 
 ## Considered alternatives
@@ -253,7 +256,7 @@ named in #39.
 
 - **AC#3 child ([#42](https://github.com/devantler-tech/agent-plugins/issues/42), next):** implement D3
   (validator + self-test generalization) **and** D4 (the `flux-operator-mcp` bundle in
-  `gitops-kubernetes`: `.mcp.json`, README bundled + Copilot/VS Code config snippets, manifest/README
-  prose broadening) in one PR — the design here is the contract it implements.
+  `gitops-kubernetes`: `.mcp.json`, README bundled note + the non-plugin-setup config snippet,
+  manifest/README prose broadening) in one PR — the design here is the contract it implements.
 - Custom-agent bundling (the `agents/` path in D1/D3) proves out after the MCP path, as a later child of
   epic #38 Theme 1.

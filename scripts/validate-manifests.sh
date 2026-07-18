@@ -243,13 +243,14 @@ validate_marketplace_plugins_parity() {
 # resource kinds validate_plugin_json accepts (ADR 0001 §D3): every skill directory under
 # plugins/<name>/skills/, every MCP server key in an optional plugins/<name>/.mcp.json, AND
 # every custom-agent entry under an optional plugins/<name>/agents/ (its basename, with a
-# trailing .md stripped). These are the tokens the README "Resources" column must list.
+# trailing .agent.md — VS Code's discovery suffix, ADR 0001's 2026-07-18 correction — or bare
+# .md stripped). These are the tokens the README "Resources" column must list.
 # Count EVERY skill directory / agent entry, not only those already fleshed out, so a
 # stray/half-added folder (the exact drift this parity check guards against) is surfaced
 # rather than silently hidden. Kept in lockstep with validate_plugin_json's resource model
 # so a plugin can never satisfy that check with a resource kind this enumerator ignores.
 plugin_disk_resources() {
-  local name="$1" d mcp="plugins/$1/.mcp.json"
+  local name="$1" d b mcp="plugins/$1/.mcp.json"
   {
     for d in "plugins/$name/skills"/*/; do
       [ -d "$d" ] || continue
@@ -260,7 +261,8 @@ plugin_disk_resources() {
     fi
     for d in "plugins/$name/agents"/*; do
       [ -e "$d" ] || continue
-      basename "$d" .md
+      b="$(basename "$d" .md)"
+      printf '%s\n' "${b%.agent}"
     done
   } | sort | tr '\n' ' '
 }

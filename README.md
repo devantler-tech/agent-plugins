@@ -19,7 +19,7 @@ This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every 
 | [`engineering-practices`](plugins/engineering-practices/) | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working` | Git commits, conventional releases, refactoring, TDD, and engineering ways of working |
 | [`frontend-design`](plugins/frontend-design/) | `astro`, `frontend-design`, `web-design-guidelines` | Astro, frontend design, and web design guidelines |
 | [`vibe-coding`](plugins/vibe-coding/) | `needs-stack-mapping`, `allowed-stack-guardrail`, `jargon-free-voice` (skills) · `vibe-coding-companion` (agent) | Build a product by conversation alone — plain-language companion agent + guardrailed needs-to-stack skills for people with no technical background |
-| [`automated-ai-engineer`](plugins/automated-ai-engineer/) | `portfolio-maintenance`, `product-engineering`, `self-improvement` (skills) · `automated-ai-engineer`, `portfolio-surveyor` (agents) | The autonomous engineer role for a whole repository portfolio — run-loop engineer + read-only surveyor agents with maintenance, product-engineering, and self-improvement skills; configured by the consuming repo's AGENTS.md contract sections |
+| [`automated-ai-engineer`](plugins/automated-ai-engineer/) | `portfolio-maintenance`, `product-engineering`, `self-improvement`, `agent-improvement` (skills) · `automated-ai-engineer`, `portfolio-surveyor`, `agent-improver` (agents) | The autonomous engineer role for a whole repository portfolio — run-loop engineer + read-only surveyor agents, plus a meta-engineer that improves the engineer itself from measured evidence; configured by the consuming repo's AGENTS.md contract sections |
 
 ## Installation
 
@@ -70,7 +70,7 @@ npx skills add devantler-tech/agent-plugins --skill gitops-knowledge --agent cur
 ```
 
 > [!IMPORTANT]
-> This is a **partial** install path. It resolves all **27 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). To get everything a plugin bundles, install it as a plugin in **VS Code**, **Copilot CLI**, or **Claude Code** above — all three load a plugin's bundled `.mcp.json` and `agents/` automatically.
+> This is a **partial** install path. It resolves all **28 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). To get everything a plugin bundles, install it as a plugin in **VS Code**, **Copilot CLI**, or **Claude Code** above — all three load a plugin's bundled `.mcp.json` and `agents/` automatically.
 
 ## MCP servers
 
@@ -139,14 +139,17 @@ build companion for a non-technical audience (design:
 the consuming deployment to author a `## Stack map` section in its `AGENTS.md` (see the
 [plugin README](plugins/vibe-coding/README.md)).
 
-The [`automated-ai-engineer`](plugins/automated-ai-engineer/) plugin bundles two agents —
+The [`automated-ai-engineer`](plugins/automated-ai-engineer/) plugin bundles three agents —
 [`automated-ai-engineer`](plugins/automated-ai-engineer/agents/automated-ai-engineer.agent.md) (the
-autonomous portfolio-engineer actor) and
+autonomous portfolio-engineer actor),
 [`portfolio-surveyor`](plugins/automated-ai-engineer/agents/portfolio-surveyor.agent.md) (its read-only
-survey subagent) — alongside its three engineering skills (design:
+survey subagent), and
+[`agent-improver`](plugins/automated-ai-engineer/agents/agent-improver.agent.md) (a meta-engineer that
+improves the engineer itself from measured evidence) — alongside its engineering skills (design:
 [ADR 0002](docs/adr/0002-automated-ai-engineer-plugin-boundary.md)). Same delivery rules; the
 consuming deployment must define the five contract sections (Portfolio map, Trust gate, Cadence,
-Memory, Maintainer channels) in its `AGENTS.md` (see the
+Memory, Maintainer channels) in its `AGENTS.md` — plus **Agent definition locations** and
+**Authority model** if it enables `agent-improver` (see the
 [plugin README](plugins/automated-ai-engineer/README.md)).
 
 ## How it works

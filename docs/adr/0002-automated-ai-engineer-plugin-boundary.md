@@ -29,7 +29,7 @@ children 2 and 3 a contract to implement.
 
 This also advances the marketplace's own roadmap: [#38](https://github.com/devantler-tech/agent-plugins/issues/38)
 Theme 1 wants a flagship bundle that proves plugins are *not skills-only* — an agent+skills unit at real
-scale. The Automated AI Engineer is exactly that (two agents + three skills).
+scale. The Automated AI Engineer is exactly that — shipped as two agents + three skills, and since extended to **three agents + four skills** with the `agent-improver` meta-engineer and its `agent-improvement` skill ([#73](https://github.com/devantler-tech/agent-plugins/pull/73)), which improves the engineer itself from measured evidence.
 
 **Name collision to avoid.** An existing `agentic-engineering` plugin bundles SDK / instruction-authoring
 / skill-discovery skills for **building** agentic applications; `engineering-practices` bundles practice
@@ -57,7 +57,7 @@ local.
 
 ### D1 — Home of every section: role → plugin, configuration → consumer `AGENTS.md`
 
-**Generic — the role (→ plugin: the two agents + three skills):**
+**Generic — the role (→ plugin: the agents + skills; two agents + three skills at authoring time, three + four today):**
 
 | Constitution element | Plugin home |
 |---|---|

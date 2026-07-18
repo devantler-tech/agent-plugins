@@ -131,14 +131,19 @@ build companion for a non-technical audience (design:
 deployment to author a `## Stack map` section in its `AGENTS.md` (see the
 [plugin README](plugins/vibe-coding/README.md)).
 
-The [`automated-ai-engineer`](plugins/automated-ai-engineer/) plugin bundles two agents —
+The [`automated-ai-engineer`](plugins/automated-ai-engineer/) plugin bundles three agents —
 [`automated-ai-engineer`](plugins/automated-ai-engineer/agents/automated-ai-engineer.md) (the
-autonomous portfolio-engineer actor) and
+autonomous portfolio-engineer actor),
 [`portfolio-surveyor`](plugins/automated-ai-engineer/agents/portfolio-surveyor.md) (its read-only
-survey subagent) — alongside its three engineering skills (design:
-[ADR 0002](docs/adr/0002-automated-ai-engineer-plugin-boundary.md)). Same delivery rules; the
+survey subagent), and
+[`agent-improver`](plugins/automated-ai-engineer/agents/agent-improver.md) (a meta-engineer that
+improves the engineer itself from measured evidence) — alongside its engineering skills (design:
+[ADR 0002](docs/adr/0002-automated-ai-engineer-plugin-boundary.md)). Same delivery rules; VS Code
+users copy them to `.github/agents/automated-ai-engineer.agent.md`,
+`.github/agents/portfolio-surveyor.agent.md`, and `.github/agents/agent-improver.agent.md`. The
 consuming deployment must define the five contract sections (Portfolio map, Trust gate, Cadence,
-Memory, Maintainer channels) in its `AGENTS.md` (see the
+Memory, Maintainer channels) in its `AGENTS.md` — plus **Agent definition locations** and
+**Authority model** if it enables `agent-improver` (see the
 [plugin README](plugins/automated-ai-engineer/README.md)).
 
 ## How it works

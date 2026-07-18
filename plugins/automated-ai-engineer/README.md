@@ -46,6 +46,25 @@ five named contract sections (ADR 0002 D2) — the agents and skills fail closed
   **AI-disclosure line** — the stable prefix the agents place on everything they author and use to
   tell their own prior output apart from human comments under the same login.
 
+**Enabling `agent-improver` adds two more required sections.** The meta-engineer edits the engineer's
+own definition, so a deployment that runs it must also define — and it fails closed on either being
+missing:
+
+- **Agent definition locations** — every surface the meta-engineer may change, and which are
+  version-controlled (ship as a pull request) versus not (bootstrap/loader entries, permission or
+  approval configuration — edited in place, backed up first). Anything not named here is out of scope,
+  which is what keeps a meta-engineer away from product repositories.
+- **Authority model** — how much it may change alone, stated separately for **tightening** and
+  **loosening** a guardrail, and for the prose definition versus the enforcement layer. Deployments
+  differ: some grant tightening only and route every loosening to the maintainer; others grant
+  symmetric authority. The agent's own obligations (evidence, reversibility, audit trail, loosenings
+  shipping alone) hold either way — this section only sets the boundary between what it applies itself
+  and what it hands over.
+
+Also state, in **Memory**, where its scorecard and open verification hypotheses live: the loop depends
+on comparing today's numbers against the previous run's and re-checking a change's target metric before
+starting new work.
+
 ## Runtime guard note
 
 The surveyor's read-only discipline is **prompt-level**; its tool set still includes the shell it

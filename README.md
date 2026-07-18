@@ -70,7 +70,7 @@ npx skills add devantler-tech/agent-plugins --skill gitops-knowledge --agent cur
 ```
 
 > [!IMPORTANT]
-> This is a **partial** install path. It resolves all **27 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents) — those are plugin-level resources that only a real plugin install delivers. For the complete plugins, use VS Code, Copilot CLI, or Claude Code above.
+> This is a **partial** install path. It resolves all **27 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). For those, use **Claude Code** or **Copilot CLI** above — they are the only tools that load a plugin's bundled `.mcp.json` and `agents/` automatically. In **VS Code**, a plugin install delivers the skills only, and MCP servers and agents are added manually (see [MCP servers](#mcp-servers) and [custom agents](#custom-agents) for the exact steps).
 
 ## MCP servers
 

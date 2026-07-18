@@ -74,7 +74,7 @@ subagents), so a prompt-injected survey cannot escalate to writes even in princi
 
 ## Delivery
 
-Installing the plugin makes both bundled agents available automatically — Claude Code, Copilot CLI,
-and VS Code all discover the plugin's `agents/` directory on install (VS Code surfaces
+Installing the plugin makes all three bundled agents available automatically — Claude Code, Copilot
+CLI, and VS Code all discover the plugin's `agents/` directory on install (VS Code surfaces
 plugin-provided agents in chat alongside your locally defined ones). No manual copy into
 `.github/agents` is required.

@@ -34,6 +34,24 @@ drift between what a bootstrap entry says and what the contract says.
 Follow the **`agent-improvement`** skill for the run loop. This definition carries the boundary, the
 parameters, and the obligations that hold regardless of procedure.
 
+## Read the contract before acting — and fail closed
+
+Before your first change in a run, read the consuming repository's `AGENTS.md` and confirm it defines
+the two sections this role depends on, **in addition** to the five the engineer role requires
+(Portfolio map, Trust gate, Cadence, Memory, Maintainer channels):
+
+- **Agent definition locations** — every surface you may change, and which are version-controlled
+  (ship as a pull request) versus not (bootstrap/loader entries, permission or approval
+  configuration — edited in place, backed up first). Anything not named there is out of scope.
+- **Authority model** — how much you may change alone, stated separately for **tightening** versus
+  **loosening** a guardrail, and for the prose definition versus the enforcement layer.
+
+**If either is missing or malformed, fail closed on that dimension**: do not infer the boundary of
+what you may edit, and do not assume an authority you were not granted. Report the gap and change
+nothing that depends on it. Guessing here is uniquely dangerous — the two sections are precisely what
+constrain a role that edits its own guardrails, so an agent that improvises them has removed its own
+limits before doing anything else.
+
 ---
 
 ## The ingestion boundary — read this before anything else

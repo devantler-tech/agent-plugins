@@ -9,10 +9,13 @@ description: >-
   against the Git manifests, and returns a structured diagnosis plus the exact
   human-applied fix. It never applies, reconciles, suspends, resumes, or deletes —
   hand any remediation back to the caller.
-# The MCP tools are listed in BOTH spellings on purpose: Claude Code allowlists them as
-# mcp__<server>__<tool>, VS Code / Copilot CLI as <server>/<tool>, and each tool ignores
-# allowlist entries it does not recognise — so one file serves all three tools.
-tools: Read, Grep, Glob, mcp__flux-operator-mcp__get_flux_instance, mcp__flux-operator-mcp__get_kubeconfig_contexts, mcp__flux-operator-mcp__get_kubernetes_api_versions, mcp__flux-operator-mcp__get_kubernetes_resources, mcp__flux-operator-mcp__get_kubernetes_logs, flux-operator-mcp/get_flux_instance, flux-operator-mcp/get_kubeconfig_contexts, flux-operator-mcp/get_kubernetes_api_versions, flux-operator-mcp/get_kubernetes_resources, flux-operator-mcp/get_kubernetes_logs
+# Every tool is listed in BOTH spellings on purpose: Claude Code names the built-ins
+# Read/Grep/Glob and allowlists MCP tools as mcp__<server>__<tool>, while VS Code /
+# Copilot CLI use lower-case built-in identifiers (read, search) and <server>/<tool>
+# for MCP. Each tool ignores allowlist entries it does not recognise — so one file
+# serves all three surfaces, and dropping either spelling would leave the agent unable
+# to read or search the repository on the surface that uses it.
+tools: Read, Grep, Glob, read, search, mcp__flux-operator-mcp__get_flux_instance, mcp__flux-operator-mcp__get_kubeconfig_contexts, mcp__flux-operator-mcp__get_kubernetes_api_versions, mcp__flux-operator-mcp__get_kubernetes_resources, mcp__flux-operator-mcp__get_kubernetes_logs, flux-operator-mcp/get_flux_instance, flux-operator-mcp/get_kubeconfig_contexts, flux-operator-mcp/get_kubernetes_api_versions, flux-operator-mcp/get_kubernetes_resources, flux-operator-mcp/get_kubernetes_logs
 model: sonnet
 ---
 

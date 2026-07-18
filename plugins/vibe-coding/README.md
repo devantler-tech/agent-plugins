@@ -20,8 +20,11 @@ carry a **`## Stack map`** section: a table with **Building block** / **Good for
 repo** columns plus a **default intake repo** for unmapped needs. Without it the plugin fails
 closed (declines every build). See ADR 0003 D3 for the pinned contract.
 
-## VS Code delivery step
+## Getting the companion agent
 
-Claude Code and Copilot CLI load the bundled `agents/` directory automatically when the plugin is
-installed. **VS Code does not** — copy the companion agent into your workspace as
-`.github/agents/vibe-coding-companion.agent.md` to use it there.
+Claude Code, Copilot CLI, and VS Code all load the bundled `agents/` directory automatically when the
+plugin is installed — there is no copy step on any of them. In VS Code this needs the
+`chat.plugins.enabled` setting, which your organization may control.
+
+If you are not installing this as a plugin, place the companion agent in your workspace by hand as
+`.github/agents/vibe-coding-companion.agent.md`.

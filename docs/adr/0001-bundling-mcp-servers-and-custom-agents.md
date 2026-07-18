@@ -16,6 +16,27 @@
 > `skills/` and `agents/` directories. The tables and CI notes below are corrected accordingly; the
 > resource model (§D1) and the rest of the decision stand.
 
+> **Correction (2026-07-18) — VS Code is now a plugin surface.** This ADR's central asymmetry finding —
+> *"VS Code is not a plugin surface"*, so a bundled MCP server or agent must reach it as hand-written
+> per-workspace config — has been **overtaken by VS Code shipping
+> [agent plugins](https://code.visualstudio.com/docs/agent-customization/agent-plugins)** (Preview).
+> VS Code now installs plugins from a marketplace and loads their bundled components directly:
+> *"When you install a plugin, its commands, skills, agents, hooks, and MCP servers appear in chat."*
+> It reads the **same on-disk defaults this repo already publishes** — `skills` *"Defaults to
+> `skills/`"*, `agents` *"Defaults to `agents/`"*, and for MCP *"Place MCP server definitions in
+> `.mcp.json` at the plugin root. VS Code discovers this file automatically when it loads the plugin."*
+> Plugin MCP servers also *"start automatically when the plugin is enabled"* and are *"implicitly
+> trusted when you install the plugin"*, with no per-workspace entry and no startup trust prompt.
+>
+> **Consequence:** the delivery asymmetry this ADR treated as a permanent negative is **gone** — all
+> three supported tools now bundle all three resource types from one unchanged plugin directory, and no
+> manual copy step is required anywhere. The matrix and analysis below are corrected accordingly. Two
+> VS-Code-only caveats replace it, both install-time rather than per-resource: the feature is gated by
+> the `chat.plugins.enabled` setting (*"managed at the organization level"*), and it is marked
+> **Preview**, so the contract may still move. The decision (§D1–D4) and the resource model stand
+> unchanged — this correction *strengthens* them, since the canonical `.mcp.json` / `agents/` layout
+> D1 chose turns out to be exactly what VS Code reads.
+
 ## Context
 
 `AGENTS.md` and the README already commit this marketplace to being **tool-neutral and not
@@ -60,10 +81,10 @@ VS Code [MCP config](https://code.visualstudio.com/docs/agents/reference/mcp-con
 
 | Capability | Claude Code | GitHub Copilot CLI / cloud agent | VS Code (Copilot) |
 |---|---|---|---|
-| **Plugin / marketplace bundle** | ✅ `.claude-plugin/marketplace.json` + a plugin dir (`plugin.json`) bundling skills, `agents/`, `.mcp.json`, hooks, commands — installed as one unit | ✅ **`plugin.json` + `marketplace.json`** bundling `skills`, `agents`, `mcpServers`, `hooks`, `commands`, `lspServers`; installed via `copilot plugin install` or `enabledPlugins` in `~/.copilot/settings.json` / `.github/copilot/settings.json` | ❌ Not a plugin surface; consumes MCP/agents as per-workspace/repo config |
-| **Agent Skills** | ✅ `skills/<skill>/SKILL.md` ([agentskills.io](https://agentskills.io) open spec) | ✅ `skills` field (default `skills/`), `SKILL.md` | ✅ Agent Skills |
-| **MCP servers** | ✅ **bundled** — `.mcp.json` at plugin root (or inline `mcpServers` in `plugin.json`), auto-discovered | ✅ **bundled** — `mcpServers` field → `.mcp.json` / `.github/mcp.json` (or inline), key `mcpServers` | ✅ consumed, **not bundled** — `.vscode/mcp.json` / user `mcp.json`, key `servers` |
-| **Custom agents** | ✅ **bundled** — `agents/*.md` (md + YAML frontmatter), auto-discovered, namespaced `plugin:agent` | ✅ **bundled** — `agents` field (default `agents/`), `*.agent.md`, ID from filename | ✅ consumed, **not bundled** — `.github/agents/*.agent.md` (renamed from `.chatmode.md`) |
+| **Plugin / marketplace bundle** | ✅ `.claude-plugin/marketplace.json` + a plugin dir (`plugin.json`) bundling skills, `agents/`, `.mcp.json`, hooks, commands — installed as one unit | ✅ **`plugin.json` + `marketplace.json`** bundling `skills`, `agents`, `mcpServers`, `hooks`, `commands`, `lspServers`; installed via `copilot plugin install` or `enabledPlugins` in `~/.copilot/settings.json` / `.github/copilot/settings.json` | ✅ **`plugin.json` + marketplace** (Preview) — added via `chat.plugins.marketplaces`, installed from **Extensions → `@agentPlugins`**; gated by `chat.plugins.enabled` |
+| **Agent Skills** | ✅ `skills/<skill>/SKILL.md` ([agentskills.io](https://agentskills.io) open spec) | ✅ `skills` field (default `skills/`), `SKILL.md` | ✅ **bundled** — `skills` field, *"Defaults to `skills/`"* |
+| **MCP servers** | ✅ **bundled** — `.mcp.json` at plugin root (or inline `mcpServers` in `plugin.json`), auto-discovered | ✅ **bundled** — `mcpServers` field → `.mcp.json` / `.github/mcp.json` (or inline), key `mcpServers` | ✅ **bundled** — `.mcp.json` at plugin root, *"discovers this file automatically"*; starts with the plugin, no trust prompt |
+| **Custom agents** | ✅ **bundled** — `agents/*.md` (md + YAML frontmatter), auto-discovered, namespaced `plugin:agent` | ✅ **bundled** — `agents` field (default `agents/`), `*.agent.md`, ID from filename | ✅ **bundled** — `agents` field, *"Defaults to `agents/`"* |
 
 ### What is tool-neutral vs tool-specific
 
@@ -82,22 +103,25 @@ VS Code [MCP config](https://code.visualstudio.com/docs/agents/reference/mcp-con
   - **The custom-agent *body*** — markdown + YAML frontmatter with the neutral core `name` +
     `description` + `tools` + `model`. Converged de-facto across all three.
 - **Tool-specific (the residual divergence — now small):**
-  - **VS Code is not a plugin surface.** It is the one supported tool with no plugin/marketplace bundle;
-    it consumes MCP via `.vscode/mcp.json` (key **`servers`**, not `mcpServers`) and agents via
-    `.github/agents/*.agent.md`. A bundled MCP/agent must be delivered to VS Code as documented config.
+  - **VS Code's plugin support is Preview and setting-gated.** *(Superseding the original
+    "VS Code is not a plugin surface" finding — see the 2026-07-18 correction.)* VS Code now bundles all
+    three resource types from the same plugin directory, so the delivery asymmetry is gone; what remains
+    is install-time, not per-resource: `chat.plugins.enabled` must be on (*"managed at the organization
+    level"*) and the feature is marked **Preview**. Its non-plugin config paths — `.vscode/mcp.json`
+    (key **`servers`**) and `.github/agents/*.agent.md` — still exist for hand-authored,
+    non-plugin setups, but are no longer required to consume a plugin.
   - **The MCP wrapper key:** `mcpServers` (Claude Code, Copilot) vs `servers` (VS Code); the `type` enum
     (`stdio`/`local`); VS Code's `inputs`/`oauth`/`sandbox`; Copilot's per-agent `tools` allow-list.
   - **Custom-agent file convention:** `agents/*.md` (Claude Code) vs `agents/*.agent.md` (Copilot, where
     the ID derives from the filename) vs `.github/agents/*.agent.md` (VS Code), plus Copilot-only
     frontmatter (`target`, `mcp-servers`, `user-invocable`).
 
-**The load-bearing consequence (corrected):** bundling an MCP server or a custom agent is **natively
-supported by both Claude Code *and* Copilot CLI** from a single plugin dir — the marketplace's committed
-"not skills-only" promise is realizable as a *true cross-tool bundle*, not a Claude-only bundle plus
-docs. Only **VS Code** needs the same resource delivered as documented per-workspace config. So a
-non-skill plugin has **one bundled path serving both plugin-native tools** (from the canonical
-`.mcp.json` / `agents/`) and **one documented path for VS Code** — and the marketplace must be honest
-that VS Code is the sole consume-via-config surface, not imply that Copilot needs hand-configuration.
+**The load-bearing consequence (corrected 2026-07-18):** bundling an MCP server or a custom agent is
+**natively supported by all three supported tools** — Claude Code, Copilot CLI, *and* VS Code — from a
+single unchanged plugin dir. The marketplace's committed "not skills-only" promise is realizable as a
+*true cross-tool bundle* with **no documented manual step on any surface**: one bundled path, from the
+canonical `.mcp.json` / `agents/`, serves everything. (This originally read that VS Code was the sole
+consume-via-config surface; that asymmetry no longer exists.)
 
 ## Decision
 
@@ -215,10 +239,11 @@ named in #39.
 
 **Negative / risks**
 
-- **Asymmetric delivery (VS Code only):** MCP/agent bundles are auto-installed on both Claude Code and
-  Copilot CLI; **VS Code** is the sole surface that requires a documented manual config step. This must
-  be stated plainly in each such plugin's README so cross-tool expectations stay honest — but the
-  asymmetry is now one tool, not two.
+- ~~**Asymmetric delivery (VS Code only):**~~ **Resolved 2026-07-18** — VS Code shipped agent plugins
+  and now auto-loads bundled skills, agents, and MCP servers from the same plugin dir, so no surface
+  requires a manual config step. Two install-time caveats replace the risk: VS Code's support is
+  **Preview** (the contract may move) and is gated by `chat.plugins.enabled`, *"managed at the
+  organization level"* — so a plugin can be blocked by org policy rather than by packaging.
 - **CI surface grows:** the validator gains MCP/agent branches and new self-test fixtures — more to
   maintain, but bounded and self-tested.
 - **Versioning:** a bundled MCP server pins a server version/source; keeping it fresh is new maintenance

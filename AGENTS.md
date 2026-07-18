@@ -169,7 +169,9 @@ weaken a check to pass — fix the root cause.
 These conventions guide the autonomous **Daily AI Assistant** — and any agentic tool — doing
 repository maintenance. The **shared** cross-repo conventions are defined centrally in the
 devantler-tech monorepo `AGENTS.md` and apply here too: act on judgement and ship a **draft PR** as the
-checkpoint (maintainer promotion to "ready" is the go-signal); **drive trusted-author PRs to merge**
+checkpoint, self-promoting it only on genuine readiness — programmatically tested, a green review at
+the current head, and tried and evaluated as a user — then drive it to merge (the human promotion
+gate was retired by maintainer direction 2026-07-16/18); **drive trusted-author PRs to merge**
 (incl. dependency major bumps) once required checks are green and threads resolved, **never merge
 external PRs** and never self-merge your own unreviewed drafts; trust gate = `devantler`, `ksail-bot`,
 `dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`, `claude/*` (the Copilot **coding agent** is

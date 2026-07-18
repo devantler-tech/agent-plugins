@@ -8,12 +8,23 @@ CI and dependencies healthy) and **advances** it (strategy and roadmaps, oldest-
 issue resolution, coverage, performance, refactoring, docs), shipping everything as human-gated
 draft PRs.
 
-It bundles two agents — **`automated-ai-engineer`** (the actor: the survey → select → act → report
-run loop) and **`portfolio-surveyor`** (a read-only subagent that returns one compact survey
-digest) — and three skills with their canonical home in
+It bundles three agents — **`automated-ai-engineer`** (the actor: the survey → select → act → report
+run loop), **`portfolio-surveyor`** (a read-only subagent that returns one compact survey
+digest), and **`agent-improver`** (a meta-engineer that improves the engineer itself from measured
+evidence) — and skills with their canonical home in
 [devantler-tech/agent-skills](https://github.com/devantler-tech/agent-skills):
-`portfolio-maintenance` (the run loop), `product-engineering` (the advance playbook), and
-`self-improvement` (the guard-railed definition-improvement procedure).
+`portfolio-maintenance` (the run loop), `product-engineering` (the advance playbook),
+`self-improvement` (the guard-railed definition-improvement procedure), and `agent-improvement`
+(the outside-in meta-improvement loop).
+
+**Why both `self-improvement` and `agent-improvement`?** They work at different vantage points and are
+complementary, not alternatives. `self-improvement` is one run reflecting on its own memory, banking a
+learning per run and distilling on a slow cadence. `agent-improvement` is an **external observer** over
+the whole session corpus and every deployed instance at once — which is where failures that no single
+run can see actually live: errors recurring across hundreds of runs, waste that looks normal from inside
+one run, divergence between sibling instances, and drift between a non-version-controlled bootstrap
+entry and the contract it points at. Deployments running a single instance with no separate meta-run can
+use `self-improvement` alone.
 
 ## Consumer setup: the contract sections
 

@@ -87,7 +87,7 @@ which records the true upstream in the skill's `metadata.github-*` frontmatter (
 …), each tracked independently. The daily
 [`update-agent-skills.yaml`](.github/workflows/update-agent-skills.yaml) workflow runs
 [`gh skill update --all`](https://github.com/devantler-tech/actions/tree/main/update-agent-skills) via
-the [`update-agent-skills`](https://github.com/devantler-tech/reusable-workflows/blob/main/.github/workflows/update-agent-skills.yaml)
+the [`update-agent-skills`](https://github.com/devantler-tech/actions/blob/main/.github/workflows/update-agent-skills.yaml)
 reusable workflow and opens a PR when any upstream's content drifts — **no lockfile, no sync bot, no
 custom metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; fix it in the
 skill's **own** upstream (the repo named in its `metadata.github-repo`) and let the update workflow pull

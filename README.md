@@ -19,7 +19,7 @@ This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every 
 | [`engineering-practices`](plugins/engineering-practices/) | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working` | Git commits, conventional releases, refactoring, TDD, and engineering ways of working |
 | [`frontend-design`](plugins/frontend-design/) | `astro`, `frontend-design`, `web-design-guidelines` | Astro, frontend design, and web design guidelines |
 | [`vibe-coding`](plugins/vibe-coding/) | `needs-stack-mapping`, `allowed-stack-guardrail`, `jargon-free-voice` (skills) · `vibe-coding-companion` (agent) | Build a product by conversation alone — plain-language companion agent + guardrailed needs-to-stack skills for people with no technical background |
-| [`automated-ai-engineer`](plugins/automated-ai-engineer/) | `portfolio-maintenance`, `product-engineering`, `self-improvement` (skills) · `automated-ai-engineer`, `portfolio-surveyor`, `agent-improver` (agents) | The autonomous engineer role for a whole repository portfolio — run-loop engineer + read-only surveyor agents, plus a meta-engineer that improves the engineer itself from measured evidence; configured by the consuming repo's AGENTS.md contract sections |
+| [`automated-ai-engineer`](plugins/automated-ai-engineer/) | `portfolio-maintenance`, `product-engineering`, `self-improvement`, `agent-improvement` (skills) · `automated-ai-engineer`, `portfolio-surveyor`, `agent-improver` (agents) | The autonomous engineer role for a whole repository portfolio — run-loop engineer + read-only surveyor agents, plus a meta-engineer that improves the engineer itself from measured evidence; configured by the consuming repo's AGENTS.md contract sections |
 
 ## Installation
 

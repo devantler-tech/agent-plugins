@@ -95,13 +95,24 @@ frontmatter_has_value() {
 }
 
 # A bundled custom-agents resource (ADR 0001 §D1/§D3): an agents/ directory must hold at least
-# one agents/*.md, and every agent file must carry YAML frontmatter with a non-empty 'name' and
-# 'description' (the neutral cross-tool core). A body-only or placeholder .md is rejected.
+# one agents/*.agent.md, and every agent file must carry YAML frontmatter with a non-empty 'name'
+# and 'description' (the neutral cross-tool core). The .agent.md suffix is REQUIRED — it is the
+# discovery pattern VS Code and Copilot CLI use, while Claude Code is filename-agnostic, so a bare
+# .md agent would pass CI yet be invisible on two of the three supported tools. A body-only or
+# placeholder file is rejected.
 validate_agent_dir() {
   local dir="$1" md count=0 failed=0
   for md in "$dir"/*.md; do
     [ -e "$md" ] || continue
     count=$((count + 1))
+    case "$md" in
+      *.agent.md) ;;
+      *)
+        echo "::error::$md: agent files must use the <name>.agent.md suffix (VS Code/Copilot discovery; bare .md is invisible there)"
+        failed=1
+        continue
+        ;;
+    esac
     if ! frontmatter_has_value "$md" name; then
       echo "::error::$md: agent must declare a non-empty 'name' in its YAML frontmatter"
       failed=1
@@ -112,7 +123,7 @@ validate_agent_dir() {
     fi
   done
   if [ "$count" -eq 0 ]; then
-    echo "::error::$dir: must contain at least one agents/*.md"
+    echo "::error::$dir: must contain at least one agents/*.agent.md"
     return 1
   fi
   return "$failed"
@@ -243,13 +254,14 @@ validate_marketplace_plugins_parity() {
 # resource kinds validate_plugin_json accepts (ADR 0001 §D3): every skill directory under
 # plugins/<name>/skills/, every MCP server key in an optional plugins/<name>/.mcp.json, AND
 # every custom-agent entry under an optional plugins/<name>/agents/ (its basename, with a
-# trailing .md stripped). These are the tokens the README "Resources" column must list.
+# trailing .agent.md — VS Code's discovery suffix, ADR 0001's 2026-07-18 correction — or bare
+# .md stripped). These are the tokens the README "Resources" column must list.
 # Count EVERY skill directory / agent entry, not only those already fleshed out, so a
 # stray/half-added folder (the exact drift this parity check guards against) is surfaced
 # rather than silently hidden. Kept in lockstep with validate_plugin_json's resource model
 # so a plugin can never satisfy that check with a resource kind this enumerator ignores.
 plugin_disk_resources() {
-  local name="$1" d mcp="plugins/$1/.mcp.json"
+  local name="$1" d b mcp="plugins/$1/.mcp.json"
   {
     for d in "plugins/$name/skills"/*/; do
       [ -d "$d" ] || continue
@@ -260,7 +272,8 @@ plugin_disk_resources() {
     fi
     for d in "plugins/$name/agents"/*; do
       [ -e "$d" ] || continue
-      basename "$d" .md
+      b="$(basename "$d" .md)"
+      printf '%s\n' "${b%.agent}"
     done
   } | sort | tr '\n' ' '
 }

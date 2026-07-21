@@ -74,15 +74,9 @@ subagents), so a prompt-injected survey cannot escalate to writes even in princi
 
 ## Delivery
 
-**Claude Code** and **Copilot CLI** load the plugin's `agents/` directory automatically on install, so
-all three agents are available with no manual step. **VS Code consumes agents but does not bundle them
-from a plugin** — copy each one into your workspace:
-
-```text
-.github/agents/automated-ai-engineer.agent.md
-.github/agents/portfolio-surveyor.agent.md
-.github/agents/agent-improver.agent.md
-```
+**Claude Code**, **Copilot CLI**, and **VS Code** all load the plugin's `agents/` directory
+automatically on install, so all three agents are available with no manual step — the `.agent.md`
+filename suffix is what makes them discoverable on the VS Code/Copilot surfaces.
 
 (See the root README's [Custom agents](../../README.md#custom-agents) section for the shared delivery
 model.)

@@ -70,7 +70,7 @@ npx skills add devantler-tech/agent-plugins --skill gitops-knowledge --agent cur
 ```
 
 > [!IMPORTANT]
-> This is a **partial** install path. It resolves all **28 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). For those, use **Claude Code** or **Copilot CLI** above — they are the only tools that load a plugin's bundled `.mcp.json` and `agents/` automatically. In **VS Code**, a plugin install delivers the skills only, and MCP servers and agents are added manually (see [MCP servers](#mcp-servers) and [custom agents](#custom-agents) for the exact steps).
+> This is a **partial** install path. It resolves all **28 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). To get everything a plugin bundles, install it as a plugin in **VS Code**, **Copilot CLI**, or **Claude Code** above — all three load a plugin's bundled `.mcp.json` and `agents/` automatically.
 
 ## MCP servers
 
@@ -83,20 +83,23 @@ cluster out of the box.
 The server is authored once as the plugin's [`.mcp.json`](plugins/gitops-kubernetes/.mcp.json)
 (`mcpServers` map). How each tool consumes it differs (per [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 
-- **Claude Code** and **Copilot CLI** — the bundled `.mcp.json` is loaded automatically when the
-  plugin is installed; no extra configuration is needed.
-- **VS Code** consumes MCP but does not bundle it from a plugin. Add the equivalent entry to your
-  workspace `.vscode/mcp.json` (note the key is `servers`, not `mcpServers`):
+- **Claude Code**, **Copilot CLI**, and **VS Code** — the bundled `.mcp.json` is loaded automatically
+  when the plugin is installed; no extra configuration is needed. In VS Code the server starts and
+  stops with the plugin and needs no separate trust prompt, because installing the plugin is what
+  grants the trust.
 
-  ```json
-  {
-    "servers": {
-      "flux-operator-mcp": { "command": "flux-operator-mcp", "args": ["serve"] }
-    }
+You only need to write MCP config by hand if you are **not** installing this as a plugin — then add the
+server to your workspace `.vscode/mcp.json` (note the key there is `servers`, not `mcpServers`):
+
+```json
+{
+  "servers": {
+    "flux-operator-mcp": { "command": "flux-operator-mcp", "args": ["serve"] }
   }
-  ```
+}
+```
 
-All three paths invoke the same `flux-operator-mcp` binary, so install it first — e.g.
+Every path invokes the same `flux-operator-mcp` binary, so install it first — e.g.
 `brew install controlplaneio-fluxcd/tap/flux-operator-mcp` or `go install
 github.com/controlplaneio-fluxcd/flux-operator/cmd/mcp@latest` (it reads your kubeconfig from
 `KUBECONFIG` / `~/.kube/config`). See the
@@ -107,40 +110,43 @@ transport.
 
 A plugin may also bundle **custom agents** (subagents). The
 [`gitops-kubernetes`](plugins/gitops-kubernetes/) plugin bundles
-[`flux-troubleshooter`](plugins/gitops-kubernetes/agents/flux-troubleshooter.md) — a **read-only**
+[`flux-troubleshooter`](plugins/gitops-kubernetes/agents/flux-troubleshooter.agent.md) — a **read-only**
 Flux CD triage agent that traces the GitOps dependency chain (source → Kustomization/HelmRelease →
 workloads), reads status conditions and controller logs via the bundled `flux-operator-mcp` server,
 and returns a root-cause diagnosis plus the human-applied fix. It has no apply/reconcile/suspend/
 delete tool by design, so it never mutates the cluster.
 
-The agent is authored once as `agents/<name>.md` (Markdown + YAML frontmatter, with the neutral
-`name`/`description`/`tools`/`model` core). How each tool consumes it differs (per
+The agent is authored once as `agents/<name>.agent.md` (Markdown + YAML frontmatter, with the neutral
+`name`/`description`/`tools`/`model` core). The `.agent.md` filename is what VS Code and Copilot
+discover inside a plugin's `agents/` directory; Claude Code is filename-agnostic (it reads any
+Markdown in `agents/` and takes the agent's name from frontmatter), so one file serves all three
+tools. The same goes for the `tools:` allowlist: MCP tools are listed in both spellings — Claude
+Code's `mcp__<server>__<tool>` and VS Code / Copilot's `<server>/<tool>` — because each tool
+ignores entries it does not recognise (per
 [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 
-- **Claude Code** and **Copilot CLI** — the bundled `agents/` directory is loaded automatically when
-  the plugin is installed; the agent is namespaced `gitops-kubernetes:flux-troubleshooter`. (Copilot
-  reads the same file as `*.agent.md`.)
-- **VS Code** consumes agents but does not bundle them from a plugin. Copy the agent to your
-  workspace as `.github/agents/flux-troubleshooter.agent.md`.
+- **Claude Code**, **Copilot CLI**, and **VS Code** — the bundled `agents/` directory is loaded
+  automatically when the plugin is installed; in Claude Code the agent is namespaced
+  `gitops-kubernetes:flux-troubleshooter`.
+
+As with MCP, hand-placing an agent at `.github/agents/<name>.agent.md` is only for setups that aren't
+installing this as a plugin.
 
 The [`vibe-coding`](plugins/vibe-coding/) plugin bundles
-[`vibe-coding-companion`](plugins/vibe-coding/agents/vibe-coding-companion.md) — a plain-language
+[`vibe-coding-companion`](plugins/vibe-coding/agents/vibe-coding-companion.agent.md) — a plain-language
 build companion for a non-technical audience (design:
-[ADR 0003](docs/adr/0003-vibe-coding-plugin-design.md)). Same delivery rules; its VS Code copy is
-`.github/agents/vibe-coding-companion.agent.md`, and its guardrail requires the consuming
-deployment to author a `## Stack map` section in its `AGENTS.md` (see the
+[ADR 0003](docs/adr/0003-vibe-coding-plugin-design.md)). Same delivery rules. Its guardrail requires
+the consuming deployment to author a `## Stack map` section in its `AGENTS.md` (see the
 [plugin README](plugins/vibe-coding/README.md)).
 
 The [`automated-ai-engineer`](plugins/automated-ai-engineer/) plugin bundles three agents —
-[`automated-ai-engineer`](plugins/automated-ai-engineer/agents/automated-ai-engineer.md) (the
+[`automated-ai-engineer`](plugins/automated-ai-engineer/agents/automated-ai-engineer.agent.md) (the
 autonomous portfolio-engineer actor),
-[`portfolio-surveyor`](plugins/automated-ai-engineer/agents/portfolio-surveyor.md) (its read-only
+[`portfolio-surveyor`](plugins/automated-ai-engineer/agents/portfolio-surveyor.agent.md) (its read-only
 survey subagent), and
-[`agent-improver`](plugins/automated-ai-engineer/agents/agent-improver.md) (a meta-engineer that
+[`agent-improver`](plugins/automated-ai-engineer/agents/agent-improver.agent.md) (a meta-engineer that
 improves the engineer itself from measured evidence) — alongside its engineering skills (design:
-[ADR 0002](docs/adr/0002-automated-ai-engineer-plugin-boundary.md)). Same delivery rules; VS Code
-users copy them to `.github/agents/automated-ai-engineer.agent.md`,
-`.github/agents/portfolio-surveyor.agent.md`, and `.github/agents/agent-improver.agent.md`. The
+[ADR 0002](docs/adr/0002-automated-ai-engineer-plugin-boundary.md)). Same delivery rules; the
 consuming deployment must define the five contract sections (Portfolio map, Trust gate, Cadence,
 Memory, Maintainer channels) in its `AGENTS.md` — plus **Agent definition locations** and
 **Authority model** if it enables `agent-improver` (see the

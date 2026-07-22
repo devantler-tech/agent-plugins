@@ -417,9 +417,16 @@ description: Fixture entrypoint.
 ---
 Fixture agent.
 EOF
+  cat > "$root/plugins/$name/agents/agent-improver.agent.md" <<'EOF'
+---
+name: agent-improver
+description: Fixture meta-engineer.
+---
+Fixture agent.
+EOF
   awk -v name="$name" '
     index($0, "[`" name "`](plugins/" name "/)") {
-      sub("`example-skill`", "`automated-ai-engineer`, `example-skill`")
+      sub("`example-skill`", "`agent-improver`, `automated-ai-engineer`, `example-skill`")
     }
     { print }
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
@@ -639,6 +646,14 @@ check_fail "desired-state entrypoint must resolve to a bundled agent" \
   "entrypoint must resolve to the bundled automated-ai-engineer agent" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
+rm "$d/plugins/alpha/agents/agent-improver.agent.md"
+# README resource names contain literal backticks.
+# shellcheck disable=SC2016
+sed 's/`agent-improver`, //' "$d/README.md" > "$d/tmp" && mv "$d/tmp" "$d/README.md"
+check_fail "plugin-backed schedule targets must resolve to bundled agents" \
+  "plugin-backed schedule target must resolve to a bundled agent" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.notes = "Preserve the cursor position when resuming reconciliation."' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
@@ -690,6 +705,20 @@ sed '/## Runtime guard note/d' "$d/plugins/alpha/README.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/README.md"
 check_fail "consumer README preserves the surveyor runtime guard reference" \
   "must define the Runtime guard note section" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.notes = "TODO"' "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+mkdir -p "$d/plugins/beta/resources"
+printf '%s\n' '{"apiVersion":"example.dev/v1","kind":"OtherDesiredState","spec":{"source":{"providerPolicy":"neutral"}}}' \
+  > "$d/plugins/beta/resources/other.desired-state.json"
+cat > "$d/plugins/beta/README.md" <<'EOF'
+# beta
+
+Copy the [other desired state](resources/other.desired-state.json).
+EOF
+check_fail "a valid desired state logs success after an earlier resource fails" \
+  "✓ desired state plugins/beta/resources/other.desired-state.json" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq 'del(.spec.runtime.scheduler.schedules["agent-improver"])' \

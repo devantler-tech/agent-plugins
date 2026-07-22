@@ -337,7 +337,7 @@ validate_readme_parity() {
 #    and provider-neutral. The generic role remains in the plugin; this document only tells a
 #    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
 validate_desired_state_resources() {
-  local failed=0 resource kind plugin_dir plugin_name readme basename entrypoint
+  local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint schedule_agent
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
 
   if [ -d plugins/agentic-engineering ]; then
@@ -352,9 +352,11 @@ validate_desired_state_resources() {
   fi
 
   while IFS= read -r resource; do
+    resource_failed=0
     if ! jq -e . "$resource" > /dev/null 2>&1; then
       echo "::error::$resource: not valid JSON"
       failed=1
+      resource_failed=1
       continue
     fi
 
@@ -366,6 +368,7 @@ validate_desired_state_resources() {
     if ! jq -e '.kind | type == "string" and length > 0' "$resource" > /dev/null; then
       echo "::error::$resource: desired-state kind must be a non-empty string"
       failed=1
+      resource_failed=1
       continue
     fi
     kind=$(jq -r '.kind' "$resource")
@@ -379,6 +382,7 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: must declare neutral provider policy without provider or vendor fields"
       failed=1
+      resource_failed=1
     fi
 
     if ! jq -e '
@@ -389,19 +393,25 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: desired-state values must not name a specific provider"
       failed=1
+      resource_failed=1
     fi
 
     if grep -Eiq '<[^>]+>|TODO|CHANGEME|REPLACE_ME|YOUR_ORG|\{\{[^}]+\}\}|__[A-Z][A-Z0-9_]*__|\[INSERT [^]]+\]|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' "$resource"; then
       echo "::error::$resource: must be copy-paste ready with no unresolved placeholders"
       failed=1
+      resource_failed=1
     fi
 
     if [ ! -f "$readme" ] || ! grep -qF "](resources/$basename)" "$readme"; then
       echo "::error::$resource: must be linked from $readme"
       failed=1
+      resource_failed=1
     fi
 
     if [ "$kind" != "AgenticEngineeringDesiredState" ]; then
+      if [ "$resource_failed" -eq 0 ]; then
+        echo "✓ desired state $resource"
+      fi
       continue
     fi
 
@@ -411,6 +421,7 @@ validate_desired_state_resources() {
       || [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
       echo "::error::$resource: entrypoint must resolve to the bundled automated-ai-engineer agent"
       failed=1
+      resource_failed=1
     fi
 
     if ! jq -e '
@@ -426,6 +437,7 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: text fields must be non-empty strings"
       failed=1
+      resource_failed=1
     fi
 
     if ! jq -e '
@@ -482,6 +494,7 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: desired-state fields must use their declared semantic value types"
       failed=1
+      resource_failed=1
     fi
 
     if ! jq -e --arg name "$plugin_name" '
@@ -505,6 +518,7 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: incomplete AgenticEngineeringDesiredState schema"
       failed=1
+      resource_failed=1
     fi
 
     if ! jq -e '
@@ -589,6 +603,7 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: desired-state schema is missing required fields or contains unsupported fields"
       failed=1
+      resource_failed=1
     fi
 
     if ! jq -e '
@@ -603,6 +618,7 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: required consumer contract sections must match the automated AI engineer contract"
       failed=1
+      resource_failed=1
     fi
 
     if ! jq -e '
@@ -620,7 +636,20 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: must define all provider-neutral schedule prompts"
       failed=1
+      resource_failed=1
     fi
+
+    while IFS= read -r schedule_agent; do
+      if [ ! -f "$plugin_dir/agents/$schedule_agent.agent.md" ]; then
+        echo "::error::$resource: plugin-backed schedule target must resolve to a bundled agent: $schedule_agent"
+        failed=1
+        resource_failed=1
+      fi
+    done < <(jq -r '
+      .spec.runtime.scheduler.schedules[]?.definitionFrom
+      | select(type == "string" and startswith("plugin:"))
+      | split("/")[-1]
+    ' "$resource")
 
     if ! jq -e '
       all(.spec.runtime.scheduler.schedules[];
@@ -633,6 +662,7 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: schedule prompts must be thin source-loading pointers"
       failed=1
+      resource_failed=1
     fi
 
     if ! jq -e '
@@ -645,19 +675,22 @@ validate_desired_state_resources() {
     ' "$resource" > /dev/null; then
       echo "::error::$resource: onboarding must create schedules only for enabled scheduler entries"
       failed=1
+      resource_failed=1
     fi
 
     if [ ! -f "$readme" ] || ! grep -qF "feature-flag mechanism" "$readme"; then
       echo "::error::$resource: $readme must document the required feature-flag mechanism"
       failed=1
+      resource_failed=1
     fi
 
     if [ ! -f "$readme" ] || ! grep -qF "## Runtime guard note" "$readme"; then
       echo "::error::$resource: $readme must define the Runtime guard note section"
       failed=1
+      resource_failed=1
     fi
 
-    if [ "$failed" -eq 0 ]; then
+    if [ "$resource_failed" -eq 0 ]; then
       echo "✓ desired state $resource"
     fi
   done < <(find plugins -type f -path '*/resources/*.desired-state.json' | sort)

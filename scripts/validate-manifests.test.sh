@@ -680,7 +680,7 @@ check_fail "plugin-backed schedule targets must resolve to bundled agents" \
   "plugin-backed schedule target must resolve to a bundled agent" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-jq '.spec.notes = "Preserve the cursor position when resuming reconciliation."' \
+jq '.spec.notes = "Preserve the codexes catalog entry when resuming reconciliation."' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_pass "neutral prose that happens to contain a provider brand word passes" "$d"

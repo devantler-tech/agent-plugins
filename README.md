@@ -69,7 +69,12 @@ npx skills add devantler-tech/agent-plugins --skill gitops-knowledge --agent cur
 ```
 
 > [!IMPORTANT]
-> This is a **partial** install path. It resolves all **26 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). To get everything a plugin bundles, install it as a plugin in **VS Code**, **Copilot CLI**, or **Claude Code** above — all three load a plugin's bundled `.mcp.json` and `agents/` automatically.
+> This is a **partial** install path. The example installs only `gitops-knowledge` for Cursor. Use
+> `--all` to install every bundled skill across detected agents, or combine a pattern such as
+> `--skill gitops-*` with `--agent cursor` to target that agent. None of these skills-only forms
+> install the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). To get everything a
+> plugin bundles, install it as a plugin in **VS Code**, **Copilot CLI**, or **Claude Code** above —
+> all three load a plugin's bundled `.mcp.json` and `agents/` automatically.
 
 ## Copy-paste agent onboarding
 
@@ -81,6 +86,9 @@ trust, cadence, memory, and maintainer-channel configuration. It also requires t
 unsupported native capabilities instead of silently weakening the deployment. The manifest carries
 separate thin schedule prompts for the Automated AI Engineer, Agent Improver, and consumer-owned FinOps
 Engineer; each resolves its cadence and deployment facts from the canonical consumer instructions.
+Existing `automated-ai-engineer` plugin installations should follow the
+[version 2 migration checklist](plugins/agentic-engineering/README.md#migrating-from-automated-ai-engineer)
+before their next scheduled run.
 
 ## MCP servers
 

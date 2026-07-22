@@ -11,6 +11,26 @@ autonomous engineering system is now the center of this plugin. From the earlier
 skills; the provider-specific SDK and instruction-blueprint skills were removed. See
 [ADR 0004](../../docs/adr/0004-consolidate-agentic-engineering.md).
 
+## Migrating from `automated-ai-engineer`
+
+Version 2 deliberately replaces the old marketplace identity instead of keeping a second alias
+bundle. Before the next scheduled run of an existing installation:
+
+1. Remove the installed `automated-ai-engineer` plugin with the runtime's native plugin control, then
+   install `agentic-engineering@devantler-plugins` from `devantler-tech/agent-plugins`.
+2. Change persisted qualified agent references from the `automated-ai-engineer` plugin namespace to
+   `agentic-engineering`. The agent entrypoint itself remains `automated-ai-engineer`.
+3. Copy the [provider-neutral desired state](resources/provider-neutral.desired-state.json) into the
+   consumer workspace and reconcile its native agents and schedules. Preserve the consumer's
+   canonical `AGENTS.md`; do not copy its organization-specific facts into this plugin.
+4. Before re-enabling unattended writes, verify that the installed plugin reports version `2.0.0`,
+   exposes `automated-ai-engineer`, `portfolio-surveyor`, and `agent-improver`, and that every
+   plugin-backed schedule points to `plugin:agentic-engineering/<entrypoint>`. Run the required
+   read-only preflight and record the installed source revision and any unsupported capability.
+
+The migration is complete only after the old plugin identity no longer resolves in the runtime and
+the read-only preflight loads the new namespace successfully.
+
 ## What it includes
 
 Three agents:

@@ -358,17 +358,53 @@ validate_desired_state_resources() {
       continue
     fi
 
-    kind=$(jq -r '.kind // ""' "$resource")
-    if [ "$kind" != "AgenticEngineeringDesiredState" ]; then
-      echo "::error::$resource: unsupported desired-state kind ${kind:-<missing>}"
-      failed=1
-      continue
-    fi
-
     plugin_dir=$(dirname "$(dirname "$resource")")
     plugin_name=$(basename "$plugin_dir")
     readme="$plugin_dir/README.md"
     basename=$(basename "$resource")
+
+    if ! jq -e '.kind | type == "string" and length > 0' "$resource" > /dev/null; then
+      echo "::error::$resource: desired-state kind must be a non-empty string"
+      failed=1
+      continue
+    fi
+    kind=$(jq -r '.kind' "$resource")
+
+    if ! jq -e '
+      .spec.source.providerPolicy == "neutral"
+      and ([
+        .. | objects | keys[] | ascii_downcase
+        | select((contains("provider") or contains("vendor")) and . != "providerpolicy")
+      ] | length == 0)
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: must declare neutral provider policy without provider or vendor fields"
+      failed=1
+    fi
+
+    if ! jq -e '
+      [
+        .. | strings | ascii_downcase
+        | select(test("(^|[^a-z0-9])(anthropic|claude|openai|chatgpt|codex|copilot|gemini)([^a-z0-9]|$)"))
+      ] | length == 0
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: desired-state values must not name a specific provider"
+      failed=1
+    fi
+
+    if grep -Eiq '<[^>]+>|TODO|CHANGEME|REPLACE_ME|YOUR_ORG|\{\{[^}]+\}\}|__[A-Z][A-Z0-9_]*__|\[INSERT [^]]+\]|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' "$resource"; then
+      echo "::error::$resource: must be copy-paste ready with no unresolved placeholders"
+      failed=1
+    fi
+
+    if [ ! -f "$readme" ] || ! grep -qF "](resources/$basename)" "$readme"; then
+      echo "::error::$resource: must be linked from $readme"
+      failed=1
+    fi
+
+    if [ "$kind" != "AgenticEngineeringDesiredState" ]; then
+      continue
+    fi
+
     entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$resource")
 
     if [ "$entrypoint" != "automated-ai-engineer" ] \
@@ -389,6 +425,62 @@ validate_desired_state_resources() {
         and all(.[]; nonempty_string))
     ' "$resource" > /dev/null; then
       echo "::error::$resource: text fields must be non-empty strings"
+      failed=1
+    fi
+
+    if ! jq -e '
+      def nonempty_string: type == "string" and length > 0;
+      ([
+        .metadata.description,
+        .spec.source.marketplace,
+        .spec.source.plugin,
+        .spec.source.entrypoint,
+        .spec.source.updatePolicy,
+        .spec.source.providerPolicy,
+        .spec.source.refreshTiming,
+        .spec.consumer.canonicalInstructions,
+        .spec.consumer.repositoryResolution,
+        .spec.consumer.organizationScopeFrom,
+        .spec.roles["automated-ai-engineer"].mode,
+        .spec.roles["portfolio-surveyor"].mode,
+        .spec.roles["agent-improver"].enabledWhen,
+        .spec.roles["agent-improver"].mode,
+        .spec.roles["finops-engineer"].enabledWhen,
+        .spec.roles["finops-engineer"].definitionFrom,
+        .spec.roles["finops-engineer"].mode,
+        .spec.runtime.scheduler.definitionStrategy,
+        .spec.runtime.scheduler.cadenceFrom,
+        .spec.runtime.scheduler.timezoneFrom,
+        .spec.runtime.scheduler.reconcilePolicy,
+        .spec.runtime.scheduler.notificationPolicy,
+        .spec.runtime.execution.sourceRevision,
+        .spec.runtime.execution.isolation,
+        .spec.runtime.execution.branchNamespace,
+        .spec.runtime.execution.branchNamespacePolicy,
+        .spec.runtime.execution.permissions,
+        .spec.runtime.execution.approvalMode,
+        .spec.runtime.model.selectionPolicy,
+        .spec.runtime.model.upgradePolicy,
+        .spec.runtime.model.reasoningPolicy,
+        .spec.runtime.memory.backendPolicy,
+        .spec.runtime.memory.contractFrom,
+        .spec.onboarding.copyPasteInstruction
+      ] | all(.[]; nonempty_string))
+      and .spec.source.hotSwapDuringRun == false
+      and .spec.roles["automated-ai-engineer"].enabled == true
+      and .spec.roles["portfolio-surveyor"].enabled == true
+      and .spec.runtime.memory.loadBeforeContract == true
+      and .spec.runtime.memory.writeBackAfterRun == true
+      and all(.spec.consumer.requiredContractSections[]; nonempty_string)
+      and all(.spec.consumer.requiredWhenAgentImproverEnabled[]; nonempty_string)
+      and all(.spec.consumer.requiredWhenFinOpsEnabled[]; nonempty_string)
+      and all(.spec.runtime.scheduler.schedules[];
+        (.definitionFrom | nonempty_string) and (.bootstrapPrompt | nonempty_string))
+      and all(.spec.onboarding.steps[]; nonempty_string)
+      and all(.spec.onboarding.completionReport[]; nonempty_string)
+      and all(.spec.guardrails[]; nonempty_string)
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: desired-state fields must use their declared semantic value types"
       failed=1
     fi
 
@@ -531,17 +623,6 @@ validate_desired_state_resources() {
     fi
 
     if ! jq -e '
-      .spec.source.providerPolicy == "neutral"
-      and ([
-        .. | objects | keys[] | ascii_downcase
-        | select((contains("provider") or contains("vendor")) and . != "providerpolicy")
-      ] | length == 0)
-    ' "$resource" > /dev/null; then
-      echo "::error::$resource: must declare neutral provider policy without provider or vendor fields"
-      failed=1
-    fi
-
-    if ! jq -e '
       all(.spec.runtime.scheduler.schedules[];
         .bootstrapPrompt
         | type == "string"
@@ -563,16 +644,6 @@ validate_desired_state_resources() {
           and contains("runtime.scheduler.schedules"))
     ' "$resource" > /dev/null; then
       echo "::error::$resource: onboarding must create schedules only for enabled scheduler entries"
-      failed=1
-    fi
-
-    if grep -Eq '<[^>]+>|TODO|CHANGEME|REPLACE_ME|YOUR_ORG|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' "$resource"; then
-      echo "::error::$resource: must be copy-paste ready with no unresolved placeholders"
-      failed=1
-    fi
-
-    if [ ! -f "$readme" ] || ! grep -qF "](resources/$basename)" "$readme"; then
-      echo "::error::$resource: must be linked from $readme"
       failed=1
     fi
 

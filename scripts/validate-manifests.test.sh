@@ -565,10 +565,14 @@ done
 
 d=$(fresh); make_desired_state "$d" alpha
 mkdir -p "$d/plugins/beta/resources"
-printf '%s\n' '{"apiVersion":"example.dev/v1","kind":"OtherDesiredState"}' \
+printf '%s\n' '{"apiVersion":"example.dev/v1","kind":"OtherDesiredState","spec":{"source":{"providerPolicy":"neutral"}}}' \
   > "$d/plugins/beta/resources/other.desired-state.json"
-check_fail "unsupported desired-state kind fails closed" \
-  "unsupported desired-state kind OtherDesiredState" "$d"
+cat > "$d/plugins/beta/README.md" <<'EOF'
+# beta
+
+Copy the [other desired state](resources/other.desired-state.json).
+EOF
+check_pass "non-agentic desired-state kind receives universal validation only" "$d"
 
 d=$(fresh); mkdir -p "$d/plugins/agentic-engineering"
 check_fail "missing canonical agentic desired-state resource fails" \
@@ -596,6 +600,17 @@ jq '.metadata.description = ["not", "text"]' \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state resource rejects non-string text fields" "text fields must be non-empty strings" "$d"
 
+for mutation in \
+  '.spec.roles["automated-ai-engineer"].enabled = "yes"' \
+  '.spec.source.hotSwapDuringRun = "false"' \
+  '.spec.runtime.memory.loadBeforeContract = null'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  jq "$mutation" "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+  check_fail "desired-state semantic value types reject $mutation" \
+    "desired-state fields must use their declared semantic value types" "$d"
+done
+
 d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.runtime.provider = "OpenAI"' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
@@ -608,6 +623,13 @@ jq '.spec.source.model = "Claude"' \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "provider-specific configuration under an ordinary key fails" \
   "desired-state schema is missing required fields or contains unsupported fields" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.runtime.model.selectionPolicy = "Use Claude exclusively"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "provider-specific content in an allowed value fails" \
+  "desired-state values must not name a specific provider" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.source.entrypoint = "automated-ai-enginer"' \
@@ -624,7 +646,9 @@ check_pass "neutral prose that happens to contain a provider brand word passes" 
 
 # Literal placeholder fixtures must not expand.
 # shellcheck disable=SC2016
-for placeholder in '${REPOSITORY}' '$ACCOUNT_ID' 'REPLACE_ME' 'YOUR_ORG'; do
+for placeholder in \
+  '${REPOSITORY}' '$ACCOUNT_ID' 'REPLACE_ME' 'YOUR_ORG' \
+  '{{REPOSITORY}}' '__ACCOUNT_ID__' '[INSERT ORG HERE]'; do
   d=$(fresh); make_desired_state "$d" alpha
   jq --arg placeholder "$placeholder" '.spec.notes = $placeholder' \
     "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \

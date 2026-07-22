@@ -14,12 +14,11 @@ This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every 
 |--------|-----------|-------------|
 | [`gitops-kubernetes`](plugins/gitops-kubernetes/) | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-repo-audit`, `gitops-tenant-onboarding` (skills) · `flux-operator-mcp` (MCP server) · `flux-troubleshooter` (agent) | Flux CD debugging, knowledge, repository auditing, and tenant onboarding — bundles the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging |
 | [`github`](plugins/github/) | `gh-cli`, `gh-stack`, `github-actions-docs`, `github-issues` | GitHub CLI, stacked PRs, Actions docs, and issue management |
-| [`agentic-engineering`](plugins/agentic-engineering/) | `agent-instructions`, `copilot-instructions-blueprint-generator`, `copilot-sdk`, `find-skills` | Agentic AI framework SDKs, AI-assistant instruction authoring, and skill discovery |
+| [`agentic-engineering`](plugins/agentic-engineering/) | `agent-improvement`, `agent-instructions`, `find-skills`, `portfolio-maintenance`, `product-engineering`, `self-improvement` (skills) · `agent-improver`, `automated-ai-engineer`, `portfolio-surveyor` (agents) | The autonomous engineering system for a whole repository portfolio — engineer, read-only surveyor, and meta-engineer agents plus their operating and improvement workflows; configured by the consumer's `AGENTS.md` |
 | [`go`](plugins/go/) | `golang-pro` | Go best practices, concurrency, generics, interfaces, and testing |
 | [`engineering-practices`](plugins/engineering-practices/) | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working` | Git commits, conventional releases, refactoring, TDD, and engineering ways of working |
 | [`frontend-design`](plugins/frontend-design/) | `astro`, `frontend-design`, `web-design-guidelines` | Astro, frontend design, and web design guidelines |
 | [`vibe-coding`](plugins/vibe-coding/) | `needs-stack-mapping`, `allowed-stack-guardrail`, `jargon-free-voice` (skills) · `vibe-coding-companion` (agent) | Build a product by conversation alone — plain-language companion agent + guardrailed needs-to-stack skills for people with no technical background |
-| [`automated-ai-engineer`](plugins/automated-ai-engineer/) | `portfolio-maintenance`, `product-engineering`, `self-improvement`, `agent-improvement` (skills) · `automated-ai-engineer`, `portfolio-surveyor`, `agent-improver` (agents) | The autonomous engineer role for a whole repository portfolio — run-loop engineer + read-only surveyor agents, plus a meta-engineer that improves the engineer itself from measured evidence; configured by the consuming repo's AGENTS.md contract sections |
 
 ## Installation
 
@@ -70,7 +69,26 @@ npx skills add devantler-tech/agent-plugins --skill gitops-knowledge --agent cur
 ```
 
 > [!IMPORTANT]
-> This is a **partial** install path. It resolves all **28 bundled skills**, but **not** the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). To get everything a plugin bundles, install it as a plugin in **VS Code**, **Copilot CLI**, or **Claude Code** above — all three load a plugin's bundled `.mcp.json` and `agents/` automatically.
+> This is a **partial** install path. The example installs only `gitops-knowledge` for Cursor. Use
+> `--all` to install every bundled skill across detected agents, or combine a pattern such as
+> `--skill gitops-*` with `--agent cursor` to target that agent. None of these skills-only forms
+> install the [MCP servers](#mcp-servers) or [custom agents](#custom-agents). To get everything a
+> plugin bundles, install it as a plugin in **VS Code**, **Copilot CLI**, or **Claude Code** above —
+> all three load a plugin's bundled `.mcp.json` and `agents/` automatically.
+
+## Copy-paste agent onboarding
+
+The [`agentic-engineering` desired-state manifest](plugins/agentic-engineering/resources/provider-neutral.desired-state.json)
+is a provider-neutral, copy-paste onboarding document for a new assistant. Open the assistant in the
+consumer repository, paste the complete JSON, and ask it to reconcile the desired state. It points to
+the latest reviewed plugin for generic role logic and to the consumer's `AGENTS.md` for organization,
+trust, cadence, memory, and maintainer-channel configuration. It also requires the assistant to report
+unsupported native capabilities instead of silently weakening the deployment. The manifest carries
+separate thin schedule prompts for the Automated AI Engineer, Agent Improver, and consumer-owned FinOps
+Engineer; each resolves its cadence and deployment facts from the canonical consumer instructions.
+Existing `automated-ai-engineer` plugin installations should follow the
+[version 2 migration checklist](plugins/agentic-engineering/README.md#migrating-from-automated-ai-engineer)
+before their next scheduled run.
 
 ## MCP servers
 
@@ -139,24 +157,25 @@ build companion for a non-technical audience (design:
 the consuming deployment to author a `## Stack map` section in its `AGENTS.md` (see the
 [plugin README](plugins/vibe-coding/README.md)).
 
-The [`automated-ai-engineer`](plugins/automated-ai-engineer/) plugin bundles three agents —
-[`automated-ai-engineer`](plugins/automated-ai-engineer/agents/automated-ai-engineer.agent.md) (the
+The [`agentic-engineering`](plugins/agentic-engineering/) plugin bundles three agents —
+[`automated-ai-engineer`](plugins/agentic-engineering/agents/automated-ai-engineer.agent.md) (the
 autonomous portfolio-engineer actor),
-[`portfolio-surveyor`](plugins/automated-ai-engineer/agents/portfolio-surveyor.agent.md) (its read-only
+[`portfolio-surveyor`](plugins/agentic-engineering/agents/portfolio-surveyor.agent.md) (its read-only
 survey subagent), and
-[`agent-improver`](plugins/automated-ai-engineer/agents/agent-improver.agent.md) (a meta-engineer that
+[`agent-improver`](plugins/agentic-engineering/agents/agent-improver.agent.md) (a meta-engineer that
 improves the engineer itself from measured evidence) — alongside its engineering skills (design:
-[ADR 0002](docs/adr/0002-automated-ai-engineer-plugin-boundary.md)). Same delivery rules; the
+[ADR 0002](docs/adr/0002-automated-ai-engineer-plugin-boundary.md), consolidation:
+[ADR 0004](docs/adr/0004-consolidate-agentic-engineering.md)). Same delivery rules; the
 consuming deployment must define the five contract sections (Portfolio map, Trust gate, Cadence,
 Memory, Maintainer channels) in its `AGENTS.md` — plus **Agent definition locations** and
 **Authority model** if it enables `agent-improver` (see the
-[plugin README](plugins/automated-ai-engineer/README.md)).
+[plugin README](plugins/agentic-engineering/README.md)).
 
 ## How it works
 
 Skills are installed from their upstream repositories using [`gh skill install`](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/). A [daily update workflow](.github/workflows/update-agent-skills.yaml) runs [`gh skill update --all`](https://github.com/devantler-tech/actions/tree/main/update-agent-skills) via the [`update-agent-skills`](https://github.com/devantler-tech/actions/blob/main/.github/workflows/update-agent-skills.yaml) reusable workflow and opens a PR when upstream content has drifted.
 
-Each plugin directory is self-contained with a `plugin.json` manifest and its bundled resources — a `skills/` subdirectory holding the installed `SKILL.md` files (plus any supporting assets), and optionally an `.mcp.json` declaring bundled MCP servers and an `agents/` directory holding custom agents. Each `SKILL.md` contains `metadata.github-*` frontmatter for upstream provenance — no lockfile needed.
+Each plugin directory is self-contained with a `plugin.json` manifest and its bundled resources — a `skills/` subdirectory holding the installed `SKILL.md` files (plus any supporting assets), and optionally an `.mcp.json` declaring bundled MCP servers and an `agents/` directory holding custom agents. A plugin may also carry ancillary, human-consumed assets under `resources/`, such as a desired-state document; these are linked explicitly rather than treated as auto-discovered runtime components. Each `SKILL.md` contains `metadata.github-*` frontmatter for upstream provenance — no lockfile needed.
 
 Each bundled skill is pulled from its own upstream (recorded in its `SKILL.md` `metadata.github-*` frontmatter), spanning many sources — including our in-house sibling library [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills).
 

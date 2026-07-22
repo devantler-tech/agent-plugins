@@ -11,6 +11,8 @@
 #   5. The README plugin table and on-disk plugin resources are in lockstep (every plugin
 #      has a row and vice versa; each row's Resources column matches the plugin's bundled
 #      skills + MCP servers).
+#   6. Ancillary *.desired-state.json onboarding resources are structurally complete,
+#      provider-neutral, placeholder-free, and linked from their plugin README.
 #
 # Operates on the current working directory (run from the repo root, exactly as CI
 # does). Documented in AGENTS.md for local runs and self-tested by
@@ -329,7 +331,394 @@ validate_readme_parity() {
   return "$failed"
 }
 
-# 6. Every bundled SKILL.md carries its upstream provenance frontmatter.
+# 6. A copy-paste desired-state resource is ancillary deployment wiring: plugin runtimes do
+#    not auto-discover it like skills, MCP servers, or agents, but it ships in the plugin
+#    directory for a human to paste into any assistant. Keep the contract deliberately small
+#    and provider-neutral. The generic role remains in the plugin; this document only tells a
+#    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
+validate_desired_state_resources() {
+  local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
+  local schedule_source schedule_plugin schedule_agent
+  local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
+
+  if [ -d plugins/agentic-engineering ]; then
+    if [ ! -f "$canonical_resource" ]; then
+      echo "::error::$canonical_resource: missing canonical agentic desired-state resource"
+      failed=1
+    elif jq -e . "$canonical_resource" > /dev/null 2>&1 \
+      && ! jq -e '.kind == "AgenticEngineeringDesiredState"' "$canonical_resource" > /dev/null; then
+      echo "::error::$canonical_resource: canonical agentic desired-state resource must use kind AgenticEngineeringDesiredState"
+      failed=1
+    fi
+  fi
+
+  while IFS= read -r resource; do
+    resource_failed=0
+    if ! jq -e . "$resource" > /dev/null 2>&1; then
+      echo "::error::$resource: not valid JSON"
+      failed=1
+      resource_failed=1
+      continue
+    fi
+
+    plugin_dir=$(dirname "$(dirname "$resource")")
+    plugin_name=$(basename "$plugin_dir")
+    readme="$plugin_dir/README.md"
+    basename=$(basename "$resource")
+
+    if [ ! -f "$plugin_dir/plugin.json" ]; then
+      echo "::error::$resource: $plugin_dir has no plugin.json; desired-state resources must belong to a manifested plugin"
+      failed=1
+      continue
+    fi
+
+    if ! jq -e '.kind | type == "string" and length > 0' "$resource" > /dev/null; then
+      echo "::error::$resource: desired-state kind must be a non-empty string"
+      failed=1
+      resource_failed=1
+      continue
+    fi
+    kind=$(jq -r '.kind' "$resource")
+
+    if [ "$kind" != "AgenticEngineeringDesiredState" ]; then
+      echo "::error::$resource: unsupported desired-state kind $kind"
+      failed=1
+      continue
+    fi
+
+    if ! jq -e '
+      .spec.source.providerPolicy == "neutral"
+      and ([
+        .. | objects | keys[] | ascii_downcase
+        | select((contains("provider") or contains("vendor")) and . != "providerpolicy")
+      ] | length == 0)
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: must declare neutral provider policy without provider or vendor fields"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e '
+      [
+        .. | strings | ascii_downcase
+        | select(test("(^|[^a-z0-9])(anthropic|claude|openai|chatgpt|codex|copilot|gemini)([^a-z0-9]|$)"))
+      ] | length == 0
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: desired-state values must not name a specific provider"
+      failed=1
+      resource_failed=1
+    fi
+
+    if grep -Eiq '<[^>]+>|TODO|CHANGEME|REPLACE_ME|YOUR_ORG|\{\{[^}]+\}\}|__[A-Z][A-Z0-9_]*__|\[INSERT [^]]+\]|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' "$resource"; then
+      echo "::error::$resource: must be copy-paste ready with no unresolved placeholders"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$readme" ] || ! grep -qF "](resources/$basename)" "$readme"; then
+      echo "::error::$resource: must be linked from $readme"
+      failed=1
+      resource_failed=1
+    fi
+
+    entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$resource")
+
+    if [ "$entrypoint" != "automated-ai-engineer" ] \
+      || [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
+      echo "::error::$resource: entrypoint must resolve to the bundled automated-ai-engineer agent"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e '
+      .spec.source.marketplace == "devantler-tech/agent-plugins"
+      and .spec.source.updatePolicy == "latest-reviewed-default-branch"
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: marketplace and update policy must use the reviewed canonical source"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e '
+      def nonempty_string: type == "string" and length > 0;
+      (.metadata.description | nonempty_string)
+      and (.spec.source.marketplace | nonempty_string)
+      and (.spec.source.entrypoint | nonempty_string)
+      and (.spec.source.updatePolicy | nonempty_string)
+      and (.spec.runtime.execution.branchNamespace | nonempty_string)
+      and (.spec.onboarding.copyPasteInstruction | nonempty_string)
+      and (.spec.onboarding.steps | type == "array" and length > 0
+        and all(.[]; nonempty_string))
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: text fields must be non-empty strings"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e '
+      def nonempty_string: type == "string" and length > 0;
+      ([
+        .metadata.description,
+        .spec.source.marketplace,
+        .spec.source.plugin,
+        .spec.source.entrypoint,
+        .spec.source.updatePolicy,
+        .spec.source.providerPolicy,
+        .spec.source.refreshTiming,
+        .spec.consumer.canonicalInstructions,
+        .spec.consumer.repositoryResolution,
+        .spec.consumer.organizationScopeFrom,
+        .spec.roles["automated-ai-engineer"].mode,
+        .spec.roles["portfolio-surveyor"].mode,
+        .spec.roles["agent-improver"].enabledWhen,
+        .spec.roles["agent-improver"].mode,
+        .spec.roles["finops-engineer"].enabledWhen,
+        .spec.roles["finops-engineer"].definitionFrom,
+        .spec.roles["finops-engineer"].mode,
+        .spec.runtime.scheduler.definitionStrategy,
+        .spec.runtime.scheduler.cadenceFrom,
+        .spec.runtime.scheduler.timezoneFrom,
+        .spec.runtime.scheduler.reconcilePolicy,
+        .spec.runtime.scheduler.notificationPolicy,
+        .spec.runtime.execution.sourceRevision,
+        .spec.runtime.execution.isolation,
+        .spec.runtime.execution.branchNamespace,
+        .spec.runtime.execution.branchNamespacePolicy,
+        .spec.runtime.execution.permissions,
+        .spec.runtime.execution.approvalMode,
+        .spec.runtime.model.selectionPolicy,
+        .spec.runtime.model.upgradePolicy,
+        .spec.runtime.model.reasoningPolicy,
+        .spec.runtime.memory.backendPolicy,
+        .spec.runtime.memory.contractFrom,
+        .spec.onboarding.copyPasteInstruction
+      ] | all(.[]; nonempty_string))
+      and .spec.source.hotSwapDuringRun == false
+      and .spec.roles["automated-ai-engineer"].enabled == true
+      and .spec.roles["portfolio-surveyor"].enabled == true
+      and .spec.runtime.memory.loadBeforeContract == true
+      and .spec.runtime.memory.writeBackAfterRun == true
+      and all(.spec.consumer.requiredContractSections[]; nonempty_string)
+      and all(.spec.consumer.requiredWhenAgentImproverEnabled[]; nonempty_string)
+      and all(.spec.consumer.requiredWhenFinOpsEnabled[]; nonempty_string)
+      and all(.spec.runtime.scheduler.schedules[];
+        (.definitionFrom | nonempty_string) and (.bootstrapPrompt | nonempty_string))
+      and all(.spec.onboarding.steps[]; nonempty_string)
+      and all(.spec.onboarding.completionReport[]; nonempty_string)
+      and all(.spec.guardrails[]; nonempty_string)
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: desired-state fields must use their declared semantic value types"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e --arg name "$plugin_name" '
+      def nonempty_string: type == "string" and length > 0;
+      .apiVersion == "agent-plugins.devantler.tech/v1alpha1"
+      and .kind == "AgenticEngineeringDesiredState"
+      and .metadata.name == $name
+      and (.metadata.description | nonempty_string)
+      and .spec.source.plugin == $name
+      and (.spec.source.marketplace | nonempty_string)
+      and (.spec.source.entrypoint | nonempty_string)
+      and (.spec.source.updatePolicy | nonempty_string)
+      and .spec.consumer.canonicalInstructions == "AGENTS.md"
+      and .spec.runtime.scheduler.definitionStrategy == "thin-pointer"
+      and .spec.runtime.scheduler.cadenceFrom == "AGENTS.md#Cadence"
+      and .spec.runtime.execution.isolation == "fresh-per-run-worktree"
+      and (.spec.runtime.execution.branchNamespace | nonempty_string)
+      and (.spec.onboarding.copyPasteInstruction | nonempty_string)
+      and (.spec.onboarding.steps | type == "array" and length > 0
+        and all(.[]; nonempty_string))
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: incomplete AgenticEngineeringDesiredState schema"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e '
+      def only_keys($allowed): (keys - $allowed | length) == 0;
+      def has_keys($required):
+        . as $object | all($required[]; . as $key | $object | has($key));
+      (only_keys(["apiVersion", "kind", "metadata", "spec"])
+        and has_keys(["apiVersion", "kind", "metadata", "spec"]))
+      and (.metadata
+        | only_keys(["name", "description"]) and has_keys(["name", "description"]))
+      and (.spec
+        | only_keys(["source", "consumer", "roles", "runtime", "onboarding", "guardrails", "notes"])
+          and has_keys(["source", "consumer", "roles", "runtime", "onboarding", "guardrails"]))
+      and (.spec.source
+        | only_keys([
+            "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+            "refreshTiming", "hotSwapDuringRun"
+          ])
+          and has_keys([
+            "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+            "refreshTiming", "hotSwapDuringRun"
+          ]))
+      and (.spec.consumer
+        | only_keys([
+            "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
+            "requiredContractSections", "requiredWhenAgentImproverEnabled", "requiredWhenFinOpsEnabled"
+          ])
+          and has_keys([
+            "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
+            "requiredContractSections", "requiredWhenAgentImproverEnabled", "requiredWhenFinOpsEnabled"
+          ]))
+      and (.spec.roles
+        | only_keys(["automated-ai-engineer", "portfolio-surveyor", "agent-improver", "finops-engineer"])
+          and has_keys(["automated-ai-engineer", "portfolio-surveyor", "agent-improver", "finops-engineer"]))
+      and (.spec.roles["automated-ai-engineer"]
+        | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
+      and (.spec.roles["portfolio-surveyor"]
+        | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
+      and (.spec.roles["agent-improver"]
+        | only_keys(["enabledWhen", "mode"]) and has_keys(["enabledWhen", "mode"]))
+      and (.spec.roles["finops-engineer"]
+        | only_keys(["enabledWhen", "definitionFrom", "mode"])
+          and has_keys(["enabledWhen", "definitionFrom", "mode"]))
+      and (.spec.runtime
+        | only_keys(["scheduler", "execution", "model", "memory"])
+          and has_keys(["scheduler", "execution", "model", "memory"]))
+      and (.spec.runtime.scheduler
+        | only_keys([
+            "definitionStrategy", "cadenceFrom", "timezoneFrom", "reconcilePolicy",
+            "notificationPolicy", "schedules"
+          ])
+          and has_keys([
+            "definitionStrategy", "cadenceFrom", "timezoneFrom", "reconcilePolicy",
+            "notificationPolicy", "schedules"
+          ]))
+      and all(.spec.runtime.scheduler.schedules[];
+        only_keys(["definitionFrom", "bootstrapPrompt"])
+        and has_keys(["definitionFrom", "bootstrapPrompt"]))
+      and (.spec.runtime.execution
+        | only_keys([
+            "sourceRevision", "isolation", "branchNamespace", "branchNamespacePolicy",
+            "permissions", "approvalMode"
+          ])
+          and has_keys([
+            "sourceRevision", "isolation", "branchNamespace", "branchNamespacePolicy",
+            "permissions", "approvalMode"
+          ]))
+      and (.spec.runtime.model
+        | only_keys(["selectionPolicy", "upgradePolicy", "reasoningPolicy"])
+          and has_keys(["selectionPolicy", "upgradePolicy", "reasoningPolicy"]))
+      and (.spec.runtime.memory
+        | only_keys(["backendPolicy", "contractFrom", "loadBeforeContract", "writeBackAfterRun"])
+          and has_keys(["backendPolicy", "contractFrom", "loadBeforeContract", "writeBackAfterRun"]))
+      and (.spec.onboarding
+        | only_keys(["copyPasteInstruction", "steps", "completionReport"])
+          and has_keys(["copyPasteInstruction", "steps", "completionReport"]))
+      and (.spec.onboarding.completionReport
+        | type == "array" and length > 0 and all(.[]; type == "string" and length > 0))
+      and (.spec.guardrails
+        | type == "array" and length > 0 and all(.[]; type == "string" and length > 0))
+      and ((.spec.notes // "") | type == "string")
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: desired-state schema is missing required fields or contains unsupported fields"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e '
+      (.spec.consumer.requiredContractSections | sort) ==
+        (["Portfolio map", "Trust gate", "Cadence", "Memory", "Maintainer channels"] | sort)
+      and
+      (.spec.consumer.requiredWhenAgentImproverEnabled | sort) ==
+        (["Agent definition locations", "Authority model"] | sort)
+      and
+      (.spec.consumer.requiredWhenFinOpsEnabled | sort) ==
+        (["The FinOps engineer"] | sort)
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: required consumer contract sections must match the automated AI engineer contract"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e --arg name "$plugin_name" '
+      (.spec.runtime.scheduler.schedules | keys | sort) ==
+        (["automated-ai-engineer", "agent-improver", "finops-engineer"] | sort)
+      and all(.spec.runtime.scheduler.schedules[];
+        (.definitionFrom | type == "string" and length > 0)
+        and (.bootstrapPrompt | type == "string" and length > 0))
+      and .spec.runtime.scheduler.schedules["automated-ai-engineer"].definitionFrom ==
+        ("plugin:" + $name + "/automated-ai-engineer")
+      and .spec.runtime.scheduler.schedules["agent-improver"].definitionFrom ==
+        ("plugin:" + $name + "/agent-improver")
+      and .spec.runtime.scheduler.schedules["finops-engineer"].definitionFrom ==
+        "AGENTS.md#The FinOps engineer"
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: must define all provider-neutral schedule prompts for plugin $plugin_name"
+      failed=1
+      resource_failed=1
+    fi
+
+    while IFS= read -r schedule_source; do
+      schedule_plugin=${schedule_source#plugin:}
+      schedule_plugin=${schedule_plugin%%/*}
+      schedule_agent=${schedule_source##*/}
+      if [ "$schedule_plugin" != "$plugin_name" ]; then
+        echo "::error::$resource: plugin-backed schedule namespace must match plugin $plugin_name: $schedule_source"
+        failed=1
+        resource_failed=1
+      elif [ ! -f "$plugin_dir/agents/$schedule_agent.agent.md" ]; then
+        echo "::error::$resource: plugin-backed schedule target must resolve to a bundled agent: $schedule_agent"
+        failed=1
+        resource_failed=1
+      fi
+    done < <(jq -r '
+      .spec.runtime.scheduler.schedules[]?.definitionFrom
+      | select(type == "string" and startswith("plugin:"))
+    ' "$resource")
+
+    if ! jq -e '
+      all(.spec.runtime.scheduler.schedules[];
+        .bootstrapPrompt
+        | type == "string"
+          and length > 0
+          and length <= 600
+          and (ascii_downcase
+            | contains("load") and contains("agents.md") and contains("invoke")))
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: schedule prompts must be thin source-loading pointers"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e '
+      any(.spec.onboarding.steps[];
+        ascii_downcase
+        | contains("schedule")
+          and contains("only")
+          and contains("enabled")
+          and contains("runtime.scheduler.schedules"))
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: onboarding must create schedules only for enabled scheduler entries"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$readme" ] || ! grep -qF "feature-flag mechanism" "$readme"; then
+      echo "::error::$resource: $readme must document the required feature-flag mechanism"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$readme" ] || ! grep -qF "## Runtime guard note" "$readme"; then
+      echo "::error::$resource: $readme must define the Runtime guard note section"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ "$resource_failed" -eq 0 ]; then
+      echo "✓ desired state $resource"
+    fi
+  done < <(find plugins -type f -path '*/resources/*.desired-state.json' | sort)
+  return "$failed"
+}
+
+# 7. Every bundled SKILL.md carries its upstream provenance frontmatter.
 #    `gh skill install` records the true upstream in each skill's `metadata.github-*`
 #    frontmatter, and AGENTS.md forbids hand-authored/divergent skills — so a bundled
 #    skill MUST carry a real `github-repo` value *inside the `metadata:` block* of the
@@ -379,6 +768,7 @@ main() {
   validate_plugin_json
   validate_marketplace_plugins_parity
   validate_readme_parity
+  validate_desired_state_resources
   validate_skill_provenance
 }
 

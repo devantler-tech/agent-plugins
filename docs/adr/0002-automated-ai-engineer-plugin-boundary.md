@@ -1,6 +1,6 @@
 # ADR 0002 — The "Automated AI Engineer" plugin boundary (generic role vs deployment config)
 
-- **Status:** Proposed
+- **Status:** Superseded by [ADR 0004](0004-consolidate-agentic-engineering.md)
 - **Date:** 2026-07-04
 - **Deciders:** devantler-tech maintainers
 - **Issue:** [#54](https://github.com/devantler-tech/agent-plugins/issues/54) (Part of [#51](https://github.com/devantler-tech/agent-plugins/issues/51), child 1; relates to roadmap epic [#38](https://github.com/devantler-tech/agent-plugins/issues/38), Theme 1 — *realize "not skills-only" as an agents+skills bundle*)

@@ -30,8 +30,10 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 plugins/
 └── <plugin>/
     ├── plugin.json             # Plugin manifest (kebab-case name, description, version; resources auto-discovered — no skills/agents path fields)
-    └── skills/
-        └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
+    ├── agents/                 # Optional auto-discovered custom agents (*.agent.md)
+    ├── skills/
+    │   └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
+    └── resources/              # Optional ancillary, explicitly linked human-consumed assets
 scripts/
 ├── validate-manifests.sh       # Manifest + parity + plugin.json + README-table + skill-provenance guard (single source of truth; run locally before pushing)
 └── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
@@ -57,6 +59,13 @@ checks the human-facing **README plugin table** against the filesystem: every pl
 on-disk `skills/` directories, any MCP server keys in an optional `plugins/<name>/.mcp.json`, and any
 custom-agent entries in an optional `plugins/<name>/agents/` — so the catalogue a reader sees can never
 drift from what ships either.
+
+Ancillary desired-state documents under `plugins/<name>/resources/*.desired-state.json` are not
+auto-discovered plugin components and therefore are not counted in the README Resources column. CI
+validates their provider-neutral schema, required consumer contract, lack of placeholders, and explicit
+link from the owning plugin README. Agentic-engineering desired state must include the complete set of
+thin schedule prompts validated by the script; schedule prompts point to canonical role sources and do
+not duplicate their logic.
 
 All of these checks live in one place — [`scripts/validate-manifests.sh`](scripts/validate-manifests.sh),
 which CI runs and you can run locally (`./scripts/validate-manifests.sh`) before pushing. Its behaviour
@@ -117,6 +126,9 @@ membership) is authored here.
    invisible there, and CI's suffix guard rejects it) — each with
    YAML frontmatter carrying a non-empty `name` and `description` (the neutral cross-tool core). See
    [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md) for the cross-tool delivery model.
+   A plugin may additionally carry ancillary `resources/*.desired-state.json` documents for human
+   copy-paste onboarding. They do not satisfy the minimum auto-discovered-resource requirement and must
+   be linked from the plugin README; `validate-manifests.sh` enforces their provider-neutral contract.
 3. **agentskills.io spec.** Every bundled `SKILL.md` must validate against the
    [`agentskills.io`](https://agentskills.io) spec — CI validates each discovered skill in a matrix.
 4. **Tool-neutral.** Keep names, descriptions, and README framing cross-tool (VS Code / Copilot CLI /
@@ -135,7 +147,8 @@ membership) is authored here.
    in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
    vice versa, and each row's **Resources** column matches that plugin's bundled resources on disk — its
    `skills/` directories, any `.mcp.json` server keys, and any `agents/` entries (the **Description**
-   column stays editorial).
+   column stays editorial). Ancillary `resources/` assets are documented in the owning plugin README,
+   not listed as auto-discovered resources in this table.
 
 ## Validation
 
@@ -143,8 +156,8 @@ Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-eff
 does not currently enforce but that keeps workflow changes clean:
 
 ```bash
-# 1. Manifests, plugin.json completeness, marketplace ↔ plugins parity, README table, and skill
-#    provenance — the exact checks CI's "Validate manifests" job runs, from the same script.
+# 1. Manifests, plugin.json completeness, marketplace ↔ plugins parity, README table, desired-state
+#    resources, and skill provenance — the exact checks CI's "Validate manifests" job runs.
 ./scripts/validate-manifests.sh
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the

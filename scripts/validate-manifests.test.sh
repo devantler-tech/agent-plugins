@@ -10,7 +10,9 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GUARD="$SCRIPT_DIR/validate-manifests.sh"
+PUBLISHED_RENAMES='{"automated-ai-engineer":"agentic-engineering"}'
 
 pass=0
 fail=0
@@ -78,6 +80,26 @@ EOF
 
 run_guard() { ( cd "$1" && bash "$GUARD" 2>&1 ); }
 
+# This list is deliberately independent from both mutable marketplace manifests and the
+# append-only baseline. Updating or deleting a published transition therefore requires an
+# explicit test change that reviewers can see; changing both data files alone cannot rewrite
+# consumer history silently.
+validate_published_rename_contract() {
+  local root="$1" manifest
+  if ! jq -e --argjson expected "$PUBLISHED_RENAMES" '. == $expected' \
+    "$root/scripts/marketplace-rename-history.json" > /dev/null 2>&1; then
+    echo "must preserve every published plugin rename in the independent regression contract"
+    return 1
+  fi
+  for manifest in "$root/.github/plugin/marketplace.json" "$root/.claude-plugin/marketplace.json"; do
+    if ! jq -e --argjson expected "$PUBLISHED_RENAMES" '.renames == $expected' \
+      "$manifest" > /dev/null 2>&1; then
+      echo "must preserve every published plugin rename in the independent regression contract"
+      return 1
+    fi
+  done
+}
+
 # check_pass <description> <fixture-dir>
 check_pass() {
   local desc="$1" dir="$2" out rc
@@ -101,6 +123,27 @@ check_fail() {
   fi
 }
 
+check_published_contract_pass() {
+  local desc="$1" dir="$2" out rc
+  out=$(validate_published_rename_contract "$dir"); rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "  ✓ $desc"; pass=$((pass + 1))
+  else
+    echo "  ✗ $desc — expected exit 0, got $rc"; printf '%s\n' "$out" | sed 's/^/      /'; fail=$((fail + 1))
+  fi
+}
+
+check_published_contract_fail() {
+  local desc="$1" dir="$2" out rc
+  out=$(validate_published_rename_contract "$dir"); rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "must preserve every published plugin rename"; then
+    echo "  ✓ $desc"; pass=$((pass + 1))
+  else
+    echo "  ✗ $desc — expected coordinated history rewrite to fail; got exit $rc"
+    printf '%s\n' "$out" | sed 's/^/      /'; fail=$((fail + 1))
+  fi
+}
+
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
@@ -111,6 +154,7 @@ echo "validate-manifests.sh self-test"
 
 # --- happy path ---
 check_pass "valid fixture passes" "$(fresh)"
+check_published_contract_pass "published plugin rename mappings are independently pinned" "$REPO_ROOT"
 
 # --- check 1: malformed marketplace manifests ---
 d=$(fresh); printf '%s\n' '{"name":"x"}' > "$d/.github/plugin/marketplace.json"
@@ -154,6 +198,20 @@ for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.jso
   jq 'del(.renames["retired-plugin"])' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 done
 check_fail "persisted null retirement removal fails" "must preserve every persisted plugin rename" "$d"
+
+d=$(mktemp -d "$WORK/published-contract-XXXXXX")
+mkdir -p "$d/.github/plugin" "$d/.claude-plugin" "$d/scripts"
+cp "$REPO_ROOT/.github/plugin/marketplace.json" "$d/.github/plugin/marketplace.json"
+cp "$REPO_ROOT/.claude-plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"
+cp "$REPO_ROOT/scripts/marketplace-rename-history.json" "$d/scripts/marketplace-rename-history.json"
+for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
+  jq 'del(.renames["automated-ai-engineer"])
+    | .renames["replacement-old"] = "agentic-engineering"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+done
+jq 'del(.["automated-ai-engineer"])
+  | .["replacement-old"] = "agentic-engineering"' "$d/scripts/marketplace-rename-history.json" \
+  > "$d/tmp" && mv "$d/tmp" "$d/scripts/marketplace-rename-history.json"
+check_published_contract_fail "coordinated published rename replacement fails" "$d"
 
 d=$(fresh)
 for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do

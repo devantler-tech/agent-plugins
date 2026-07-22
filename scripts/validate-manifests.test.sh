@@ -495,11 +495,11 @@ EOF
         "notificationPolicy": "failed-or-action-required-runs-only",
         "schedules": {
           "automated-ai-engineer": {
-            "definitionFrom": "plugin:agentic-engineering/automated-ai-engineer",
+            "definitionFrom": "plugin:$name/automated-ai-engineer",
             "bootstrapPrompt": "Load native memory and AGENTS.md, then invoke the installed automated-ai-engineer entrypoint."
           },
           "agent-improver": {
-            "definitionFrom": "plugin:agentic-engineering/agent-improver",
+            "definitionFrom": "plugin:$name/agent-improver",
             "bootstrapPrompt": "Load native memory and AGENTS.md, then invoke the installed agent-improver entrypoint."
           },
           "finops-engineer": {
@@ -579,7 +579,12 @@ cat > "$d/plugins/beta/README.md" <<'EOF'
 
 Copy the [other desired state](resources/other.desired-state.json).
 EOF
-check_pass "non-agentic desired-state kind receives universal validation only" "$d"
+check_fail "unsupported desired-state kind fails closed" \
+  "unsupported desired-state kind OtherDesiredState" "$d"
+
+d=$(fresh); make_desired_state "$d" typo
+check_fail "desired-state resource outside a manifested plugin fails" \
+  "plugins/typo has no plugin.json" "$d"
 
 d=$(fresh); mkdir -p "$d/plugins/agentic-engineering"
 check_fail "missing canonical agentic desired-state resource fails" \
@@ -646,6 +651,27 @@ check_fail "desired-state entrypoint must resolve to a bundled agent" \
   "entrypoint must resolve to the bundled automated-ai-engineer agent" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.marketplace = "untrusted/example"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state marketplace must resolve to the canonical marketplace" \
+  "marketplace and update policy must use the reviewed canonical source" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.updatePolicy = "floating-unreviewed-head"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state update policy must remain review-gated" \
+  "marketplace and update policy must use the reviewed canonical source" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.runtime.scheduler.schedules["agent-improver"].definitionFrom = "plugin:beta/agent-improver"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "plugin-backed schedules must use their declared plugin namespace" \
+  "must define all provider-neutral schedule prompts for plugin alpha" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
 rm "$d/plugins/alpha/agents/agent-improver.agent.md"
 # README resource names contain literal backticks.
 # shellcheck disable=SC2016
@@ -706,19 +732,11 @@ sed '/## Runtime guard note/d' "$d/plugins/alpha/README.md" > "$d/tmp" \
 check_fail "consumer README preserves the surveyor runtime guard reference" \
   "must define the Runtime guard note section" "$d"
 
-d=$(fresh); make_desired_state "$d" alpha
+d=$(fresh); make_desired_state "$d" alpha; make_desired_state "$d" beta
 jq '.spec.notes = "TODO"' "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
-mkdir -p "$d/plugins/beta/resources"
-printf '%s\n' '{"apiVersion":"example.dev/v1","kind":"OtherDesiredState","spec":{"source":{"providerPolicy":"neutral"}}}' \
-  > "$d/plugins/beta/resources/other.desired-state.json"
-cat > "$d/plugins/beta/README.md" <<'EOF'
-# beta
-
-Copy the [other desired state](resources/other.desired-state.json).
-EOF
 check_fail "a valid desired state logs success after an earlier resource fails" \
-  "✓ desired state plugins/beta/resources/other.desired-state.json" "$d"
+  "✓ desired state plugins/beta/resources/provider-neutral.desired-state.json" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq 'del(.spec.runtime.scheduler.schedules["agent-improver"])' \

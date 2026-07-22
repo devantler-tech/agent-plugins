@@ -337,7 +337,8 @@ validate_readme_parity() {
 #    and provider-neutral. The generic role remains in the plugin; this document only tells a
 #    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
 validate_desired_state_resources() {
-  local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint schedule_agent
+  local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
+  local schedule_source schedule_plugin schedule_agent
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
 
   if [ -d plugins/agentic-engineering ]; then
@@ -365,6 +366,12 @@ validate_desired_state_resources() {
     readme="$plugin_dir/README.md"
     basename=$(basename "$resource")
 
+    if [ ! -f "$plugin_dir/plugin.json" ]; then
+      echo "::error::$resource: $plugin_dir has no plugin.json; desired-state resources must belong to a manifested plugin"
+      failed=1
+      continue
+    fi
+
     if ! jq -e '.kind | type == "string" and length > 0' "$resource" > /dev/null; then
       echo "::error::$resource: desired-state kind must be a non-empty string"
       failed=1
@@ -372,6 +379,12 @@ validate_desired_state_resources() {
       continue
     fi
     kind=$(jq -r '.kind' "$resource")
+
+    if [ "$kind" != "AgenticEngineeringDesiredState" ]; then
+      echo "::error::$resource: unsupported desired-state kind $kind"
+      failed=1
+      continue
+    fi
 
     if ! jq -e '
       .spec.source.providerPolicy == "neutral"
@@ -408,18 +421,20 @@ validate_desired_state_resources() {
       resource_failed=1
     fi
 
-    if [ "$kind" != "AgenticEngineeringDesiredState" ]; then
-      if [ "$resource_failed" -eq 0 ]; then
-        echo "✓ desired state $resource"
-      fi
-      continue
-    fi
-
     entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$resource")
 
     if [ "$entrypoint" != "automated-ai-engineer" ] \
       || [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
       echo "::error::$resource: entrypoint must resolve to the bundled automated-ai-engineer agent"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e '
+      .spec.source.marketplace == "devantler-tech/agent-plugins"
+      and .spec.source.updatePolicy == "latest-reviewed-default-branch"
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: marketplace and update policy must use the reviewed canonical source"
       failed=1
       resource_failed=1
     fi
@@ -621,26 +636,33 @@ validate_desired_state_resources() {
       resource_failed=1
     fi
 
-    if ! jq -e '
+    if ! jq -e --arg name "$plugin_name" '
       (.spec.runtime.scheduler.schedules | keys | sort) ==
         (["automated-ai-engineer", "agent-improver", "finops-engineer"] | sort)
       and all(.spec.runtime.scheduler.schedules[];
         (.definitionFrom | type == "string" and length > 0)
         and (.bootstrapPrompt | type == "string" and length > 0))
       and .spec.runtime.scheduler.schedules["automated-ai-engineer"].definitionFrom ==
-        "plugin:agentic-engineering/automated-ai-engineer"
+        ("plugin:" + $name + "/automated-ai-engineer")
       and .spec.runtime.scheduler.schedules["agent-improver"].definitionFrom ==
-        "plugin:agentic-engineering/agent-improver"
+        ("plugin:" + $name + "/agent-improver")
       and .spec.runtime.scheduler.schedules["finops-engineer"].definitionFrom ==
         "AGENTS.md#The FinOps engineer"
     ' "$resource" > /dev/null; then
-      echo "::error::$resource: must define all provider-neutral schedule prompts"
+      echo "::error::$resource: must define all provider-neutral schedule prompts for plugin $plugin_name"
       failed=1
       resource_failed=1
     fi
 
-    while IFS= read -r schedule_agent; do
-      if [ ! -f "$plugin_dir/agents/$schedule_agent.agent.md" ]; then
+    while IFS= read -r schedule_source; do
+      schedule_plugin=${schedule_source#plugin:}
+      schedule_plugin=${schedule_plugin%%/*}
+      schedule_agent=${schedule_source##*/}
+      if [ "$schedule_plugin" != "$plugin_name" ]; then
+        echo "::error::$resource: plugin-backed schedule namespace must match plugin $plugin_name: $schedule_source"
+        failed=1
+        resource_failed=1
+      elif [ ! -f "$plugin_dir/agents/$schedule_agent.agent.md" ]; then
         echo "::error::$resource: plugin-backed schedule target must resolve to a bundled agent: $schedule_agent"
         failed=1
         resource_failed=1
@@ -648,7 +670,6 @@ validate_desired_state_resources() {
     done < <(jq -r '
       .spec.runtime.scheduler.schedules[]?.definitionFrom
       | select(type == "string" and startswith("plugin:"))
-      | split("/")[-1]
     ' "$resource")
 
     if ! jq -e '

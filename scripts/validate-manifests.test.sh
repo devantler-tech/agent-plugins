@@ -21,6 +21,10 @@ make_fixture() {
   mkdir -p "$root/.github/plugin" "$root/.claude-plugin"
   local manifest='{
   "name": "devantler-plugins",
+  "renames": {
+    "legacy-alpha": "alpha",
+    "retired-plugin": null
+  },
   "plugins": [
     { "name": "alpha", "description": "Alpha plugin", "version": "1.0.0", "source": "./plugins/alpha" },
     { "name": "beta", "description": "Beta plugin", "version": "1.0.0", "source": "./plugins/beta" }
@@ -121,12 +125,48 @@ d=$(fresh)
 jq '.plugins[0].version = "9.9.9"' "$d/.claude-plugin/marketplace.json" > "$d/tmp" && mv "$d/tmp" "$d/.claude-plugin/marketplace.json"
 check_fail "out-of-sync manifests fail" "Marketplace manifests are out of sync" "$d"
 
-# --- check 3: plugin.json completeness ---
+# --- check 3: append-only plugin rename history ---
+# Once a marketplace has renamed or retired a plugin, Claude Code needs the top-level
+# renames map forever so persisted enabledPlugins keys can migrate instead of becoming
+# orphaned. The guard must fail closed if that history disappears or stops resolving.
+d=$(fresh)
+for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
+  jq 'del(.renames)' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+done
+check_fail "missing plugin rename history fails" "must declare non-empty top-level 'renames' migration history" "$d"
+
+d=$(fresh)
+for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
+  jq '.renames = []' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+done
+check_fail "non-object plugin rename history fails" "must declare non-empty top-level 'renames' migration history" "$d"
+
+d=$(fresh)
+for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
+  jq '.renames.alpha = "beta"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+done
+check_fail "current plugin cannot be a rename source" "rename sources must be retired kebab-case plugin names" "$d"
+
+d=$(fresh)
+for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
+  jq '.renames["legacy-alpha"] = "missing-plugin"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+done
+check_fail "dangling plugin rename target fails" "rename chains must terminate at a current plugin or null without cycles" "$d"
+
+d=$(fresh)
+for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
+  jq '.renames = {"old-alpha":"old-beta", "old-beta":"old-alpha"}' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+done
+check_fail "cyclic plugin rename chain fails" "rename chains must terminate at a current plugin or null without cycles" "$d"
+
+# --- check 4: plugin.json completeness ---
 d=$(fresh); jq '.name = "Bad_Name"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
 # rename dir + manifest entry so only the kebab-case rule trips (keep lockstep intact)
 mv "$d/plugins/alpha" "$d/plugins/Bad_Name"
 for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq '(.plugins[] | select(.name=="alpha")) |= (.name="Bad_Name" | .source="./plugins/Bad_Name")' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+  jq 'del(.renames["legacy-alpha"])
+    | (.plugins[] | select(.name=="alpha")) |= (.name="Bad_Name" | .source="./plugins/Bad_Name")' \
+    "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 done
 check_fail "non-kebab plugin name fails" "must be kebab-case" "$d"
 

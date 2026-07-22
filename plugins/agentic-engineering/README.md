@@ -14,7 +14,13 @@ skills; the provider-specific SDK and instruction-blueprint skills were removed.
 ## Migrating from `automated-ai-engineer`
 
 Version 2 deliberately replaces the old marketplace identity instead of keeping a second alias
-bundle. Before the next scheduled run of an existing installation:
+bundle. The marketplace's append-only rename history maps `automated-ai-engineer` to
+`agentic-engineering`. Claude Code 2.1.193 and later automatically migrates the persisted installed
+plugin key when the marketplace refreshes; restart Claude Code or run `/reload-plugins`, then continue
+with step 2 below.
+
+For older Claude Code versions and runtimes that do not implement marketplace rename migration,
+complete the plugin-name change manually before the next scheduled run:
 
 1. Remove the installed `automated-ai-engineer` plugin with the runtime's native plugin control, then
    install `agentic-engineering@devantler-plugins` from `devantler-tech/agent-plugins`.

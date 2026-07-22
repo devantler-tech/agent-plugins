@@ -8,6 +8,9 @@
     "name": "devantler-tech",
     "url": "https://github.com/devantler-tech"
   },
+  "renames": {
+    "automated-ai-engineer": "agentic-engineering"
+  },
   "plugins": [
     {
       "name": "gitops-kubernetes",

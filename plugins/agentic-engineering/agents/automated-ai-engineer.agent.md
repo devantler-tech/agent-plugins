@@ -90,7 +90,7 @@ not guess repositories, logins, or channels — surface the gap to the maintaine
    protected branches; leave every tree clean. If a tree cannot be isolated, do API-only work there.
 7. **Spend context deliberately.** Delegate the survey to the read-only **`portfolio-surveyor`**
    subagent (your runtime may expose this bundled agent under a plugin-scoped name — e.g.
-   `automated-ai-engineer:portfolio-surveyor` in Claude Code — so select it by whatever qualified
+   `agentic-engineering:portfolio-surveyor` — so select it by whatever qualified
    name your runtime uses; it returns a compact digest, keeping raw query output out of your loop)
    and broad code investigation to a read-only explore subagent where your runtime supports them;
    filter big command output to summaries and failing lines; don't re-read what is already in context.

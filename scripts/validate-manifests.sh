@@ -11,6 +11,8 @@
 #   5. The README plugin table and on-disk plugin resources are in lockstep (every plugin
 #      has a row and vice versa; each row's Resources column matches the plugin's bundled
 #      skills + MCP servers).
+#   6. Ancillary *.desired-state.json onboarding resources are structurally complete,
+#      provider-neutral, placeholder-free, and linked from their plugin README.
 #
 # Operates on the current working directory (run from the repo root, exactly as CI
 # does). Documented in AGENTS.md for local runs and self-tested by
@@ -329,7 +331,100 @@ validate_readme_parity() {
   return "$failed"
 }
 
-# 6. Every bundled SKILL.md carries its upstream provenance frontmatter.
+# 6. A copy-paste desired-state resource is ancillary deployment wiring: plugin runtimes do
+#    not auto-discover it like skills, MCP servers, or agents, but it ships in the plugin
+#    directory for a human to paste into any assistant. Keep the contract deliberately small
+#    and provider-neutral. The generic role remains in the plugin; this document only tells a
+#    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
+validate_desired_state_resources() {
+  local failed=0 resource plugin_dir plugin_name readme basename
+  while IFS= read -r resource; do
+    plugin_dir=$(dirname "$(dirname "$resource")")
+    plugin_name=$(basename "$plugin_dir")
+    readme="$plugin_dir/README.md"
+    basename=$(basename "$resource")
+
+    if ! jq -e . "$resource" > /dev/null 2>&1; then
+      echo "::error::$resource: not valid JSON"
+      failed=1
+      continue
+    fi
+
+    if ! jq -e --arg name "$plugin_name" '
+      .apiVersion == "agent-plugins.devantler.tech/v1alpha1"
+      and .kind == "AgenticEngineeringDesiredState"
+      and .metadata.name == $name
+      and ((.metadata.description // "") | length > 0)
+      and .spec.source.plugin == $name
+      and ((.spec.source.marketplace // "") | length > 0)
+      and ((.spec.source.entrypoint // "") | length > 0)
+      and ((.spec.source.updatePolicy // "") | length > 0)
+      and .spec.consumer.canonicalInstructions == "AGENTS.md"
+      and .spec.runtime.scheduler.definitionStrategy == "thin-pointer"
+      and .spec.runtime.scheduler.cadenceFrom == "AGENTS.md#Cadence"
+      and .spec.runtime.execution.isolation == "fresh-per-run-worktree"
+      and ((.spec.runtime.execution.branchNamespace // "") | length > 0)
+      and ((.spec.onboarding.copyPasteInstruction // "") | length > 0)
+      and ((.spec.onboarding.steps // []) | type == "array" and length > 0)
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: incomplete AgenticEngineeringDesiredState schema"
+      failed=1
+    fi
+
+    if ! jq -e '
+      (.spec.consumer.requiredContractSections | sort) ==
+        (["Portfolio map", "Trust gate", "Cadence", "Memory", "Maintainer channels"] | sort)
+      and
+      (.spec.consumer.requiredWhenAgentImproverEnabled | sort) ==
+        (["Agent definition locations", "Authority model"] | sort)
+      and
+      (.spec.consumer.requiredWhenFinOpsEnabled | sort) ==
+        (["The FinOps engineer"] | sort)
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: required consumer contract sections must match the automated AI engineer contract"
+      failed=1
+    fi
+
+    if ! jq -e '
+      (.spec.runtime.scheduler.schedules | keys | sort) ==
+        (["automated-ai-engineer", "agent-improver", "finops-engineer"] | sort)
+      and all(.spec.runtime.scheduler.schedules[];
+        ((.definitionFrom // "") | length > 0)
+        and ((.bootstrapPrompt // "") | length > 0))
+      and .spec.runtime.scheduler.schedules["automated-ai-engineer"].definitionFrom ==
+        "plugin:agentic-engineering/automated-ai-engineer"
+      and .spec.runtime.scheduler.schedules["agent-improver"].definitionFrom ==
+        "plugin:agentic-engineering/agent-improver"
+      and .spec.runtime.scheduler.schedules["finops-engineer"].definitionFrom ==
+        "AGENTS.md#The FinOps engineer"
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: must define all provider-neutral schedule prompts"
+      failed=1
+    fi
+
+    if grep -Eiq '(claude|chatgpt|codex|copilot|cursor|gemini)' "$resource"; then
+      echo "::error::$resource: must not name a specific AI assistant provider"
+      failed=1
+    fi
+
+    if grep -Eq '<[^>]+>|TODO|CHANGEME' "$resource"; then
+      echo "::error::$resource: must be copy-paste ready with no unresolved placeholders"
+      failed=1
+    fi
+
+    if [ ! -f "$readme" ] || ! grep -qF "resources/$basename" "$readme"; then
+      echo "::error::$resource: must be linked from $readme"
+      failed=1
+    fi
+
+    if [ "$failed" -eq 0 ]; then
+      echo "✓ desired state $resource"
+    fi
+  done < <(find plugins -type f -path '*/resources/*.desired-state.json' | sort)
+  return "$failed"
+}
+
+# 7. Every bundled SKILL.md carries its upstream provenance frontmatter.
 #    `gh skill install` records the true upstream in each skill's `metadata.github-*`
 #    frontmatter, and AGENTS.md forbids hand-authored/divergent skills — so a bundled
 #    skill MUST carry a real `github-repo` value *inside the `metadata:` block* of the
@@ -379,6 +474,7 @@ main() {
   validate_plugin_json
   validate_marketplace_plugins_parity
   validate_readme_parity
+  validate_desired_state_resources
   validate_skill_provenance
 }
 

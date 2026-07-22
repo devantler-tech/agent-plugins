@@ -402,6 +402,130 @@ Body.
 EOF
 check_fail "agent with an empty block-scalar description fails" "must declare a non-empty 'description'" "$d"
 
+# --- check 9: provider-neutral desired-state resources ---
+# A plugin may ship an ancillary copy-paste desired-state resource under resources/. It is
+# not a fourth auto-discovered plugin component (skills/MCP/agents remain the portable plugin
+# resource model), but when present it must be valid, provider-neutral, and linked from the
+# plugin README so a consumer can actually find it.
+make_desired_state() {
+  local root="$1" name="$2"
+  mkdir -p "$root/plugins/$name/resources"
+  cat > "$root/plugins/$name/resources/provider-neutral.desired-state.json" <<EOF
+{
+  "apiVersion": "agent-plugins.devantler.tech/v1alpha1",
+  "kind": "AgenticEngineeringDesiredState",
+  "metadata": {
+    "name": "$name",
+    "description": "Provider-neutral desired state for onboarding an automated AI engineer."
+  },
+  "spec": {
+    "source": {
+      "marketplace": "devantler-tech/agent-plugins",
+      "plugin": "$name",
+      "entrypoint": "automated-ai-engineer",
+      "updatePolicy": "latest-reviewed-default-branch"
+    },
+    "consumer": {
+      "canonicalInstructions": "AGENTS.md",
+      "requiredContractSections": [
+        "Portfolio map",
+        "Trust gate",
+        "Cadence",
+        "Memory",
+        "Maintainer channels"
+      ],
+      "requiredWhenAgentImproverEnabled": [
+        "Agent definition locations",
+        "Authority model"
+      ],
+      "requiredWhenFinOpsEnabled": [
+        "The FinOps engineer"
+      ]
+    },
+    "runtime": {
+      "scheduler": {
+        "definitionStrategy": "thin-pointer",
+        "cadenceFrom": "AGENTS.md#Cadence",
+        "bootstrapPrompt": "Load the canonical instructions and invoke the installed automated-ai-engineer entrypoint.",
+        "schedules": {
+          "automated-ai-engineer": {
+            "definitionFrom": "plugin:agentic-engineering/automated-ai-engineer",
+            "bootstrapPrompt": "Load native memory and the canonical instructions, then invoke the installed automated-ai-engineer entrypoint."
+          },
+          "agent-improver": {
+            "definitionFrom": "plugin:agentic-engineering/agent-improver",
+            "bootstrapPrompt": "Load native memory and the canonical instructions, then invoke the installed agent-improver entrypoint."
+          },
+          "finops-engineer": {
+            "definitionFrom": "AGENTS.md#The FinOps engineer",
+            "bootstrapPrompt": "Load native memory and the canonical instructions, resolve the FinOps role sources they declare, then invoke finops-engineer."
+          }
+        }
+      },
+      "execution": {
+        "isolation": "fresh-per-run-worktree",
+        "branchNamespace": "consumer-assigned-unique-per-instance"
+      }
+    },
+    "onboarding": {
+      "copyPasteInstruction": "Adopt and reconcile this desired state in the current consumer repository.",
+      "steps": [
+        "Resolve the canonical consumer repository.",
+        "Load the plugin and validate the consumer contract.",
+        "Apply the runtime wiring without duplicating the role."
+      ]
+    }
+  }
+}
+EOF
+  cat > "$root/plugins/$name/README.md" <<EOF
+# $name
+
+Copy the [provider-neutral desired state](resources/provider-neutral.desired-state.json) into a new assistant.
+EOF
+}
+
+d=$(fresh); make_desired_state "$d" alpha
+check_pass "provider-neutral desired-state resource passes" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '%s\n' 'not json' > "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "malformed desired-state resource fails" "not valid JSON" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.consumer.requiredContractSections[0])' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state resource missing a consumer contract section fails" "required consumer contract sections" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.runtime.vendor = "Claude"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "provider-specific desired-state resource fails" "must not name a specific AI assistant provider" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '# alpha\n' > "$d/plugins/alpha/README.md"
+check_fail "desired-state resource missing from plugin README fails" "must be linked from" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.runtime.scheduler.schedules["agent-improver"])' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state resource missing Agent Improver schedule prompt fails" "must define all provider-neutral schedule prompts" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.runtime.scheduler.schedules["finops-engineer"])' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state resource missing FinOps Engineer schedule prompt fails" "must define all provider-neutral schedule prompts" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.consumer.requiredWhenFinOpsEnabled)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state resource missing FinOps consumer contract fails" "required consumer contract sections" "$d"
+
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

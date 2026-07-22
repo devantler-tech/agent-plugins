@@ -337,35 +337,64 @@ validate_readme_parity() {
 #    and provider-neutral. The generic role remains in the plugin; this document only tells a
 #    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
 validate_desired_state_resources() {
-  local failed=0 resource plugin_dir plugin_name readme basename
-  while IFS= read -r resource; do
-    plugin_dir=$(dirname "$(dirname "$resource")")
-    plugin_name=$(basename "$plugin_dir")
-    readme="$plugin_dir/README.md"
-    basename=$(basename "$resource")
+  local failed=0 resource kind plugin_dir plugin_name readme basename
+  local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
 
+  if [ -d plugins/agentic-engineering ] && [ ! -f "$canonical_resource" ]; then
+    echo "::error::$canonical_resource: missing canonical agentic desired-state resource"
+    failed=1
+  fi
+
+  while IFS= read -r resource; do
     if ! jq -e . "$resource" > /dev/null 2>&1; then
       echo "::error::$resource: not valid JSON"
       failed=1
       continue
     fi
 
+    kind=$(jq -r '.kind // ""' "$resource")
+    if [ "$kind" != "AgenticEngineeringDesiredState" ]; then
+      continue
+    fi
+
+    plugin_dir=$(dirname "$(dirname "$resource")")
+    plugin_name=$(basename "$plugin_dir")
+    readme="$plugin_dir/README.md"
+    basename=$(basename "$resource")
+
+    if ! jq -e '
+      def nonempty_string: type == "string" and length > 0;
+      (.metadata.description | nonempty_string)
+      and (.spec.source.marketplace | nonempty_string)
+      and (.spec.source.entrypoint | nonempty_string)
+      and (.spec.source.updatePolicy | nonempty_string)
+      and (.spec.runtime.execution.branchNamespace | nonempty_string)
+      and (.spec.onboarding.copyPasteInstruction | nonempty_string)
+      and (.spec.onboarding.steps | type == "array" and length > 0
+        and all(.[]; nonempty_string))
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: text fields must be non-empty strings"
+      failed=1
+    fi
+
     if ! jq -e --arg name "$plugin_name" '
+      def nonempty_string: type == "string" and length > 0;
       .apiVersion == "agent-plugins.devantler.tech/v1alpha1"
       and .kind == "AgenticEngineeringDesiredState"
       and .metadata.name == $name
-      and ((.metadata.description // "") | length > 0)
+      and (.metadata.description | nonempty_string)
       and .spec.source.plugin == $name
-      and ((.spec.source.marketplace // "") | length > 0)
-      and ((.spec.source.entrypoint // "") | length > 0)
-      and ((.spec.source.updatePolicy // "") | length > 0)
+      and (.spec.source.marketplace | nonempty_string)
+      and (.spec.source.entrypoint | nonempty_string)
+      and (.spec.source.updatePolicy | nonempty_string)
       and .spec.consumer.canonicalInstructions == "AGENTS.md"
       and .spec.runtime.scheduler.definitionStrategy == "thin-pointer"
       and .spec.runtime.scheduler.cadenceFrom == "AGENTS.md#Cadence"
       and .spec.runtime.execution.isolation == "fresh-per-run-worktree"
-      and ((.spec.runtime.execution.branchNamespace // "") | length > 0)
-      and ((.spec.onboarding.copyPasteInstruction // "") | length > 0)
-      and ((.spec.onboarding.steps // []) | type == "array" and length > 0)
+      and (.spec.runtime.execution.branchNamespace | nonempty_string)
+      and (.spec.onboarding.copyPasteInstruction | nonempty_string)
+      and (.spec.onboarding.steps | type == "array" and length > 0
+        and all(.[]; nonempty_string))
     ' "$resource" > /dev/null; then
       echo "::error::$resource: incomplete AgenticEngineeringDesiredState schema"
       failed=1
@@ -389,8 +418,8 @@ validate_desired_state_resources() {
       (.spec.runtime.scheduler.schedules | keys | sort) ==
         (["automated-ai-engineer", "agent-improver", "finops-engineer"] | sort)
       and all(.spec.runtime.scheduler.schedules[];
-        ((.definitionFrom // "") | length > 0)
-        and ((.bootstrapPrompt // "") | length > 0))
+        (.definitionFrom | type == "string" and length > 0)
+        and (.bootstrapPrompt | type == "string" and length > 0))
       and .spec.runtime.scheduler.schedules["automated-ai-engineer"].definitionFrom ==
         "plugin:agentic-engineering/automated-ai-engineer"
       and .spec.runtime.scheduler.schedules["agent-improver"].definitionFrom ==
@@ -402,17 +431,45 @@ validate_desired_state_resources() {
       failed=1
     fi
 
-    if grep -Eiq '(claude|chatgpt|codex|copilot|cursor|gemini)' "$resource"; then
-      echo "::error::$resource: must not name a specific AI assistant provider"
+    if ! jq -e '
+      .spec.source.providerPolicy == "neutral"
+      and ([
+        .. | objects | keys[] | ascii_downcase
+        | select((contains("provider") or contains("vendor")) and . != "providerpolicy")
+      ] | length == 0)
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: must declare neutral provider policy without provider or vendor fields"
       failed=1
     fi
 
-    if grep -Eq '<[^>]+>|TODO|CHANGEME' "$resource"; then
+    if ! jq -e '
+      all(.spec.runtime.scheduler.schedules[];
+        .bootstrapPrompt
+        | type == "string"
+          and length > 0
+          and length <= 600
+          and (ascii_downcase
+            | contains("load") and contains("agents.md") and contains("invoke")))
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: schedule prompts must be thin source-loading pointers"
+      failed=1
+    fi
+
+    if ! jq -e '
+      any(.spec.onboarding.steps[];
+        ascii_downcase
+        | contains("schedule") and contains("only") and contains("enabled"))
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: onboarding must create schedules only for enabled roles"
+      failed=1
+    fi
+
+    if grep -Eq '<[^>]+>|TODO|CHANGEME|REPLACE_ME|YOUR_ORG|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' "$resource"; then
       echo "::error::$resource: must be copy-paste ready with no unresolved placeholders"
       failed=1
     fi
 
-    if [ ! -f "$readme" ] || ! grep -qF "resources/$basename" "$readme"; then
+    if [ ! -f "$readme" ] || ! grep -qF "](resources/$basename)" "$readme"; then
       echo "::error::$resource: must be linked from $readme"
       failed=1
     fi

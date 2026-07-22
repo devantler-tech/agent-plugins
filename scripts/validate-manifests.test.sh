@@ -423,7 +423,8 @@ make_desired_state() {
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "$name",
       "entrypoint": "automated-ai-engineer",
-      "updatePolicy": "latest-reviewed-default-branch"
+      "updatePolicy": "latest-reviewed-default-branch",
+      "providerPolicy": "neutral"
     },
     "consumer": {
       "canonicalInstructions": "AGENTS.md",
@@ -450,15 +451,15 @@ make_desired_state() {
         "schedules": {
           "automated-ai-engineer": {
             "definitionFrom": "plugin:agentic-engineering/automated-ai-engineer",
-            "bootstrapPrompt": "Load native memory and the canonical instructions, then invoke the installed automated-ai-engineer entrypoint."
+            "bootstrapPrompt": "Load native memory and AGENTS.md, then invoke the installed automated-ai-engineer entrypoint."
           },
           "agent-improver": {
             "definitionFrom": "plugin:agentic-engineering/agent-improver",
-            "bootstrapPrompt": "Load native memory and the canonical instructions, then invoke the installed agent-improver entrypoint."
+            "bootstrapPrompt": "Load native memory and AGENTS.md, then invoke the installed agent-improver entrypoint."
           },
           "finops-engineer": {
             "definitionFrom": "AGENTS.md#The FinOps engineer",
-            "bootstrapPrompt": "Load native memory and the canonical instructions, resolve the FinOps role sources they declare, then invoke finops-engineer."
+            "bootstrapPrompt": "Load native memory and AGENTS.md, resolve the FinOps role sources it declares, then invoke finops-engineer."
           }
         }
       },
@@ -472,6 +473,7 @@ make_desired_state() {
       "steps": [
         "Resolve the canonical consumer repository.",
         "Load the plugin and validate the consumer contract.",
+        "Create native schedules only for roles enabled by the consumer contract.",
         "Apply the runtime wiring without duplicating the role."
       ]
     }
@@ -489,6 +491,16 @@ d=$(fresh); make_desired_state "$d" alpha
 check_pass "provider-neutral desired-state resource passes" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/beta/resources"
+printf '%s\n' '{"apiVersion":"example.dev/v1","kind":"OtherDesiredState"}' \
+  > "$d/plugins/beta/resources/other.desired-state.json"
+check_pass "unrelated desired-state kind is outside the agentic schema" "$d"
+
+d=$(fresh); mkdir -p "$d/plugins/agentic-engineering"
+check_fail "missing canonical agentic desired-state resource fails" \
+  "missing canonical agentic desired-state resource" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
 printf '%s\n' 'not json' > "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "malformed desired-state resource fails" "not valid JSON" "$d"
 
@@ -499,14 +511,55 @@ jq 'del(.spec.consumer.requiredContractSections[0])' \
 check_fail "desired-state resource missing a consumer contract section fails" "required consumer contract sections" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-jq '.spec.runtime.vendor = "Claude"' \
+jq '.metadata.description = ["not", "text"]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
-check_fail "provider-specific desired-state resource fails" "must not name a specific AI assistant provider" "$d"
+check_fail "desired-state resource rejects non-string text fields" "text fields must be non-empty strings" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.runtime.provider = "OpenAI"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "explicit provider field fails" "must declare neutral provider policy without provider or vendor fields" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.notes = "Preserve the cursor position when resuming reconciliation."' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_pass "neutral prose that happens to contain a provider brand word passes" "$d"
+
+# Literal placeholder fixtures must not expand.
+# shellcheck disable=SC2016
+for placeholder in '${REPOSITORY}' '$ACCOUNT_ID' 'REPLACE_ME' 'YOUR_ORG'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  jq --arg placeholder "$placeholder" '.spec.notes = $placeholder' \
+    "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+  check_fail "desired-state resource rejects placeholder $placeholder" \
+    "must be copy-paste ready with no unresolved placeholders" "$d"
+done
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.runtime.scheduler.schedules["agent-improver"].bootstrapPrompt = ("Load AGENTS.md and invoke the agent-improver entrypoint. " * 20)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "oversized schedule prompt fails the thin-pointer contract" \
+  "schedule prompts must be thin source-loading pointers" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.onboarding.steps |= map(select(contains("schedules only") | not))' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "onboarding must schedule only enabled roles" \
+  "onboarding must create schedules only for enabled roles" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 printf '# alpha\n' > "$d/plugins/alpha/README.md"
 check_fail "desired-state resource missing from plugin README fails" "must be linked from" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '# alpha\n\nresources/provider-neutral.desired-state.json\n' > "$d/plugins/alpha/README.md"
+check_fail "plain desired-state path is not a README link" "must be linked from" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq 'del(.spec.runtime.scheduler.schedules["agent-improver"])' \

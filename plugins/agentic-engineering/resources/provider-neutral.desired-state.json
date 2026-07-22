@@ -11,6 +11,7 @@
       "plugin": "agentic-engineering",
       "entrypoint": "automated-ai-engineer",
       "updatePolicy": "latest-reviewed-default-branch",
+      "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
       "hotSwapDuringRun": false
     },
@@ -102,7 +103,7 @@
         "Read AGENTS.md and verify every required consumer contract section. Enable agent-improver only when both additional sections are present, and enable finops-engineer only when The FinOps engineer resolves all of its reviewed role sources.",
         "Map the declared roles onto native agent capabilities, preserve portfolio-surveyor as read-only, and grant least privilege for each role.",
         "Allocate a unique branch namespace for every deployed writer instance and record it in the consumer contract before enabling writes.",
-        "Create or update each native schedule from AGENTS.md#Cadence using only its matching thin bootstrap prompt in this manifest.",
+        "Create or update a native schedule only for each role whose enabled or enabledWhen condition is satisfied, using AGENTS.md#Cadence and that role's matching thin bootstrap prompt in this manifest.",
         "Load native persistent memory and perform a read-only preflight or dry run before allowing unattended writes.",
         "Report the installed source revision, plugin version, cadence, timezone, branch namespace, memory backend, permission boundary, and every unsupported capability."
       ],

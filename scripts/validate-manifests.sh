@@ -337,7 +337,7 @@ validate_readme_parity() {
 #    and provider-neutral. The generic role remains in the plugin; this document only tells a
 #    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
 validate_desired_state_resources() {
-  local failed=0 resource kind plugin_dir plugin_name readme basename
+  local failed=0 resource kind plugin_dir plugin_name readme basename entrypoint
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
 
   if [ -d plugins/agentic-engineering ]; then
@@ -360,6 +360,8 @@ validate_desired_state_resources() {
 
     kind=$(jq -r '.kind // ""' "$resource")
     if [ "$kind" != "AgenticEngineeringDesiredState" ]; then
+      echo "::error::$resource: unsupported desired-state kind ${kind:-<missing>}"
+      failed=1
       continue
     fi
 
@@ -367,6 +369,13 @@ validate_desired_state_resources() {
     plugin_name=$(basename "$plugin_dir")
     readme="$plugin_dir/README.md"
     basename=$(basename "$resource")
+    entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$resource")
+
+    if [ "$entrypoint" != "automated-ai-engineer" ] \
+      || [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
+      echo "::error::$resource: entrypoint must resolve to the bundled automated-ai-engineer agent"
+      failed=1
+    fi
 
     if ! jq -e '
       def nonempty_string: type == "string" and length > 0;
@@ -403,6 +412,47 @@ validate_desired_state_resources() {
         and all(.[]; nonempty_string))
     ' "$resource" > /dev/null; then
       echo "::error::$resource: incomplete AgenticEngineeringDesiredState schema"
+      failed=1
+    fi
+
+    if ! jq -e '
+      def only_keys($allowed): (keys - $allowed | length) == 0;
+      only_keys(["apiVersion", "kind", "metadata", "spec"])
+      and (.metadata | only_keys(["name", "description"]))
+      and (.spec | only_keys([
+        "source", "consumer", "roles", "runtime", "onboarding", "guardrails", "notes"
+      ]))
+      and (.spec.source | only_keys([
+        "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+        "refreshTiming", "hotSwapDuringRun"
+      ]))
+      and (.spec.consumer | only_keys([
+        "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
+        "requiredContractSections", "requiredWhenAgentImproverEnabled", "requiredWhenFinOpsEnabled"
+      ]))
+      and ((.spec.roles // {}) | only_keys([
+        "automated-ai-engineer", "portfolio-surveyor", "agent-improver", "finops-engineer"
+      ]))
+      and all((.spec.roles // {})[]; only_keys(["enabled", "enabledWhen", "mode", "definitionFrom"]))
+      and (.spec.runtime | only_keys(["scheduler", "execution", "model", "memory"]))
+      and (.spec.runtime.scheduler | only_keys([
+        "definitionStrategy", "cadenceFrom", "timezoneFrom", "reconcilePolicy",
+        "notificationPolicy", "schedules"
+      ]))
+      and all(.spec.runtime.scheduler.schedules[]; only_keys(["definitionFrom", "bootstrapPrompt"]))
+      and (.spec.runtime.execution | only_keys([
+        "sourceRevision", "isolation", "branchNamespace", "branchNamespacePolicy",
+        "permissions", "approvalMode"
+      ]))
+      and ((.spec.runtime.model // {}) | only_keys([
+        "selectionPolicy", "upgradePolicy", "reasoningPolicy"
+      ]))
+      and ((.spec.runtime.memory // {}) | only_keys([
+        "backendPolicy", "contractFrom", "loadBeforeContract", "writeBackAfterRun"
+      ]))
+      and (.spec.onboarding | only_keys(["copyPasteInstruction", "steps", "completionReport"]))
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: desired-state schema contains unsupported fields"
       failed=1
     fi
 
@@ -464,9 +514,12 @@ validate_desired_state_resources() {
     if ! jq -e '
       any(.spec.onboarding.steps[];
         ascii_downcase
-        | contains("schedule") and contains("only") and contains("enabled"))
+        | contains("schedule")
+          and contains("only")
+          and contains("enabled")
+          and contains("runtime.scheduler.schedules"))
     ' "$resource" > /dev/null; then
-      echo "::error::$resource: onboarding must create schedules only for enabled roles"
+      echo "::error::$resource: onboarding must create schedules only for enabled scheduler entries"
       failed=1
     fi
 
@@ -482,6 +535,11 @@ validate_desired_state_resources() {
 
     if [ ! -f "$readme" ] || ! grep -qF "feature-flag mechanism" "$readme"; then
       echo "::error::$resource: $readme must document the required feature-flag mechanism"
+      failed=1
+    fi
+
+    if [ ! -f "$readme" ] || ! grep -qF "## Runtime guard note" "$readme"; then
+      echo "::error::$resource: $readme must define the Runtime guard note section"
       failed=1
     fi
 

@@ -90,7 +90,7 @@ improvement loop. The role/configuration boundary remains the one established by
 [ADR 0002](../../docs/adr/0002-automated-ai-engineer-plugin-boundary.md): portable decision logic lives
 in this plugin; consumer-owned facts live in `AGENTS.md`.
 
-## Runtime enforcement
+## Runtime guard note
 
 The surveyor's read-only discipline is declared in its definition, but deployments should enforce the
 same boundary in their permission layer. Scheduled instances should use fresh per-run worktrees, unique

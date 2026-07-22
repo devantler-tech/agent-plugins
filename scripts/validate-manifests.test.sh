@@ -409,7 +409,20 @@ check_fail "agent with an empty block-scalar description fails" "must declare a 
 # plugin README so a consumer can actually find it.
 make_desired_state() {
   local root="$1" name="$2"
-  mkdir -p "$root/plugins/$name/resources"
+  mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents"
+  cat > "$root/plugins/$name/agents/automated-ai-engineer.agent.md" <<'EOF'
+---
+name: automated-ai-engineer
+description: Fixture entrypoint.
+---
+Fixture agent.
+EOF
+  awk -v name="$name" '
+    index($0, "[`" name "`](plugins/" name "/)") {
+      sub("`example-skill`", "`automated-ai-engineer`, `example-skill`")
+    }
+    { print }
+  ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
   cat > "$root/plugins/$name/resources/provider-neutral.desired-state.json" <<EOF
 {
   "apiVersion": "agent-plugins.devantler.tech/v1alpha1",
@@ -447,7 +460,6 @@ make_desired_state() {
       "scheduler": {
         "definitionStrategy": "thin-pointer",
         "cadenceFrom": "AGENTS.md#Cadence",
-        "bootstrapPrompt": "Load the canonical instructions and invoke the installed automated-ai-engineer entrypoint.",
         "schedules": {
           "automated-ai-engineer": {
             "definitionFrom": "plugin:agentic-engineering/automated-ai-engineer",
@@ -473,7 +485,7 @@ make_desired_state() {
       "steps": [
         "Resolve the canonical consumer repository.",
         "Load the plugin and validate the consumer contract.",
-        "Create native schedules only for roles enabled by the consumer contract.",
+        "Create a native schedule only for entries in runtime.scheduler.schedules whose corresponding roles are enabled by the consumer contract.",
         "Apply the runtime wiring without duplicating the role."
       ]
     }
@@ -485,6 +497,8 @@ EOF
 
 Copy the [provider-neutral desired state](resources/provider-neutral.desired-state.json) into a new assistant.
 The Portfolio map must document each product's feature-flag mechanism.
+
+## Runtime guard note
 EOF
 }
 
@@ -495,7 +509,8 @@ d=$(fresh); make_desired_state "$d" alpha
 mkdir -p "$d/plugins/beta/resources"
 printf '%s\n' '{"apiVersion":"example.dev/v1","kind":"OtherDesiredState"}' \
   > "$d/plugins/beta/resources/other.desired-state.json"
-check_pass "unrelated desired-state kind is outside the agentic schema" "$d"
+check_fail "unsupported desired-state kind fails closed" \
+  "unsupported desired-state kind OtherDesiredState" "$d"
 
 d=$(fresh); mkdir -p "$d/plugins/agentic-engineering"
 check_fail "missing canonical agentic desired-state resource fails" \
@@ -530,6 +545,20 @@ jq '.spec.runtime.provider = "OpenAI"' \
 check_fail "explicit provider field fails" "must declare neutral provider policy without provider or vendor fields" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.model = "Claude"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "provider-specific configuration under an ordinary key fails" \
+  "desired-state schema contains unsupported fields" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.entrypoint = "automated-ai-enginer"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state entrypoint must resolve to a bundled agent" \
+  "entrypoint must resolve to the bundled automated-ai-engineer agent" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.notes = "Preserve the cursor position when resuming reconciliation."' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
@@ -554,11 +583,11 @@ check_fail "oversized schedule prompt fails the thin-pointer contract" \
   "schedule prompts must be thin source-loading pointers" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-jq '.spec.onboarding.steps |= map(select(contains("schedules only") | not))' \
+jq '.spec.onboarding.steps |= map(select(contains("runtime.scheduler.schedules") | not))' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
-check_fail "onboarding must schedule only enabled roles" \
-  "onboarding must create schedules only for enabled roles" "$d"
+check_fail "onboarding must schedule only enabled scheduler entries" \
+  "onboarding must create schedules only for enabled scheduler entries" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 printf '# alpha\n' > "$d/plugins/alpha/README.md"
@@ -573,6 +602,12 @@ sed '/feature-flag mechanism/d' "$d/plugins/alpha/README.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/README.md"
 check_fail "consumer contract must document the feature-flag mechanism" \
   "must document the required feature-flag mechanism" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed '/## Runtime guard note/d' "$d/plugins/alpha/README.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/README.md"
+check_fail "consumer README preserves the surveyor runtime guard reference" \
+  "must define the Runtime guard note section" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq 'del(.spec.runtime.scheduler.schedules["agent-improver"])' \

@@ -18,7 +18,7 @@ fail=0
 # Build a complete, valid fixture repo (two plugins) at $1.
 make_fixture() {
   local root="$1"
-  mkdir -p "$root/.github/plugin" "$root/.claude-plugin"
+  mkdir -p "$root/.github/plugin" "$root/.claude-plugin" "$root/scripts"
   local manifest='{
   "name": "devantler-plugins",
   "renames": {
@@ -32,6 +32,8 @@ make_fixture() {
 }'
   printf '%s\n' "$manifest" > "$root/.github/plugin/marketplace.json"
   printf '%s\n' "$manifest" > "$root/.claude-plugin/marketplace.json"
+  printf '%s\n' '{"legacy-alpha":"alpha","retired-plugin":null}' \
+    > "$root/scripts/marketplace-rename-history.json"
   make_plugin "$root" alpha "Alpha plugin" "1.0.0"
   make_plugin "$root" beta "Beta plugin" "1.0.0"
   # A README plugin table in lockstep with the two plugins + their example-skill.
@@ -143,19 +145,31 @@ check_fail "non-object plugin rename history fails" "must declare non-empty top-
 
 d=$(fresh)
 for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
+  jq 'del(.renames["legacy-alpha"])' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+done
+check_fail "persisted plugin rename removal fails" "must preserve every persisted plugin rename" "$d"
+
+d=$(fresh)
+for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
+  jq 'del(.renames["retired-plugin"])' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+done
+check_fail "persisted null retirement removal fails" "must preserve every persisted plugin rename" "$d"
+
+d=$(fresh)
+for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
   jq '.renames.alpha = "beta"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 done
 check_fail "current plugin cannot be a rename source" "rename sources must be retired kebab-case plugin names" "$d"
 
 d=$(fresh)
 for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq '.renames["legacy-alpha"] = "missing-plugin"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+  jq '.renames["dangling-plugin"] = "missing-plugin"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 done
 check_fail "dangling plugin rename target fails" "rename chains must terminate at a current plugin or null without cycles" "$d"
 
 d=$(fresh)
 for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq '.renames = {"old-alpha":"old-beta", "old-beta":"old-alpha"}' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
+  jq '.renames += {"old-alpha":"old-beta", "old-beta":"old-alpha"}' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 done
 check_fail "cyclic plugin rename chain fails" "rename chains must terminate at a current plugin or null without cycles" "$d"
 
@@ -168,6 +182,8 @@ for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.jso
     | (.plugins[] | select(.name=="alpha")) |= (.name="Bad_Name" | .source="./plugins/Bad_Name")' \
     "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 done
+jq 'del(.["legacy-alpha"])' "$d/scripts/marketplace-rename-history.json" \
+  > "$d/tmp" && mv "$d/tmp" "$d/scripts/marketplace-rename-history.json"
 check_fail "non-kebab plugin name fails" "must be kebab-case" "$d"
 
 d=$(fresh); jq 'del(.description)' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"

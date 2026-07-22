@@ -63,8 +63,10 @@ drift from what ships either.
 Marketplace plugin names are also a persisted consumer contract. Once a plugin is renamed or removed,
 record that transition in the top-level **`renames` map in both manifests and never delete the entry**:
 Claude Code uses this append-only history to migrate qualified installed-plugin keys during marketplace
-refresh. CI rejects missing history, active names used as rename sources, dangling targets, and cycles;
-every chain must end at a current plugin name or `null` for an intentional removal.
+refresh. Add the same transition to the append-only
+[`scripts/marketplace-rename-history.json`](scripts/marketplace-rename-history.json) baseline. CI rejects
+missing persisted entries, active names used as rename sources, dangling targets, and cycles; every
+chain must end at a current plugin name or `null` for an intentional removal.
 
 Ancillary desired-state documents under `plugins/<name>/resources/*.desired-state.json` are not
 auto-discovered plugin components and therefore are not counted in the README Resources column. CI

@@ -24,6 +24,7 @@ set -euo pipefail
 
 COPILOT_MANIFEST=".github/plugin/marketplace.json"
 CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
+RENAME_HISTORY="scripts/marketplace-rename-history.json"
 README="README.md"
 
 # 1. A marketplace manifest must parse and carry both required top-level keys.
@@ -49,12 +50,29 @@ validate_marketplace_parity() {
 # 3. Claude Code persists qualified plugin names in enabledPlugins and pluginConfigs.
 # Once this marketplace renames or retires a plugin, its top-level `renames` history is
 # therefore a permanent compatibility contract: sources must be retired kebab-case names,
-# and every chain must terminate at a current plugin or an explicit null removal. Requiring
-# a non-empty object prevents a later cleanup from silently orphaning existing installs.
+# and every chain must terminate at a current plugin or an explicit null removal. The
+# append-only baseline pins every published transition so retaining some newer entry cannot
+# hide the accidental deletion of an older persisted rename.
 validate_marketplace_renames() {
   local manifest="$CLAUDE_MANIFEST"
   if ! jq -e '.renames | type == "object" and length > 0' "$manifest" > /dev/null; then
     echo "::error::$manifest: must declare non-empty top-level 'renames' migration history"
+    return 1
+  fi
+
+  if ! jq -e 'type == "object" and length > 0' "$RENAME_HISTORY" > /dev/null 2>&1; then
+    echo "::error::$RENAME_HISTORY: persisted plugin rename history must be a non-empty object"
+    return 1
+  fi
+
+  if ! jq -e --slurpfile history "$RENAME_HISTORY" '
+    . as $manifest
+    | all($history[0] | to_entries[];
+        . as $required
+        | ($manifest.renames | has($required.key))
+          and ($manifest.renames[$required.key] == $required.value))
+  ' "$manifest" > /dev/null; then
+    echo "::error::$manifest: must preserve every persisted plugin rename from $RENAME_HISTORY"
     return 1
   fi
 

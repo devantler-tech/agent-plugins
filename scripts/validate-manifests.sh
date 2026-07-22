@@ -417,42 +417,85 @@ validate_desired_state_resources() {
 
     if ! jq -e '
       def only_keys($allowed): (keys - $allowed | length) == 0;
-      only_keys(["apiVersion", "kind", "metadata", "spec"])
-      and (.metadata | only_keys(["name", "description"]))
-      and (.spec | only_keys([
-        "source", "consumer", "roles", "runtime", "onboarding", "guardrails", "notes"
-      ]))
-      and (.spec.source | only_keys([
-        "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
-        "refreshTiming", "hotSwapDuringRun"
-      ]))
-      and (.spec.consumer | only_keys([
-        "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
-        "requiredContractSections", "requiredWhenAgentImproverEnabled", "requiredWhenFinOpsEnabled"
-      ]))
-      and ((.spec.roles // {}) | only_keys([
-        "automated-ai-engineer", "portfolio-surveyor", "agent-improver", "finops-engineer"
-      ]))
-      and all((.spec.roles // {})[]; only_keys(["enabled", "enabledWhen", "mode", "definitionFrom"]))
-      and (.spec.runtime | only_keys(["scheduler", "execution", "model", "memory"]))
-      and (.spec.runtime.scheduler | only_keys([
-        "definitionStrategy", "cadenceFrom", "timezoneFrom", "reconcilePolicy",
-        "notificationPolicy", "schedules"
-      ]))
-      and all(.spec.runtime.scheduler.schedules[]; only_keys(["definitionFrom", "bootstrapPrompt"]))
-      and (.spec.runtime.execution | only_keys([
-        "sourceRevision", "isolation", "branchNamespace", "branchNamespacePolicy",
-        "permissions", "approvalMode"
-      ]))
-      and ((.spec.runtime.model // {}) | only_keys([
-        "selectionPolicy", "upgradePolicy", "reasoningPolicy"
-      ]))
-      and ((.spec.runtime.memory // {}) | only_keys([
-        "backendPolicy", "contractFrom", "loadBeforeContract", "writeBackAfterRun"
-      ]))
-      and (.spec.onboarding | only_keys(["copyPasteInstruction", "steps", "completionReport"]))
+      def has_keys($required):
+        . as $object | all($required[]; . as $key | $object | has($key));
+      (only_keys(["apiVersion", "kind", "metadata", "spec"])
+        and has_keys(["apiVersion", "kind", "metadata", "spec"]))
+      and (.metadata
+        | only_keys(["name", "description"]) and has_keys(["name", "description"]))
+      and (.spec
+        | only_keys(["source", "consumer", "roles", "runtime", "onboarding", "guardrails", "notes"])
+          and has_keys(["source", "consumer", "roles", "runtime", "onboarding", "guardrails"]))
+      and (.spec.source
+        | only_keys([
+            "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+            "refreshTiming", "hotSwapDuringRun"
+          ])
+          and has_keys([
+            "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+            "refreshTiming", "hotSwapDuringRun"
+          ]))
+      and (.spec.consumer
+        | only_keys([
+            "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
+            "requiredContractSections", "requiredWhenAgentImproverEnabled", "requiredWhenFinOpsEnabled"
+          ])
+          and has_keys([
+            "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
+            "requiredContractSections", "requiredWhenAgentImproverEnabled", "requiredWhenFinOpsEnabled"
+          ]))
+      and (.spec.roles
+        | only_keys(["automated-ai-engineer", "portfolio-surveyor", "agent-improver", "finops-engineer"])
+          and has_keys(["automated-ai-engineer", "portfolio-surveyor", "agent-improver", "finops-engineer"]))
+      and (.spec.roles["automated-ai-engineer"]
+        | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
+      and (.spec.roles["portfolio-surveyor"]
+        | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
+      and (.spec.roles["agent-improver"]
+        | only_keys(["enabledWhen", "mode"]) and has_keys(["enabledWhen", "mode"]))
+      and (.spec.roles["finops-engineer"]
+        | only_keys(["enabledWhen", "definitionFrom", "mode"])
+          and has_keys(["enabledWhen", "definitionFrom", "mode"]))
+      and (.spec.runtime
+        | only_keys(["scheduler", "execution", "model", "memory"])
+          and has_keys(["scheduler", "execution", "model", "memory"]))
+      and (.spec.runtime.scheduler
+        | only_keys([
+            "definitionStrategy", "cadenceFrom", "timezoneFrom", "reconcilePolicy",
+            "notificationPolicy", "schedules"
+          ])
+          and has_keys([
+            "definitionStrategy", "cadenceFrom", "timezoneFrom", "reconcilePolicy",
+            "notificationPolicy", "schedules"
+          ]))
+      and all(.spec.runtime.scheduler.schedules[];
+        only_keys(["definitionFrom", "bootstrapPrompt"])
+        and has_keys(["definitionFrom", "bootstrapPrompt"]))
+      and (.spec.runtime.execution
+        | only_keys([
+            "sourceRevision", "isolation", "branchNamespace", "branchNamespacePolicy",
+            "permissions", "approvalMode"
+          ])
+          and has_keys([
+            "sourceRevision", "isolation", "branchNamespace", "branchNamespacePolicy",
+            "permissions", "approvalMode"
+          ]))
+      and (.spec.runtime.model
+        | only_keys(["selectionPolicy", "upgradePolicy", "reasoningPolicy"])
+          and has_keys(["selectionPolicy", "upgradePolicy", "reasoningPolicy"]))
+      and (.spec.runtime.memory
+        | only_keys(["backendPolicy", "contractFrom", "loadBeforeContract", "writeBackAfterRun"])
+          and has_keys(["backendPolicy", "contractFrom", "loadBeforeContract", "writeBackAfterRun"]))
+      and (.spec.onboarding
+        | only_keys(["copyPasteInstruction", "steps", "completionReport"])
+          and has_keys(["copyPasteInstruction", "steps", "completionReport"]))
+      and (.spec.onboarding.completionReport
+        | type == "array" and length > 0 and all(.[]; type == "string" and length > 0))
+      and (.spec.guardrails
+        | type == "array" and length > 0 and all(.[]; type == "string" and length > 0))
+      and ((.spec.notes // "") | type == "string")
     ' "$resource" > /dev/null; then
-      echo "::error::$resource: desired-state schema contains unsupported fields"
+      echo "::error::$resource: desired-state schema is missing required fields or contains unsupported fields"
       failed=1
     fi
 

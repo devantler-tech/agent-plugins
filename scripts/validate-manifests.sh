@@ -5,13 +5,14 @@
 # Single source of truth for the checks the 🧪 CI "Validate manifests" job runs:
 #   1. Both marketplace manifests (Copilot + Claude) are well-formed (.name + .plugins).
 #   2. The two manifests are byte-for-byte equivalent (key-sorted) — no drift.
-#   3. Every plugins/<name>/plugin.json is complete and well-shaped.
-#   4. Manifest entries and on-disk plugins are in lockstep (no missing/orphan plugin,
+#   3. Append-only plugin rename history resolves to a current plugin or an explicit removal.
+#   4. Every plugins/<name>/plugin.json is complete and well-shaped.
+#   5. Manifest entries and on-disk plugins are in lockstep (no missing/orphan plugin,
 #      no name/description/version/source divergence).
-#   5. The README plugin table and on-disk plugin resources are in lockstep (every plugin
+#   6. The README plugin table and on-disk plugin resources are in lockstep (every plugin
 #      has a row and vice versa; each row's Resources column matches the plugin's bundled
 #      skills + MCP servers).
-#   6. Ancillary *.desired-state.json onboarding resources are structurally complete,
+#   7. Ancillary *.desired-state.json onboarding resources are structurally complete,
 #      provider-neutral, placeholder-free, and linked from their plugin README.
 #
 # Operates on the current working directory (run from the repo root, exactly as CI
@@ -23,6 +24,7 @@ set -euo pipefail
 
 COPILOT_MANIFEST=".github/plugin/marketplace.json"
 CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
+RENAME_HISTORY="scripts/marketplace-rename-history.json"
 README="README.md"
 
 # 1. A marketplace manifest must parse and carry both required top-level keys.
@@ -43,6 +45,72 @@ validate_marketplace_parity() {
     return 1
   fi
   echo "✓ Marketplace manifests are in sync"
+}
+
+# 3. Claude Code persists qualified plugin names in enabledPlugins and pluginConfigs.
+# Once this marketplace renames or retires a plugin, its top-level `renames` history is
+# therefore a permanent compatibility contract: sources must be retired kebab-case names,
+# and every chain must terminate at a current plugin or an explicit null removal. The
+# append-only baseline pins every published transition so retaining some newer entry cannot
+# hide the accidental deletion of an older persisted rename.
+validate_marketplace_renames() {
+  local manifest="$CLAUDE_MANIFEST"
+  if ! jq -e '.renames | type == "object" and length > 0' "$manifest" > /dev/null; then
+    echo "::error::$manifest: must declare non-empty top-level 'renames' migration history"
+    return 1
+  fi
+
+  if ! jq -e 'type == "object" and length > 0' "$RENAME_HISTORY" > /dev/null 2>&1; then
+    echo "::error::$RENAME_HISTORY: persisted plugin rename history must be a non-empty object"
+    return 1
+  fi
+
+  if ! jq -e --slurpfile history "$RENAME_HISTORY" '
+    . as $manifest
+    | all($history[0] | to_entries[];
+        . as $required
+        | ($manifest.renames | has($required.key))
+          and ($manifest.renames[$required.key] == $required.value))
+  ' "$manifest" > /dev/null; then
+    echo "::error::$manifest: must preserve every persisted plugin rename from $RENAME_HISTORY"
+    return 1
+  fi
+
+  if ! jq -e '
+    . as $root
+    | ($root.plugins | map(.name)) as $active
+    | all($root.renames | to_entries[];
+        .key as $old
+        | .value as $new
+        | ($old | test("^[a-z0-9-]+$"))
+          and (($active | index($old)) == null)
+          and ($new == null or
+            (($new | type) == "string" and ($new | test("^[a-z0-9-]+$")))))
+  ' "$manifest" > /dev/null; then
+    echo "::error::$manifest: rename sources must be retired kebab-case plugin names and targets must be kebab-case names or null"
+    return 1
+  fi
+
+  if ! jq -e '
+    . as $root
+    | ($root.plugins | map(.name)) as $active
+    | def resolves($name; $seen):
+        if (($seen | index($name)) != null) then false
+        elif ($root.renames | has($name)) then
+          $root.renames[$name] as $next
+          | if $next == null then true
+            elif ($next | type) != "string" then false
+            else resolves($next; $seen + [$name])
+            end
+        else (($active | index($name)) != null)
+        end;
+      all($root.renames | keys[]; . as $old | resolves($old; []))
+  ' "$manifest" > /dev/null; then
+    echo "::error::$manifest: rename chains must terminate at a current plugin or null without cycles"
+    return 1
+  fi
+
+  echo "✓ Marketplace plugin rename history is valid"
 }
 
 # A bundled MCP server (ADR 0001 §D3): an .mcp.json must be valid JSON with a
@@ -131,7 +199,7 @@ validate_agent_dir() {
   return "$failed"
 }
 
-# 3. Every plugins/<name>/plugin.json is complete and well-shaped, declaring at least
+# 4. Every plugins/<name>/plugin.json is complete and well-shaped, declaring at least
 #    one recognized resource (skills/, a bundled .mcp.json, or agents/) — ADR 0001 §D3.
 validate_plugin_json() {
   local failed=0
@@ -205,7 +273,7 @@ validate_plugin_json() {
   return "$failed"
 }
 
-# 4. Manifest entries and on-disk plugins are in lockstep.
+# 5. Manifest entries and on-disk plugins are in lockstep.
 validate_marketplace_plugins_parity() {
   local failed=0
   local manifest="$CLAUDE_MANIFEST"
@@ -280,7 +348,7 @@ plugin_disk_resources() {
   } | sort | tr '\n' ' '
 }
 
-# 5. The README plugin table and on-disk plugin resources are in lockstep.
+# 6. The README plugin table and on-disk plugin resources are in lockstep.
 #    Table rows look like:
 #      | [`<name>`](plugins/<name>/) | `skill-a`, `mcp-server-b` | <editorial description> |
 #    The Resources column lists every bundled skill AND MCP server; the Description
@@ -331,7 +399,7 @@ validate_readme_parity() {
   return "$failed"
 }
 
-# 6. A copy-paste desired-state resource is ancillary deployment wiring: plugin runtimes do
+# 7. A copy-paste desired-state resource is ancillary deployment wiring: plugin runtimes do
 #    not auto-discover it like skills, MCP servers, or agents, but it ships in the plugin
 #    directory for a human to paste into any assistant. Keep the contract deliberately small
 #    and provider-neutral. The generic role remains in the plugin; this document only tells a
@@ -718,7 +786,7 @@ validate_desired_state_resources() {
   return "$failed"
 }
 
-# 7. Every bundled SKILL.md carries its upstream provenance frontmatter.
+# 8. Every bundled SKILL.md carries its upstream provenance frontmatter.
 #    `gh skill install` records the true upstream in each skill's `metadata.github-*`
 #    frontmatter, and AGENTS.md forbids hand-authored/divergent skills — so a bundled
 #    skill MUST carry a real `github-repo` value *inside the `metadata:` block* of the
@@ -765,6 +833,7 @@ main() {
   validate_marketplace_json "$COPILOT_MANIFEST"
   validate_marketplace_json "$CLAUDE_MANIFEST"
   validate_marketplace_parity
+  validate_marketplace_renames
   validate_plugin_json
   validate_marketplace_plugins_parity
   validate_readme_parity

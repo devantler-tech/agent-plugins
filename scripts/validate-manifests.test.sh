@@ -484,6 +484,7 @@ EOF
 # $name
 
 Copy the [provider-neutral desired state](resources/provider-neutral.desired-state.json) into a new assistant.
+The Portfolio map must document each product's feature-flag mechanism.
 EOF
 }
 
@@ -499,6 +500,12 @@ check_pass "unrelated desired-state kind is outside the agentic schema" "$d"
 d=$(fresh); mkdir -p "$d/plugins/agentic-engineering"
 check_fail "missing canonical agentic desired-state resource fails" \
   "missing canonical agentic desired-state resource" "$d"
+
+d=$(fresh); mkdir -p "$d/plugins/agentic-engineering/resources"
+printf '%s\n' '{"apiVersion":"agent-plugins.devantler.tech/v1alpha1","kind":"OtherDesiredState"}' \
+  > "$d/plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
+check_fail "canonical desired-state resource with the wrong kind fails" \
+  "canonical agentic desired-state resource must use kind AgenticEngineeringDesiredState" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 printf '%s\n' 'not json' > "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
@@ -560,6 +567,12 @@ check_fail "desired-state resource missing from plugin README fails" "must be li
 d=$(fresh); make_desired_state "$d" alpha
 printf '# alpha\n\nresources/provider-neutral.desired-state.json\n' > "$d/plugins/alpha/README.md"
 check_fail "plain desired-state path is not a README link" "must be linked from" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed '/feature-flag mechanism/d' "$d/plugins/alpha/README.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/README.md"
+check_fail "consumer contract must document the feature-flag mechanism" \
+  "must document the required feature-flag mechanism" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq 'del(.spec.runtime.scheduler.schedules["agent-improver"])' \

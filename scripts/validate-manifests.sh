@@ -340,9 +340,15 @@ validate_desired_state_resources() {
   local failed=0 resource kind plugin_dir plugin_name readme basename
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
 
-  if [ -d plugins/agentic-engineering ] && [ ! -f "$canonical_resource" ]; then
-    echo "::error::$canonical_resource: missing canonical agentic desired-state resource"
-    failed=1
+  if [ -d plugins/agentic-engineering ]; then
+    if [ ! -f "$canonical_resource" ]; then
+      echo "::error::$canonical_resource: missing canonical agentic desired-state resource"
+      failed=1
+    elif jq -e . "$canonical_resource" > /dev/null 2>&1 \
+      && ! jq -e '.kind == "AgenticEngineeringDesiredState"' "$canonical_resource" > /dev/null; then
+      echo "::error::$canonical_resource: canonical agentic desired-state resource must use kind AgenticEngineeringDesiredState"
+      failed=1
+    fi
   fi
 
   while IFS= read -r resource; do
@@ -471,6 +477,11 @@ validate_desired_state_resources() {
 
     if [ ! -f "$readme" ] || ! grep -qF "](resources/$basename)" "$readme"; then
       echo "::error::$resource: must be linked from $readme"
+      failed=1
+    fi
+
+    if [ ! -f "$readme" ] || ! grep -qF "feature-flag mechanism" "$readme"; then
+      echo "::error::$resource: $readme must document the required feature-flag mechanism"
       failed=1
     fi
 

@@ -67,7 +67,9 @@ refresh the latest reviewed plugin definition before starting.
 The consuming repository's canonical `AGENTS.md` must define five named sections. The agents and core
 skills fail closed when any are absent:
 
-- **Portfolio map** — repositories in scope and each product's maintenance facts.
+- **Portfolio map** — repositories in scope and each product's `## Maintenance` card, including
+  validate commands, labels, protected/generated files, roadmap home, and the standard
+  **feature-flag mechanism** required for non-trivial feature work.
 - **Trust gate** — trusted identities, reviewer-only identities, and repository merge mechanics.
 - **Cadence** — run frequency, run budget, and rotation intervals.
 - **Memory** — durable-store location, schema, and cross-run cursors.

@@ -29,7 +29,9 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
     └── update-agent-skills.yaml  # Daily gh skill update --all; opens a PR when upstream skills drift
 plugins/
 └── <plugin>/
-    ├── plugin.json             # Plugin manifest (kebab-case name, description, version; resources auto-discovered — no skills/agents path fields)
+    ├── plugin.json             # Portable Copilot / CLI plugin manifest
+    ├── .claude-plugin/
+    │   └── plugin.json         # Equivalent strict Claude marketplace manifest; CI rejects drift
     ├── agents/                 # Optional auto-discovered custom agents (*.agent.md)
     ├── skills/
     │   └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
@@ -51,9 +53,12 @@ The repo ships **two marketplace manifests that must stay byte-for-byte in sync*
 two** (`jq -S` normalised) and fails on drift, so a cross-tool install can never offer different
 plugins to different tools. **Any change to the plugin set updates both manifests in the same PR** —
 they are the source of truth for what the marketplace offers. CI also checks each manifest entry against
-the **filesystem**: every plugin must have a matching `plugins/<name>/plugin.json` (with the same
-`name`/`description`/`version` and `source` `./plugins/<name>`), and no `plugins/<name>/` may exist
-without a manifest entry — so the manifests can never drift from what the repo actually ships. CI also
+the **filesystem**: every plugin must have a matching portable `plugins/<name>/plugin.json` (with the
+same `name`/`description`/`version` and `source` `./plugins/<name>`) plus an equivalent
+`plugins/<name>/.claude-plugin/plugin.json`. Claude Desktop's remote Personal-marketplace ingestion
+requires the canonical nested path in strict mode even though the local Claude CLI and Copilot accept
+the top-level manifest; CI normalises and compares both copies so they cannot drift. No
+`plugins/<name>/` may exist without a manifest entry. CI also
 checks the human-facing **README plugin table** against the filesystem: every plugin has a table row
 (and vice versa) and each row's **Resources** column matches that plugin's bundled resources — its
 on-disk `skills/` directories, any MCP server keys in an optional `plugins/<name>/.mcp.json`, and any
@@ -117,8 +122,11 @@ membership) is authored here.
 
 1. **Two manifests in parity.** Every plugin appears in **both** `marketplace.json` files with the same
    `name`/`description`/`version`/`source`; CI enforces the diff. Edit both together.
-2. **Plugin layout.** A plugin is a directory under `plugins/` with a `plugin.json` (kebab-case `name`
-   matching `^[a-z0-9-]+$`, a `description`, a `version`) that declares **at least one resource**:
+2. **Plugin layout.** A plugin is a directory under `plugins/` with a portable `plugin.json` and an
+   equivalent `.claude-plugin/plugin.json` (kebab-case `name` matching `^[a-z0-9-]+$`, a
+   `description`, a `version`). Keep both normalised JSON documents semantically identical: the
+   top-level file serves Copilot/CLI consumers, while strict Claude remote ingestion requires the
+   nested canonical path. The plugin declares **at least one resource**:
    a `skills/` subdirectory, a bundled `.mcp.json` (MCP servers), and/or an `agents/` directory. Every
    resource is **auto-discovered from its directory** — the `plugin.json` carries **no** component-path
    fields. Both Claude Code and Copilot CLI default to `skills/` and `agents/` when the field is
@@ -164,8 +172,9 @@ Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-eff
 does not currently enforce but that keeps workflow changes clean:
 
 ```bash
-# 1. Manifests, plugin.json completeness, marketplace ↔ plugins parity, README table, desired-state
-#    resources, and skill provenance — the exact checks CI's "Validate manifests" job runs.
+# 1. Marketplace parity, portable ↔ strict-Claude plugin.json parity, README table,
+#    desired-state resources, and skill provenance — the exact checks CI's
+#    "Validate manifests" job runs.
 ./scripts/validate-manifests.sh
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the

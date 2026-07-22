@@ -1,0 +1,22 @@
+{
+  "name": "gitops-kubernetes",
+  "description": "Flux CD debugging, knowledge, repository auditing, and tenant onboarding — skills plus the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging",
+  "version": "1.0.0",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "keywords": [
+    "gitops",
+    "flux",
+    "flux-cd",
+    "kubernetes",
+    "k8s",
+    "mcp",
+    "cluster-debugging",
+    "repository-audit",
+    "multi-tenancy",
+    "helm",
+    "kustomize"
+  ]
+}

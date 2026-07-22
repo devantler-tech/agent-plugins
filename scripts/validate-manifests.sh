@@ -6,7 +6,8 @@
 #   1. Both marketplace manifests (Copilot + Claude) are well-formed (.name + .plugins).
 #   2. The two manifests are byte-for-byte equivalent (key-sorted) — no drift.
 #   3. Append-only plugin rename history resolves to a current plugin or an explicit removal.
-#   4. Every plugins/<name>/plugin.json is complete and well-shaped.
+#   4. Every plugins/<name>/plugin.json is complete and well-shaped, and has an
+#      equivalent .claude-plugin/plugin.json for strict Claude ingestion.
 #   5. Manifest entries and on-disk plugins are in lockstep (no missing/orphan plugin,
 #      no name/description/version/source divergence).
 #   6. The README plugin table and on-disk plugin resources are in lockstep (every plugin
@@ -199,15 +200,23 @@ validate_agent_dir() {
   return "$failed"
 }
 
-# 4. Every plugins/<name>/plugin.json is complete and well-shaped, declaring at least
-#    one recognized resource (skills/, a bundled .mcp.json, or agents/) — ADR 0001 §D3.
+# 4. Every plugins/<name>/plugin.json is complete and well-shaped, has an equivalent
+#    .claude-plugin/plugin.json for strict Claude marketplace ingestion, and declares
+#    at least one recognized resource (skills/, a bundled .mcp.json, or agents/) —
+#    ADR 0001 §D3.
 validate_plugin_json() {
   local failed=0
-  local pj plugin_dir ok plugin_name resource_count
+  local pj plugin_dir claude_pj ok plugin_name resource_count
   for pj in plugins/*/plugin.json; do
     plugin_dir=$(dirname "$pj")
+    claude_pj="$plugin_dir/.claude-plugin/plugin.json"
     ok=1
     resource_count=0
+    if ! jq -e 'type == "object"' "$pj" > /dev/null 2>&1; then
+      echo "::error::Invalid $pj"
+      failed=1
+      continue
+    fi
     plugin_name=$(jq -r '.name // ""' "$pj")
     if ! echo "$plugin_name" | grep -qE '^[a-z0-9-]+$'; then
       echo "::error::$pj: name '$plugin_name' must be kebab-case (a-z, 0-9, hyphens)"
@@ -219,6 +228,20 @@ validate_plugin_json() {
     fi
     if [ "$(jq -r '.version // "" | length' "$pj")" -eq 0 ]; then
       echo "::error::$pj: missing or empty 'version' field"
+      ok=0
+    fi
+    # Claude Desktop's remote marketplace service validates sourced plugins in strict
+    # mode and requires the canonical .claude-plugin/plugin.json path. Copilot/VS Code
+    # consume the portable top-level plugin.json, so keep both normalized JSON documents
+    # equivalent rather than letting either provider receive a divergent contract.
+    if [ ! -f "$claude_pj" ]; then
+      echo "::error::$plugin_dir requires .claude-plugin/plugin.json for strict Claude marketplace ingestion"
+      ok=0
+    elif ! jq -e 'type == "object"' "$claude_pj" > /dev/null 2>&1; then
+      echo "::error::Invalid $claude_pj"
+      ok=0
+    elif ! diff -u <(jq -S . "$pj") <(jq -S . "$claude_pj") > /dev/null; then
+      echo "::error::$claude_pj differs from $pj"
       ok=0
     fi
     # Component-path fields (skills/agents), when present, MUST be arrays. Claude Code rejects

@@ -1,0 +1,19 @@
+{
+  "name": "engineering-practices",
+  "description": "Git commits, conventional releases, refactoring, test-driven development, and engineering ways of working skills",
+  "version": "1.0.0",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "keywords": [
+    "git",
+    "conventional-commits",
+    "releases",
+    "refactoring",
+    "tdd",
+    "test-driven-development",
+    "code-quality",
+    "engineering"
+  ]
+}

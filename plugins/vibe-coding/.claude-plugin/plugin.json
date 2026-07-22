@@ -1,0 +1,19 @@
+{
+  "name": "vibe-coding",
+  "description": "Build a product by conversation alone — a plain-language build companion agent plus skills for needs-to-stack translation, an allowed-stack guardrail, and a jargon-free voice; for people with no technical background",
+  "version": "1.0.0",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "keywords": [
+    "vibe-coding",
+    "conversational",
+    "non-technical",
+    "plain-language",
+    "no-code-experience",
+    "guardrail",
+    "stack-map",
+    "product-building"
+  ]
+}

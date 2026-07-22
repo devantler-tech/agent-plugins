@@ -1,0 +1,19 @@
+{
+  "name": "frontend-design",
+  "description": "Astro, frontend design, and web design guidelines skills",
+  "version": "1.0.0",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "keywords": [
+    "frontend",
+    "ui",
+    "ux",
+    "astro",
+    "web-design",
+    "css",
+    "accessibility",
+    "design"
+  ]
+}

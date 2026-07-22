@@ -56,6 +56,8 @@ Add the marketplace, then install a plugin — run these inside Claude Code:
 
 Browse everything on offer with `/plugin` (**Discover** tab) or list it with `/plugin list`. The bundled [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) is also discovered automatically when this repo is added as a plugin source.
 
+Claude Desktop can add the same GitHub repository from **Plugins → Personal**. That path validates the marketplace remotely in strict mode; every plugin therefore includes the canonical `.claude-plugin/plugin.json` manifest it requires.
+
 ### Any other agent — skills only, via `npx skills`
 
 [`npx skills`](https://github.com/vercel-labs/skills) reads this repo's [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) and installs the bundled **skills** into any of its 70+ supported agents — useful when your agent isn't one of the three above:
@@ -175,7 +177,7 @@ Memory, Maintainer channels) in its `AGENTS.md` — plus **Agent definition loca
 
 Skills are installed from their upstream repositories using [`gh skill install`](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/). A [daily update workflow](.github/workflows/update-agent-skills.yaml) runs [`gh skill update --all`](https://github.com/devantler-tech/actions/tree/main/update-agent-skills) via the [`update-agent-skills`](https://github.com/devantler-tech/actions/blob/main/.github/workflows/update-agent-skills.yaml) reusable workflow and opens a PR when upstream content has drifted.
 
-Each plugin directory is self-contained with a `plugin.json` manifest and its bundled resources — a `skills/` subdirectory holding the installed `SKILL.md` files (plus any supporting assets), and optionally an `.mcp.json` declaring bundled MCP servers and an `agents/` directory holding custom agents. A plugin may also carry ancillary, human-consumed assets under `resources/`, such as a desired-state document; these are linked explicitly rather than treated as auto-discovered runtime components. Each `SKILL.md` contains `metadata.github-*` frontmatter for upstream provenance — no lockfile needed.
+Each plugin directory is self-contained with a portable top-level `plugin.json` manifest, a semantically identical `.claude-plugin/plugin.json` for strict Claude remote ingestion, and its bundled resources — a `skills/` subdirectory holding the installed `SKILL.md` files (plus any supporting assets), and optionally an `.mcp.json` declaring bundled MCP servers and an `agents/` directory holding custom agents. CI rejects a missing, malformed, or divergent manifest copy. A plugin may also carry ancillary, human-consumed assets under `resources/`, such as a desired-state document; these are linked explicitly rather than treated as auto-discovered runtime components. Each `SKILL.md` contains `metadata.github-*` frontmatter for upstream provenance — no lockfile needed.
 
 Each bundled skill is pulled from its own upstream (recorded in its `SKILL.md` `metadata.github-*` frontmatter), spanning many sources — including our in-house sibling library [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills).
 

@@ -1,0 +1,24 @@
+{
+  "name": "agentic-engineering",
+  "description": "The autonomous engineering system for repository portfolios — engineer, read-only surveyor, and meta-engineer agents; portfolio, product, and improvement workflows; cross-tool instruction architecture and skill discovery; configured by the consumer AGENTS.md",
+  "version": "2.0.0",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "keywords": [
+    "agents",
+    "agentic",
+    "autonomous-engineer",
+    "ai-engineer",
+    "portfolio-maintenance",
+    "product-engineering",
+    "self-improvement",
+    "agent-improvement",
+    "meta-engineer",
+    "agent-instructions",
+    "skills",
+    "run-loop",
+    "draft-pr"
+  ]
+}

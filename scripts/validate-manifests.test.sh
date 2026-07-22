@@ -49,12 +49,13 @@ make_fixture() {
 EOF
 }
 
-# Write plugins/<name>/plugin.json + one skill with a SKILL.md.
+# Write the portable plugins/<name>/plugin.json, its strict Claude manifest copy,
+# and one skill with a SKILL.md.
 # The SKILL.md carries upstream provenance frontmatter (metadata.github-repo), exactly
 # as `gh skill install` records it, so the provenance guard passes on the happy path.
 make_plugin() {
   local root="$1" name="$2" desc="$3" version="$4"
-  mkdir -p "$root/plugins/$name/skills/example-skill"
+mkdir -p "$root/plugins/$name/.claude-plugin" "$root/plugins/$name/skills/example-skill"
   cat > "$root/plugins/$name/skills/example-skill/SKILL.md" <<'EOF'
 ---
 name: example-skill
@@ -69,13 +70,19 @@ EOF
   # No "skills" field: skills are auto-discovered from the on-disk skills/ dir by both
   # Claude Code and Copilot CLI. Claude Code rejects the bare-string "skills": "skills/"
   # form, so the portable manifest omits it — the fixture mirrors the real plugins.
-  cat > "$root/plugins/$name/plugin.json" <<EOF
+cat > "$root/plugins/$name/plugin.json" <<EOF
 {
   "name": "$name",
   "description": "$desc",
   "version": "$version"
 }
 EOF
+cp "$root/plugins/$name/plugin.json" "$root/plugins/$name/.claude-plugin/plugin.json"
+}
+
+sync_claude_plugin_manifest() {
+  local root="$1" name="$2"
+  cp "$root/plugins/$name/plugin.json" "$root/plugins/$name/.claude-plugin/plugin.json"
 }
 
 run_guard() { ( cd "$1" && bash "$GUARD" 2>&1 ); }
@@ -233,6 +240,7 @@ check_fail "cyclic plugin rename chain fails" "rename chains must terminate at a
 
 # --- check 4: plugin.json completeness ---
 d=$(fresh); jq '.name = "Bad_Name"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 # rename dir + manifest entry so only the kebab-case rule trips (keep lockstep intact)
 mv "$d/plugins/alpha" "$d/plugins/Bad_Name"
 for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
@@ -245,21 +253,44 @@ jq 'del(.["legacy-alpha"])' "$d/scripts/marketplace-rename-history.json" \
 check_fail "non-kebab plugin name fails" "must be kebab-case" "$d"
 
 d=$(fresh); jq 'del(.description)' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 check_fail "missing plugin.json description fails" "missing or empty 'description'" "$d"
 
 d=$(fresh); jq 'del(.version)' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 check_fail "missing plugin.json version fails" "missing or empty 'version'" "$d"
+
+# Claude Desktop's remote marketplace service validates sourced plugins strictly. Unlike
+# the local CLI, it requires .claude-plugin/plugin.json and rejects the whole marketplace
+# when only the portable top-level plugin.json exists. Keep both manifests semantically
+# identical so Claude and Copilot consume one plugin contract rather than drifting copies.
+d=$(fresh); rm -f "$d/plugins/alpha/.claude-plugin/plugin.json"
+check_fail "missing strict Claude plugin manifest fails" \
+  "plugins/alpha requires .claude-plugin/plugin.json for strict Claude marketplace ingestion" "$d"
+
+d=$(fresh); printf '%s\n' 'not json' > "$d/plugins/alpha/.claude-plugin/plugin.json"
+check_fail "malformed strict Claude plugin manifest fails" \
+  "Invalid plugins/alpha/.claude-plugin/plugin.json" "$d"
+
+d=$(fresh); jq '.description = "Drifted Claude copy"' \
+  "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
+check_fail "strict Claude plugin manifest drift fails" \
+  "plugins/alpha/.claude-plugin/plugin.json differs from plugins/alpha/plugin.json" "$d"
 
 # The bare-string 'skills'/'agents' form is exactly what breaks 'claude plugin install'
 # ('skills: Invalid input'); the guard must reject it and demand the array-or-omitted form.
 d=$(fresh); jq '.skills = "skills/"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 check_fail "bare-string 'skills' field fails" "'skills' must be an array of paths" "$d"
 
 d=$(fresh); jq '.agents = "agents/"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 check_fail "bare-string 'agents' field fails" "'agents' must be an array of paths" "$d"
 
 # The array form is accepted (auto-discovery still finds the on-disk skills either way).
 d=$(fresh); jq '.skills = ["skills/example-skill"]' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 check_pass "array 'skills' field passes" "$d"
 
 # A skills/ dir present but holding no <skill>/SKILL.md is a broken bundle.
@@ -281,12 +312,15 @@ d=$(fresh); rm -rf "$d/plugins/beta"
 check_fail "manifest entry with no plugin dir fails" "has no plugins/beta/plugin.json on disk" "$d"
 
 d=$(fresh); jq '.description = "Drifted"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 check_fail "plugin.json description drift vs manifest fails" "description differs from manifest entry 'alpha'" "$d"
 
 d=$(fresh); jq '.version = "2.0.0"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 check_fail "plugin.json version drift vs manifest fails" "version differs from manifest entry 'alpha'" "$d"
 
 d=$(fresh); jq '.name = "alpha2"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
+sync_claude_plugin_manifest "$d" alpha
 check_fail "plugin.json name drift vs manifest fails" "name does not match manifest entry 'alpha'" "$d"
 
 d=$(fresh); make_plugin "$d" gamma "Orphan plugin" "1.0.0"

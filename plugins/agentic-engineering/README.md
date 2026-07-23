@@ -116,6 +116,17 @@ improvement loop. The role/configuration boundary remains the one established by
 [ADR 0002](../../docs/adr/0002-automated-ai-engineer-plugin-boundary.md): portable decision logic lives
 in this plugin; consumer-owned facts live in `AGENTS.md`.
 
+## Delivery ownership
+
+Every write-capable role owns selected engineering work from claim through exact-head review and
+merge. Discovery remains read-only, but once the primary engineer, Agent Improver, or FinOps Engineer
+chooses an implementable change, it does not stop at an issue, recommendation, or draft pull request.
+It follows the consumer's **Trust gate**, branch-claim protocol, review gates, and merge mechanics until
+the work lands. Issue-only handoff is reserved for a named external blocker or authority the consumer
+contract genuinely withholds. Financial actions remain outside the FinOps role: it drives the
+engineering pull request to merge and routes only the purchase, cancellation, commitment, or other
+money-moving step to the maintainer.
+
 ## Runtime guard note
 
 The surveyor's read-only discipline is declared in its definition, but deployments should enforce the

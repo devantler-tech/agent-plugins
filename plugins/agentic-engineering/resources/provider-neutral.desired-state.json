@@ -123,6 +123,7 @@
       "Never copy generic role logic into consumer instructions or a scheduler prompt.",
       "Never commit credentials or provider account identifiers to this manifest.",
       "Do not silently downgrade unsupported capabilities; report the exact gap and remain fail-closed on the affected dimension.",
+      "Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority.",
       "Do not hot-swap plugin or contract instructions in the middle of a run."
     ]
   }

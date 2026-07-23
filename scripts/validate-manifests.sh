@@ -431,6 +431,9 @@ validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
   local schedule_source schedule_plugin schedule_agent
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
+  local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
+  local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
+  local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
 
   if [ -d plugins/agentic-engineering ]; then
     if [ ! -f "$canonical_resource" ]; then
@@ -723,6 +726,38 @@ validate_desired_state_resources() {
         (["The FinOps engineer"] | sort)
     ' "$resource" > /dev/null; then
       echo "::error::$resource: required consumer contract sections must match the automated AI engineer contract"
+      failed=1
+      resource_failed=1
+    fi
+
+    if ! jq -e --arg delivery_guardrail "$delivery_guardrail" '
+      .spec.guardrails | index($delivery_guardrail) != null
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: write-capable roles must own selected engineering work through merge"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
+      || ! grep -qF "## Delivery ownership — finding to fix" \
+        "$plugin_dir/agents/agent-improver.agent.md"; then
+      echo "::error::$resource: agent-improver must define Delivery ownership — finding to fix"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
+      || ! grep -qF "$version_controlled_delivery" \
+        "$plugin_dir/agents/agent-improver.agent.md"; then
+      echo "::error::$resource: agent-improver must own version-controlled definitions through exact-head review and merge"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
+      || ! grep -qF "$runtime_local_delivery" \
+        "$plugin_dir/agents/agent-improver.agent.md"; then
+      echo "::error::$resource: agent-improver must preserve backed-up runtime-local in-place delivery"
       failed=1
       resource_failed=1
     fi

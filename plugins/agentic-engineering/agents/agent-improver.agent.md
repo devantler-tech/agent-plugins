@@ -114,13 +114,21 @@ locations** and **Authority model**, you own it through the same delivery path a
 1. Check for existing work, then claim the issue and push the consumer's unique claim branch before
    building when its coordination protocol requires those signals.
 2. Reproduce the defect or write the failing contract check first, implement the smallest root-cause
-   fix, validate it, and open a draft pull request with the evidence and issue link.
-3. Keep the pull request current until required checks pass, every actionable finding is fixed, every
-   review thread is resolved, the branch is mergeable, and the qualifying review applies to the exact
-   current head.
-4. Promote only when the consumer's **Authority model** and **Trust gate** authorize it, then drive the
-   reviewed head through the repository's declared merge mechanics. If promotion is human-gated,
-   actively use a declared **Maintainer channel** instead of silently parking the draft.
+   fix, and validate it.
+
+**Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge.**
+Open the draft with the evidence and issue link. Keep it current until required checks pass, every
+actionable finding is fixed, every review thread is resolved, the branch is mergeable, and the
+qualifying review applies to the exact current head. Promote only when the consumer's **Authority
+model** and **Trust gate** authorize it, then drive the reviewed head through the repository's declared
+merge mechanics. If promotion is human-gated, actively use a declared **Maintainer channel** instead of
+silently parking the draft.
+
+**Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence.**
+Do not invent a pull request for a scheduler prompt, loader, permission, approval mode, or other
+non-version-controlled surface. Follow the consumer's named runtime-local update and rollback
+mechanism, and use a declared **Maintainer channel** only when its **Authority model** withholds the
+required write.
 
 An issue, recommendation, or draft pull request is not completion after you chose to implement. Stop
 only at merged work or a named, live-verified external blocker or missing authority. For a fix spanning

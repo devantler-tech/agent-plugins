@@ -574,7 +574,9 @@ Fixture agent.
 
 ## Delivery ownership — finding to fix
 
-Own selected engineering work through merge.
+Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge.
+
+Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence.
 EOF
   awk -v name="$name" '
     index($0, "[`" name "`](plugins/" name "/)") {
@@ -922,6 +924,20 @@ sed '/## Delivery ownership — finding to fix/,+2d' \
   && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
 check_fail "Agent Improver must define the finding-to-fix delivery handoff" \
   "agent-improver must define Delivery ownership — finding to fix" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed '/Version-controlled definition surfaces are delivered by draft pull request/,+1d' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver must own version-controlled definitions through merge" \
+  "agent-improver must own version-controlled definitions through exact-head review and merge" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed '/Runtime-local definition surfaces are delivered in place/,+1d' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver must preserve runtime-local in-place delivery" \
+  "agent-improver must preserve backed-up runtime-local in-place delivery" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

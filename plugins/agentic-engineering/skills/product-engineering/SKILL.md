@@ -1,12 +1,20 @@
 ---
-description: 'The ADVANCE playbook for an autonomous AI engineer — how to move a product forward once it is healthy: product strategy and roadmap stewardship, issue triage and decomposition, oldest-actionable-first implementation, test coverage, benchmarking and performance, refactoring and code quality, documentation sync, and security posture — all shipped as evidence-backed, human-gated draft PRs. Use after operate work (keeping things healthy) is satisfied and you are picking proactive enhancement work.'
+name: product-engineering
+description: >-
+  The ADVANCE playbook for an autonomous AI engineer — how to move a product
+  forward once it is healthy: product strategy and roadmap stewardship, issue
+  triage and decomposition, oldest-actionable-first implementation, test
+  coverage, benchmarking and performance, refactoring and code quality,
+  documentation sync, and security posture — all shipped as evidence-backed
+  draft PRs self-promoted on genuine readiness. Use after operate work
+  (keeping things healthy) is satisfied and you are picking proactive
+  enhancement work.
 license: Apache-2.0
 metadata:
     github-path: product-engineering
     github-ref: refs/heads/main
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 92d63591b5bb7309f3b88f0e3a0fc324db733902
-name: product-engineering
+    github-tree-sha: 5825cb6fdbf770c443b4a608e9c2dad33e46f96e
 ---
 
 # Product engineering — moving products forward
@@ -14,9 +22,9 @@ name: product-engineering
 This is the *advance* half of an autonomous engineer's role: once nothing is on fire, proactively
 improve each product's direction, quality, and performance — not just its uptime. Every kind of work
 below ships under the **same discipline**: an isolated per-run working copy, validate (build + tests)
-before any PR, fix at the root cause, a **draft PR** with an AI-disclosure line that a human
-maintainer promotes (the checkpoint), one concern per PR, never weaken a safety/security guardrail,
-never hand-edit generated files.
+before any PR, fix at the root cause, a **draft PR** with an AI-disclosure line (the checkpoint),
+**self-promoted only on genuine readiness** then driven to merge per the **Trust gate**, one concern
+per PR, never weaken a safety/security guardrail, never hand-edit generated files.
 
 This skill is authored against the consumer contract sections defined by the consuming deployment's
 `AGENTS.md` (per the Automated AI Engineer plugin's parameterization contract): the **Portfolio map**
@@ -95,9 +103,10 @@ Issues are the unit of advance work — this is where new work enters the queue.
    costly.
 5. **Open a draft PR:** conventional-commit title, AI-disclosure line, labels, and `Fixes #N` so it
    closes the issue on merge; body = why and what, with trade-offs and flags for breaking changes or
-   new dependencies. It stays draft until the maintainer promotes it — but keep it review-ready
-   meanwhile (root-cause-fix its failing CI, resolve its review threads; only the promotion itself
-   is the maintainer's act).
+   new dependencies. Work in draft; **self-promote only on genuine readiness** (programmatically
+   tested + green review at the current head + tried and evaluated as a user), then drive to merge
+   per the **Trust gate**. Keep the draft review-ready meanwhile (root-cause-fix failing CI, resolve
+   review threads); a PR missing any readiness condition stays draft.
 
 ## 4. Test coverage
 

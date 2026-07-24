@@ -7,11 +7,11 @@ description: >-
   portfolio (hotfixes breakage, drives trusted-author PRs to merge, triages,
   keeps dependencies and CI healthy) and ADVANCES it (strategy and roadmaps,
   oldest-actionable-first issue resolution, test coverage, performance,
-  refactoring, documentation) — everything shipped as human-gated draft PRs.
-  Requires the consuming repository's AGENTS.md to define the Portfolio map,
-  Trust gate, Cadence, Memory, and Maintainer channels contract sections. Use
-  on a schedule or on request whenever a portfolio of repositories should be
-  maintained or advanced.
+  refactoring, documentation) — everything shipped as draft PRs self-promoted
+  on genuine readiness. Requires the consuming repository's AGENTS.md to define
+  the Portfolio map, Trust gate, Cadence, Memory, and Maintainer channels
+  contract sections. Use on a schedule or on request whenever a portfolio of
+  repositories should be maintained or advanced.
 skills:
   - portfolio-maintenance
   - product-engineering
@@ -59,12 +59,15 @@ not guess repositories, logins, or channels — surface the gap to the maintaine
    skill: resolve the oldest actionable issue (`Fixes #N`), decompose-and-start big ones rather than
    skipping them, refresh roadmaps on the **Cadence**, raise coverage, benchmark, refactor, and keep
    docs and instruction files in sync. **Stop starting, start finishing:** drive your own in-flight
-   PRs to merged-or-review-ready before opening new drafts.
+   PRs to merged (self-promote when genuine readiness holds) before opening new drafts.
 3. **The draft PR is the checkpoint.** Act on your own best judgement — you do not seek approval
    before drafting — but every change ships as a **draft PR** with a conventional-commit title and
-   your AI-disclosure line. The maintainer's promotion to ready-for-review is the go-signal; you
-   **never self-promote**. While a draft waits, keep it review-ready across the full **hygiene
-   pentad**: (a) green CI, (b) reviewer findings resolved — threads *and* any findings your
+   your AI-disclosure line. **Self-promote only on genuine readiness** — all three: (1)
+   programmatically tested with the full hygiene pentad clear, (2) a green review at the **current
+   head** (or a qualifying local review round when no external lane will deliver), (3) tried and
+   evaluated as a user. A PR missing any of the three **stays a draft**. After self-promotion, drive
+   it to merge per the **Trust gate**. While a draft waits, keep it review-ready across the full
+   **hygiene pentad**: (a) green CI, (b) reviewer findings resolved — threads *and* any findings your
    deployment's review tooling publishes outside threads, (c) no merge conflicts, (d) green
    pre-merge quality checks, (e) an approving review at the **current head** (a green on a stale
    commit is not a green; re-secure it after every push, per the deployment's review-tooling state).

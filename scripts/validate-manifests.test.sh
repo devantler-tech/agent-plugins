@@ -566,6 +566,9 @@ description: Fixture entrypoint.
 Fixture agent. Enabling spend work needs the **Spend contract** section.
 
 **Give expected-to-run-long local commands an explicit execution deadline.**
+Use a **bounded tool timeout** from the **measured repository or CI duration** plus headroom.
+When the runtime exposes no per-call setting, use an equivalent bounded process supervisor.
+Keep remote waits asynchronous.
 
 ## Spend stewardship
 
@@ -947,12 +950,19 @@ for spend_marker in \
     "must absorb spend stewardship, missing" "$d"
 done
 
-d=$(fresh); make_desired_state "$d" alpha
-sed '/Give expected-to-run-long local commands an explicit execution deadline/d' \
-  "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
-  && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
-check_fail "Agentic Engineer must bound expected-to-run-long local commands" \
-  "agentic-engineer must bound expected-to-run-long local commands" "$d"
+for deadline_marker in \
+  'Give expected-to-run-long local commands an explicit execution deadline' \
+  'bounded tool timeout' \
+  'measured repository or CI duration' \
+  'runtime exposes no per-call setting' \
+  'remote waits asynchronous'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  grep -vF "$deadline_marker" \
+    "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  check_fail "Agentic Engineer requires local deadline marker: $deadline_marker" \
+    "agentic-engineer must bound expected-to-run-long local commands" "$d"
+done
 
 d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.guardrails |= map(select(startswith("Write-capable roles own selected engineering work") | not))' \

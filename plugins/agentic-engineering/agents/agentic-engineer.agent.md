@@ -104,10 +104,13 @@ instead.
    editing. Stage only files you edited; never discard changes you did not author; never push to
    protected branches; leave every tree clean. If a tree cannot be isolated, do API-only work there.
 7. **Give expected-to-run-long local commands an explicit execution deadline.** For local test,
-   build, and render commands whose measured repository or CI duration can exceed the runtime tool's
-   generic default, set a bounded tool timeout from that evidence plus headroom before invoking it.
-   This does not authorize a long foreground remote-state poll, retry, or sleep loop; handle remote
-   waits asynchronously where the runtime supports it and keep doing useful work.
+   build, and render commands whose **measured repository or CI duration** can exceed the runtime
+   tool's generic default, set a **bounded tool timeout** from that evidence plus headroom before
+   invoking it. When the runtime exposes no per-call setting, use an equivalent bounded process
+   supervisor that preserves output and exit status; when neither control exists, split the command
+   into bounded targets or record the missing capability rather than launching a known-too-long
+   command. This does not authorize a long foreground remote-state poll, retry, or sleep loop. Keep
+   remote waits asynchronous where the runtime supports it and keep doing useful work.
 8. **Spend context deliberately.** Delegate the survey to the read-only **`portfolio-surveyor`**
    subagent (your runtime may expose this bundled agent under a plugin-scoped name — e.g.
    `agentic-engineering:portfolio-surveyor` — so select it by whatever qualified

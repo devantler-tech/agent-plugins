@@ -759,14 +759,20 @@ validate_desired_state_resources() {
       fi
     done
 
-    if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
-      || ! grep -qF \
-        '**Give expected-to-run-long local commands an explicit execution deadline.**' \
-        "$plugin_dir/agents/$entrypoint.agent.md"; then
-      echo "::error::$resource: agentic-engineer must bound expected-to-run-long local commands"
-      failed=1
-      resource_failed=1
-    fi
+    for deadline_marker in \
+      '**Give expected-to-run-long local commands an explicit execution deadline.**' \
+      '**bounded tool timeout**' \
+      '**measured repository or CI duration**' \
+      'runtime exposes no per-call setting' \
+      'remote waits asynchronous'; do
+      if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
+        || ! grep -qF "$deadline_marker" \
+          "$plugin_dir/agents/$entrypoint.agent.md"; then
+        echo "::error::$resource: agentic-engineer must bound expected-to-run-long local commands, missing: $deadline_marker"
+        failed=1
+        resource_failed=1
+      fi
+    done
 
     if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
       || ! grep -qF "## Delivery ownership — finding to fix" \

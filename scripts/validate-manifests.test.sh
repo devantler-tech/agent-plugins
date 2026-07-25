@@ -796,7 +796,7 @@ check_fail "provider-specific content in an allowed value fails" \
   "desired-state values must not name a specific provider" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-jq '.spec.source.entrypoint = "automated-ai-enginer"' \
+jq '.spec.source.entrypoint = "agentic-enginer"' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state entrypoint must resolve to a bundled agent" \

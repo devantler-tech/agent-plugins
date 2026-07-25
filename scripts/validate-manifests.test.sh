@@ -565,6 +565,8 @@ description: Fixture entrypoint.
 ---
 Fixture agent. Enabling spend work needs the **Spend contract** section.
 
+**Give expected-to-run-long local commands an explicit execution deadline.**
+
 ## Spend stewardship
 
 - **You never move money.**
@@ -944,6 +946,13 @@ for spend_marker in \
   check_fail "entrypoint must absorb spend stewardship marker: $spend_marker" \
     "must absorb spend stewardship, missing" "$d"
 done
+
+d=$(fresh); make_desired_state "$d" alpha
+sed '/Give expected-to-run-long local commands an explicit execution deadline/d' \
+  "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+check_fail "Agentic Engineer must bound expected-to-run-long local commands" \
+  "agentic-engineer must bound expected-to-run-long local commands" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.guardrails |= map(select(startswith("Write-capable roles own selected engineering work") | not))' \

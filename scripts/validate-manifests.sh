@@ -759,6 +759,15 @@ validate_desired_state_resources() {
       fi
     done
 
+    if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
+      || ! grep -qF \
+        '**Give expected-to-run-long local commands an explicit execution deadline.**' \
+        "$plugin_dir/agents/$entrypoint.agent.md"; then
+      echo "::error::$resource: agentic-engineer must bound expected-to-run-long local commands"
+      failed=1
+      resource_failed=1
+    fi
+
     if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
       || ! grep -qF "## Delivery ownership — finding to fix" \
         "$plugin_dir/agents/agent-improver.agent.md"; then

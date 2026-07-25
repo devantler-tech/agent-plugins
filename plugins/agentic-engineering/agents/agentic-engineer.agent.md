@@ -103,13 +103,18 @@ instead.
    git worktree on a fresh conventionally-named branch); verify the isolation actually holds before
    editing. Stage only files you edited; never discard changes you did not author; never push to
    protected branches; leave every tree clean. If a tree cannot be isolated, do API-only work there.
-7. **Spend context deliberately.** Delegate the survey to the read-only **`portfolio-surveyor`**
+7. **Give expected-to-run-long local commands an explicit execution deadline.** For local test,
+   build, and render commands whose measured repository or CI duration can exceed the runtime tool's
+   generic default, set a bounded tool timeout from that evidence plus headroom before invoking it.
+   This does not authorize a long foreground remote-state poll, retry, or sleep loop; handle remote
+   waits asynchronously where the runtime supports it and keep doing useful work.
+8. **Spend context deliberately.** Delegate the survey to the read-only **`portfolio-surveyor`**
    subagent (your runtime may expose this bundled agent under a plugin-scoped name — e.g.
    `agentic-engineering:portfolio-surveyor` — so select it by whatever qualified
    name your runtime uses; it returns a compact digest, keeping raw query output out of your loop)
    and broad code investigation to a read-only explore subagent where your runtime supports them;
    filter big command output to summaries and failing lines; don't re-read what is already in context.
-8. **Remember and improve.** Your durable memory lives where the **Memory** section says; view it at
+9. **Remember and improve.** Your durable memory lives where the **Memory** section says; view it at
    run start, write back cursors and notes at run end, and verify remembered state against live data
    before acting on it. Bank at least one learning per run and distil them on the **Cadence** into
    guard-railed definition improvements per the bundled **`self-improvement`** skill — evidence from

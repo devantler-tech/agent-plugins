@@ -383,10 +383,12 @@ is falsifiable, and fail closed on a query error (report `unknown`, never a sile
 From the enumeration: actionable PRs not updated in >14d; label-less issues/PRs (untriaged);
 automation-owned dependency PRs stay compact no-action rows.
 
-**Select ready work BY ISSUE TYPE, not by label**, where the forge supports issue types. Every issue
-carries exactly one type, so type is the complete and canonical partition; type-labels are legacy and
-provably incomplete — epics routinely lack the label, and several types have no label equivalent at
-all, so a label sweep silently drops them. Sweep each type the deployment uses.
+**Select ready work BY ISSUE TYPE, not by label**, where the forge supports issue types. An issue
+carries at most one type, so **type sweeps plus the untyped residual** (below) are together the
+complete partition — type replaces *labels*, it does not by itself guarantee coverage. Type-labels
+are legacy and provably incomplete — epics routinely lack the label, and several types have no label
+equivalent at all, so a label sweep silently drops them. Sweep each type the deployment uses, **then
+always compute the residual** — ready-work selection reads both halves, never the typed half alone.
 
 ⚠️ **Type sweeps alone are NOT complete.** Where a "no type" search qualifier is silently ignored
 rather than honoured (returning the full set instead of the untyped one), derive the untyped set as
@@ -405,12 +407,17 @@ candidates however empty their issue lists.
 
 ### 6. Reconcile the repo set, and stop at the portfolio boundary
 
-Reconcile each run with one bounded live listing of the owner's non-archived repositories. When the
-live set disagrees with the Portfolio map, **survey the live set and flag the drift** rather than
-dropping any repo. A live repo absent from the map is *not* drift — the map names only products; flag
-map drift only when a product row's repo is missing or renamed live, and a row the map itself marks
-archived is an intentional tombstone. Skip archived repos entirely: no CI-red pass, no actionable
-signal.
+Reconcile the map against live state each run, **without widening the boundary in Safety above**. The
+default is a **bounded per-repo check of the mapped rows only** — existence, rename, and archive
+state for each repository the Portfolio map names. That detects the drift that matters (a product
+row's repo missing, renamed, or newly archived) while enumerating nothing outside the map.
+
+Use an owner-wide listing **only when the deployment's contract states the portfolio is the entire
+owner**. Where it does, out-of-map results are still not survey targets: use them to report the
+drift row and nothing else — never deepen, classify, or report an unmapped repository's PRs or
+issues. A live repo absent from the map is *not* drift; the map names only products, and a row the
+map itself marks archived is an intentional tombstone. Skip archived repos entirely: no CI-red pass,
+no actionable signal.
 
 Do not add cross-organisation discovery, even for PRs authored under the maintainer's login. The
 orchestrator cannot authorise an external repository from survey metadata; only the maintainer can
@@ -460,7 +467,7 @@ Markdown; **omit repositories with no signal entirely** (don't echo empty lists)
 
 ```
 ## Survey digest — <UTC date>
-nothing_on_fire: <true|false>   # true only if NO CI red on a default branch AND no actionable own/trusted PR broken
+nothing_on_fire: <true|false>   # true only if NO CI red on a default branch AND no actionable own/trusted OR ownership-unverified PR is broken AND no mandatory query failed
 budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHAUSTED_AT_START]
 # or, when the probe fails: budget: unavailable:<reason>
 
@@ -475,7 +482,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - <repo> #<n> "<title>" — <exact bot identity> → AUTOMATION-OWNED (NO-ACTION)
 - <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X>, unresolved=<n>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> (trusted bot, non-draft) — pentad: <same fields> → MERGE-READY | NEEDS-FIX | STALE-CR-DISMISSAL
-- <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<yes|no>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> (orchestrator applies creation-record test before action; NOT asserted mine)
+- <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<yes|no>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
 - <repo>: untriaged → issues #a,#b · PRs #c   |   stale (>14d) → #d
 - <repo> #<n> "<title>" — <author>: EXTERNAL — review statically only (never auto-drive/merge)
 

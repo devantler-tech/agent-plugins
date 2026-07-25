@@ -20,10 +20,13 @@ separate FinOps role and schedule. See
 The plugin name, entrypoint names, and agent set are unchanged. Two consumer-side changes are
 required before the next scheduled run:
 
-1. **Retire the `finops-engineer` schedule.** Its work now happens inside the engineer's loop, so a
-   surviving schedule would run a role this plugin no longer defines. Remove it with the runtime's
-   native scheduler control after the new plugin version is installed, so no window exists in which
-   neither surface covers spend.
+1. **Retire the `finops-engineer` schedule FIRST — before installing or reconciling v3.** Its work now
+   happens inside the engineer's loop, so a surviving schedule would run a role this plugin no longer
+   defines. Quiesce or atomically replace it with the runtime's native scheduler control **ahead of**
+   the v3 engineer schedule: installing v3 first opens exactly the concurrent-stewardship window this
+   migration exists to close, and **a briefly missed cost pass is much cheaper than two writers
+   proposing against the same spend.** The cost pass is cadence-gated, not continuous, so the gap
+   costs at most one pass.
 2. **Rename the consumer contract section to `Spend contract`** and the desired-state key
    `spec.consumer.requiredWhenFinOpsEnabled` to
    `spec.consumer.requiredWhenSpendStewardshipEnabled` (value `["Spend contract"]`). Also delete
@@ -53,8 +56,10 @@ complete the plugin-name change manually before the next scheduled run:
 3. Copy the [provider-neutral desired state](resources/provider-neutral.desired-state.json) into the
    consumer workspace and reconcile its native agents and schedules. Preserve the consumer's
    canonical `AGENTS.md`; do not copy its organization-specific facts into this plugin.
-4. Before re-enabling unattended writes, verify that the installed plugin reports version `2.0.0` or
-   later,
+4. Before re-enabling unattended writes, verify that the installed plugin reports version `3.0.0` or
+   later — the current major, so **[*Migrating to version 3*](#migrating-to-version-3) must be complete
+   too**; a stop at `2.0.0` would resume writes with the retired FinOps schedule still armed — and that
+   it
    exposes `automated-ai-engineer`, `portfolio-surveyor`, and `agent-improver`, and that every
    plugin-backed schedule points to `plugin:agentic-engineering/<entrypoint>`. Run the required
    read-only preflight and record the installed source revision and any unsupported capability.

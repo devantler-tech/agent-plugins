@@ -90,9 +90,12 @@ separate thin schedule prompts for the Automated AI Engineer and the Agent Impro
 cadence and deployment facts from the canonical consumer instructions. Spend stewardship has no
 schedule of its own — it runs inside the engineer's loop when the consumer declares a `Spend contract`
 section.
-Existing `automated-ai-engineer` plugin installations should follow the
-[version 2 migration checklist](plugins/agentic-engineering/README.md#migrating-from-automated-ai-engineer)
-before their next scheduled run.
+Existing installations must complete **both** migrations before their next scheduled run — the
+[version 2 checklist](plugins/agentic-engineering/README.md#migrating-from-automated-ai-engineer)
+(plugin identity) **and then** the
+[version 3 checklist](plugins/agentic-engineering/README.md#migrating-to-version-3) (retire the
+`finops-engineer` schedule and adopt the `Spend contract` section). Stopping after v2 would resume
+unattended writes with that schedule still armed.
 
 ## MCP servers
 

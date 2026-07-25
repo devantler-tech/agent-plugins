@@ -9,7 +9,7 @@
     "source": {
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "agentic-engineering",
-      "entrypoint": "automated-ai-engineer",
+      "entrypoint": "agentic-engineer",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -35,7 +35,7 @@
       ]
     },
     "roles": {
-      "automated-ai-engineer": {
+      "agentic-engineer": {
         "enabled": true,
         "mode": "scheduled-and-on-demand"
       },
@@ -61,9 +61,9 @@
         "reconcilePolicy": "Compare the deployed schedule with Cadence before each run and update it through the runtime control plane when supported; otherwise report the exact drift.",
         "notificationPolicy": "failed-or-action-required-runs-only",
         "schedules": {
-          "automated-ai-engineer": {
-            "definitionFrom": "plugin:agentic-engineering/automated-ai-engineer",
-            "bootstrapPrompt": "Load native persistent memory, read the consumer's canonical AGENTS.md, load the latest reviewed agentic-engineering plugin, and invoke its automated-ai-engineer entrypoint. Follow the consumer contract and fail closed on missing deployment facts. Do not duplicate the role in this scheduler prompt."
+          "agentic-engineer": {
+            "definitionFrom": "plugin:agentic-engineering/agentic-engineer",
+            "bootstrapPrompt": "Load native persistent memory, read the consumer's canonical AGENTS.md, load the latest reviewed agentic-engineering plugin, and invoke its agentic-engineer entrypoint. Follow the consumer contract and fail closed on missing deployment facts. Do not duplicate the role in this scheduler prompt."
           },
           "agent-improver": {
             "definitionFrom": "plugin:agentic-engineering/agent-improver",

@@ -180,7 +180,7 @@ perfectly good green reads as "no review".**
 
 | Lane | Green artifact | Findings artifact | Match key |
 |---|---|---|---|
-| Review-bot (e.g. CodeRabbit) | current-head review completion with no actionable finding; an explicit approval is sufficient but **not required** | review object/body with an actionable finding | review `commit_id` == head, or its auto-generated summary comment updated after the authenticated request and naming the head |
+| Review-bot (e.g. CodeRabbit) | current-head review completion with no actionable finding; an explicit approval is sufficient but **not required** | review object/body with an actionable finding | **both** required: (i) review `commit_id` == head **with a substantive (non-empty) body**, **and** (ii) submitted after the authenticated request marker — or its auto-generated summary comment updated after that marker and naming the head |
 | Connector review (e.g. Codex) | **issue COMMENT** carrying a clean-pass marker and `Reviewed commit: <sha>` — **no `commit_id` field at all** | review **object**, inline threads | comment's **abbreviated** sha vs the head |
 | Check-run reviewer (e.g. Cursor Bugbot) | **CHECK-RUN**, `conclusion: success` — *no review object, no comment* | same check-run with `conclusion: neutral` **and** a review-shaped `output.title` | check-run at the head's check-runs endpoint |
 
@@ -247,9 +247,10 @@ Its **`neutral`** conclusion is TWO states and the conclusion alone cannot separ
 Anything else: **fail closed** — no review, never a green. `neutral` does not fail a merge in either
 case, so it must never be read as "nothing to fix"; but reading the error shape as findings is the
 worse error, because that shape is exactly the lane-unavailable evidence the orchestrator's fallback
-ladder depends on. Misfiled as findings, a lane-wide outage becomes invisible. A failed run is
-distinguishable at a glance: **zero** inline comments, **no** review object, completes in seconds. A
-success at an older head is `bugbot-stale@<sha>`.
+ladder depends on. Misfiled as findings, a lane-wide outage becomes invisible. **`output.title` is
+the test**; a failed run is *corroborated* by zero inline comments, no review object, and a runtime of
+seconds — useful confirmation, never the classifier (a genuine review can legitimately have nothing to
+say inline). A success at an older head is `bugbot-stale@<sha>`.
 
 ⚠️ **Match this lane on the CHECK-RUN only, never on its bot login.** Where the same vendor also
 supplies a trusted PR-authoring instance, that instance and the reviewer can share one login, so a

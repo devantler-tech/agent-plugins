@@ -1,10 +1,12 @@
-# ADR 0005 — Rename the primary engineer entrypoint to `agentic-engineer`
+# ADR 0006 — Rename the primary engineer entrypoint to `agentic-engineer`
 
 - **Status:** Accepted
 - **Date:** 2026-07-25
 - **Deciders:** devantler-tech maintainer
 - **Supersedes:** [ADR 0004](0004-consolidate-agentic-engineering.md) where it kept the
-  `automated-ai-engineer` agent name unchanged
+  `automated-ai-engineer` agent name unchanged, and
+  [ADR 0005](0005-merge-spend-stewardship-into-the-engineer.md) where it left entrypoint names
+  unchanged while merging spend stewardship into that same role
 
 ## Context
 
@@ -28,14 +30,15 @@ portfolio.
    `spec.runtime.scheduler.schedules` key all use `agentic-engineer`.
 2. **The prose role name is "Agentic Engineer" everywhere.** This covers the agent definition, the
    surveyor that serves it, the bundled skills, and both READMEs.
-3. **This is a major version.** The plugin goes to `3.0.0`: a persisted
+3. **This is a major version.** The plugin goes to `4.0.0` — `3.0.0` is the spend-stewardship
+   merge in ADR 0005: a persisted
    `plugin:agentic-engineering/automated-ai-engineer` schedule pointer or a qualified
    `agentic-engineering:automated-ai-engineer` agent reference stops resolving, and there is no
    marketplace-level rename migration for agent names the way `renames` provides for plugin names.
 4. **No compatibility alias.** Consistent with ADR 0004's rejection of an alias bundle, a second
    agent file under the old name would reintroduce exactly the two-names ambiguity this ADR removes.
    The plugin README carries an explicit migration checklist instead.
-5. **Historical records keep their original wording.** ADRs 0002–0004, the append-only marketplace
+5. **Historical records keep their original wording.** ADRs 0002–0005, the append-only marketplace
    `renames` map, and `scripts/marketplace-rename-history.json` are unchanged. Rewriting them would
    falsify the record, and the rename map specifically is a persisted consumer contract that must
    never lose an entry.

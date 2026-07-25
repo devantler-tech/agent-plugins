@@ -434,6 +434,7 @@ validate_desired_state_resources() {
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
   local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
+  local money_guardrail="Spend stewardship never moves money: prepare the financial decision, route it to the maintainer's declared private channel, and keep private financial data out of every public artifact."
 
   if [ -d plugins/agentic-engineering ]; then
     if [ ! -f "$canonical_resource" ]; then
@@ -566,9 +567,6 @@ validate_desired_state_resources() {
         .spec.roles["portfolio-surveyor"].mode,
         .spec.roles["agent-improver"].enabledWhen,
         .spec.roles["agent-improver"].mode,
-        .spec.roles["finops-engineer"].enabledWhen,
-        .spec.roles["finops-engineer"].definitionFrom,
-        .spec.roles["finops-engineer"].mode,
         .spec.runtime.scheduler.definitionStrategy,
         .spec.runtime.scheduler.cadenceFrom,
         .spec.runtime.scheduler.timezoneFrom,
@@ -594,7 +592,7 @@ validate_desired_state_resources() {
       and .spec.runtime.memory.writeBackAfterRun == true
       and all(.spec.consumer.requiredContractSections[]; nonempty_string)
       and all(.spec.consumer.requiredWhenAgentImproverEnabled[]; nonempty_string)
-      and all(.spec.consumer.requiredWhenFinOpsEnabled[]; nonempty_string)
+      and all(.spec.consumer.requiredWhenSpendStewardshipEnabled[]; nonempty_string)
       and all(.spec.runtime.scheduler.schedules[];
         (.definitionFrom | nonempty_string) and (.bootstrapPrompt | nonempty_string))
       and all(.spec.onboarding.steps[]; nonempty_string)
@@ -653,24 +651,23 @@ validate_desired_state_resources() {
       and (.spec.consumer
         | only_keys([
             "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
-            "requiredContractSections", "requiredWhenAgentImproverEnabled", "requiredWhenFinOpsEnabled"
+            "requiredContractSections", "requiredWhenAgentImproverEnabled",
+            "requiredWhenSpendStewardshipEnabled"
           ])
           and has_keys([
             "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
-            "requiredContractSections", "requiredWhenAgentImproverEnabled", "requiredWhenFinOpsEnabled"
+            "requiredContractSections", "requiredWhenAgentImproverEnabled",
+            "requiredWhenSpendStewardshipEnabled"
           ]))
       and (.spec.roles
-        | only_keys(["agentic-engineer", "portfolio-surveyor", "agent-improver", "finops-engineer"])
-          and has_keys(["agentic-engineer", "portfolio-surveyor", "agent-improver", "finops-engineer"]))
+        | only_keys(["agentic-engineer", "portfolio-surveyor", "agent-improver"])
+          and has_keys(["agentic-engineer", "portfolio-surveyor", "agent-improver"]))
       and (.spec.roles["agentic-engineer"]
         | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
       and (.spec.roles["portfolio-surveyor"]
         | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
       and (.spec.roles["agent-improver"]
         | only_keys(["enabledWhen", "mode"]) and has_keys(["enabledWhen", "mode"]))
-      and (.spec.roles["finops-engineer"]
-        | only_keys(["enabledWhen", "definitionFrom", "mode"])
-          and has_keys(["enabledWhen", "definitionFrom", "mode"]))
       and (.spec.runtime
         | only_keys(["scheduler", "execution", "model", "memory"])
           and has_keys(["scheduler", "execution", "model", "memory"]))
@@ -722,10 +719,10 @@ validate_desired_state_resources() {
       (.spec.consumer.requiredWhenAgentImproverEnabled | sort) ==
         (["Agent definition locations", "Authority model"] | sort)
       and
-      (.spec.consumer.requiredWhenFinOpsEnabled | sort) ==
-        (["The FinOps engineer"] | sort)
+      (.spec.consumer.requiredWhenSpendStewardshipEnabled | sort) ==
+        (["Spend contract"] | sort)
     ' "$resource" > /dev/null; then
-      echo "::error::$resource: required consumer contract sections must match the Agentic Engineer contract"
+      echo "::error::$resource: required consumer contract sections must match the automated AI engineer contract"
       failed=1
       resource_failed=1
     fi
@@ -737,6 +734,30 @@ validate_desired_state_resources() {
       failed=1
       resource_failed=1
     fi
+
+    if ! jq -e --arg money_guardrail "$money_guardrail" '
+      .spec.guardrails | index($money_guardrail) != null
+    ' "$resource" > /dev/null; then
+      echo "::error::$resource: spend stewardship must declare the never-move-money boundary"
+      failed=1
+      resource_failed=1
+    fi
+
+    # Spend stewardship is merged into the entrypoint rather than a separate role, so the
+    # entrypoint itself must carry the mandate, its conditional contract section, and the
+    # money boundary that used to live in a standalone FinOps definition.
+    for spend_marker in \
+      '## Spend stewardship' \
+      '**Spend contract**' \
+      '**You never move money.**' \
+      'Private financial data never reaches a public artifact'; do
+      if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
+        || ! grep -qF "$spend_marker" "$plugin_dir/agents/$entrypoint.agent.md"; then
+        echo "::error::$resource: $entrypoint must absorb spend stewardship, missing: $spend_marker"
+        failed=1
+        resource_failed=1
+      fi
+    done
 
     if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
       || ! grep -qF "## Delivery ownership — finding to fix" \
@@ -764,7 +785,7 @@ validate_desired_state_resources() {
 
     if ! jq -e --arg name "$plugin_name" '
       (.spec.runtime.scheduler.schedules | keys | sort) ==
-        (["agentic-engineer", "agent-improver", "finops-engineer"] | sort)
+        (["agentic-engineer", "agent-improver"] | sort)
       and all(.spec.runtime.scheduler.schedules[];
         (.definitionFrom | type == "string" and length > 0)
         and (.bootstrapPrompt | type == "string" and length > 0))
@@ -772,8 +793,6 @@ validate_desired_state_resources() {
         ("plugin:" + $name + "/agentic-engineer")
       and .spec.runtime.scheduler.schedules["agent-improver"].definitionFrom ==
         ("plugin:" + $name + "/agent-improver")
-      and .spec.runtime.scheduler.schedules["finops-engineer"].definitionFrom ==
-        "AGENTS.md#The FinOps engineer"
     ' "$resource" > /dev/null; then
       echo "::error::$resource: must define all provider-neutral schedule prompts for plugin $plugin_name"
       failed=1

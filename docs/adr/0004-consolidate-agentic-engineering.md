@@ -4,6 +4,10 @@
 - **Date:** 2026-07-22
 - **Deciders:** devantler-tech maintainer
 - **Supersedes:** [ADR 0002](0002-automated-ai-engineer-plugin-boundary.md) where it required a separate plugin identity
+- **Superseded in part by:** [ADR 0005](0005-merge-spend-stewardship-into-the-engineer.md) — points 5
+  and 8 below, where FinOps was a separate role with its own schedule prompt. ADR 0005 merges spend
+  stewardship into the `automated-ai-engineer` entrypoint while keeping the deployment's money facts
+  consumer-owned. Every other point here still stands.
 
 ## Context
 

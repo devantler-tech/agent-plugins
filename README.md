@@ -14,7 +14,7 @@ This is a **tool-neutral plugin marketplace**, not a skills-only bundler. Every 
 |--------|-----------|-------------|
 | [`gitops-kubernetes`](plugins/gitops-kubernetes/) | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-repo-audit`, `gitops-tenant-onboarding` (skills) · `flux-operator-mcp` (MCP server) · `flux-troubleshooter` (agent) | Flux CD debugging, knowledge, repository auditing, and tenant onboarding — bundles the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging |
 | [`github`](plugins/github/) | `gh-cli`, `gh-stack`, `github-actions-docs`, `github-issues` | GitHub CLI, stacked PRs, Actions docs, and issue management |
-| [`agentic-engineering`](plugins/agentic-engineering/) | `agent-improvement`, `agent-instructions`, `find-skills`, `portfolio-maintenance`, `product-engineering`, `self-improvement` (skills) · `agent-improver`, `automated-ai-engineer`, `portfolio-surveyor` (agents) | The autonomous engineering system for a whole repository portfolio — engineer, read-only surveyor, and meta-engineer agents plus their operating, spend, and improvement workflows; configured by the consumer's `AGENTS.md` |
+| [`agentic-engineering`](plugins/agentic-engineering/) | `agent-improvement`, `agent-instructions`, `find-skills`, `portfolio-maintenance`, `product-engineering`, `self-improvement` (skills) · `agent-improver`, `agentic-engineer`, `portfolio-surveyor` (agents) | The autonomous engineering system for a whole repository portfolio — engineer, read-only surveyor, and meta-engineer agents plus their operating, spend, and improvement workflows; configured by the consumer's `AGENTS.md` |
 | [`go`](plugins/go/) | `golang-pro` | Go best practices, concurrency, generics, interfaces, and testing |
 | [`engineering-practices`](plugins/engineering-practices/) | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working` | Git commits, conventional releases, refactoring, TDD, and engineering ways of working |
 | [`frontend-design`](plugins/frontend-design/) | `astro`, `frontend-design`, `web-design-guidelines` | Astro, frontend design, and web design guidelines |
@@ -86,16 +86,20 @@ consumer repository, paste the complete JSON, and ask it to reconcile the desire
 the latest reviewed plugin for generic role logic and to the consumer's `AGENTS.md` for organization,
 trust, cadence, memory, and maintainer-channel configuration. It also requires the assistant to report
 unsupported native capabilities instead of silently weakening the deployment. The manifest carries
-separate thin schedule prompts for the Automated AI Engineer and the Agent Improver; each resolves its
+separate thin schedule prompts for the Agentic Engineer and the Agent Improver; each resolves its
 cadence and deployment facts from the canonical consumer instructions. Spend stewardship has no
 schedule of its own — it runs inside the engineer's loop when the consumer declares a `Spend contract`
 section.
-Existing installations must complete **both** migrations before their next scheduled run — the
+Existing installations must complete **all three** migrations, in order, before their next scheduled
+run — the
 [version 2 checklist](plugins/agentic-engineering/README.md#migrating-from-automated-ai-engineer)
-(plugin identity) **and then** the
+(plugin identity), **then** the
 [version 3 checklist](plugins/agentic-engineering/README.md#migrating-to-version-3) (retire the
-`finops-engineer` schedule and adopt the `Spend contract` section). Stopping after v2 would resume
-unattended writes with that schedule still armed.
+`finops-engineer` schedule and adopt the `Spend contract` section), **then** the
+[version 4 checklist](plugins/agentic-engineering/README.md#migrating-to-the-agentic-engineer-entrypoint)
+(the `automated-ai-engineer` → `agentic-engineer` entrypoint rename). Stopping early would resume
+unattended writes with the retired FinOps schedule still armed, or with a schedule pointing at an
+entrypoint that no longer resolves.
 
 ## MCP servers
 
@@ -165,7 +169,7 @@ the consuming deployment to author a `## Stack map` section in its `AGENTS.md` (
 [plugin README](plugins/vibe-coding/README.md)).
 
 The [`agentic-engineering`](plugins/agentic-engineering/) plugin bundles three agents —
-[`automated-ai-engineer`](plugins/agentic-engineering/agents/automated-ai-engineer.agent.md) (the
+[`agentic-engineer`](plugins/agentic-engineering/agents/agentic-engineer.agent.md) (the
 autonomous portfolio-engineer actor),
 [`portfolio-surveyor`](plugins/agentic-engineering/agents/portfolio-surveyor.agent.md) (its read-only
 survey subagent), and

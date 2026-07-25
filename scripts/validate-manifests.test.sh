@@ -558,9 +558,9 @@ check_fail "agent with an empty block-scalar description fails" "must declare a 
 make_desired_state() {
   local root="$1" name="$2"
   mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents"
-  cat > "$root/plugins/$name/agents/automated-ai-engineer.agent.md" <<'EOF'
+  cat > "$root/plugins/$name/agents/agentic-engineer.agent.md" <<'EOF'
 ---
-name: automated-ai-engineer
+name: agentic-engineer
 description: Fixture entrypoint.
 ---
 Fixture agent. Enabling spend work needs the **Spend contract** section.
@@ -585,7 +585,7 @@ Runtime-local definition surfaces are delivered in place: back up the current st
 EOF
   awk -v name="$name" '
     index($0, "[`" name "`](plugins/" name "/)") {
-      sub("`example-skill`", "`agent-improver`, `automated-ai-engineer`, `example-skill`")
+      sub("`example-skill`", "`agent-improver`, `agentic-engineer`, `example-skill`")
     }
     { print }
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
@@ -595,13 +595,13 @@ EOF
   "kind": "AgenticEngineeringDesiredState",
   "metadata": {
     "name": "$name",
-    "description": "Provider-neutral desired state for onboarding an automated AI engineer."
+    "description": "Provider-neutral desired state for onboarding an Agentic Engineer."
   },
   "spec": {
     "source": {
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "$name",
-      "entrypoint": "automated-ai-engineer",
+      "entrypoint": "agentic-engineer",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -627,7 +627,7 @@ EOF
       ]
     },
     "roles": {
-      "automated-ai-engineer": {
+      "agentic-engineer": {
         "enabled": true,
         "mode": "scheduled-and-on-demand"
       },
@@ -648,9 +648,9 @@ EOF
         "reconcilePolicy": "Reconcile before each run.",
         "notificationPolicy": "failed-or-action-required-runs-only",
         "schedules": {
-          "automated-ai-engineer": {
-            "definitionFrom": "plugin:$name/automated-ai-engineer",
-            "bootstrapPrompt": "Load native memory and AGENTS.md, then invoke the installed automated-ai-engineer entrypoint."
+          "agentic-engineer": {
+            "definitionFrom": "plugin:$name/agentic-engineer",
+            "bootstrapPrompt": "Load native memory and AGENTS.md, then invoke the installed agentic-engineer entrypoint."
           },
           "agent-improver": {
             "definitionFrom": "plugin:$name/agent-improver",
@@ -765,7 +765,7 @@ jq '.metadata.description = ["not", "text"]' \
 check_fail "desired-state resource rejects non-string text fields" "text fields must be non-empty strings" "$d"
 
 for mutation in \
-  '.spec.roles["automated-ai-engineer"].enabled = "yes"' \
+  '.spec.roles["agentic-engineer"].enabled = "yes"' \
   '.spec.source.hotSwapDuringRun = "false"' \
   '.spec.runtime.memory.loadBeforeContract = null'; do
   d=$(fresh); make_desired_state "$d" alpha
@@ -796,11 +796,11 @@ check_fail "provider-specific content in an allowed value fails" \
   "desired-state values must not name a specific provider" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-jq '.spec.source.entrypoint = "automated-ai-enginer"' \
+jq '.spec.source.entrypoint = "agentic-enginer"' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state entrypoint must resolve to a bundled agent" \
-  "entrypoint must resolve to the bundled automated-ai-engineer agent" "$d"
+  "entrypoint must resolve to the bundled agentic-engineer agent" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.source.marketplace = "untrusted/example"' \
@@ -939,8 +939,8 @@ for spend_marker in \
   'You never move money' \
   'Private financial data never reaches a public artifact'; do
   d=$(fresh); make_desired_state "$d" alpha
-  grep -vF "$spend_marker" "$d/plugins/alpha/agents/automated-ai-engineer.agent.md" > "$d/tmp" \
-    && mv "$d/tmp" "$d/plugins/alpha/agents/automated-ai-engineer.agent.md"
+  grep -vF "$spend_marker" "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
   check_fail "entrypoint must absorb spend stewardship marker: $spend_marker" \
     "must absorb spend stewardship, missing" "$d"
 done

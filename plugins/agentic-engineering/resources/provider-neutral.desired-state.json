@@ -9,7 +9,7 @@
     "source": {
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "agentic-engineering",
-      "entrypoint": "automated-ai-engineer",
+      "entrypoint": "agentic-engineer",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -35,7 +35,7 @@
       ]
     },
     "roles": {
-      "automated-ai-engineer": {
+      "agentic-engineer": {
         "enabled": true,
         "mode": "scheduled-and-on-demand"
       },
@@ -56,9 +56,9 @@
         "reconcilePolicy": "Compare the deployed schedule with Cadence before each run and update it through the runtime control plane when supported; otherwise report the exact drift.",
         "notificationPolicy": "failed-or-action-required-runs-only",
         "schedules": {
-          "automated-ai-engineer": {
-            "definitionFrom": "plugin:agentic-engineering/automated-ai-engineer",
-            "bootstrapPrompt": "Load native persistent memory, read the consumer's canonical AGENTS.md, load the latest reviewed agentic-engineering plugin, and invoke its automated-ai-engineer entrypoint. Follow the consumer contract and fail closed on missing deployment facts, including spend stewardship when the Spend contract section does not resolve. Do not duplicate the role in this scheduler prompt."
+          "agentic-engineer": {
+            "definitionFrom": "plugin:agentic-engineering/agentic-engineer",
+            "bootstrapPrompt": "Load native persistent memory, read the consumer's canonical AGENTS.md, load the latest reviewed agentic-engineering plugin, and invoke its agentic-engineer entrypoint. Follow the consumer contract and fail closed on missing deployment facts, including spend stewardship when the Spend contract section does not resolve. Do not duplicate the role in this scheduler prompt."
           },
           "agent-improver": {
             "definitionFrom": "plugin:agentic-engineering/agent-improver",
@@ -91,7 +91,7 @@
       "steps": [
         "Resolve the canonical consumer repository from the current workspace.",
         "Install or refresh agentic-engineering from the declared marketplace using the runtime's native mechanism. If full plugins are unsupported, load the canonical agent and skill files from the declared source without creating divergent copies.",
-        "Read AGENTS.md and verify every required consumer contract section. Enable agent-improver only when both additional sections are present, and enable the automated-ai-engineer's spend stewardship only when the Spend contract section resolves its cost evidence sources, protected-outcomes floor, run procedure, and private decision channel; otherwise run the engineer with the cost dimension failed closed.",
+        "Read AGENTS.md and verify every required consumer contract section. Enable agent-improver only when both additional sections are present, and enable the agentic-engineer's spend stewardship only when the Spend contract section resolves its cost evidence sources, protected-outcomes floor, run procedure, and private decision channel; otherwise run the engineer with the cost dimension failed closed.",
         "Map the declared roles onto native agent capabilities, preserve portfolio-surveyor as read-only, and grant least privilege for each role.",
         "Allocate a unique branch namespace for every deployed writer instance and record it in the consumer contract before enabling writes.",
         "Create or update a native schedule only for each entry in runtime.scheduler.schedules whose corresponding role's enabled or enabledWhen condition is satisfied, using AGENTS.md#Cadence and that entry's thin bootstrap prompt.",

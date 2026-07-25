@@ -518,9 +518,9 @@ validate_desired_state_resources() {
 
     entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$resource")
 
-    if [ "$entrypoint" != "automated-ai-engineer" ] \
+    if [ "$entrypoint" != "agentic-engineer" ] \
       || [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
-      echo "::error::$resource: entrypoint must resolve to the bundled automated-ai-engineer agent"
+      echo "::error::$resource: entrypoint must resolve to the bundled agentic-engineer agent"
       failed=1
       resource_failed=1
     fi
@@ -563,7 +563,7 @@ validate_desired_state_resources() {
         .spec.consumer.canonicalInstructions,
         .spec.consumer.repositoryResolution,
         .spec.consumer.organizationScopeFrom,
-        .spec.roles["automated-ai-engineer"].mode,
+        .spec.roles["agentic-engineer"].mode,
         .spec.roles["portfolio-surveyor"].mode,
         .spec.roles["agent-improver"].enabledWhen,
         .spec.roles["agent-improver"].mode,
@@ -586,7 +586,7 @@ validate_desired_state_resources() {
         .spec.onboarding.copyPasteInstruction
       ] | all(.[]; nonempty_string))
       and .spec.source.hotSwapDuringRun == false
-      and .spec.roles["automated-ai-engineer"].enabled == true
+      and .spec.roles["agentic-engineer"].enabled == true
       and .spec.roles["portfolio-surveyor"].enabled == true
       and .spec.runtime.memory.loadBeforeContract == true
       and .spec.runtime.memory.writeBackAfterRun == true
@@ -660,9 +660,9 @@ validate_desired_state_resources() {
             "requiredWhenSpendStewardshipEnabled"
           ]))
       and (.spec.roles
-        | only_keys(["automated-ai-engineer", "portfolio-surveyor", "agent-improver"])
-          and has_keys(["automated-ai-engineer", "portfolio-surveyor", "agent-improver"]))
-      and (.spec.roles["automated-ai-engineer"]
+        | only_keys(["agentic-engineer", "portfolio-surveyor", "agent-improver"])
+          and has_keys(["agentic-engineer", "portfolio-surveyor", "agent-improver"]))
+      and (.spec.roles["agentic-engineer"]
         | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
       and (.spec.roles["portfolio-surveyor"]
         | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
@@ -785,12 +785,12 @@ validate_desired_state_resources() {
 
     if ! jq -e --arg name "$plugin_name" '
       (.spec.runtime.scheduler.schedules | keys | sort) ==
-        (["automated-ai-engineer", "agent-improver"] | sort)
+        (["agentic-engineer", "agent-improver"] | sort)
       and all(.spec.runtime.scheduler.schedules[];
         (.definitionFrom | type == "string" and length > 0)
         and (.bootstrapPrompt | type == "string" and length > 0))
-      and .spec.runtime.scheduler.schedules["automated-ai-engineer"].definitionFrom ==
-        ("plugin:" + $name + "/automated-ai-engineer")
+      and .spec.runtime.scheduler.schedules["agentic-engineer"].definitionFrom ==
+        ("plugin:" + $name + "/agentic-engineer")
       and .spec.runtime.scheduler.schedules["agent-improver"].definitionFrom ==
         ("plugin:" + $name + "/agent-improver")
     ' "$resource" > /dev/null; then

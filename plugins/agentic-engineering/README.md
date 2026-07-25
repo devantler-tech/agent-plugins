@@ -11,9 +11,34 @@ autonomous engineering system is now the center of this plugin. From the earlier
 skills; the provider-specific SDK and instruction-blueprint skills were removed. See
 [ADR 0004](../../docs/adr/0004-consolidate-agentic-engineering.md).
 
-Version 3 merges spend stewardship into the `automated-ai-engineer` entrypoint and removes the
+Version 3 merges spend stewardship into the primary engineer entrypoint and removes the
 separate FinOps role and schedule. See
 [ADR 0005](../../docs/adr/0005-merge-spend-stewardship-into-the-engineer.md).
+
+Version 4 renames that entrypoint from `automated-ai-engineer` to `agentic-engineer`. See
+[ADR 0006](../../docs/adr/0006-rename-agentic-engineer-entrypoint.md).
+
+## Migrating to version 4
+
+Version 4 renames the primary engineer's agent entrypoint from `automated-ai-engineer` to
+`agentic-engineer`, so the role's identifier finally matches the name it is called by. There is no
+marketplace-level migration for agent names the way there is for plugin names, so a deployment that
+persists the old entrypoint keeps pointing at an agent that no longer resolves. Update three places
+before the next scheduled run:
+
+1. **Scheduler pointers** — every plugin-backed schedule that names
+   `plugin:agentic-engineering/automated-ai-engineer` becomes
+   `plugin:agentic-engineering/agentic-engineer`, and any bootstrap prompt that names the entrypoint
+   in prose changes with it.
+2. **Qualified agent references** — persisted selections such as
+   `agentic-engineering:automated-ai-engineer` become `agentic-engineering:agentic-engineer`.
+3. **The consumer's desired state** — `spec.source.entrypoint`, the `spec.roles` key, and the
+   `spec.runtime.scheduler.schedules` key all move to `agentic-engineer`.
+
+Sequence this **after** the version 3 migration below: retiring the `finops-engineer` schedule and
+renaming the engineer's entrypoint are independent changes, and doing them one at a time keeps a
+failed reconcile attributable to one cause. Nothing about the role's behaviour, contract sections, or
+guardrails changes in version 4; this is a rename only.
 
 ## Migrating to version 3
 
@@ -52,15 +77,17 @@ complete the plugin-name change manually before the next scheduled run:
 1. Remove the installed `automated-ai-engineer` plugin with the runtime's native plugin control, then
    install `agentic-engineering@devantler-plugins` from `devantler-tech/agent-plugins`.
 2. Change persisted qualified agent references from the `automated-ai-engineer` plugin namespace to
-   `agentic-engineering`. The agent entrypoint itself remains `automated-ai-engineer`.
+   `agentic-engineering`. The entrypoint is renamed separately in
+   [*Migrating to version 4*](#migrating-to-version-4).
 3. Copy the [provider-neutral desired state](resources/provider-neutral.desired-state.json) into the
    consumer workspace and reconcile its native agents and schedules. Preserve the consumer's
    canonical `AGENTS.md`; do not copy its organization-specific facts into this plugin.
-4. Before re-enabling unattended writes, verify that the installed plugin reports version `3.0.0` or
-   later — the current major, so **[*Migrating to version 3*](#migrating-to-version-3) must be complete
-   too**; a stop at `2.0.0` would resume writes with the retired FinOps schedule still armed — and that
-   it
-   exposes `automated-ai-engineer`, `portfolio-surveyor`, and `agent-improver`, and that every
+4. Before re-enabling unattended writes, verify that the installed plugin reports version `4.0.0` or
+   later — the current major, so **[*Migrating to version 3*](#migrating-to-version-3) and
+   [*Migrating to version 4*](#migrating-to-version-4) must both be complete too**; a stop at `2.0.0`
+   would resume writes with the retired FinOps schedule still armed, and a stop at `3.0.0` with a
+   schedule pointing at an entrypoint that no longer resolves — and that it
+   exposes `agentic-engineer`, `portfolio-surveyor`, and `agent-improver`, and that every
    plugin-backed schedule points to `plugin:agentic-engineering/<entrypoint>`. Run the required
    read-only preflight and record the installed source revision and any unsupported capability.
 
@@ -71,7 +98,7 @@ the read-only preflight loads the new namespace successfully.
 
 Three agents:
 
-- **`automated-ai-engineer`** — the actor that runs the survey → select → act → report loop, operates
+- **`agentic-engineer`** — the actor that runs the survey → select → act → report loop, operates
   the portfolio, advances the oldest actionable issue, and — when the consumer declares a **Spend
   contract** — stewards the portfolio's running cost in the same loop.
 - **`portfolio-surveyor`** — a delegated, read-only agent that returns a compact current-state digest.
@@ -104,7 +131,7 @@ capability it cannot safely implement.
 The manifest exposes one provider-neutral bootstrap prompt for each scheduled role under
 `spec.runtime.scheduler.schedules`:
 
-- **`automated-ai-engineer`** loads this plugin's primary engineer entrypoint.
+- **`agentic-engineer`** loads this plugin's primary engineer entrypoint.
 - **`agent-improver`** loads this plugin's meta-engineer entrypoint after verifying the additional
   definition-location and authority contract.
 

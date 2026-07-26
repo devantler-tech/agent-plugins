@@ -3,12 +3,11 @@ description: 'The ADVANCE playbook for an autonomous AI engineer — how to move
 license: Apache-2.0
 metadata:
     github-path: product-engineering
-    github-ref: refs/heads/main
+    github-ref: refs/tags/v1.9.2
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 92d63591b5bb7309f3b88f0e3a0fc324db733902
+    github-tree-sha: 9711b53d1e41624f17ab63e0d92723c86b504ee7
 name: product-engineering
 ---
-
 # Product engineering — moving products forward
 
 This is the *advance* half of an autonomous engineer's role: once nothing is on fire, proactively
@@ -19,7 +18,7 @@ maintainer promotes (the checkpoint), one concern per PR, never weaken a safety/
 never hand-edit generated files.
 
 This skill is authored against the consumer contract sections defined by the consuming deployment's
-`AGENTS.md` (per the Automated AI Engineer plugin's parameterization contract): the **Portfolio map**
+`AGENTS.md` (per the agentic-engineering plugin's parameterization contract): the **Portfolio map**
 (which products exist, plus each product's `## Maintenance` card — validate commands, labels,
 protected/generated files, its feature-flag mechanism, and its roadmap home), the **Trust gate** (who
 may be driven to merge and the per-repo merge mechanics), the **Cadence** (rotation frequencies for
@@ -77,7 +76,9 @@ Issues are the unit of advance work — this is where new work enters the queue.
    already exists, drive *that* to merge per the **Trust gate** instead of duplicating.
 2. **Implement at the root cause, with tests.** Work in an isolated per-run working copy. Tests that
    pin the new behaviour and its edge cases are part of the change, not optional. For a non-trivial
-   design, write or extend a design note/ADR first and link it.
+   design, write or extend a design note/ADR first and link it. In a repository that uses ADRs,
+   every ADR lives under **`docs/adr/`**; do not create or keep ADRs in another folder. This rule does
+   not require a repository without ADRs to introduce them.
 3. **Feature-flag-first for non-trivial features.** Build every new non-trivial feature behind a
    flag, **default-off, tested in both states**; flip it on only after validation, as a separate,
    reversible step. Use the standard, tool-neutral flag mechanism the product's **Portfolio map**
@@ -134,6 +135,10 @@ Docs are part of the product.
 - **Improve (on the docs Cadence).** Pick an under-served area and make it genuinely better: fix
   inaccuracies and stale examples, fill missing how-tos, tighten onboarding flow, repair dead links.
   Verify examples actually run. `docs:`-only PRs are real advance work, not filler.
+- **Describe the as-is, never the journey.** Documentation, code comments, and resource descriptions
+  state the current behaviour, architecture, constraints, and rationale directly. Do not narrate how
+  they arrived there through prior states, migrations, before/after comparisons, or origin stories.
+  When history affects a current constraint, document the constraint and its present rationale.
 - **Agent & instruction files are docs too.** The files that steer AI tools (the canonical
   instructions file and any per-tool shims or path-scoped rule files) silently mislead every future
   agent when stale — hold them to the same same-PR definition of done, and fold a freshness pass

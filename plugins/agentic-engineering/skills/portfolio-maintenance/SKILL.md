@@ -3,12 +3,11 @@ description: The run loop for an autonomous AI engineer acting as a portfolio's 
 license: Apache-2.0
 metadata:
     github-path: portfolio-maintenance
-    github-ref: refs/heads/main
+    github-ref: refs/tags/v1.9.2
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 054da4f2622590c305ab614f71de9a96b355fe24
+    github-tree-sha: e9a3a463327d56b72de7c11506f187450bdc7d81
 name: portfolio-maintenance
 ---
-
 # Portfolio maintenance — the run loop
 
 This is the run procedure for an autonomous engineer that both **operates** a portfolio of products
@@ -27,7 +26,7 @@ companion is absent — the corresponding movement falls back to the consuming d
 `AGENTS.md` guidance rather than being silently skipped.
 
 This skill is authored against the consumer contract sections defined by the consuming deployment's
-`AGENTS.md` (per the Automated AI Engineer plugin's parameterization contract): the **Portfolio map**
+`AGENTS.md` (per the agentic-engineering plugin's parameterization contract): the **Portfolio map**
 (which repositories are in scope, plus each product's `## Maintenance` card — validate commands,
 labels, protected/generated files, roadmap home), the **Trust gate** (the exact logins that may be
 auto-driven, which bots are reviewer-only, and the per-repo merge mechanics such as merge queues or

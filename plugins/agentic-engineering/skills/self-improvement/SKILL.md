@@ -3,9 +3,9 @@ description: How an autonomous AI engineer improves its OWN definition (its engi
 license: Apache-2.0
 metadata:
     github-path: self-improvement
-    github-ref: refs/tags/v1.8.1
+    github-ref: refs/tags/v1.9.2
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: dd1df6b1cf3c9429da2881f6e372a0e04e903438
+    github-tree-sha: 5afc5d536435cb8ecd3af1b3dc7c7c65f9e7b1db
 name: self-improvement
 ---
 # Self-improvement loop
@@ -18,7 +18,7 @@ deliberate gate); once promoted and green with review threads resolved, drive yo
 merge yourself the same way as any other of your own PRs; never weaken a guardrail.**
 
 This skill is authored against the consumer contract sections defined by the consuming deployment's
-`AGENTS.md` (per the Automated AI Engineer plugin's parameterization contract): **Memory** (where
+`AGENTS.md` (per the agentic-engineering plugin's parameterization contract): **Memory** (where
 durable cross-run state lives), **Cadence** (how often the distil pass runs), **Trust gate** (who is
 trusted and the per-repo merge mechanics), and **Maintainer channels** (how a human decision is
 reached). Where this skill says "per the *X* section", the consuming repo supplies the concrete fact.

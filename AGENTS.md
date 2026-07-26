@@ -38,7 +38,11 @@ plugins/
     └── resources/              # Optional ancillary, explicitly linked human-consumed assets
 scripts/
 ├── validate-manifests.sh       # Manifest + parity + plugin.json + README-table + skill-provenance guard (single source of truth; run locally before pushing)
-└── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
+├── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
+├── check-plugin-version-bump.sh      # Gate: a plugin whose shipped content changed must move its version
+├── check-plugin-version-bump.test.sh # Self-test for the gate above
+├── bump-plugin-version.sh      # Move a plugin's version across all four manifests (the fix the gate points at)
+└── bump-plugin-version.test.sh # Self-test for the bump helper
 README.md                       # Human-facing index — the plugin table + per-tool install instructions
 ```
 
@@ -158,8 +162,16 @@ membership) is authored here.
    a job must push.
 7. **Conventional-commit messages** (`feat:`/`fix:`/`chore:`/`ci:`/`docs:`/`refactor:`). The repo is
    consumed directly as a marketplace (no release pipeline), so the type drives the changelog and PR
-   intent, not a version bump.
-8. **README and manifests stay in lockstep.** The README plugin table mirrors the manifests; update it
+   intent; the version is moved explicitly, per the next convention.
+8. **A plugin's version is its cache key — move it whenever its content changes.** Runtimes cache
+   plugins by `<marketplace>/<plugin>/<version>`, so a content change that leaves the version alone is
+   unreachable for every consumer that already installed it: the update command reports "already at the
+   latest version" and keeps serving the stale copy, with no error and no drift signal. Bump with
+   [`scripts/bump-plugin-version.sh`](scripts/bump-plugin-version.sh), which moves all four places the
+   version must agree (the portable and strict manifests plus both marketplace entries) — a hand-edit
+   easily half-lands. The `Check version bump` CI job enforces it on every PR, and the daily skill-sync
+   workflow bumps itself via `--changed-since` so the automated update PR satisfies the gate unaided.
+9. **README and manifests stay in lockstep.** The README plugin table mirrors the manifests; update it
    in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
    vice versa, and each row's **Resources** column matches that plugin's bundled resources on disk — its
    `skills/` directories, any `.mcp.json` server keys, and any `agents/` entries (the **Description**
@@ -176,6 +188,11 @@ does not currently enforce but that keeps workflow changes clean:
 #    desired-state resources, and skill provenance — the exact checks CI's
 #    "Validate manifests" job runs.
 ./scripts/validate-manifests.sh
+
+# 1b. Every plugin whose shipped content changed must also move its version, or the change
+#     never reaches consumers that cache by version (CI's "Check version bump" job).
+#     Fix a failure with: ./scripts/bump-plugin-version.sh <plugin> [patch|minor|major]
+./scripts/check-plugin-version-bump.sh origin/main HEAD
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.

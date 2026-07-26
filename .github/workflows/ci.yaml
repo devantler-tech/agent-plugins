@@ -44,6 +44,19 @@ jobs:
       - name: 🐚 ShellCheck scripts
         run: shellcheck scripts/*.sh
 
+      - name: 🧪 Self-test the version-bump guard
+        # Proves check-plugin-version-bump.sh PASSES what it must not block (a bumped
+        # plugin, a new plugin, a deleted plugin, an unrelated change) and FAILS every
+        # drift it exists to catch — including a second unbumped plugin in the same
+        # change, which an early-exit refactor would silently hide.
+        run: ./scripts/check-plugin-version-bump.test.sh
+
+      - name: 🧪 Self-test the version-bump helper
+        # Proves bump-plugin-version.sh moves the version in ALL FOUR manifests that must
+        # agree, that --changed-since bumps exactly what moved and is idempotent on a
+        # re-run, and that it fails closed on a bad plugin/level/non-semver version.
+        run: ./scripts/bump-plugin-version.test.sh
+
       - name: 🧪 Self-test the manifest guard
         # Proves validate-manifests.sh PASSES a consistent fixture and FAILS each
         # drift scenario it exists to catch (malformed/desynced manifests, every
@@ -70,6 +83,34 @@ jobs:
             bash "$t"
             echo "::endgroup::"
           done
+
+  check-version-bump:
+    name: Check version bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📄 Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          # The guard diffs against the base commit, so it needs real history — a
+          # shallow checkout would make it fail closed on every run.
+          fetch-depth: 0
+
+      - name: 🔢 Verify changed plugins moved their version
+        # Consumers cache plugins by <marketplace>/<plugin>/<version>, so shipping a
+        # content change on an unchanged version is unreachable for anyone who already
+        # installed it. This is a PR gate: on a push to main the change has already
+        # merged, so an absent base is reported and passed rather than failing the branch.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo "No usable base commit for this event — skipping (PR gate only)."
+            exit 0
+          fi
+          ./scripts/check-plugin-version-bump.sh "$BASE_SHA" HEAD
 
   discover-skills:
     name: Discover skills
@@ -140,7 +181,7 @@ jobs:
       statuses: read
       pull-requests: read
     timeout-minutes: 5
-    needs: [validate-manifests, lint-scripts, discover-skills, validate-spec]
+    needs: [validate-manifests, lint-scripts, check-version-bump, discover-skills, validate-spec]
     if: ${{ always() }}
     steps:
       - uses: devantler-tech/actions/require-checks-in-pr@1f66c91d45d374ceac9fe830a783444ebc9be958 # v3.2.0
@@ -148,5 +189,6 @@ jobs:
           job-results: >-
             ${{ needs.validate-manifests.result }}
             ${{ needs.lint-scripts.result }}
+            ${{ needs.check-version-bump.result }}
             ${{ needs.discover-skills.result }}
             ${{ needs.validate-spec.result }}

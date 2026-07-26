@@ -20,3 +20,49 @@ jobs:
       use-app-token: true
     secrets:
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+
+  # A skill sync changes shipped plugin content. Consumers cache plugins by version, so
+  # without a matching version bump the update is unreachable for everyone who already
+  # installed that version — and the `Check version bump` CI gate rejects it. The sync
+  # workflow that opens the PR has no post-update hook, so the bump lands here as a
+  # follow-up commit on the same branch.
+  bump-versions:
+    name: Bump versions of changed plugins
+    needs: update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 🔑 Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: 📄 Checkout the update branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: deps/agent-skills-update
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+          # This job must push, so credentials stay on the checkout.
+          persist-credentials: true
+        # The sync opens a PR only when an upstream skill actually drifted; on a quiet day
+        # the branch does not exist and there is nothing to bump.
+        continue-on-error: true
+        id: checkout
+
+      - name: 🔢 Bump every plugin whose content changed
+        if: steps.checkout.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          ./scripts/bump-plugin-version.sh --changed-since origin/main
+          if git diff --quiet; then
+            echo "No version bump needed."
+            exit 0
+          fi
+          git commit -am "chore(deps): bump versions of changed plugins"
+          git push origin HEAD:deps/agent-skills-update

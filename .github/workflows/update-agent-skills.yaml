@@ -59,6 +59,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Be explicit rather than relying on fetch-depth to have populated the
+          # remote-tracking ref — without origin/main the bump has no base to diff against.
+          git fetch --no-tags origin main
           ./scripts/bump-plugin-version.sh --changed-since origin/main
           if git diff --quiet; then
             echo "No version bump needed."

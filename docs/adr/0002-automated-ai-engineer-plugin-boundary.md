@@ -112,7 +112,7 @@ Two consequences for child 2:
 ### D3 — Self-improvement-loop implication (the explicit, accepted trade)
 
 Today the agent improves its **whole** constitution through **same-repo draft PRs** in the monorepo — one
-repo, one promotion gate, fast. After extraction, an improvement's path depends on its home:
+repo, one readiness gate, fast. After extraction, an improvement's path depends on its home:
 
 - **Generic-core** change (run loop, hygiene triad, the self-improvement procedure itself) → an
   **agent-plugins** PR (and an **agent-skills** PR for a skill body) **plus** a **consumer version-bump**

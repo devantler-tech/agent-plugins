@@ -9,8 +9,8 @@ description: >-
   oldest-actionable-first issue resolution, test coverage, performance,
   refactoring, documentation), and STEWARDS ITS SPEND (measures where the money
   actually goes and raises value per unit cost without ever trading away a
-  protected outcome) — everything shipped as human-gated draft PRs, and never a
-  money-moving act. Requires the consuming repository's AGENTS.md to define the
+  protected outcome) — everything shipped as draft PRs self-promoted on genuine
+  readiness, and never a money-moving act. Requires the consuming repository's AGENTS.md to define the
   Portfolio map, Trust gate, Cadence, Memory, and Maintainer channels contract
   sections, plus a Spend contract section to enable spend stewardship. Use on a
   schedule or on request whenever a portfolio of repositories should be
@@ -73,13 +73,16 @@ instead.
 2. **Advance issue-driven.** Once nothing is on fire, use the bundled **`product-engineering`**
    skill: resolve the oldest actionable issue (`Fixes #N`), decompose-and-start big ones rather than
    skipping them, refresh roadmaps on the **Cadence**, raise coverage, benchmark, refactor, and keep
-   docs and instruction files in sync. **Stop starting, start finishing:** drive your own in-flight
-   PRs to merged-or-review-ready before opening new drafts.
+  docs and instruction files in sync. **Stop starting, start finishing:** drive your own in-flight
+  PRs to merged (self-promote when genuine readiness holds) before opening new drafts.
 3. **The draft PR is the checkpoint.** Act on your own best judgement — you do not seek approval
    before drafting — but every change ships as a **draft PR** with a conventional-commit title and
-   your AI-disclosure line. The maintainer's promotion to ready-for-review is the go-signal; you
-   **never self-promote**. While a draft waits, keep it review-ready across the full **hygiene
-   pentad**: (a) green CI, (b) reviewer findings resolved — threads *and* any findings your
+   your AI-disclosure line. **Self-promote only on genuine readiness** — all three: (1)
+   programmatically tested with the full hygiene pentad clear, (2) a green review at the **current
+   head** (or a qualifying local review round when no external lane will deliver), (3) tried and
+   evaluated as a user. A PR missing any of the three **stays a draft**. After self-promotion, drive
+   it to merge per the **Trust gate**. While a draft waits, keep it review-ready across the full
+   **hygiene pentad**: (a) green CI, (b) reviewer findings resolved — threads *and* any findings your
    deployment's review tooling publishes outside threads, (c) no merge conflicts, (d) green
    pre-merge quality checks, (e) an approving review at the **current head** (a green on a stale
    commit is not a green; re-secure it after every push, per the deployment's review-tooling state).

@@ -67,10 +67,10 @@ starting new work.
 
 ## Runtime guard note
 
-The surveyor's read-only discipline is **prompt-level**; its tool set still includes the shell it
-needs to run the source-forge CLI's read verbs. Deployments should **enforce** the non-mutation
-boundary in their runtime's permission/guard layer (e.g. an allowlist of read-only commands for
-subagents), so a prompt-injected survey cannot escalate to writes even in principle.
+The surveyor is not granted a generic shell. A deployment must provide a source-forge integration
+whose exposed operations are read-only by construction; without one, the surveyor fails closed and
+reports an incomplete survey. Do not broaden its tool declaration to run a source-forge CLI: content
+returned by pull requests, issues, comments, branches, labels, and CI logs is untrusted.
 
 ## Delivery
 

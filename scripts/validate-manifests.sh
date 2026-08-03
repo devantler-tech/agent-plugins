@@ -786,8 +786,7 @@ validate_desired_state_resources() {
       '**Give expected-to-run-long local commands an explicit execution deadline.**' \
       '**bounded tool timeout**' \
       '**measured repository or CI duration**' \
-      'runtime exposes no per-call setting' \
-      'remote waits asynchronous'; do
+      'runtime exposes no per-call setting'; do
       if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
         || ! grep -qF "$deadline_marker" \
           "$plugin_dir/agents/$entrypoint.agent.md"; then
@@ -797,20 +796,7 @@ validate_desired_state_resources() {
       fi
     done
 
-    for remote_wait_marker in \
-      '**Never foreground-wait on remote state.**' \
-      'at most one detached watcher' \
-      'end the run and let the next scheduled tick collect'; do
-      if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
-        || ! grep -qF "$remote_wait_marker" \
-          "$plugin_dir/agents/$entrypoint.agent.md"; then
-        echo "::error::$resource: agentic-engineer must forbid foreground remote waits, missing: $remote_wait_marker"
-        failed=1
-        resource_failed=1
-      fi
-    done
-
-    remote_wait_contract='**Never foreground-wait on remote state.** **Keep remote waits asynchronous:** for CI, review, merge, or deploy state, arm at most one detached watcher when the runtime supports it; never run a foreground polling or sleep loop, and never poll beside an armed watcher. Continue with other actionable work. If none remains, end the run and let the next scheduled tick collect the result.'
+    remote_wait_contract="**Bounded one-shot remote reads or mutations are allowed. Never foreground-poll remote state, and never wait on it through a foreground retry or sleep loop.** For CI, review, merge, or deploy state that needs later collection, prefer a supported completion callback. Otherwise, arm at most one detached watcher when the runtime supports it. Before ending the run, persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory; a later invocation must reuse or clean up that record before it may arm another watcher or query the same target. If neither a callback nor a safe watcher is available, persist the pending target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded one-shot query."
     if [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
       normalized_agent="$(
         tr '\n' ' ' < "$plugin_dir/agents/$entrypoint.agent.md" \

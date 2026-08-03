@@ -25,6 +25,15 @@ sha256_file() {
   fi
 }
 
+sync_entrypoint_digest() {
+  local root="$1" name="$2" resource digest
+  resource="$root/plugins/$name/resources/provider-neutral.desired-state.json"
+  digest=$(sha256_file "$root/plugins/$name/agents/agentic-engineer.agent.md")
+  jq --arg digest "$digest" '.spec.source.entrypointSha256 = $digest' \
+    "$resource" > "$root/entrypoint-digest.tmp" \
+    && mv "$root/entrypoint-digest.tmp" "$resource"
+}
+
 # Build a complete, valid fixture repo (two plugins) at $1.
 make_fixture() {
   local root="$1"
@@ -576,7 +585,11 @@ Fixture agent. Enabling spend work needs the **Spend contract** section.
 **Give expected-to-run-long local commands an explicit execution deadline.**
 Use a **bounded tool timeout** from the **measured repository or CI duration** plus headroom.
 When the runtime exposes no per-call setting, use an equivalent bounded process supervisor.
-**Never foreground-wait on remote state.** **Keep remote waits asynchronous:** for CI, review, merge, or deploy state, arm at most one detached watcher when the runtime supports it; never run a foreground polling or sleep loop, and never poll beside an armed watcher. Continue with other actionable work. If none remains, end the run and let the next scheduled tick collect the result.
+**Bounded one-shot remote reads or mutations are allowed. Never foreground-poll remote state, and never wait on it through a foreground retry or sleep loop.**
+For CI, review, merge, or deploy state that needs later collection, prefer a supported completion callback.
+Otherwise, arm at most one detached watcher when the runtime supports it.
+Before ending the run, persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory; a later invocation must reuse or clean up that record before it may arm another watcher or query the same target.
+If neither a callback nor a safe watcher is available, persist the pending target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded one-shot query.
 
 ## Spend stewardship
 
@@ -964,8 +977,7 @@ for deadline_marker in \
   'Give expected-to-run-long local commands an explicit execution deadline' \
   'bounded tool timeout' \
   'measured repository or CI duration' \
-  'runtime exposes no per-call setting' \
-  'remote waits asynchronous'; do
+  'runtime exposes no per-call setting'; do
   d=$(fresh); make_desired_state "$d" alpha
   grep -vF "$deadline_marker" \
     "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
@@ -975,15 +987,26 @@ for deadline_marker in \
 done
 
 for remote_wait_marker in \
-  'Never foreground-wait on remote state' \
-  'at most one detached watcher' \
-  'end the run and let the next scheduled tick collect'; do
+  'Bounded one-shot remote reads or mutations are allowed.' \
+  'Never foreground-poll remote state' \
+  'at most one detached watcher when the runtime supports it' \
+  "persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory" \
+  'a later invocation must reuse or clean up that record' \
+  'next invocation—scheduled or on demand—collect it with a bounded one-shot query'; do
   d=$(fresh); make_desired_state "$d" alpha
-  grep -vF "$remote_wait_marker" \
-    "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+  awk -v marker="$remote_wait_marker" '
+    {
+      position = index($0, marker)
+      if (position > 0) {
+        $0 = substr($0, 1, position - 1) substr($0, position + length(marker))
+      }
+      print
+    }
+  ' "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
     && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  sync_entrypoint_digest "$d" alpha
   check_fail "Agentic Engineer requires remote wait marker: $remote_wait_marker" \
-    "agentic-engineer must forbid foreground remote waits" "$d"
+    "canonical contiguous contract" "$d"
 done
 
 d=$(fresh); make_desired_state "$d" alpha

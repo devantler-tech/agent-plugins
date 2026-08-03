@@ -17,12 +17,12 @@ PUBLISHED_RENAMES='{"automated-ai-engineer":"agentic-engineering"}'
 pass=0
 fail=0
 
-# Hash fixture entrypoints with the same line-ending semantics as the production guard.
+# Hash fixture entrypoint bytes with the same byte-preserving CRLF semantics as the guard.
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
-    jq -Rrsj 'gsub("\r\n"; "\n")' "$1" | sha256sum | awk '{ print $1 }'
+    LC_ALL=C perl -pe 's/\r\n/\n/g' "$1" | sha256sum | awk '{ print $1 }'
   else
-    jq -Rrsj 'gsub("\r\n"; "\n")' "$1" | shasum -a 256 | awk '{ print $1 }'
+    LC_ALL=C perl -pe 's/\r\n/\n/g' "$1" | shasum -a 256 | awk '{ print $1 }'
   fi
 }
 
@@ -1034,6 +1034,17 @@ check_pass "Agentic Engineer entrypoint digest normalizes CRLF checkouts" "$d"
 d=$(fresh); make_desired_state "$d" alpha
 printf '\r' >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
 check_fail "Agentic Engineer entrypoint digest preserves a lone carriage return" \
+  "entrypoint digest must match the bundled agent" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+cp "$d/plugins/alpha/agents/agentic-engineer.agent.md" "$d/other-entrypoint.agent.md"
+printf '\200' >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+printf '\201' >> "$d/other-entrypoint.agent.md"
+other_entrypoint_sha256=$(sha256_file "$d/other-entrypoint.agent.md")
+jq --arg digest "$other_entrypoint_sha256" '.spec.source.entrypointSha256 = $digest' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+LC_ALL=C check_fail "Agentic Engineer entrypoint digest preserves invalid UTF-8 bytes" \
   "entrypoint digest must match the bundled agent" "$d"
 
 for unreviewed_entrypoint_drift in \

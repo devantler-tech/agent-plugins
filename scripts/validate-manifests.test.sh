@@ -20,9 +20,9 @@ fail=0
 # Hash fixture entrypoint bytes with the same byte-preserving CRLF semantics as the guard.
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
-    LC_ALL=C perl -pe 's/\r\n/\n/g' "$1" | sha256sum | awk '{ print $1 }'
+    LC_ALL=C perl -C0 -pe 's/\r\n/\n/g' "$1" | sha256sum | awk '{ print $1 }'
   else
-    LC_ALL=C perl -pe 's/\r\n/\n/g' "$1" | shasum -a 256 | awk '{ print $1 }'
+    LC_ALL=C perl -C0 -pe 's/\r\n/\n/g' "$1" | shasum -a 256 | awk '{ print $1 }'
   fi
 }
 
@@ -1030,6 +1030,9 @@ awk '{ printf "%s\r\n", $0 }' \
   "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
 check_pass "Agentic Engineer entrypoint digest normalizes CRLF checkouts" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+PERL_UNICODE=S check_pass "Agentic Engineer entrypoint digest ignores inherited Unicode I/O" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 printf '\r' >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"

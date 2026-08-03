@@ -774,6 +774,19 @@ validate_desired_state_resources() {
       fi
     done
 
+    for remote_wait_marker in \
+      '**Never foreground-wait on remote state.**' \
+      'at most one detached watcher' \
+      'end the run and let the next scheduled tick collect'; do
+      if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
+        || ! grep -qF "$remote_wait_marker" \
+          "$plugin_dir/agents/$entrypoint.agent.md"; then
+        echo "::error::$resource: agentic-engineer must forbid foreground remote waits, missing: $remote_wait_marker"
+        failed=1
+        resource_failed=1
+      fi
+    done
+
     if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
       || ! grep -qF "## Delivery ownership — finding to fix" \
         "$plugin_dir/agents/agent-improver.agent.md"; then

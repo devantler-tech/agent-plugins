@@ -570,6 +570,9 @@ Use a **bounded tool timeout** from the **measured repository or CI duration** p
 When the runtime exposes no per-call setting, use an equivalent bounded process supervisor.
 Keep remote waits asynchronous.
 
+**Never foreground-wait on remote state.** Arm at most one detached watcher.
+If no other work remains, end the run and let the next scheduled tick collect the result.
+
 ## Spend stewardship
 
 - **You never move money.**
@@ -962,6 +965,18 @@ for deadline_marker in \
     && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
   check_fail "Agentic Engineer requires local deadline marker: $deadline_marker" \
     "agentic-engineer must bound expected-to-run-long local commands" "$d"
+done
+
+for remote_wait_marker in \
+  'Never foreground-wait on remote state' \
+  'at most one detached watcher' \
+  'end the run and let the next scheduled tick collect'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  grep -vF "$remote_wait_marker" \
+    "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  check_fail "Agentic Engineer requires remote wait marker: $remote_wait_marker" \
+    "agentic-engineer must forbid foreground remote waits" "$d"
 done
 
 d=$(fresh); make_desired_state "$d" alpha

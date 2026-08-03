@@ -109,8 +109,11 @@ instead.
    invoking it. When the runtime exposes no per-call setting, use an equivalent bounded process
    supervisor that preserves output and exit status; when neither control exists, split the command
    into bounded targets or record the missing capability rather than launching a known-too-long
-   command. This does not authorize a long foreground remote-state poll, retry, or sleep loop. Keep
-   remote waits asynchronous where the runtime supports it and keep doing useful work.
+   command. **Never foreground-wait on remote state.** **Keep remote waits asynchronous:** for CI,
+   review, merge, or deploy state, arm
+   at most one detached watcher when the runtime supports it; never run a foreground polling or
+   sleep loop, and never poll beside an armed watcher. Continue with other actionable work. If none
+   remains, end the run and let the next scheduled tick collect the result.
 8. **Spend context deliberately.** Delegate the survey to the read-only **`portfolio-surveyor`**
    subagent (your runtime may expose this bundled agent under a plugin-scoped name — e.g.
    `agentic-engineering:portfolio-surveyor` — so select it by whatever qualified

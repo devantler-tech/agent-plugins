@@ -34,11 +34,11 @@ README="README.md"
 # decoding or reconstructing the file as text.
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
-    LC_ALL=C PERL5OPT= PERL_UNICODE= PERLIO= perl -C0 -pe \
+    LC_ALL=C PERL5OPT='' PERL_UNICODE='' PERLIO='' perl -C0 -pe \
       'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
       < "$1" | sha256sum | awk '{ print $1 }'
   else
-    LC_ALL=C PERL5OPT= PERL_UNICODE= PERLIO= perl -C0 -pe \
+    LC_ALL=C PERL5OPT='' PERL_UNICODE='' PERLIO='' perl -C0 -pe \
       'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
       < "$1" | shasum -a 256 | awk '{ print $1 }'
   fi

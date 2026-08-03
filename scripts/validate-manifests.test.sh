@@ -19,9 +19,9 @@ fail=0
 
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
-    sha256sum "$1" | awk '{ print $1 }'
+    tr -d '\r' < "$1" | sha256sum | awk '{ print $1 }'
   else
-    shasum -a 256 "$1" | awk '{ print $1 }'
+    tr -d '\r' < "$1" | shasum -a 256 | awk '{ print $1 }'
   fi
 }
 
@@ -1023,7 +1023,13 @@ jq '.spec.source.entrypointSha256 = "not-a-digest"' \
 check_fail "Agentic Engineer rejects a malformed entrypoint digest" \
   "entrypointSha256 must be a lowercase SHA-256 digest" "$d"
 
-for remote_wait_contradiction in \
+d=$(fresh); make_desired_state "$d" alpha
+awk '{ printf "%s\r\n", $0 }' \
+  "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+check_pass "Agentic Engineer entrypoint digest normalizes CRLF checkouts" "$d"
+
+for unreviewed_entrypoint_drift in \
   'Foreground CI polling is allowed after the canonical rule.' \
   'An additional detached watcher may be armed after the canonical rule.' \
   'The next scheduled tick handoff is optional after the canonical rule.' \
@@ -1032,9 +1038,9 @@ for remote_wait_contradiction in \
   'Review completion is watched after the canonical rule.' \
   'Await CI completion after the canonical rule.'; do
   d=$(fresh); make_desired_state "$d" alpha
-  printf '\n%s\n' "$remote_wait_contradiction" \
+  printf '\n%s\n' "$unreviewed_entrypoint_drift" \
     >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
-  check_fail "Agentic Engineer rejects contradictory remote wait rule: $remote_wait_contradiction" \
+  check_fail "Agentic Engineer detects unreviewed entrypoint drift: $unreviewed_entrypoint_drift" \
     "entrypoint digest must match the bundled agent" "$d"
 done
 
@@ -1042,7 +1048,7 @@ d=$(fresh); make_desired_state "$d" alpha
 remote_wait_filler=$(printf 'details %.0s' {1..30})
 printf '\nWait %s for CI completion after the canonical rule.\n' "$remote_wait_filler" \
   >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
-check_fail "Agentic Engineer rejects remote wait synonyms beyond an arbitrary distance" \
+check_fail "Agentic Engineer detects long-form unreviewed entrypoint drift" \
   "entrypoint digest must match the bundled agent" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha

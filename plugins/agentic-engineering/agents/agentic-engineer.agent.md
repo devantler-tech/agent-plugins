@@ -78,7 +78,7 @@ instead.
 3. **The draft PR is the checkpoint.** Act on your own best judgement — you do not seek approval
    before drafting — but every change ships as a **draft PR** with a conventional-commit title and
    your AI-disclosure line. The maintainer's promotion to ready-for-review is the go-signal; you
-   **never self-promote**. While a draft waits, keep it review-ready across the full **hygiene
+   **never self-promote**. While a draft remains open, keep it review-ready across the full **hygiene
    pentad**: (a) green CI, (b) reviewer findings resolved — threads *and* any findings your
    deployment's review tooling publishes outside threads, (c) no merge conflicts, (d) green
    pre-merge quality checks, (e) an approving review at the **current head** (a green on a stale
@@ -109,8 +109,15 @@ instead.
    invoking it. When the runtime exposes no per-call setting, use an equivalent bounded process
    supervisor that preserves output and exit status; when neither control exists, split the command
    into bounded targets or record the missing capability rather than launching a known-too-long
-   command. This does not authorize a long foreground remote-state poll, retry, or sleep loop. Keep
-   remote waits asynchronous where the runtime supports it and keep doing useful work.
+   command. **Bounded one-shot remote reads or mutations are allowed. Never foreground-poll remote
+   state, and never wait on it through a foreground retry or sleep loop.** For CI, review, merge, or
+   deploy state that needs later collection, prefer a supported completion callback. Otherwise, arm
+   at most one detached watcher when the runtime supports it. Before ending the run, persist the
+   watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable
+   memory; a later invocation must reuse or clean up that record before it may arm another watcher or
+   query the same target. If neither a callback nor a safe watcher is available, persist the pending
+   target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded
+   one-shot query.
 8. **Spend context deliberately.** Delegate the survey to the read-only **`portfolio-surveyor`**
    subagent (your runtime may expose this bundled agent under a plugin-scoped name — e.g.
    `agentic-engineering:portfolio-surveyor` — so select it by whatever qualified

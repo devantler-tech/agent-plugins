@@ -17,6 +17,29 @@ PUBLISHED_RENAMES='{"automated-ai-engineer":"agentic-engineering"}'
 pass=0
 fail=0
 
+# Hash fixture entrypoint bytes with the same byte-preserving CRLF semantics as the guard.
+sha256_file() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    LC_ALL=C PERL5OPT='' PERL_UNICODE='' PERLIO='' perl -C0 -pe \
+      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
+      < "$1" | sha256sum | awk '{ print $1 }'
+  else
+    LC_ALL=C PERL5OPT='' PERL_UNICODE='' PERLIO='' perl -C0 -pe \
+      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
+      < "$1" | shasum -a 256 | awk '{ print $1 }'
+  fi
+}
+
+# Refresh a fixture's declared digest after intentionally changing its canonical contract.
+sync_entrypoint_digest() {
+  local root="$1" name="$2" resource digest
+  resource="$root/plugins/$name/resources/provider-neutral.desired-state.json"
+  digest=$(sha256_file "$root/plugins/$name/agents/agentic-engineer.agent.md")
+  jq --arg digest "$digest" '.spec.source.entrypointSha256 = $digest' \
+    "$resource" > "$root/entrypoint-digest.tmp" \
+    && mv "$root/entrypoint-digest.tmp" "$resource"
+}
+
 # Build a complete, valid fixture repo (two plugins) at $1.
 make_fixture() {
   local root="$1"
@@ -556,7 +579,7 @@ check_fail "agent with an empty block-scalar description fails" "must declare a 
 # resource model), but when present it must be valid, provider-neutral, and linked from the
 # plugin README so a consumer can actually find it.
 make_desired_state() {
-  local root="$1" name="$2"
+  local root="$1" name="$2" entrypoint_sha256
   mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents"
   cat > "$root/plugins/$name/agents/agentic-engineer.agent.md" <<'EOF'
 ---
@@ -568,7 +591,11 @@ Fixture agent. Enabling spend work needs the **Spend contract** section.
 **Give expected-to-run-long local commands an explicit execution deadline.**
 Use a **bounded tool timeout** from the **measured repository or CI duration** plus headroom.
 When the runtime exposes no per-call setting, use an equivalent bounded process supervisor.
-Keep remote waits asynchronous.
+**Bounded one-shot remote reads or mutations are allowed. Never foreground-poll remote state, and never wait on it through a foreground retry or sleep loop.**
+For CI, review, merge, or deploy state that needs later collection, prefer a supported completion callback.
+Otherwise, arm at most one detached watcher when the runtime supports it.
+Before ending the run, persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory; a later invocation must reuse or clean up that record before it may arm another watcher or query the same target.
+If neither a callback nor a safe watcher is available, persist the pending target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded one-shot query.
 
 ## Spend stewardship
 
@@ -594,6 +621,7 @@ EOF
     }
     { print }
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
+  entrypoint_sha256=$(sha256_file "$root/plugins/$name/agents/agentic-engineer.agent.md")
   cat > "$root/plugins/$name/resources/provider-neutral.desired-state.json" <<EOF
 {
   "apiVersion": "agent-plugins.devantler.tech/v1alpha1",
@@ -607,6 +635,7 @@ EOF
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "$name",
       "entrypoint": "agentic-engineer",
+      "entrypointSha256": "$entrypoint_sha256",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -954,8 +983,7 @@ for deadline_marker in \
   'Give expected-to-run-long local commands an explicit execution deadline' \
   'bounded tool timeout' \
   'measured repository or CI duration' \
-  'runtime exposes no per-call setting' \
-  'remote waits asynchronous'; do
+  'runtime exposes no per-call setting'; do
   d=$(fresh); make_desired_state "$d" alpha
   grep -vF "$deadline_marker" \
     "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
@@ -963,6 +991,96 @@ for deadline_marker in \
   check_fail "Agentic Engineer requires local deadline marker: $deadline_marker" \
     "agentic-engineer must bound expected-to-run-long local commands" "$d"
 done
+
+for remote_wait_marker in \
+  'Bounded one-shot remote reads or mutations are allowed.' \
+  'Never foreground-poll remote state' \
+  'at most one detached watcher when the runtime supports it' \
+  "persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory" \
+  'a later invocation must reuse or clean up that record' \
+  'next invocation—scheduled or on demand—collect it with a bounded one-shot query'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  awk -v marker="$remote_wait_marker" '
+    {
+      position = index($0, marker)
+      if (position > 0) {
+        $0 = substr($0, 1, position - 1) substr($0, position + length(marker))
+      }
+      print
+    }
+  ' "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  sync_entrypoint_digest "$d" alpha
+  check_fail "Agentic Engineer requires remote wait marker: $remote_wait_marker" \
+    "canonical contiguous contract" "$d"
+done
+
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.source.entrypointSha256)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agentic Engineer requires an entrypoint digest" \
+  "entrypointSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.entrypointSha256 = "not-a-digest"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agentic Engineer rejects a malformed entrypoint digest" \
+  "entrypointSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+awk '{ printf "%s\r\n", $0 }' \
+  "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+check_pass "Agentic Engineer entrypoint digest normalizes CRLF checkouts" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+PERL_UNICODE=S check_pass "Agentic Engineer entrypoint digest ignores inherited Unicode I/O" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+PERL5OPT=-CS check_pass "Agentic Engineer entrypoint digest ignores inherited Perl options" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+PERLIO=:crlf check_pass "Agentic Engineer entrypoint digest ignores inherited Perl layers" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '\r' >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+check_fail "Agentic Engineer entrypoint digest preserves a lone carriage return" \
+  "entrypoint digest must match the bundled agent" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+cp "$d/plugins/alpha/agents/agentic-engineer.agent.md" "$d/other-entrypoint.agent.md"
+printf '\200' >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+printf '\201' >> "$d/other-entrypoint.agent.md"
+other_entrypoint_sha256=$(sha256_file "$d/other-entrypoint.agent.md")
+jq --arg digest "$other_entrypoint_sha256" '.spec.source.entrypointSha256 = $digest' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+LC_ALL=C check_fail "Agentic Engineer entrypoint digest preserves invalid UTF-8 bytes" \
+  "entrypoint digest must match the bundled agent" "$d"
+
+for unreviewed_entrypoint_drift in \
+  'Foreground CI polling is allowed after the canonical rule.' \
+  'An additional detached watcher may be armed after the canonical rule.' \
+  'The next scheduled tick handoff is optional after the canonical rule.' \
+  'Wait for CI completion with gh run watch after the canonical rule.' \
+  'CI requires waiting for completion after the canonical rule.' \
+  'Review completion is watched after the canonical rule.' \
+  'Await CI completion after the canonical rule.'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  printf '\n%s\n' "$unreviewed_entrypoint_drift" \
+    >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  check_fail "Agentic Engineer detects unreviewed entrypoint drift: $unreviewed_entrypoint_drift" \
+    "entrypoint digest must match the bundled agent" "$d"
+done
+
+d=$(fresh); make_desired_state "$d" alpha
+remote_wait_filler=$(printf 'details %.0s' {1..30})
+printf '\nWait %s for CI completion after the canonical rule.\n' "$remote_wait_filler" \
+  >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+check_fail "Agentic Engineer detects long-form unreviewed entrypoint drift" \
+  "entrypoint digest must match the bundled agent" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.guardrails |= map(select(startswith("Write-capable roles own selected engineering work") | not))' \

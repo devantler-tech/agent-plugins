@@ -28,6 +28,22 @@ CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
 RENAME_HISTORY="scripts/marketplace-rename-history.json"
 README="README.md"
 
+# Hash entrypoint bytes after normalizing checkout-only CRLF pairs to committed LF bytes.
+# Clear inherited Perl I/O controls and set both stream handles to raw bytes explicitly.
+# This preserves invalid UTF-8, NULs, lone CRs, and a missing final newline instead of
+# decoding or reconstructing the file as text.
+sha256_file() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    LC_ALL=C PERL5OPT='' PERL_UNICODE='' PERLIO='' perl -C0 -pe \
+      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
+      < "$1" | sha256sum | awk '{ print $1 }'
+  else
+    LC_ALL=C PERL5OPT='' PERL_UNICODE='' PERLIO='' perl -C0 -pe \
+      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
+      < "$1" | shasum -a 256 | awk '{ print $1 }'
+  fi
+}
+
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
   local manifest="$1"
@@ -430,6 +446,7 @@ validate_readme_parity() {
 validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
   local schedule_source schedule_plugin schedule_agent
+  local entrypoint_sha256 actual_entrypoint_sha256
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
@@ -523,6 +540,25 @@ validate_desired_state_resources() {
       echo "::error::$resource: entrypoint must resolve to the bundled agentic-engineer agent"
       failed=1
       resource_failed=1
+    fi
+
+    # This is a content-integrity and review gate, not a natural-language semantic parser:
+    # the canonical block pins the required rule, while the digest makes every other
+    # entrypoint edit visible as a coordinated desired-state change. Ignore checkout-only
+    # CRLF conversion so the committed LF digest remains portable without hiding
+    # a content-changing lone carriage return.
+    entrypoint_sha256=$(jq -r '.spec.source.entrypointSha256 // ""' "$resource")
+    if ! printf '%s\n' "$entrypoint_sha256" | grep -Eq '^[a-f0-9]{64}$'; then
+      echo "::error::$resource: entrypointSha256 must be a lowercase SHA-256 digest"
+      failed=1
+      resource_failed=1
+    elif [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
+      actual_entrypoint_sha256=$(sha256_file "$plugin_dir/agents/$entrypoint.agent.md")
+      if [ "$entrypoint_sha256" != "$actual_entrypoint_sha256" ]; then
+        echo "::error::$resource: entrypoint digest must match the bundled agent"
+        failed=1
+        resource_failed=1
+      fi
     fi
 
     if ! jq -e '
@@ -641,11 +677,11 @@ validate_desired_state_resources() {
           and has_keys(["source", "consumer", "roles", "runtime", "onboarding", "guardrails"]))
       and (.spec.source
         | only_keys([
-            "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+            "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
             "refreshTiming", "hotSwapDuringRun"
           ])
           and has_keys([
-            "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+            "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
             "refreshTiming", "hotSwapDuringRun"
           ]))
       and (.spec.consumer
@@ -763,8 +799,7 @@ validate_desired_state_resources() {
       '**Give expected-to-run-long local commands an explicit execution deadline.**' \
       '**bounded tool timeout**' \
       '**measured repository or CI duration**' \
-      'runtime exposes no per-call setting' \
-      'remote waits asynchronous'; do
+      'runtime exposes no per-call setting'; do
       if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
         || ! grep -qF "$deadline_marker" \
           "$plugin_dir/agents/$entrypoint.agent.md"; then
@@ -773,6 +808,23 @@ validate_desired_state_resources() {
         resource_failed=1
       fi
     done
+
+    remote_wait_contract="**Bounded one-shot remote reads or mutations are allowed. Never foreground-poll remote state, and never wait on it through a foreground retry or sleep loop.** For CI, review, merge, or deploy state that needs later collection, prefer a supported completion callback. Otherwise, arm at most one detached watcher when the runtime supports it. Before ending the run, persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory; a later invocation must reuse or clean up that record before it may arm another watcher or query the same target. If neither a callback nor a safe watcher is available, persist the pending target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded one-shot query."
+    if [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
+      normalized_agent="$(
+        tr '\n' ' ' < "$plugin_dir/agents/$entrypoint.agent.md" \
+          | sed 's/[[:space:]][[:space:]]*/ /g'
+      )"
+      case "$normalized_agent" in
+        *"$remote_wait_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: agentic-engineer must forbid foreground remote waits with the canonical contiguous contract"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+    fi
 
     if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
       || ! grep -qF "## Delivery ownership — finding to fix" \

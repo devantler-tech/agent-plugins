@@ -568,10 +568,7 @@ Fixture agent. Enabling spend work needs the **Spend contract** section.
 **Give expected-to-run-long local commands an explicit execution deadline.**
 Use a **bounded tool timeout** from the **measured repository or CI duration** plus headroom.
 When the runtime exposes no per-call setting, use an equivalent bounded process supervisor.
-Keep remote waits asynchronous.
-
-**Never foreground-wait on remote state.** Arm at most one detached watcher.
-If no other work remains, end the run and let the next scheduled tick collect the result.
+**Never foreground-wait on remote state.** **Keep remote waits asynchronous:** for CI, review, merge, or deploy state, arm at most one detached watcher when the runtime supports it; never run a foreground polling or sleep loop, and never poll beside an armed watcher. Continue with other actionable work. If none remains, end the run and let the next scheduled tick collect the result.
 
 ## Spend stewardship
 
@@ -977,6 +974,17 @@ for remote_wait_marker in \
     && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
   check_fail "Agentic Engineer requires remote wait marker: $remote_wait_marker" \
     "agentic-engineer must forbid foreground remote waits" "$d"
+done
+
+for remote_wait_contradiction in \
+  'Foreground CI polling is allowed after the canonical rule.' \
+  'An additional detached watcher may be armed after the canonical rule.' \
+  'The next scheduled tick handoff is optional after the canonical rule.'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  printf '\n%s\n' "$remote_wait_contradiction" \
+    >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  check_fail "Agentic Engineer rejects contradictory remote wait rule: $remote_wait_contradiction" \
+    "remote-wait semantics must appear only in the canonical contract" "$d"
 done
 
 d=$(fresh); make_desired_state "$d" alpha

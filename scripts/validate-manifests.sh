@@ -787,6 +787,30 @@ validate_desired_state_resources() {
       fi
     done
 
+    remote_wait_contract='**Never foreground-wait on remote state.** **Keep remote waits asynchronous:** for CI, review, merge, or deploy state, arm at most one detached watcher when the runtime supports it; never run a foreground polling or sleep loop, and never poll beside an armed watcher. Continue with other actionable work. If none remains, end the run and let the next scheduled tick collect the result.'
+    if [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
+      normalized_agent="$(
+        tr '\n' ' ' < "$plugin_dir/agents/$entrypoint.agent.md" \
+          | sed 's/[[:space:]][[:space:]]*/ /g'
+      )"
+      case "$normalized_agent" in
+        *"$remote_wait_contract"*)
+          remote_wait_remainder="${normalized_agent%%"$remote_wait_contract"*}${normalized_agent#*"$remote_wait_contract"}"
+          if printf '%s\n' "$remote_wait_remainder" \
+            | grep -Eiq 'foreground|detached[[:space:]]+watcher|next[[:space:]]+scheduled[[:space:]]+tick'; then
+            echo "::error::$resource: agentic-engineer remote-wait semantics must appear only in the canonical contract"
+            failed=1
+            resource_failed=1
+          fi
+          ;;
+        *)
+          echo "::error::$resource: agentic-engineer must forbid foreground remote waits with the canonical contiguous contract"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+    fi
+
     if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
       || ! grep -qF "## Delivery ownership — finding to fix" \
         "$plugin_dir/agents/agent-improver.agent.md"; then

@@ -989,6 +989,13 @@ for remote_wait_contradiction in \
 done
 
 d=$(fresh); make_desired_state "$d" alpha
+remote_wait_filler=$(printf 'details %.0s' {1..30})
+printf '\nWait %s for CI completion after the canonical rule.\n' "$remote_wait_filler" \
+  >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+check_fail "Agentic Engineer rejects remote wait synonyms beyond an arbitrary distance" \
+  "remote-wait semantics must appear only in the canonical contract" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.guardrails |= map(select(startswith("Write-capable roles own selected engineering work") | not))' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"

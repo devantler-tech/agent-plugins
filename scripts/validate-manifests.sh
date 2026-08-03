@@ -797,7 +797,7 @@ validate_desired_state_resources() {
         *"$remote_wait_contract"*)
           remote_wait_remainder="${normalized_agent%%"$remote_wait_contract"*}${normalized_agent#*"$remote_wait_contract"}"
           if printf '%s\n' "$remote_wait_remainder" \
-            | grep -Eiq 'foreground|detached[[:space:]]+watcher|next[[:space:]]+scheduled[[:space:]]+tick|(^|[^[:alnum:]_])(wait|watch|poll|sleep)([^[:alnum:]_]|$).{0,160}(^|[^[:alnum:]_])(ci|review|merge|deploy|remote)([^[:alnum:]_]|$)|(^|[^[:alnum:]_])(ci|review|merge|deploy|remote)([^[:alnum:]_]|$).{0,160}(^|[^[:alnum:]_])(wait|watch|poll|sleep)([^[:alnum:]_]|$)'; then
+            | grep -Eiq 'foreground|detached[[:space:]]+watcher|next[[:space:]]+scheduled[[:space:]]+tick|(^|[^[:alnum:]_])(wait|watch|poll|sleep)([^[:alnum:]_]|$).*(^|[^[:alnum:]_])(ci|review|merge|deploy|remote)([^[:alnum:]_]|$)|(^|[^[:alnum:]_])(ci|review|merge|deploy|remote)([^[:alnum:]_]|$).*(^|[^[:alnum:]_])(wait|watch|poll|sleep)([^[:alnum:]_]|$)'; then
             echo "::error::$resource: agentic-engineer remote-wait semantics must appear only in the canonical contract"
             failed=1
             resource_failed=1

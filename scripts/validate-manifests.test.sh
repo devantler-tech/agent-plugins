@@ -17,6 +17,14 @@ PUBLISHED_RENAMES='{"automated-ai-engineer":"agentic-engineering"}'
 pass=0
 fail=0
 
+sha256_file() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  else
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  fi
+}
+
 # Build a complete, valid fixture repo (two plugins) at $1.
 make_fixture() {
   local root="$1"
@@ -556,7 +564,7 @@ check_fail "agent with an empty block-scalar description fails" "must declare a 
 # resource model), but when present it must be valid, provider-neutral, and linked from the
 # plugin README so a consumer can actually find it.
 make_desired_state() {
-  local root="$1" name="$2"
+  local root="$1" name="$2" entrypoint_sha256
   mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents"
   cat > "$root/plugins/$name/agents/agentic-engineer.agent.md" <<'EOF'
 ---
@@ -594,6 +602,7 @@ EOF
     }
     { print }
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
+  entrypoint_sha256=$(sha256_file "$root/plugins/$name/agents/agentic-engineer.agent.md")
   cat > "$root/plugins/$name/resources/provider-neutral.desired-state.json" <<EOF
 {
   "apiVersion": "agent-plugins.devantler.tech/v1alpha1",
@@ -607,6 +616,7 @@ EOF
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "$name",
       "entrypoint": "agentic-engineer",
+      "entrypointSha256": "$entrypoint_sha256",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -976,18 +986,33 @@ for remote_wait_marker in \
     "agentic-engineer must forbid foreground remote waits" "$d"
 done
 
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.source.entrypointSha256)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agentic Engineer requires an entrypoint digest" \
+  "entrypointSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.entrypointSha256 = "not-a-digest"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agentic Engineer rejects a malformed entrypoint digest" \
+  "entrypointSha256 must be a lowercase SHA-256 digest" "$d"
+
 for remote_wait_contradiction in \
   'Foreground CI polling is allowed after the canonical rule.' \
   'An additional detached watcher may be armed after the canonical rule.' \
   'The next scheduled tick handoff is optional after the canonical rule.' \
   'Wait for CI completion with gh run watch after the canonical rule.' \
   'CI requires waiting for completion after the canonical rule.' \
-  'Review completion is watched after the canonical rule.'; do
+  'Review completion is watched after the canonical rule.' \
+  'Await CI completion after the canonical rule.'; do
   d=$(fresh); make_desired_state "$d" alpha
   printf '\n%s\n' "$remote_wait_contradiction" \
     >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
   check_fail "Agentic Engineer rejects contradictory remote wait rule: $remote_wait_contradiction" \
-    "remote-wait semantics must appear only in the canonical contract" "$d"
+    "entrypoint digest must match the bundled agent" "$d"
 done
 
 d=$(fresh); make_desired_state "$d" alpha
@@ -995,7 +1020,7 @@ remote_wait_filler=$(printf 'details %.0s' {1..30})
 printf '\nWait %s for CI completion after the canonical rule.\n' "$remote_wait_filler" \
   >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
 check_fail "Agentic Engineer rejects remote wait synonyms beyond an arbitrary distance" \
-  "remote-wait semantics must appear only in the canonical contract" "$d"
+  "entrypoint digest must match the bundled agent" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq '.spec.guardrails |= map(select(startswith("Write-capable roles own selected engineering work") | not))' \

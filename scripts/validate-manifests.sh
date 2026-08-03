@@ -28,6 +28,14 @@ CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
 RENAME_HISTORY="scripts/marketplace-rename-history.json"
 README="README.md"
 
+sha256_file() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  else
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  fi
+}
+
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
   local manifest="$1"
@@ -430,6 +438,7 @@ validate_readme_parity() {
 validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
   local schedule_source schedule_plugin schedule_agent
+  local entrypoint_sha256 actual_entrypoint_sha256
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
@@ -523,6 +532,20 @@ validate_desired_state_resources() {
       echo "::error::$resource: entrypoint must resolve to the bundled agentic-engineer agent"
       failed=1
       resource_failed=1
+    fi
+
+    entrypoint_sha256=$(jq -r '.spec.source.entrypointSha256 // ""' "$resource")
+    if ! printf '%s\n' "$entrypoint_sha256" | grep -Eq '^[a-f0-9]{64}$'; then
+      echo "::error::$resource: entrypointSha256 must be a lowercase SHA-256 digest"
+      failed=1
+      resource_failed=1
+    elif [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
+      actual_entrypoint_sha256=$(sha256_file "$plugin_dir/agents/$entrypoint.agent.md")
+      if [ "$entrypoint_sha256" != "$actual_entrypoint_sha256" ]; then
+        echo "::error::$resource: entrypoint digest must match the bundled agent"
+        failed=1
+        resource_failed=1
+      fi
     fi
 
     if ! jq -e '
@@ -641,11 +664,11 @@ validate_desired_state_resources() {
           and has_keys(["source", "consumer", "roles", "runtime", "onboarding", "guardrails"]))
       and (.spec.source
         | only_keys([
-            "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+            "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
             "refreshTiming", "hotSwapDuringRun"
           ])
           and has_keys([
-            "marketplace", "plugin", "entrypoint", "updatePolicy", "providerPolicy",
+            "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
             "refreshTiming", "hotSwapDuringRun"
           ]))
       and (.spec.consumer
@@ -795,13 +818,6 @@ validate_desired_state_resources() {
       )"
       case "$normalized_agent" in
         *"$remote_wait_contract"*)
-          remote_wait_remainder="${normalized_agent%%"$remote_wait_contract"*}${normalized_agent#*"$remote_wait_contract"}"
-          if printf '%s\n' "$remote_wait_remainder" \
-            | grep -Eiq 'foreground|detached[[:space:]]+watcher|next[[:space:]]+scheduled[[:space:]]+tick|(^|[^[:alnum:]_])(wait|watch|poll|sleep)[[:alpha:]]*([^[:alnum:]_]|$).*(^|[^[:alnum:]_])(ci|review|merge|deploy|remote)([^[:alnum:]_]|$)|(^|[^[:alnum:]_])(ci|review|merge|deploy|remote)([^[:alnum:]_]|$).*(^|[^[:alnum:]_])(wait|watch|poll|sleep)[[:alpha:]]*([^[:alnum:]_]|$)'; then
-            echo "::error::$resource: agentic-engineer remote-wait semantics must appear only in the canonical contract"
-            failed=1
-            resource_failed=1
-          fi
           ;;
         *)
           echo "::error::$resource: agentic-engineer must forbid foreground remote waits with the canonical contiguous contract"

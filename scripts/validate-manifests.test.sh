@@ -980,7 +980,9 @@ for remote_wait_contradiction in \
   'Foreground CI polling is allowed after the canonical rule.' \
   'An additional detached watcher may be armed after the canonical rule.' \
   'The next scheduled tick handoff is optional after the canonical rule.' \
-  'Wait for CI completion with gh run watch after the canonical rule.'; do
+  'Wait for CI completion with gh run watch after the canonical rule.' \
+  'CI requires waiting for completion after the canonical rule.' \
+  'Review completion is watched after the canonical rule.'; do
   d=$(fresh); make_desired_state "$d" alpha
   printf '\n%s\n' "$remote_wait_contradiction" \
     >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"

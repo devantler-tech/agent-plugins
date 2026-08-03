@@ -78,7 +78,7 @@ instead.
 3. **The draft PR is the checkpoint.** Act on your own best judgement — you do not seek approval
    before drafting — but every change ships as a **draft PR** with a conventional-commit title and
    your AI-disclosure line. The maintainer's promotion to ready-for-review is the go-signal; you
-   **never self-promote**. While a draft waits, keep it review-ready across the full **hygiene
+   **never self-promote**. While a draft remains open, keep it review-ready across the full **hygiene
    pentad**: (a) green CI, (b) reviewer findings resolved — threads *and* any findings your
    deployment's review tooling publishes outside threads, (c) no merge conflicts, (d) green
    pre-merge quality checks, (e) an approving review at the **current head** (a green on a stale

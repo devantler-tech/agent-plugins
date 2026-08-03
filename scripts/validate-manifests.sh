@@ -30,9 +30,9 @@ README="README.md"
 
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
-    tr -d '\r' < "$1" | sha256sum | awk '{ print $1 }'
+    jq -Rrsj 'gsub("\r\n"; "\n")' "$1" | sha256sum | awk '{ print $1 }'
   else
-    tr -d '\r' < "$1" | shasum -a 256 | awk '{ print $1 }'
+    jq -Rrsj 'gsub("\r\n"; "\n")' "$1" | shasum -a 256 | awk '{ print $1 }'
   fi
 }
 
@@ -537,7 +537,8 @@ validate_desired_state_resources() {
     # This is a content-integrity and review gate, not a natural-language semantic parser:
     # the canonical block pins the required rule, while the digest makes every other
     # entrypoint edit visible as a coordinated desired-state change. Ignore checkout-only
-    # CRLF conversion so the committed LF digest remains portable.
+    # CRLF conversion so the committed LF digest remains portable without hiding
+    # a content-changing lone carriage return.
     entrypoint_sha256=$(jq -r '.spec.source.entrypointSha256 // ""' "$resource")
     if ! printf '%s\n' "$entrypoint_sha256" | grep -Eq '^[a-f0-9]{64}$'; then
       echo "::error::$resource: entrypointSha256 must be a lowercase SHA-256 digest"

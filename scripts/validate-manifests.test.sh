@@ -19,9 +19,9 @@ fail=0
 
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
-    tr -d '\r' < "$1" | sha256sum | awk '{ print $1 }'
+    jq -Rrsj 'gsub("\r\n"; "\n")' "$1" | sha256sum | awk '{ print $1 }'
   else
-    tr -d '\r' < "$1" | shasum -a 256 | awk '{ print $1 }'
+    jq -Rrsj 'gsub("\r\n"; "\n")' "$1" | shasum -a 256 | awk '{ print $1 }'
   fi
 }
 
@@ -1028,6 +1028,11 @@ awk '{ printf "%s\r\n", $0 }' \
   "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
 check_pass "Agentic Engineer entrypoint digest normalizes CRLF checkouts" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '\r' >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+check_fail "Agentic Engineer entrypoint digest preserves a lone carriage return" \
+  "entrypoint digest must match the bundled agent" "$d"
 
 for unreviewed_entrypoint_drift in \
   'Foreground CI polling is allowed after the canonical rule.' \

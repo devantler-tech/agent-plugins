@@ -29,14 +29,18 @@ RENAME_HISTORY="scripts/marketplace-rename-history.json"
 README="README.md"
 
 # Hash entrypoint bytes after normalizing checkout-only CRLF pairs to committed LF bytes.
-# Perl's -C0 forces byte I/O even when PERL_UNICODE is inherited; with the C locale this
-# preserves invalid UTF-8, NULs, lone CRs, and a missing final newline instead of decoding
-# or reconstructing the file as text.
+# Clear inherited Perl I/O controls and set both stream handles to raw bytes explicitly.
+# This preserves invalid UTF-8, NULs, lone CRs, and a missing final newline instead of
+# decoding or reconstructing the file as text.
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
-    LC_ALL=C perl -C0 -pe 's/\r\n/\n/g' "$1" | sha256sum | awk '{ print $1 }'
+    LC_ALL=C PERL5OPT= PERL_UNICODE= PERLIO= perl -C0 -pe \
+      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
+      < "$1" | sha256sum | awk '{ print $1 }'
   else
-    LC_ALL=C perl -C0 -pe 's/\r\n/\n/g' "$1" | shasum -a 256 | awk '{ print $1 }'
+    LC_ALL=C PERL5OPT= PERL_UNICODE= PERLIO= perl -C0 -pe \
+      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
+      < "$1" | shasum -a 256 | awk '{ print $1 }'
   fi
 }
 

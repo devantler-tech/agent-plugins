@@ -20,9 +20,13 @@ fail=0
 # Hash fixture entrypoint bytes with the same byte-preserving CRLF semantics as the guard.
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
-    LC_ALL=C perl -C0 -pe 's/\r\n/\n/g' "$1" | sha256sum | awk '{ print $1 }'
+    LC_ALL=C PERL5OPT= PERL_UNICODE= PERLIO= perl -C0 -pe \
+      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
+      < "$1" | sha256sum | awk '{ print $1 }'
   else
-    LC_ALL=C perl -C0 -pe 's/\r\n/\n/g' "$1" | shasum -a 256 | awk '{ print $1 }'
+    LC_ALL=C PERL5OPT= PERL_UNICODE= PERLIO= perl -C0 -pe \
+      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
+      < "$1" | shasum -a 256 | awk '{ print $1 }'
   fi
 }
 
@@ -1033,6 +1037,12 @@ check_pass "Agentic Engineer entrypoint digest normalizes CRLF checkouts" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 PERL_UNICODE=S check_pass "Agentic Engineer entrypoint digest ignores inherited Unicode I/O" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+PERL5OPT=-CS check_pass "Agentic Engineer entrypoint digest ignores inherited Perl options" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+PERLIO=:crlf check_pass "Agentic Engineer entrypoint digest ignores inherited Perl layers" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 printf '\r' >> "$d/plugins/alpha/agents/agentic-engineer.agent.md"

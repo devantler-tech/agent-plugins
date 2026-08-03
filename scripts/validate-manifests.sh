@@ -28,6 +28,7 @@ CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
 RENAME_HISTORY="scripts/marketplace-rename-history.json"
 README="README.md"
 
+# Hash entrypoint text after normalizing checkout-only CRLF pairs to committed LF bytes.
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
     jq -Rrsj 'gsub("\r\n"; "\n")' "$1" | sha256sum | awk '{ print $1 }'

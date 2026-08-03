@@ -17,6 +17,7 @@ PUBLISHED_RENAMES='{"automated-ai-engineer":"agentic-engineering"}'
 pass=0
 fail=0
 
+# Hash fixture entrypoints with the same line-ending semantics as the production guard.
 sha256_file() {
   if command -v sha256sum > /dev/null 2>&1; then
     jq -Rrsj 'gsub("\r\n"; "\n")' "$1" | sha256sum | awk '{ print $1 }'
@@ -25,6 +26,7 @@ sha256_file() {
   fi
 }
 
+# Refresh a fixture's declared digest after intentionally changing its canonical contract.
 sync_entrypoint_digest() {
   local root="$1" name="$2" resource digest
   resource="$root/plugins/$name/resources/provider-neutral.desired-state.json"

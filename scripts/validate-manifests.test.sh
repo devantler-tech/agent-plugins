@@ -579,7 +579,7 @@ check_fail "agent with an empty block-scalar description fails" "must declare a 
 # resource model), but when present it must be valid, provider-neutral, and linked from the
 # plugin README so a consumer can actually find it.
 make_desired_state() {
-  local root="$1" name="$2" entrypoint_sha256
+  local root="$1" name="$2" entrypoint_sha256 portfolio_surveyor_sha256
   mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents"
   cat > "$root/plugins/$name/agents/agentic-engineer.agent.md" <<'EOF'
 ---
@@ -615,13 +615,31 @@ Version-controlled definition surfaces are delivered by draft pull request and o
 
 Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence.
 EOF
+  cat > "$root/plugins/$name/agents/portfolio-surveyor.agent.md" <<'EOF'
+---
+name: portfolio-surveyor
+description: Fixture read-only surveyor.
+---
+Fixture surveyor.
+
+**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
+
+Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures.
+
+Before emitting any PR disposition, re-read every checkpointed candidate's current head OID. If it changed, discard only that candidate's stale checkpoint and refresh its mandatory evidence; if refresh fails, emit `NEEDS-FIX` with `QUERY-UNKNOWN`. Never emit `CLEAR`, `REVIEW-READY`, or `MERGE-READY` from evidence bound to a superseded head.
+
+Authenticated maintainer controls are mandatory evidence, not optional enrichment. Collect exact-login, non-AI-disclosed maintainer comments for every ownership-gated PR or Advance candidate before classifying or ranking it; a failed control-channel query makes only that candidate `QUERY-UNKNOWN`.
+
+An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`, `REVIEW-READY`, or "no signal".
+EOF
   awk -v name="$name" '
     index($0, "[`" name "`](plugins/" name "/)") {
-      sub("`example-skill`", "`agent-improver`, `agentic-engineer`, `example-skill`")
+      sub("`example-skill`", "`agent-improver`, `agentic-engineer`, `example-skill`, `portfolio-surveyor`")
     }
     { print }
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
   entrypoint_sha256=$(sha256_file "$root/plugins/$name/agents/agentic-engineer.agent.md")
+  portfolio_surveyor_sha256=$(sha256_file "$root/plugins/$name/agents/portfolio-surveyor.agent.md")
   cat > "$root/plugins/$name/resources/provider-neutral.desired-state.json" <<EOF
 {
   "apiVersion": "agent-plugins.devantler.tech/v1alpha1",
@@ -667,7 +685,8 @@ EOF
       },
       "portfolio-surveyor": {
         "enabled": true,
-        "mode": "delegated-read-only"
+        "mode": "delegated-read-only",
+        "definitionSha256": "$portfolio_surveyor_sha256"
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
@@ -746,6 +765,55 @@ EOF
 
 d=$(fresh); make_desired_state "$d" alpha
 check_pass "provider-neutral desired-state resource passes" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+awk '
+  !/Treat every successful batch as an immutable checkpoint\./
+' "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must checkpoint completed mandatory-query batches" \
+  "portfolio-surveyor must preserve bounded resumable mandatory-query recovery" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/, execute both halves,/, execute the first half,/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must execute both halves of a failed batch" \
+  "portfolio-surveyor must preserve bounded resumable mandatory-query recovery" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/Known candidate-independent failures/All failures/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must stop splitting on known global failures" \
+  "portfolio-surveyor must preserve immediate fail-closed handling for global failures" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed '/Before emitting any PR disposition/d' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must revalidate checkpoint heads before readiness" \
+  "portfolio-surveyor must revalidate checkpoint heads before readiness" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/Authenticated maintainer controls are mandatory evidence/Authenticated maintainer controls are optional enrichment/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must collect authenticated maintainer controls before acting" \
+  "portfolio-surveyor must preserve mandatory authenticated maintainer-control evidence" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/no .CLEAR., .MERGE-READY./no MERGE-READY/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must fail closed for incomplete ownership-unverified PRs" \
+  "portfolio-surveyor must preserve candidate-scoped fail-closed dispositions" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '\nSuccessful batches may be discarded and rerun.\n' \
+  >> "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor detects a contradiction appended after the canonical contracts" \
+  "portfolio-surveyor digest must match the bundled agent" "$d"
 
 for required_path in spec.roles spec.runtime.memory spec.onboarding.completionReport spec.guardrails; do
   d=$(fresh); make_desired_state "$d" alpha
@@ -1028,6 +1096,20 @@ jq '.spec.source.entrypointSha256 = "not-a-digest"' \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "Agentic Engineer rejects a malformed entrypoint digest" \
   "entrypointSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.roles["portfolio-surveyor"].definitionSha256)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "portfolio surveyor requires a full-definition digest" \
+  "portfolioSurveyor definitionSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.roles["portfolio-surveyor"].definitionSha256 = "not-a-digest"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "portfolio surveyor rejects a malformed full-definition digest" \
+  "portfolioSurveyor definitionSha256 must be a lowercase SHA-256 digest" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 awk '{ printf "%s\r\n", $0 }' \

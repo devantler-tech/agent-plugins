@@ -447,11 +447,17 @@ validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
   local schedule_source schedule_plugin schedule_agent
   local entrypoint_sha256 actual_entrypoint_sha256
+  local portfolio_surveyor_sha256 actual_portfolio_surveyor_sha256
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
   local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
   local money_guardrail="Spend stewardship never moves money: prepare the financial decision, route it to the maintainer's declared private channel, and keep private financial data out of every public artifact."
+  local portfolio_survey_recovery_contract="**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates \`QUERY-UNKNOWN\`; never discard completed evidence or collapse it into portfolio-wide \`QUERY-UNKNOWN\`."
+  local portfolio_survey_global_failure_contract="Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures."
+  local portfolio_survey_head_revalidation_contract="Before emitting any PR disposition, re-read every checkpointed candidate's current head OID. If it changed, discard only that candidate's stale checkpoint and refresh its mandatory evidence; if refresh fails, emit \`NEEDS-FIX\` with \`QUERY-UNKNOWN\`. Never emit \`CLEAR\`, \`REVIEW-READY\`, or \`MERGE-READY\` from evidence bound to a superseded head."
+  local portfolio_survey_maintainer_control_contract="Authenticated maintainer controls are mandatory evidence, not optional enrichment. Collect exact-login, non-AI-disclosed maintainer comments for every ownership-gated PR or Advance candidate before classifying or ranking it; a failed control-channel query makes only that candidate \`QUERY-UNKNOWN\`."
+  local portfolio_survey_fail_closed_contract="An incomplete candidate can never be classified clean: no \`CLEAR\`, \`MERGE-READY\`, \`REVIEW-READY\`, or \"no signal\"."
 
   if [ -d plugins/agentic-engineering ]; then
     if [ ! -f "$canonical_resource" ]; then
@@ -556,6 +562,24 @@ validate_desired_state_resources() {
       actual_entrypoint_sha256=$(sha256_file "$plugin_dir/agents/$entrypoint.agent.md")
       if [ "$entrypoint_sha256" != "$actual_entrypoint_sha256" ]; then
         echo "::error::$resource: entrypoint digest must match the bundled agent"
+        failed=1
+        resource_failed=1
+      fi
+    fi
+
+    portfolio_surveyor_sha256=$(
+      jq -r '.spec.roles["portfolio-surveyor"].definitionSha256 // ""' "$resource"
+    )
+    if ! printf '%s\n' "$portfolio_surveyor_sha256" | grep -Eq '^[a-f0-9]{64}$'; then
+      echo "::error::$resource: portfolioSurveyor definitionSha256 must be a lowercase SHA-256 digest"
+      failed=1
+      resource_failed=1
+    elif [ -f "$plugin_dir/agents/portfolio-surveyor.agent.md" ]; then
+      actual_portfolio_surveyor_sha256=$(
+        sha256_file "$plugin_dir/agents/portfolio-surveyor.agent.md"
+      )
+      if [ "$portfolio_surveyor_sha256" != "$actual_portfolio_surveyor_sha256" ]; then
+        echo "::error::$resource: portfolio-surveyor digest must match the bundled agent"
         failed=1
         resource_failed=1
       fi
@@ -701,7 +725,8 @@ validate_desired_state_resources() {
       and (.spec.roles["agentic-engineer"]
         | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
       and (.spec.roles["portfolio-surveyor"]
-        | only_keys(["enabled", "mode"]) and has_keys(["enabled", "mode"]))
+        | only_keys(["enabled", "mode", "definitionSha256"])
+          and has_keys(["enabled", "mode", "definitionSha256"]))
       and (.spec.roles["agent-improver"]
         | only_keys(["enabledWhen", "mode"]) and has_keys(["enabledWhen", "mode"]))
       and (.spec.runtime
@@ -824,6 +849,66 @@ validate_desired_state_resources() {
           resource_failed=1
           ;;
       esac
+    fi
+
+    if [ -f "$plugin_dir/agents/portfolio-surveyor.agent.md" ]; then
+      normalized_surveyor="$(
+        tr '\n' ' ' < "$plugin_dir/agents/portfolio-surveyor.agent.md" \
+          | sed 's/[[:space:]][[:space:]]*/ /g'
+      )"
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_recovery_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must preserve bounded resumable mandatory-query recovery"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_global_failure_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must preserve immediate fail-closed handling for global failures"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_head_revalidation_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must revalidate checkpoint heads before readiness"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_maintainer_control_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must preserve mandatory authenticated maintainer-control evidence"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_fail_closed_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must preserve candidate-scoped fail-closed dispositions"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+    else
+      echo "::error::$resource: portfolio-surveyor must preserve bounded resumable mandatory-query recovery"
+      echo "::error::$resource: portfolio-surveyor must preserve immediate fail-closed handling for global failures"
+      echo "::error::$resource: portfolio-surveyor must revalidate checkpoint heads before readiness"
+      echo "::error::$resource: portfolio-surveyor must preserve mandatory authenticated maintainer-control evidence"
+      echo "::error::$resource: portfolio-surveyor must preserve candidate-scoped fail-closed dispositions"
+      failed=1
+      resource_failed=1
     fi
 
     if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \

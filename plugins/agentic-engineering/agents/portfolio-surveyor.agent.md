@@ -49,6 +49,30 @@ Enumerate with batched, scoped queries (e.g. batched `repo:`/owner qualifiers) �
 per-repo loop, and never a whole-organization sweep when the portfolio is a subset. Then deepen
 only the candidates.
 
+### Mandatory-query execution — bounded and resumable
+
+**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
+
+Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures.
+
+Before emitting any PR disposition, re-read every checkpointed candidate's current head OID. If it changed, discard only that candidate's stale checkpoint and refresh its mandatory evidence; if refresh fails, emit `NEEDS-FIX` with `QUERY-UNKNOWN`. Never emit `CLEAR`, `REVIEW-READY`, or `MERGE-READY` from evidence bound to a superseded head.
+
+Build each worklist in stable repository/name + issue/PR-number order before deepening it. Prefer the
+forge's native pagination. When GraphQL is the only surface, use a fixed query shape with variables
+or unique aliases and transport no more than eight candidates per request — never generate one
+portfolio-wide mega-query. A transport batch may carry several candidates, but every candidate's
+pages, head, and disposition remain independent evidence.
+
+Authenticated maintainer controls are mandatory evidence, not optional enrichment. Collect exact-login, non-AI-disclosed maintainer comments for every ownership-gated PR or Advance candidate before classifying or ranking it; a failed control-channel query makes only that candidate `QUERY-UNKNOWN`.
+
+Complete the mandatory evidence in this order: mapped-repository/default-head health; authenticated
+maintainer controls plus actionable PR pentads and their review surfaces; then the issue/type/claim
+joins needed for Advance selection. Only after those finish may you spend the remaining budget on
+other optional enrichment. A large worklist (including 80+ actionable PRs) is a reason to keep paging,
+not a reason to stop after enumeration. Keep successful batch results in your current context as the
+checkpoint; the read-only rule forbids a repository or remote write, not retaining already-returned
+evidence.
+
 ### 0. Budget sample (start and end)
 
 Before any other read, and again immediately before you emit the digest, sample the forge's rate
@@ -99,10 +123,12 @@ API surfaces render the same actor differently (`renovate[bot]` vs `app/renovate
 identities the contract names, and never use a search API's unreliable `is_bot` field, a title, or a
 branch pattern as the classifier.
 
-For the *few* remaining open PRs by the maintainer's login or an actionable trusted-bot author —
-**drafts and non-drafts** — pull the heavy fields **one PR at a time**: state, merge state, review
-decision, status-check rollup, review threads, head ref name, head ref oid, author, body, files.
-Never pull a status-check rollup for every PR in every repo.
+For the remaining open PRs by the maintainer's login or an actionable trusted-bot author — **drafts
+and non-drafts** — pull the heavy fields with **per-PR semantics**: state, merge state, review
+decision, status-check rollup, review threads, head ref name, head ref oid, author, body, files. A
+transport request may carry at most eight independently keyed PRs under the mandatory-query recovery
+contract above; never pull a status-check rollup for every PR in every repo or make one generated
+query the fate of the whole worklist.
 
 Match every trusted identity by **exact login, never a substring** — a crafted login containing a
 trusted name must not pass. Identities the contract marks reviewer-only, or a coding agent it does
@@ -505,10 +531,12 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - **Always emit the `budget:` line.** It is additive — never remove or reshape another field to make
   room for it. `EXHAUSTED_AT_START` is the only allowed annotation; the orchestrator treats it as
   "this tick may run blind", not as a fire.
-- **Fail closed.** Any failed mandatory query — enumeration, pagination, or a review-surface query —
-  makes the survey incomplete: emit `nothing_on_fire: false`, never classify an affected repository
-  or PR clean (no MERGE-READY / REVIEW-READY / "no signal"), and note it in one line under the
-  relevant repository rather than retrying noisily. **A *not observed* failure is not a clean
+- **Fail closed.** Any mandatory query — enumeration, pagination, or a review-surface query — that
+  remains failed after the bounded split recovery contract makes its affected candidates incomplete:
+  emit `nothing_on_fire: false`, and note each failed singleton in one line under the relevant
+  repository. An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`,
+  `REVIEW-READY`, or "no signal". The deterministic partition and singleton isolation above are the
+  required bounded recovery, not noisy retrying. **A *not observed* failure is not a clean
   portfolio.** `nothing_on_fire` is true only when no default branch is red and no own/trusted **or
   ownership-unverified** PR is broken — since you are memory-blind you cannot confirm a
   maintainer-login PR is the orchestrator's own, so treat a *broken* ownership-unverified PR as fire

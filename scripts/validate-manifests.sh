@@ -452,6 +452,7 @@ validate_desired_state_resources() {
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
   local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
   local money_guardrail="Spend stewardship never moves money: prepare the financial decision, route it to the maintainer's declared private channel, and keep private financial data out of every public artifact."
+  local portfolio_survey_recovery_contract="**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, retry only the failed batch once at half size, then split any remaining failure to individual candidates. Continue unaffected batches and mark only unrecovered candidates \`QUERY-UNKNOWN\`; never discard completed evidence or collapse it into portfolio-wide \`QUERY-UNKNOWN\`."
 
   if [ -d plugins/agentic-engineering ]; then
     if [ ! -f "$canonical_resource" ]; then
@@ -824,6 +825,26 @@ validate_desired_state_resources() {
           resource_failed=1
           ;;
       esac
+    fi
+
+    if [ -f "$plugin_dir/agents/portfolio-surveyor.agent.md" ]; then
+      normalized_surveyor="$(
+        tr '\n' ' ' < "$plugin_dir/agents/portfolio-surveyor.agent.md" \
+          | sed 's/[[:space:]][[:space:]]*/ /g'
+      )"
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_recovery_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must preserve bounded resumable mandatory-query recovery"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+    else
+      echo "::error::$resource: portfolio-surveyor must preserve bounded resumable mandatory-query recovery"
+      failed=1
+      resource_failed=1
     fi
 
     if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \

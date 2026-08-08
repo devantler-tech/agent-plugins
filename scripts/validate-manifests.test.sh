@@ -615,9 +615,18 @@ Version-controlled definition surfaces are delivered by draft pull request and o
 
 Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence.
 EOF
+  cat > "$root/plugins/$name/agents/portfolio-surveyor.agent.md" <<'EOF'
+---
+name: portfolio-surveyor
+description: Fixture read-only surveyor.
+---
+Fixture surveyor.
+
+**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, retry only the failed batch once at half size, then split any remaining failure to individual candidates. Continue unaffected batches and mark only unrecovered candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
+EOF
   awk -v name="$name" '
     index($0, "[`" name "`](plugins/" name "/)") {
-      sub("`example-skill`", "`agent-improver`, `agentic-engineer`, `example-skill`")
+      sub("`example-skill`", "`agent-improver`, `agentic-engineer`, `example-skill`, `portfolio-surveyor`")
     }
     { print }
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
@@ -746,6 +755,14 @@ EOF
 
 d=$(fresh); make_desired_state "$d" alpha
 check_pass "provider-neutral desired-state resource passes" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+awk '
+  !/Treat every successful batch as an immutable checkpoint\./
+' "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must checkpoint completed mandatory-query batches" \
+  "portfolio-surveyor must preserve bounded resumable mandatory-query recovery" "$d"
 
 for required_path in spec.roles spec.runtime.memory spec.onboarding.completionReport spec.guardrails; do
   d=$(fresh); make_desired_state "$d" alpha

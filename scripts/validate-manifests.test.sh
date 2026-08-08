@@ -624,6 +624,10 @@ Fixture surveyor.
 
 **Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
 
+Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures.
+
+Authenticated maintainer controls are mandatory evidence, not optional enrichment. Collect exact-login, non-AI-disclosed maintainer comments for every ownership-gated PR or Advance candidate before classifying or ranking it; a failed control-channel query makes only that candidate `QUERY-UNKNOWN`.
+
 An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`, `REVIEW-READY`, or "no signal".
 EOF
   awk -v name="$name" '
@@ -772,6 +776,20 @@ sed 's/, execute both halves,/, execute the first half,/' \
   && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
 check_fail "portfolio surveyor must execute both halves of a failed batch" \
   "portfolio-surveyor must preserve bounded resumable mandatory-query recovery" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/Known candidate-independent failures/All failures/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must stop splitting on known global failures" \
+  "portfolio-surveyor must preserve immediate fail-closed handling for global failures" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/Authenticated maintainer controls are mandatory evidence/Authenticated maintainer controls are optional enrichment/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must collect authenticated maintainer controls before acting" \
+  "portfolio-surveyor must preserve mandatory authenticated maintainer-control evidence" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 sed 's/no .CLEAR., .MERGE-READY./no MERGE-READY/' \

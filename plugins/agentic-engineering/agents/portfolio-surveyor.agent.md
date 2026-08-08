@@ -53,18 +53,23 @@ only the candidates.
 
 **Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
 
+Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures.
+
 Build each worklist in stable repository/name + issue/PR-number order before deepening it. Prefer the
 forge's native pagination. When GraphQL is the only surface, use a fixed query shape with variables
 or unique aliases and transport no more than eight candidates per request — never generate one
 portfolio-wide mega-query. A transport batch may carry several candidates, but every candidate's
 pages, head, and disposition remain independent evidence.
 
-Complete the mandatory evidence in this order: mapped-repository/default-head health, actionable
-PR pentads and their review surfaces, then the issue/type/claim joins needed for Advance selection.
-Only after those finish may you spend the remaining budget on maintainer-comment and other optional
-enrichment. A large worklist (including 80+ actionable PRs) is a reason to keep paging, not a reason
-to stop after enumeration. Keep successful batch results in your current context as the checkpoint;
-the read-only rule forbids a repository or remote write, not retaining already-returned evidence.
+Authenticated maintainer controls are mandatory evidence, not optional enrichment. Collect exact-login, non-AI-disclosed maintainer comments for every ownership-gated PR or Advance candidate before classifying or ranking it; a failed control-channel query makes only that candidate `QUERY-UNKNOWN`.
+
+Complete the mandatory evidence in this order: mapped-repository/default-head health; authenticated
+maintainer controls plus actionable PR pentads and their review surfaces; then the issue/type/claim
+joins needed for Advance selection. Only after those finish may you spend the remaining budget on
+other optional enrichment. A large worklist (including 80+ actionable PRs) is a reason to keep paging,
+not a reason to stop after enumeration. Keep successful batch results in your current context as the
+checkpoint; the read-only rule forbids a repository or remote write, not retaining already-returned
+evidence.
 
 ### 0. Budget sample (start and end)
 

@@ -453,6 +453,8 @@ validate_desired_state_resources() {
   local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
   local money_guardrail="Spend stewardship never moves money: prepare the financial decision, route it to the maintainer's declared private channel, and keep private financial data out of every public artifact."
   local portfolio_survey_recovery_contract="**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates \`QUERY-UNKNOWN\`; never discard completed evidence or collapse it into portfolio-wide \`QUERY-UNKNOWN\`."
+  local portfolio_survey_global_failure_contract="Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures."
+  local portfolio_survey_maintainer_control_contract="Authenticated maintainer controls are mandatory evidence, not optional enrichment. Collect exact-login, non-AI-disclosed maintainer comments for every ownership-gated PR or Advance candidate before classifying or ranking it; a failed control-channel query makes only that candidate \`QUERY-UNKNOWN\`."
   local portfolio_survey_fail_closed_contract="An incomplete candidate can never be classified clean: no \`CLEAR\`, \`MERGE-READY\`, \`REVIEW-READY\`, or \"no signal\"."
 
   if [ -d plugins/agentic-engineering ]; then
@@ -843,6 +845,24 @@ validate_desired_state_resources() {
           ;;
       esac
       case "$normalized_surveyor" in
+        *"$portfolio_survey_global_failure_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must preserve immediate fail-closed handling for global failures"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_maintainer_control_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must preserve mandatory authenticated maintainer-control evidence"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+      case "$normalized_surveyor" in
         *"$portfolio_survey_fail_closed_contract"*)
           ;;
         *)
@@ -853,6 +873,8 @@ validate_desired_state_resources() {
       esac
     else
       echo "::error::$resource: portfolio-surveyor must preserve bounded resumable mandatory-query recovery"
+      echo "::error::$resource: portfolio-surveyor must preserve immediate fail-closed handling for global failures"
+      echo "::error::$resource: portfolio-surveyor must preserve mandatory authenticated maintainer-control evidence"
       echo "::error::$resource: portfolio-surveyor must preserve candidate-scoped fail-closed dispositions"
       failed=1
       resource_failed=1

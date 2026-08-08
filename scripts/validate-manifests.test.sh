@@ -622,7 +622,9 @@ description: Fixture read-only surveyor.
 ---
 Fixture surveyor.
 
-**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, retry only the failed batch once at half size, then split any remaining failure to individual candidates. Continue unaffected batches and mark only unrecovered candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
+**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
+
+An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`, `REVIEW-READY`, or "no signal".
 EOF
   awk -v name="$name" '
     index($0, "[`" name "`](plugins/" name "/)") {
@@ -763,6 +765,20 @@ awk '
   && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
 check_fail "portfolio surveyor must checkpoint completed mandatory-query batches" \
   "portfolio-surveyor must preserve bounded resumable mandatory-query recovery" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/, execute both halves,/, execute the first half,/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must execute both halves of a failed batch" \
+  "portfolio-surveyor must preserve bounded resumable mandatory-query recovery" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/no .CLEAR., .MERGE-READY./no MERGE-READY/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must fail closed for incomplete ownership-unverified PRs" \
+  "portfolio-surveyor must preserve candidate-scoped fail-closed dispositions" "$d"
 
 for required_path in spec.roles spec.runtime.memory spec.onboarding.completionReport spec.guardrails; do
   d=$(fresh); make_desired_state "$d" alpha

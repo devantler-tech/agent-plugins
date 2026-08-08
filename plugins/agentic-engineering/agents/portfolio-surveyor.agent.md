@@ -51,7 +51,7 @@ only the candidates.
 
 ### Mandatory-query execution — bounded and resumable
 
-**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, retry only the failed batch once at half size, then split any remaining failure to individual candidates. Continue unaffected batches and mark only unrecovered candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
+**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
 
 Build each worklist in stable repository/name + issue/PR-number order before deepening it. Prefer the
 forge's native pagination. When GraphQL is the only surface, use a fixed query shape with variables
@@ -526,10 +526,10 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
   "this tick may run blind", not as a fire.
 - **Fail closed.** Any mandatory query — enumeration, pagination, or a review-surface query — that
   remains failed after the bounded split recovery contract makes its affected candidates incomplete:
-  emit `nothing_on_fire: false`, never classify those repositories or PRs clean (no MERGE-READY /
-  REVIEW-READY / "no signal"), and note each unrecovered singleton in one line under the relevant
-  repository. The one half-size retry and singleton isolation above are the required bounded recovery,
-  not noisy retrying. **A *not observed* failure is not a clean
+  emit `nothing_on_fire: false`, and note each failed singleton in one line under the relevant
+  repository. An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`,
+  `REVIEW-READY`, or "no signal". The deterministic partition and singleton isolation above are the
+  required bounded recovery, not noisy retrying. **A *not observed* failure is not a clean
   portfolio.** `nothing_on_fire` is true only when no default branch is red and no own/trusted **or
   ownership-unverified** PR is broken — since you are memory-blind you cannot confirm a
   maintainer-login PR is the orchestrator's own, so treat a *broken* ownership-unverified PR as fire

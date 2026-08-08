@@ -55,6 +55,8 @@ only the candidates.
 
 Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures.
 
+Before emitting any PR disposition, re-read every checkpointed candidate's current head OID. If it changed, discard only that candidate's stale checkpoint and refresh its mandatory evidence; if refresh fails, emit `NEEDS-FIX` with `QUERY-UNKNOWN`. Never emit `CLEAR`, `REVIEW-READY`, or `MERGE-READY` from evidence bound to a superseded head.
+
 Build each worklist in stable repository/name + issue/PR-number order before deepening it. Prefer the
 forge's native pagination. When GraphQL is the only surface, use a fixed query shape with variables
 or unique aliases and transport no more than eight candidates per request — never generate one

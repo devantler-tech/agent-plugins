@@ -99,8 +99,21 @@ FILTER_PATTERN_FLAGS_GREP=" -e --regexp "
 # gh api flags, split by how they are consumed. Anything outside these three
 # sets is denied: an unrecognised flag is a flag whose effect on the request
 # method — and so on whether this is a read — has not been established.
+#
+# Two flags a read plainly "needs" are absent on purpose. `--cache <duration>`
+# makes gh write a persistent response cache, so the request is a file write in
+# everything but name. `--hostname <host>` retargets the request while gh still
+# attaches the deployment's credential, which turns any allowed read into a
+# token exfiltration to a host the command names. Neither is recoverable by
+# validating its value: the effect is the flag.
 GH_API_STANDALONE_FLAGS=" --paginate --slurp -i --include --verbose --silent "
-GH_API_VALUE_FLAGS=" --jq -q --method -X --header -H --hostname --cache --template -t --preview -p "
+GH_API_VALUE_FLAGS=" --jq -q --method -X --header -H --template -t --preview -p "
+
+# Flags for gh's read VERBS (pr list, issue view, …). A read verb is not enough
+# on its own: `gh pr view --web` opens a URL through `$BROWSER`, which runs a
+# local program the guard never classified. So the verbs are allowlisted too.
+GH_VERB_FLAGS=" --draft --no-draft --archived --no-archived --merged --closed --comments --paginate --fork --source --include-prs --exclude-drafts --checks --required "
+GH_VERB_VALUE_FLAGS=" -R --repo --state --limit -L --json --jq -q --search --author --owner --assignee --label --milestone --app --branch --workflow --event --user --sort --order --created --updated --language --match --visibility --topic --exclude --head --base --commit --template -t --filter "
 # gh switches the request to POST as soon as one of these is set, and a `-F`
 # value beginning with `@` makes gh read that file and send its contents. They
 # survive only on graphql, which has no other way to carry a query.
@@ -119,12 +132,26 @@ WORDS=()
 # Walk the command one character at a time, tracking quote state, splitting on
 # unquoted `|` and refusing every other unquoted construct that could smuggle a
 # second command in — or rewrite a word into one the guard never classified.
+# `${VAR}` is a parameter expansion the guard deliberately tolerates; `${VAR:-…}`
+# and its relatives are not the same thing. Every one of them carries text INSIDE
+# the expansion that becomes argv when the variable is unset or empty — so
+# `gh api "${UNSET:---method}" "${UNSET:-POST}" repos/x/y` is a POST that needs no
+# control over the environment at all. A plain name expands to whatever the
+# environment holds, which is the documented limit; an operator expands to text
+# written in the command itself, which is a bypass.
+check_expansion() {
+  local body=$1
+  if [[ ! "$body" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    deny 'a parameter expansion carrying an operator can synthesize arguments — expand it yourself'
+  fi
+}
+
 scan_segments() {
   local s=$1
   local n=${#s}
   local state=none
   local cur=''
-  local i=0 ch nxt prev=''
+  local i=0 ch nxt prev='' j ec
 
   while [ "$i" -lt "$n" ]; do
     ch=${s:$i:1}
@@ -141,6 +168,12 @@ scan_segments() {
     if [ "$state" = double ]; then
       case "$ch" in
         \\)
+          # Bash DELETES a backslash-newline before the program sees it, so
+          # `query="muta\<newline>tion{x}"` reaches gh as `mutation{x}` while the
+          # text the guard reads contains no such keyword.
+          case "$nxt" in
+            $'\n' | $'\r') deny 'a line continuation is removed before the command sees it' ;;
+          esac
           cur=$cur$ch$nxt
           prev=$nxt
           i=$((i + 2))
@@ -148,7 +181,18 @@ scan_segments() {
           ;;
         '`') deny 'backtick command substitution is not a read' ;;
         '$')
-          if [ "$nxt" = '(' ]; then deny 'dollar-paren command substitution is not a read'; fi
+          case "$nxt" in
+            '(') deny 'dollar-paren command substitution is not a read' ;;
+            '{')
+              j=$((i + 2))
+              ec=''
+              while [ "$j" -lt "$n" ] && [ "${s:$j:1}" != '}' ]; do
+                ec=$ec${s:$j:1}
+                j=$((j + 1))
+              done
+              check_expansion "$ec"
+              ;;
+          esac
           ;;
         '"') state=none ;;
       esac
@@ -168,6 +212,9 @@ scan_segments() {
         cur=$cur$ch
         ;;
       \\)
+        case "$nxt" in
+          $'\n' | $'\r') deny 'a line continuation is removed before the command sees it' ;;
+        esac
         cur=$cur$ch$nxt
         prev=$nxt
         i=$((i + 2))
@@ -179,6 +226,15 @@ scan_segments() {
           '(') deny 'dollar-paren command substitution is not a read' ;;
           "'") deny "ANSI-C quoting \$'…' rewrites the word before the command sees it" ;;
           '"') deny 'locale-translation quoting $"…" rewrites the word before the command sees it' ;;
+          '{')
+            j=$((i + 2))
+            ec=''
+            while [ "$j" -lt "$n" ] && [ "${s:$j:1}" != '}' ]; do
+              ec=$ec${s:$j:1}
+              j=$((j + 1))
+            done
+            check_expansion "$ec"
+            ;;
         esac
         cur=$cur$ch
         ;;
@@ -503,6 +559,42 @@ EOF
   return 0
 }
 
+# Flags on an allowed gh read verb. Deny by default, exactly as for `gh api`:
+# the verb says what gh will fetch, the flags say what else it will do.
+check_gh_verb_flags() {
+  local i=1 w name
+  local n=${#WORDS[@]}
+
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
+    case "$w" in
+      --)
+        i=$((i + 1))
+        continue
+        ;;
+      -*) ;;
+      *)
+        i=$((i + 1))
+        continue
+        ;;
+    esac
+
+    split_flag "$w"
+    name=$FLAG_NAME
+    case "$GH_VERB_FLAGS$GH_VERB_VALUE_FLAGS" in
+      *" $name "*) ;;
+      *) deny "gh flag '$w' is not on the read-only allowlist" ;;
+    esac
+
+    if [ "$FLAG_HAS_VALUE" -eq 0 ]; then
+      case "$GH_VERB_VALUE_FLAGS" in
+        *" $name "*) i=$((i + 1)) ;;
+      esac
+    fi
+    i=$((i + 1))
+  done
+}
+
 classify_gh() {
   local sub sub2 sub_at
 
@@ -522,43 +614,43 @@ classify_gh() {
   case "$sub" in
     pr)
       case "$sub2" in
-        list | view | diff | checks | status) return 0 ;;
+        list | view | diff | checks | status) check_gh_verb_flags; return 0 ;;
         *) deny "gh pr ${sub2:-<none>} is not a read verb" ;;
       esac
       ;;
     issue)
       case "$sub2" in
-        list | view) return 0 ;;
+        list | view) check_gh_verb_flags; return 0 ;;
         *) deny "gh issue ${sub2:-<none>} is not a read verb" ;;
       esac
       ;;
     search)
       case "$sub2" in
-        issues | prs | repos | code | commits) return 0 ;;
+        issues | prs | repos | code | commits) check_gh_verb_flags; return 0 ;;
         *) deny "gh search ${sub2:-<none>} is not on the read allowlist" ;;
       esac
       ;;
     repo)
       case "$sub2" in
-        list | view) return 0 ;;
+        list | view) check_gh_verb_flags; return 0 ;;
         *) deny "gh repo ${sub2:-<none>} is not a read verb" ;;
       esac
       ;;
     run)
       case "$sub2" in
-        list | view) return 0 ;;
+        list | view) check_gh_verb_flags; return 0 ;;
         *) deny "gh run ${sub2:-<none>} is not a read verb" ;;
       esac
       ;;
     release)
       case "$sub2" in
-        list | view) return 0 ;;
+        list | view) check_gh_verb_flags; return 0 ;;
         *) deny "gh release ${sub2:-<none>} is not a read verb" ;;
       esac
       ;;
     label)
       case "$sub2" in
-        list) return 0 ;;
+        list) check_gh_verb_flags; return 0 ;;
         *) deny "gh label ${sub2:-<none>} is not a read verb" ;;
       esac
       ;;
@@ -654,6 +746,19 @@ classify_filter() {
         ;;
       -*) ;;
       *)
+        # jq reads local state without touching the filesystem: `env` and `$ENV`
+        # both emit the whole process environment, so `jq -n env` prints
+        # GH_TOKEN straight into the command's output. The operand cap cannot
+        # see that — it counts words, and this is one word.
+        if [ "$prog" = jq ]; then
+          # shellcheck disable=SC2016  # the literal characters are the pattern
+          case "$w" in
+            *'$ENV'*) deny 'jq exposes the process environment through $ENV' ;;
+          esac
+          if [[ "$w" =~ (^|[^A-Za-z0-9_.])env([^A-Za-z0-9_]|$) ]]; then
+            deny 'jq env exposes the process environment'
+          fi
+        fi
         operands=$((operands + 1))
         i=$((i + 1))
         continue
@@ -749,9 +854,15 @@ check_sed_script() {
   return 0
 }
 
+# sed's syntax is `sed [-n] {script-only-if-no-other-script} [input-file]…`, so
+# only the FIRST positional word is a script — every one after it is a file sed
+# opens INSTEAD of the pipeline. `sed -n p p` reads a file named `p` from the
+# working directory, and both words pass the script shape independently, so a
+# per-word check cannot catch it. Track whether the script has been taken.
 classify_sed() {
   local i=1 a
   local n=${#WORDS[@]}
+  local have_script=0
 
   while [ "$i" -lt "$n" ]; do
     a=${WORDS[$i]}
@@ -761,11 +872,19 @@ classify_sed() {
         i=$((i + 1))
         if [ "$i" -ge "$n" ]; then deny 'sed -e needs a script'; fi
         check_sed_script "${WORDS[$i]}"
+        # A script supplied by -e means every positional word is a file.
+        have_script=1
         ;;
       -i | --in-place | -i* | --in-place=*) deny 'sed -i rewrites a file in place' ;;
       -f | --file) deny 'sed -f takes its script from a file' ;;
       -*) deny "sed flag '$a' is not on the read-only allowlist" ;;
-      *) check_sed_script "$a" ;;
+      *)
+        if [ "$have_script" -eq 1 ]; then
+          deny "sed operand '$a' is an input file, not a script"
+        fi
+        check_sed_script "$a"
+        have_script=1
+        ;;
     esac
     i=$((i + 1))
   done

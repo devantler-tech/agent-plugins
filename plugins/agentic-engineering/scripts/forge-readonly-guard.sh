@@ -574,6 +574,8 @@ $val"
         ;;
     esac
 
+    check_gh_flag_value "$name" "$val"
+
     case "$name" in
       --method | -X) methods+=("$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')") ;;
     esac
@@ -610,8 +612,42 @@ EOF
 
 # Flags on an allowed gh read verb. Deny by default, exactly as for `gh api`:
 # the verb says what gh will fetch, the flags say what else it will do.
+# An allowlisted gh flag can still carry its effect in its VALUE, and two of them do.
+#
+#   * `--repo` takes `[HOST/]OWNER/REPO`, so a host in that value retargets the request
+#     while gh still attaches a credential for it — the same outbound-destination and
+#     token-disclosure effect that keeps `--hostname` off the allowlist entirely. Only
+#     the bare `OWNER/REPO` form is admitted.
+#   * `--jq` is evaluated by gh's OWN formatter, which enables `env` exactly as the
+#     standalone tool does — so `--jq 'env.GH_TOKEN'` prints the credential without a
+#     `jq` process ever appearing in the pipeline for the filter classifier to inspect.
+#
+# Both are value-level, so an allowlist keyed on the flag NAME cannot see either.
+check_gh_flag_value() {
+  local name=$1 val=$2
+
+  case "$name" in
+    -R | --repo)
+      case "$val" in
+        *://* | */*/*)
+          deny "gh $name value names a host, which chooses the outbound destination"
+          ;;
+      esac
+      ;;
+    --jq | -q)
+      # shellcheck disable=SC2016  # the literal characters are the pattern
+      case "$val" in
+        *'$ENV'*) deny "gh $name exposes the process environment through \$ENV" ;;
+      esac
+      if [[ "$val" =~ (^|[^A-Za-z0-9_.])env([^A-Za-z0-9_]|$) ]]; then
+        deny "gh $name env exposes the process environment"
+      fi
+      ;;
+  esac
+}
+
 check_gh_verb_flags() {
-  local i=1 w name
+  local i=1 w name val
   local n=${#WORDS[@]}
 
   while [ "$i" -lt "$n" ]; do
@@ -635,9 +671,16 @@ check_gh_verb_flags() {
       *) deny "gh flag '$w' is not on the read-only allowlist" ;;
     esac
 
-    if [ "$FLAG_HAS_VALUE" -eq 0 ]; then
+    if [ "$FLAG_HAS_VALUE" -eq 1 ]; then
+      check_gh_flag_value "$name" "$FLAG_VALUE"
+    else
       case "$GH_VERB_VALUE_FLAGS" in
-        *" $name "*) i=$((i + 1)) ;;
+        *" $name "*)
+          if [ $((i + 1)) -ge "$n" ]; then deny "gh $name needs a value"; fi
+          val=${WORDS[$((i + 1))]}
+          check_gh_flag_value "$name" "$val"
+          i=$((i + 1))
+          ;;
       esac
     fi
     i=$((i + 1))

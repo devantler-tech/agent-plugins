@@ -93,9 +93,30 @@ jobs:
         # its external tools (no network, no cluster).
         run: |
           shopt -s nullglob
+          helpers=(plugins/*/scripts/*.sh plugins/*/skills/*/scripts/*.sh)
           tests=(plugins/*/scripts/*.test.sh plugins/*/skills/*/scripts/*.test.sh)
+
+          # Running whatever tests exist would stay green for a helper that ships
+          # with none — an unrelated test carries the step. Pair them explicitly.
+          #
+          # Scoped to plugins/*/scripts/ for now: three skill helpers under
+          # gitops-repo-audit predate the convention and have no test, so
+          # enforcing it there would fail on inherited debt rather than on any
+          # change. Widen once devantler-tech/agent-plugins#122 clears them.
+          missing=0
+          for helper in plugins/*/scripts/*.sh; do
+            case "$helper" in *.test.sh) continue ;; esac
+            if [ ! -f "${helper%.sh}.test.sh" ]; then
+              echo "::error file=$helper::No adjacent self-test (${helper%.sh}.test.sh)."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
           if [ ${#tests[@]} -eq 0 ]; then
-            echo "No bundled helper-script self-tests found."
+            echo "No bundled helper scripts, and so no self-tests to run."
             exit 0
           fi
           for t in "${tests[@]}"; do

@@ -53,7 +53,29 @@ die() {
 # Filters with no in-language write primitive: without shell redirection, which
 # the scanner already refuses, none of these can create or modify a file. awk is
 # absent on purpose — its `print > "file"` needs no shell redirection at all.
-SAFE_FILTERS=" jq grep sort head tail uniq wc cut tr cat "
+#
+# Not writing is only half of it: a filter that takes a FILE operand reads local
+# state, and `cat ~/.config/gh/hosts.yml` is a credential read wearing a filter's
+# name. So a filter may never open the pipeline, and each one is held to a
+# whitelist of flags plus a cap on positional operands — enough for the pattern
+# or program it needs, never enough for a path.
+#
+# Per filter: flags that stand alone, flags that consume the next word, and how
+# many positional operands the filter legitimately takes on stdin.
+FILTER_FLAGS_JQ=" -r -c -e -n -s -j -a -R --tab --slurp --raw-output --compact-output --exit-status --raw-input --null-input --args "
+FILTER_VALUE_FLAGS_JQ=" --indent "
+FILTER_FLAGS_GREP=" -E -F -i -v -c -o -q -n -h -w -x -s --line-buffered --extended-regexp --fixed-strings --ignore-case --invert-match --count --only-matching --quiet "
+FILTER_VALUE_FLAGS_GREP=" -e -m -A -B -C --max-count --after-context --before-context --context "
+FILTER_FLAGS_SORT=" -u -r -n -h -b -f -V --unique --reverse --numeric-sort --version-sort "
+FILTER_VALUE_FLAGS_SORT=" -k -t --key --field-separator "
+FILTER_FLAGS_HEADTAIL=" -q -v "
+FILTER_VALUE_FLAGS_HEADTAIL=" -n -c --lines --bytes "
+FILTER_FLAGS_UNIQ=" -c -d -u -i --count --repeated --unique "
+FILTER_FLAGS_WC=" -l -w -c -m --lines --words --chars "
+FILTER_FLAGS_CUT=" -s --only-delimited "
+FILTER_VALUE_FLAGS_CUT=" -d -f -c -b --delimiter --fields --characters --bytes "
+FILTER_FLAGS_TR=" -d -s -c -C --delete --squeeze-repeats --complement "
+FILTER_FLAGS_CAT=" -n -b -s --number "
 
 # gh api flags that consume the following word. Needed so the endpoint is found
 # by position rather than mistaken for a --jq expression.
@@ -65,6 +87,7 @@ GIT_VALUE_FLAGS=" -C -c --git-dir --work-tree --exec-path --namespace "
 
 SEGMENTS=()
 WORDS=()
+SEGMENT_TEXT=''
 SUB_WORD=''
 SUB_INDEX=-1
 
@@ -197,16 +220,56 @@ find_subcommand() {
   return 0
 }
 
+# The HTTP method, read from WORDS rather than matched in the raw segment: gh
+# accepts `--method GET`, `--method=GET`, `-X GET` and the attached `-XGET`, and
+# a regex over the raw text misses every quoted or attached form — which reads as
+# "no method given" and quietly allows the POST.
+#
+# Sets METHOD to the upper-cased value, or to the sentinel UNPARSED when a method
+# flag is present but its value is not, so the caller can fail closed rather than
+# treat it as absent.
+METHOD=''
+parse_method() {
+  local i=1 w v
+
+  METHOD=''
+  while [ "$i" -lt "${#WORDS[@]}" ]; do
+    w=$(unquote "${WORDS[$i]}")
+    v=''
+    case "$w" in
+      --method | -X)
+        v=$(unquote "${WORDS[$((i + 1))]:-}")
+        i=$((i + 1))
+        ;;
+      --method=*) v=$(unquote "${w#--method=}") ;;
+      -X?*) v=$(unquote "${w#-X}") ;;
+      *)
+        i=$((i + 1))
+        continue
+        ;;
+    esac
+    if [ -z "$v" ]; then
+      METHOD=UNPARSED
+      return 0
+    fi
+    METHOD=$(printf '%s' "$v" | tr '[:lower:]' '[:upper:]')
+    return 0
+  done
+  return 0
+}
+
 classify_gh_api() {
-  local seg=$1
-  local endpoint method=''
+  local endpoint method
 
   find_subcommand 2 "$GH_API_VALUE_FLAGS"
   endpoint=$SUB_WORD
 
-  if [[ "$seg" =~ (^|[[:space:]])(--method|-X)[[:space:]]+([A-Za-z]+) ]]; then
-    method=$(printf '%s' "${BASH_REMATCH[3]}" | tr '[:lower:]' '[:upper:]')
+  parse_method
+  method=$METHOD
+  if [ "$method" = UNPARSED ]; then
+    deny 'gh api names a method flag whose value cannot be read'
   fi
+  local seg=$SEGMENT_TEXT
 
   if [ "$endpoint" = graphql ]; then
     # GraphQL is served over POST, so the method cannot separate a read from a
@@ -243,7 +306,6 @@ classify_gh_api() {
 }
 
 classify_gh() {
-  local seg=$1
   local sub sub2 sub_at
 
   find_subcommand 1 ' '
@@ -252,7 +314,7 @@ classify_gh() {
   if [ -z "$sub" ]; then deny 'gh needs a subcommand to be classified'; fi
 
   if [ "$sub" = api ]; then
-    classify_gh_api "$seg"
+    classify_gh_api
     return 0
   fi
 
@@ -306,8 +368,29 @@ classify_gh() {
   esac
 }
 
+# A read verb is not enough for git. Several of its options turn a read into
+# arbitrary local execution: `-c protocol.ext.allow=always` with an `ext::` URL
+# runs a shell command as a "transport", and `--upload-pack` names the program
+# git executes for the remote side. None is needed by any survey read, so they
+# are refused outright rather than parsed.
 classify_git() {
-  local sub
+  local sub i w
+
+  i=1
+  while [ "$i" -lt "${#WORDS[@]}" ]; do
+    w=$(unquote "${WORDS[$i]}")
+    case "$w" in
+      -c | --config-env | --exec-path | --upload-pack | --receive-pack)
+        deny "git $w can make a read execute a command"
+        ;;
+      -c=* | --config-env=* | --exec-path=* | --upload-pack=* | --receive-pack=*)
+        deny "git ${w%%=*} can make a read execute a command"
+        ;;
+      *::*) deny "git transport '$w' can execute a local command" ;;
+    esac
+    i=$((i + 1))
+  done
+
   find_subcommand 1 "$GIT_VALUE_FLAGS"
   sub=$SUB_WORD
   if [ -z "$sub" ]; then deny 'git needs a subcommand to be classified'; fi
@@ -318,6 +401,73 @@ classify_git() {
       ;;
     *) deny "git $sub is not a read verb" ;;
   esac
+}
+
+# A filter never opens the pipeline (see classify_segment) and never takes a path.
+# Flags come from a per-filter whitelist and positional operands are capped at
+# what the filter genuinely needs — a pattern or a program, never a file.
+classify_filter() {
+  local prog=$1 flags=$2 value_flags=$3 cap=$4
+  local i=1 w operands=0
+
+  while [ "$i" -lt "${#WORDS[@]}" ]; do
+    w=$(unquote "${WORDS[$i]}")
+    case "$w" in
+      --) ;;
+      -*)
+        case "$flags" in
+          *" $w "*)
+            i=$((i + 1))
+            continue
+            ;;
+        esac
+        case "$value_flags" in
+          *" $w "*)
+            # A pattern supplied by -e means every positional word is a file.
+            if [ "$w" = -e ]; then cap=0; fi
+            i=$((i + 2))
+            continue
+            ;;
+        esac
+        # --flag=value, and the attached short form `-d,` / `-n5` that GNU and
+        # BSD both accept for a value-taking short flag.
+        case "$w" in
+          --*=*)
+            case "$value_flags" in
+              *" ${w%%=*} "*)
+                i=$((i + 1))
+                continue
+                ;;
+            esac
+            ;;
+          -?*)
+            case "$value_flags" in
+              *" ${w:0:2} "*)
+                i=$((i + 1))
+                continue
+                ;;
+            esac
+            ;;
+        esac
+        # head/tail still accept the obsolete bare-count form, and the surveyor
+        # uses it (`head -20`).
+        case "$prog:$w" in
+          head:-[0-9]* | tail:-[0-9]*)
+            i=$((i + 1))
+            continue
+            ;;
+        esac
+        deny "$prog flag '$w' is not on the read-only allowlist"
+        ;;
+      *) operands=$((operands + 1)) ;;
+    esac
+    i=$((i + 1))
+  done
+
+  if [ "$operands" -gt "$cap" ]; then
+    deny "$prog takes at most $cap operand(s) here; a further operand would read a file"
+  fi
+  return 0
 }
 
 # sed is allowed by shape, not by exclusion: a plain substitution or a line
@@ -364,24 +514,40 @@ classify_sed() {
 
 classify_segment() {
   local seg=$1
+  local index=$2
   local prog=''
 
   WORDS=()
   read -ra WORDS <<<"$seg"
+  SEGMENT_TEXT=$seg
 
   if [ "${#WORDS[@]}" -gt 0 ]; then prog=$(unquote "${WORDS[0]}"); fi
   if [ -z "$prog" ]; then deny 'empty pipeline segment — || chaining or a stray |'; fi
 
+  # The pipeline must START at the forge. A filter in first position has nothing
+  # to filter, so it is reading something local instead — which is how
+  # `cat ~/.config/gh/hosts.yml` would otherwise pass as a "safe filter".
+  if [ "$index" -eq 0 ]; then
+    case "$prog" in
+      gh | git) ;;
+      *) deny "a read must begin with a forge command, not '$prog'" ;;
+    esac
+  fi
+
   case "$prog" in
-    gh) classify_gh "$seg" ;;
+    gh) classify_gh ;;
     git) classify_git ;;
     sed) classify_sed ;;
-    *)
-      case "$SAFE_FILTERS" in
-        *" $prog "*) ;;
-        *) deny "'$prog' is not on the read-only allowlist" ;;
-      esac
-      ;;
+    jq) classify_filter jq "$FILTER_FLAGS_JQ" "$FILTER_VALUE_FLAGS_JQ" 1 ;;
+    grep) classify_filter grep "$FILTER_FLAGS_GREP" "$FILTER_VALUE_FLAGS_GREP" 1 ;;
+    sort) classify_filter sort "$FILTER_FLAGS_SORT" "$FILTER_VALUE_FLAGS_SORT" 0 ;;
+    head | tail) classify_filter "$prog" "$FILTER_FLAGS_HEADTAIL" "$FILTER_VALUE_FLAGS_HEADTAIL" 0 ;;
+    uniq) classify_filter uniq "$FILTER_FLAGS_UNIQ" ' ' 0 ;;
+    wc) classify_filter wc "$FILTER_FLAGS_WC" ' ' 0 ;;
+    cut) classify_filter cut "$FILTER_FLAGS_CUT" "$FILTER_VALUE_FLAGS_CUT" 0 ;;
+    tr) classify_filter tr "$FILTER_FLAGS_TR" ' ' 2 ;;
+    cat) classify_filter cat "$FILTER_FLAGS_CAT" ' ' 0 ;;
+    *) deny "'$prog' is not on the read-only allowlist" ;;
   esac
 }
 
@@ -413,8 +579,10 @@ main() {
   if [[ ! "$command" =~ [^[:space:]] ]]; then die 'the command is empty'; fi
 
   scan_segments "$command"
+  local idx=0
   for seg in "${SEGMENTS[@]}"; do
-    classify_segment "$seg"
+    classify_segment "$seg" "$idx"
+    idx=$((idx + 1))
   done
 
   printf 'allow\n'

@@ -209,6 +209,45 @@ expect_deny 'sed -e with a write flag' "gh pr list --json number | sed -e 's/a/b
 expect_deny 'unbalanced quoting' "gh pr list --json 'number"
 expect_deny 'a stray leading pipe' "| gh pr list --json number"
 
+# --- Regressions: every one of these was ALLOWED before review ---------------
+#
+# A method flag whose value a raw-text regex cannot see reads as "no method
+# given", which is indistinguishable from a GET.
+expect_deny 'quoted method value' "gh api --method 'POST' repos/devantler-tech/monorepo/issues"
+expect_deny 'attached long method' "gh api --method=POST repos/devantler-tech/monorepo/issues"
+expect_deny 'attached short method' "gh api -XPOST repos/devantler-tech/monorepo/issues"
+expect_deny 'attached short DELETE' "gh api -XDELETE repos/devantler-tech/monorepo/issues/1"
+expect_deny 'method flag with no value' "gh api --method repos/devantler-tech/monorepo/issues"
+expect_allow 'quoted GET is still a read' "gh api --method 'GET' repos/devantler-tech/monorepo/pulls"
+expect_allow 'attached GET is still a read' "gh api -XGET repos/devantler-tech/monorepo/pulls"
+
+# git options that turn a read into local execution.
+expect_deny 'git ext transport' "git -c protocol.ext.allow=always ls-remote 'ext::sh -c whoami'"
+expect_deny 'git upload-pack override' "git ls-remote --upload-pack=/tmp/evil origin"
+expect_deny 'git receive-pack override' "git ls-remote --receive-pack=/tmp/evil origin"
+expect_deny 'git -c config injection' "git -c core.pager=/tmp/evil log"
+expect_deny 'git --config-env' "git --config-env=core.pager=EVIL log"
+expect_deny 'git --exec-path' "git --exec-path=/tmp/evil log"
+expect_allow 'git -C is still fine' "git -C libraries/agent-plugins log --oneline -5"
+
+# A filter is not a reader: it may not open the pipeline, and it may not take a
+# path. `cat ~/.config/gh/hosts.yml` is a credential read wearing a filter name.
+expect_deny 'cat a credential file' "cat /Users/someone/.config/gh/hosts.yml"
+expect_deny 'cat a file mid-pipeline' "gh pr list --json number | cat /etc/passwd"
+expect_deny 'grep recursively over a directory' "grep -r token /Users/someone/.claude"
+expect_deny 'grep a file mid-pipeline' "gh pr list --json number | grep token /etc/passwd"
+expect_deny 'jq reading a file mid-pipeline' "gh pr list --json number | jq '.[]' /etc/passwd"
+expect_deny 'jq --from-file' "gh pr list --json number | jq -f /tmp/prog.jq"
+expect_deny 'sed reading a file mid-pipeline' "gh pr list --json number | sed 's/a/b/' /etc/passwd"
+expect_deny 'head of a file mid-pipeline' "gh pr list --json number | head -5 /etc/passwd"
+expect_deny 'a filter opening the pipeline' "jq '.' "
+expect_deny 'sort opening the pipeline' "sort /etc/passwd"
+expect_allow 'grep with a pattern only' "gh api repos/x/y/branches --jq '.[].name' | grep -E '^claude/'"
+expect_allow 'grep with -e is still fine' "gh pr list --json number | grep -e claude"
+expect_allow 'tr takes its two sets' "gh pr list --json number | tr 'a-z' 'A-Z'"
+expect_allow 'cut with a delimiter' "gh pr list --json number | cut -d, -f1"
+expect_allow 'head with a count' "gh repo list devantler-tech | head -n 20"
+
 # ---------------------------------------------------------------------------
 # Usage
 # ---------------------------------------------------------------------------

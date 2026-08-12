@@ -64,7 +64,7 @@ local.
 | Run loop: survey → select → act → report; the operate-before-advance ladder; the "ship ≥1 concrete artifact, aim higher" floor | `portfolio-maintenance` skill |
 | Issue-driven engineering: capture-before-build, drain-oldest-actionable-first, decompose-and-start; strategy/roadmap & triage; coverage/perf/refactor/docs levers | `product-engineering` skill |
 | Self-improvement procedure: evidence-from-own-runs, guard-railed, one-concern-per-PR, **never weaken a guardrail** | `self-improvement` skill |
-| Draft-PR checkpoint model (autonomy up to promotion; promotion = the human gate); "stop starting, start finishing" WIP discipline | across the skills (shared engineering contract) |
+| Draft-PR checkpoint model (self-promote on genuine readiness; draft remains the checkpoint); "stop starting, start finishing" WIP discipline | across the skills (shared engineering contract) |
 | PR hygiene triad — CI **+** review threads **and review-body findings** **+** conflicts; bot-reviewer engagement | `portfolio-maintenance` skill |
 | Untrusted-input discipline & the trust-gate **pattern** (exact-login matching; external-PR static-review-only; never run untrusted branch code) — the *pattern*, not the concrete logins | shared contract |
 | Per-run worktree execution model + git safety | shared contract |
@@ -112,7 +112,7 @@ Two consequences for child 2:
 ### D3 — Self-improvement-loop implication (the explicit, accepted trade)
 
 Today the agent improves its **whole** constitution through **same-repo draft PRs** in the monorepo — one
-repo, one promotion gate, fast. After extraction, an improvement's path depends on its home:
+repo, one readiness gate, fast. After extraction, an improvement's path depends on its home:
 
 - **Generic-core** change (run loop, hygiene triad, the self-improvement procedure itself) → an
   **agent-plugins** PR (and an **agent-skills** PR for a skill body) **plus** a **consumer version-bump**
@@ -125,7 +125,8 @@ config) stays local and fast. That is the whole point of splitting on volatility
 reason the trade is **accepted** rather than a regression — but it is a real trade and is recorded here so
 it is a deliberate choice, not a surprise. **Guardrail unchanged:** self-improvement still may never
 weaken a safety control, in whichever repo the change lands; and all three repos are inside the trust
-gate, so the loop stays fully devantler-tech-autonomous (draft-PR checkpoint, maintainer promotes).
+gate, so the loop stays fully devantler-tech-autonomous (draft-PR checkpoint, self-promoted on genuine
+readiness).
 
 ### D4 — Sequencing and the agent-skills dependency (scope of the follow-up children)
 

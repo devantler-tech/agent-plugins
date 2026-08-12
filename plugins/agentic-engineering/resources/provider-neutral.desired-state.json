@@ -10,7 +10,7 @@
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "agentic-engineering",
       "entrypoint": "agentic-engineer",
-      "entrypointSha256": "96d10e59e00a081ba52d45ad95849cfe74ba69cc9bbc841ce70028468aa80de5",
+      "entrypointSha256": "ed1f8cf97fbc2d4bdc375a4de048ef2fdcc40ab6612a69ea9e395b7b8e26e5a4",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",

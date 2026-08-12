@@ -33,6 +33,7 @@ plugins/
     ├── .claude-plugin/
     │   └── plugin.json         # Equivalent strict Claude marketplace manifest; CI rejects drift
     ├── agents/                 # Optional auto-discovered custom agents (*.agent.md)
+    ├── scripts/                # Optional helpers the plugin's agents call, each with a *.test.sh
     ├── skills/
     │   └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
     └── resources/              # Optional ancillary, explicitly linked human-consumed assets
@@ -90,10 +91,13 @@ is pinned by [`scripts/validate-manifests.test.sh`](scripts/validate-manifests.t
 `lint-scripts` CI job), so a refactor that silently weakens a check fails the self-test rather than
 letting a malformed plugin reach consumers.
 
-Skill-bundled helper scripts (`plugins/**/skills/**/scripts/*.sh`) follow the same discipline: each
-gets a hermetic `*.test.sh` next to it that stubs any external tool on `PATH` (no network, no cluster)
-and asserts the script's contract. The `lint-scripts` CI job auto-discovers and runs every
-`plugins/*/skills/*/scripts/*.test.sh`, so a new script test is picked up without editing the workflow.
+Bundled helper scripts follow the same discipline, whether they sit beside a skill
+(`plugins/*/skills/*/scripts/*.sh`) or serve the plugin's agents (`plugins/*/scripts/*.sh`): each gets
+a hermetic `*.test.sh` next to it that stubs any external tool on `PATH` (no network, no cluster) and
+asserts the script's contract. The `lint-scripts` CI job auto-discovers both locations — shellcheck
+over every script, then every `*.test.sh` — so a new script and its test are picked up without editing
+the workflow. A `scripts/` directory is a helper location, not an auto-discovered plugin resource: it
+never satisfies the minimum-one-resource rule and is not listed in the README Resources column.
 
 Each entry's `source` is a **relative path** (`./plugins/<name>`), so the repo rename
 (`copilot-plugins` → `agent-plugins`, see [#7](https://github.com/devantler-tech/agent-plugins/issues/7)) and any

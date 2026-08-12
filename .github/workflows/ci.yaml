@@ -50,7 +50,18 @@ jobs:
           persist-credentials: false
 
       - name: 🐚 ShellCheck scripts
-        run: shellcheck scripts/*.sh
+        # Repo-level scripts plus every helper a plugin bundles, whether it sits
+        # beside a skill or serves the plugin's agents. A guard that ships to
+        # consumers is linted like any other script here.
+        run: |
+          shopt -s nullglob
+          files=(scripts/*.sh plugins/*/scripts/*.sh plugins/*/skills/*/scripts/*.sh)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::Script discovery found nothing — the globs are wrong."
+            exit 1
+          fi
+          printf 'Linting %s script(s).\n' "${#files[@]}"
+          shellcheck "${files[@]}"
 
       - name: 🧪 Self-test the version-bump guard
         # Proves check-plugin-version-bump.sh PASSES what it must not block (a bumped
@@ -73,17 +84,65 @@ jobs:
         # plugin reaching consumers. Self-contained: throwaway fixtures, no network.
         run: ./scripts/validate-manifests.test.sh
 
-      - name: 🧪 Self-test skill helper scripts
-        # Runs every hermetic *.test.sh bundled alongside a skill's helper scripts
-        # (plugins/**/skills/**/scripts/), so a regression in a script that ships
-        # to users is caught here rather than mid-audit. New script tests are picked
-        # up automatically — no workflow edit needed. Self-contained: each test
-        # stubs its external tools (no network, no cluster).
+      - name: 🧪 Self-test bundled helper scripts
+        # Runs every hermetic *.test.sh bundled with a plugin — beside a skill
+        # (plugins/*/skills/*/scripts/) or serving the plugin's agents
+        # (plugins/*/scripts/) — so a regression in a script that ships to users is
+        # caught here rather than mid-audit. New script tests are picked up
+        # automatically — no workflow edit needed. Self-contained: each test stubs
+        # its external tools (no network, no cluster).
         run: |
           shopt -s nullglob
-          tests=(plugins/*/skills/*/scripts/*.test.sh)
+          helpers=(plugins/*/scripts/*.sh plugins/*/skills/*/scripts/*.sh)
+          tests=(plugins/*/scripts/*.test.sh plugins/*/skills/*/scripts/*.test.sh)
+
+          # Running whatever tests exist would stay green for a helper that ships
+          # with none — an unrelated test carries the step. Pair them explicitly,
+          # over BOTH helper locations: a check scoped to one of them lets a new
+          # helper in the other ship untested while CI stays green.
+          #
+          # Inherited debt is carried by NAME, not by exempting a whole location.
+          # These three predate the convention (devantler-tech/agent-plugins#122);
+          # every other skill helper — including any added after this line — is
+          # held to the pairing rule.
+          grandfathered=(
+            plugins/gitops-kubernetes/skills/gitops-repo-audit/scripts/check-deprecated.sh
+            plugins/gitops-kubernetes/skills/gitops-repo-audit/scripts/discover.sh
+            plugins/gitops-kubernetes/skills/gitops-repo-audit/scripts/validate.sh
+          )
+
+          missing=0
+          for helper in "${helpers[@]}"; do
+            case "$helper" in *.test.sh) continue ;; esac
+            [ -f "${helper%.sh}.test.sh" ] && continue
+            exempt=0
+            for known in "${grandfathered[@]}"; do
+              if [ "$helper" = "$known" ]; then exempt=1; break; fi
+            done
+            if [ "$exempt" -eq 1 ]; then
+              echo "::warning file=$helper::Grandfathered without a self-test (agent-plugins#122)."
+              continue
+            fi
+            echo "::error file=$helper::No adjacent self-test (${helper%.sh}.test.sh)."
+            missing=1
+          done
+
+          # An exemption that outlives its debt is a hole nobody sees close: once
+          # a listed helper gains its test or goes away, the entry must go too, or
+          # a later helper could be added under that path untested.
+          for known in "${grandfathered[@]}"; do
+            if [ ! -f "$known" ] || [ -f "${known%.sh}.test.sh" ]; then
+              echo "::error file=.github/workflows/ci.yaml::Stale grandfathered entry '$known' — it now has a test or no longer exists. Remove it from the list."
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
           if [ ${#tests[@]} -eq 0 ]; then
-            echo "No skill helper-script self-tests found."
+            echo "No bundled helper scripts, and so no self-tests to run."
             exit 0
           fi
           for t in "${tests[@]}"; do

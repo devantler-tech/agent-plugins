@@ -117,7 +117,7 @@ git -C "$d" checkout --quiet -b feature
 printf 'unrelated\n' > "$d/README.md"
 git -C "$d" add -A && git -C "$d" commit --quiet -m "docs"
 out=$( (cd "$d" && "$BUMP" --changed-since main) 2>&1 )
-if printf '%s' "$out" | grep -qF "No plugin content changed"; then
+if [[ $out == *"No plugin content changed"* ]]; then
   ok "--changed-since is a no-op when no plugin moved"
 else
   ko "--changed-since should no-op on an unrelated change; got: $out"

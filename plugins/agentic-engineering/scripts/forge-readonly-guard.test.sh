@@ -352,6 +352,54 @@ expect_deny 'the same placeholder in a separated --pretty value' \
   "git log --pretty %G? -1"
 expect_allow 'an ordinary format placeholder is untouched' "git log --format=%H -1"
 
+# Scanning argv for a literal %G is not enough: a format NAME resolves through
+# `pretty.<name>` in repository configuration, so the placeholder never appears
+# in the command. Built-ins are safe because git ignores a config entry that
+# shadows one; anything else is an unreadable lookup.
+expect_deny 'a --pretty NAME is a configuration lookup the guard cannot read' \
+  "git -c core.fsmonitor= --no-optional-locks log --pretty=evil -1"
+expect_deny 'the same lookup in a separated value' \
+  "git -c core.fsmonitor= --no-optional-locks log --pretty evil -1"
+expect_deny 'and in --format spelling' \
+  "git -c core.fsmonitor= --no-optional-locks log --format=evil -1"
+expect_allow 'a built-in format name still passes' \
+  "git -c core.fsmonitor= --no-optional-locks log --pretty=oneline -1"
+expect_allow 'an explicit format: string still passes' \
+  "git -c core.fsmonitor= --no-optional-locks log --pretty=format:%h%d -5"
+
+# `--work-tree` repoints git at a directory the guard never scoped while the
+# surveyed repository still supplies the index, so an allowed `diff` prints
+# whatever the caller aims it at. `-C` reaches another repository without
+# detaching the tree from its own repository, so the vocabulary keeps working.
+expect_deny 'an alternate work tree turns an allowed diff into an arbitrary file read' \
+  "git --git-dir=/tmp/other/.git --work-tree=/tmp/other -c core.fsmonitor= --no-optional-locks diff --no-ext-diff --no-textconv"
+expect_deny 'the separated spelling too' \
+  "git --work-tree /tmp/other -c core.fsmonitor= --no-optional-locks status --porcelain"
+expect_allow '-C still reaches another repository' \
+  "git -C applications/ksail -c core.fsmonitor= --no-optional-locks log --oneline -1"
+
+# `status --verbose` prints a staged patch, so it reaches diff.external and the
+# textconv drivers exactly as `diff` does — but status is not a patch verb and
+# --verbose is not a patch flag, so neither rule demanded the suppression.
+expect_deny 'status --verbose produces a patch and must carry the suppression' \
+  "git -c core.fsmonitor= --no-optional-locks status --verbose"
+expect_deny 'the short spelling as well' \
+  "git -c core.fsmonitor= --no-optional-locks status -v"
+expect_allow 'a suppressed verbose status is fine' \
+  "git -c core.fsmonitor= --no-optional-locks status --verbose --no-ext-diff --no-textconv"
+expect_allow 'an ordinary status is untaxed' \
+  "git -c core.fsmonitor= --no-optional-locks status --porcelain"
+
+# `sort` may spill to a temporary file past its in-memory buffer, so it stays
+# allowed only while no spelling lets a caller AIM that write. These four are the
+# property the allowlist's rationale rests on — if one ever passes, the claim
+# that the residue is an unreachable temp file stops being true.
+expect_deny 'sort -o names an output file' "gh repo list devantler-tech | sort -o /tmp/x"
+expect_deny 'sort -T chooses where a spill lands' "gh repo list devantler-tech | sort -T /tmp"
+expect_deny 'sort -S lowers the spill threshold' "gh repo list devantler-tech | sort -S 1"
+expect_deny 'sort --files0-from reads a file list' \
+  "gh repo list devantler-tech | sort --files0-from=/tmp/l"
+
 # gh takes a host in a POSITIONAL too, and the token travels with the host.
 expect_deny 'a positional URL retargets the authenticated request' \
   "gh pr view https://example.com/x/y/pull/1"

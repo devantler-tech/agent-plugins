@@ -91,6 +91,16 @@ FILTER_FLAGS_GREP=" -E -F -i -v -c -o -q -n -h -w -x -s --line-buffered --extend
 FILTER_VALUE_FLAGS_GREP=" -e -m -A -B -C --regexp --max-count --after-context --before-context --context "
 FILTER_FLAGS_SORT=" -u -r -n -h -b -f -V --unique --reverse --numeric-sort --version-sort "
 FILTER_VALUE_FLAGS_SORT=" -k -t --key --field-separator "
+# `sort` is the one filter here that can touch the filesystem at all: past its
+# in-memory buffer GNU sort spills to a temporary file. It stays allowed, and the
+# reason is what the flag lists must keep true — every spelling that would let a
+# caller AIM that write is withheld. `-o`/`--output` names an output file, `-T`/
+# `--temporary-directory` chooses where the spill lands, `-S`/`--buffer-size`
+# lowers the threshold that triggers it, and `--files0-from` reads a file list;
+# none is allowlisted, so the residue is an internal temp file sort creates and
+# unlinks in `$TMPDIR`, unreachable from argv. That is a different thing from the
+# workspace/credential writes this guard exists to stop.
+
 FILTER_FLAGS_HEADTAIL=" -q -v "
 FILTER_VALUE_FLAGS_HEADTAIL=" -n -c --lines --bytes "
 FILTER_FLAGS_UNIQ=" -c -d -u -i --count --repeated --unique "
@@ -133,7 +143,13 @@ GH_API_FIELD_FLAGS=" -f --raw-field -F --field --input "
 #
 # `--paginate` is deliberately absent: it asks git to run `core.pager`, a program
 # named by configuration the guard cannot see.
-GIT_VALUE_FLAGS=" -C -c --git-dir --work-tree --exec-path --namespace "
+# `--work-tree` is deliberately absent, so it is refused as unrecognised. It
+# repoints git at an arbitrary directory while the surveyed repository still
+# supplies the index, so an otherwise-allowed `diff` prints the contents of files
+# the guard never scoped — a plain read that exfiltrates whatever the caller aims
+# it at. Nothing in the surveyor's vocabulary needs it; `-C` reaches another
+# repository without detaching the tree from its own repository.
+GIT_VALUE_FLAGS=" -C -c --git-dir --exec-path --namespace "
 GIT_OK_FLAGS=" --no-pager --no-optional-locks --no-ext-diff --no-textconv --oneline --no-color --color --graph --decorate --no-decorate --abbrev-commit --all --branches --tags --remotes --heads --refs --stat --numstat --shortstat --name-only --name-status --porcelain --short --long --branch --verbose --count --not --reverse --first-parent --merges --no-merges --quiet --verify --symbolic --symbolic-full-name --abbrev-ref --show-toplevel --is-inside-work-tree --is-bare-repository --cached --staged --patch -p --no-patch --raw --text --exit-code --no-renames --topo-order --date-order --left-right --boundary --parents --children --objects --stdin --binary --full-history --follow --no-prefix --numbered "
 # Flags a PATCH-PRODUCING git read must CARRY, not merely be allowed to carry.
 # Generating patch text is what reaches the two mechanisms whose program comes
@@ -150,6 +166,14 @@ GIT_OK_FLAGS=" --no-pager --no-optional-locks --no-ext-diff --no-textconv --onel
 # GIT_OK_FLAGS either, so it is refused as unrecognised rather than misread.
 GIT_PATCH_VERBS=" show diff "
 GIT_PATCH_FLAGS=" -p --patch "
+# The documented built-in `--pretty`/`--format` names. Any other bare name is a
+# `pretty.<name>` configuration lookup, whose expansion the guard cannot see.
+GIT_PRETTY_BUILTINS="oneline short medium full fuller reference email mboxrd raw"
+# `status --verbose` prints a STAGED PATCH, so it reaches `diff.external` and the
+# textconv drivers exactly as `diff` does — but `status` is not a patch verb and
+# `--verbose` is not a patch flag, so neither rule fired and the suppression was
+# never demanded. It is the one verb where a non-patch flag produces a patch.
+GIT_STATUS_PATCH_FLAGS=" -v --verbose "
 GIT_PATCH_REQUIRED_FLAGS=" --no-ext-diff --no-textconv "
 # Refreshing the index is when git consults `core.fsmonitor`, which is a HOOK
 # PROGRAM named in repository configuration and run before any output appears —
@@ -168,7 +192,7 @@ GIT_PATCH_REQUIRED_FLAGS=" --no-ext-diff --no-textconv "
 # hook, so `-c` stays denied for every other assignment.
 GIT_FSMONITOR_VERBS=" status diff ls-files "
 GIT_FSMONITOR_SUPPRESSION="core.fsmonitor="
-GIT_OK_VALUE_FLAGS=" -C --git-dir --work-tree -n --max-count --max-parents --min-parents --since --until --after --before --author --committer --grep --pretty --format --date --unified -U --diff-filter -L -S -G --abbrev --contains --no-contains --merged --no-merged --sort --points-at --glob --exclude "
+GIT_OK_VALUE_FLAGS=" -C --git-dir -n --max-count --max-parents --min-parents --since --until --after --before --author --committer --grep --pretty --format --date --unified -U --diff-filter -L -S -G --abbrev --contains --no-contains --merged --no-merged --sort --points-at --glob --exclude "
 
 SEGMENTS=()
 WORDS=()
@@ -896,6 +920,14 @@ classify_git() {
   local flagverb=0
   case "$sub" in
     log | diff | show) flagverb=1 ;;
+    status)
+      for pf in $GIT_STATUS_PATCH_FLAGS; do
+        if words_contain "$pf"; then
+          patch=1
+          break
+        fi
+      done
+      ;;
   esac
   if [ "$patch" -eq 0 ] && [ "$flagverb" -eq 1 ]; then
     for pf in $GIT_PATCH_FLAGS; do
@@ -943,19 +975,35 @@ classify_git() {
   # named by `gpg.program` — a third config-named execution path, independent of
   # the diff drivers and the fsmonitor hook, and reachable from a plain
   # `git log --format=…`. The placeholders are a documented, closed set.
-  local fi=1 fw
+#
+  # Scanning argv for a literal `%G` is not sufficient, because a format NAME
+  # resolves through repository configuration: `pretty.evil=format:%G?` makes
+  # `--pretty=evil` carry the placeholder without it appearing in the command at
+  # all. So the value is restricted rather than searched — a built-in format name,
+  # or an explicit format string the guard can read and reject. Git silently
+  # ignores a `pretty.<name>` that shadows a built-in, so the built-ins are safe.
+  local fi=1 fw fval
   while [ "$fi" -lt "$n" ]; do
     fw=${WORDS[$fi]}
+    fval=''
     case "$fw" in
-      --format=*%G* | --pretty=*%G* | format:*%G* | tformat:*%G*)
-        deny "a %G signature placeholder makes git run the configured gpg.program"
-        ;;
-      --format | --pretty)
-        case "${WORDS[$((fi + 1))]:-}" in
-          *%G*) deny "a %G signature placeholder makes git run the configured gpg.program" ;;
-        esac
-        ;;
+      --format=* | --pretty=*) fval=${fw#*=} ;;
+      --format | --pretty) fval=${WORDS[$((fi + 1))]:-} ;;
     esac
+    if [ -n "$fval" ]; then
+      case "$fval" in
+        *%G*) deny "a %G signature placeholder makes git run the configured gpg.program" ;;
+      esac
+      case " $GIT_PRETTY_BUILTINS " in
+        *" $fval "*) ;;
+        *)
+          case "$fval" in
+            format:* | tformat:* | %*) ;;
+            *) deny "a --pretty/--format NAME resolves through repository configuration, which can name a %G placeholder git verifies with gpg.program; use a built-in format or an explicit format: string" ;;
+          esac
+          ;;
+      esac
+    fi
     fi=$((fi + 1))
   done
 

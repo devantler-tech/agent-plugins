@@ -105,7 +105,8 @@ expect_allow 'a longer read pipeline' \
 
 expect_allow 'git log' "git -C libraries/agent-plugins log --oneline -5"
 expect_allow 'git status' "git status --porcelain"
-expect_allow 'git ls-remote' "git ls-remote --heads origin"
+expect_allow 'git rev-parse' "git rev-parse HEAD"
+expect_allow 'git show of a blob' "git show HEAD:AGENTS.md"
 
 # GraphQL is the one read the surveyor cannot do over GET: reviewThreads is a
 # GraphQL-only field, so a guard that refused every POST would break it.
@@ -115,6 +116,16 @@ expect_allow 'anonymous graphql document is a query by spec' \
   "gh api graphql -f query='{ viewer { login } }'"
 expect_allow 'graphql reviewThreads pagination' \
   "gh api graphql -F n=2786 -f query='query{repository{pullRequest{reviewThreads(first:100){nodes{isResolved}}}}}'"
+
+# The surveyor's real paginated thread sweep, verbatim, and the mutation that is
+# structurally identical to it. The pair is the sharpest test in the suite: both
+# are `gh api graphql` POSTs carrying multiple -F variables and a --jq filter, so
+# nothing but the operation type separates the read the survey depends on from
+# the write it must never make.
+expect_allow 'the surveyor real multi-variable paginated query' \
+  "gh api graphql -F owner=devantler-tech -F name=monorepo -F number=2786 -f query='query(\$owner:String!,\$name:String!,\$number:Int!,\$cursor:String){repository(owner:\$owner,name:\$name){pullRequest(number:\$number){reviewThreads(first:100,after:\$cursor){pageInfo{hasNextPage endCursor} nodes{isResolved path}}}}}' --jq '.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved==false)|.path'"
+expect_deny 'the structurally identical resolve mutation' \
+  "gh api graphql -F id=PRRT_abc -f query='mutation(\$id:ID!){resolveReviewThread(input:{threadId:\$id}){thread{isResolved}}}' --jq '.data.resolveReviewThread.thread.isResolved'"
 
 # ---------------------------------------------------------------------------
 # Prohibited path — every mutation the surveyor must never make
@@ -229,6 +240,20 @@ expect_deny 'git -c config injection' "git -c core.pager=/tmp/evil log"
 expect_deny 'git --config-env' "git --config-env=core.pager=EVIL log"
 expect_deny 'git --exec-path' "git --exec-path=/tmp/evil log"
 expect_allow 'git -C is still fine' "git -C libraries/agent-plugins log --oneline -5"
+
+# A verb that contacts a remote is denied on the verb alone, because argv never
+# shows where a named remote points: git resolves `remote.<name>.url` from
+# configuration after parsing, so `origin` may be an `ext::` transport that
+# executes a local command. These are the forms whose danger is invisible in the
+# command line, which is why excluding the verb is the only sound answer.
+expect_deny 'ls-remote with a named remote' "git ls-remote origin"
+expect_deny 'ls-remote with a named remote and -C' "git -C libraries/agent-plugins ls-remote origin"
+expect_deny 'ls-remote --heads with a named remote' "git ls-remote --heads origin"
+expect_deny 'ls-remote with an explicit URL' "git ls-remote https://github.com/devantler-tech/monorepo.git"
+expect_deny 'git fetch' "git fetch origin main"
+expect_deny 'git clone' "git clone https://github.com/devantler-tech/monorepo.git"
+expect_deny 'git remote get-url' "git remote get-url origin"
+expect_deny 'git submodule update' "git submodule update --init libraries/agent-plugins"
 
 # A filter is not a reader: it may not open the pipeline, and it may not take a
 # path. `cat ~/.config/gh/hosts.yml` is a credential read wearing a filter name.

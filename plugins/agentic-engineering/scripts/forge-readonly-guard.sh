@@ -665,6 +665,18 @@ classify_gh() {
 # no shell redirection for the scanner to catch (`git diff --output=PATH`). So
 # the verb's options are allowlisted too, and an option this guard has not
 # established the effect of is denied by default.
+#
+# The admitted verbs read the LOCAL object database only. None of them contacts
+# a remote, and that is the boundary rather than a coincidence: git resolves a
+# remote's URL from configuration AFTER the command line is parsed, so argv can
+# never show what a named remote points at. A repository carrying
+# `remote.origin.url = ext::sh -c …` turns the innocuous-looking
+# `git ls-remote origin` into local execution, and no amount of inspecting that
+# argv reveals it. Resolving the remote here would mean reading repository
+# config the guard does not own and racing whoever may rewrite it before git
+# runs. Excluding the remote-contacting verbs removes the question instead of
+# answering it unreliably — and costs nothing, because the surveyor's definition
+# prescribes only `git log/status`.
 classify_git() {
   local sub i w name
   local n=${#WORDS[@]}
@@ -689,7 +701,10 @@ classify_git() {
   if [ -z "$sub" ]; then deny 'git needs a subcommand to be classified'; fi
 
   case "$sub" in
-    log | status | show | diff | rev-parse | rev-list | ls-remote | ls-files | cat-file | describe)
+    log | status | show | diff | rev-parse | rev-list | ls-files | cat-file | describe)
+      ;;
+    ls-remote | fetch | pull | push | clone | remote | submodule)
+      deny "git $sub contacts a remote, whose URL argv cannot show"
       ;;
     *) deny "git $sub is not a read verb" ;;
   esac

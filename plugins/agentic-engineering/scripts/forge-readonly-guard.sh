@@ -19,22 +19,37 @@
 #   exit 1  denied  — prints `deny: <reason>`
 #   exit 2  usage error
 #
-# Deny by default. A subcommand that is not positively recognised as a read is
-# denied, so a new or renamed verb fails closed rather than passing unnoticed.
+# Deny by default, in two layers.
 #
-# The command is parsed quote-aware, because the surveyor's real queries carry
-# `|` and `>` inside `--jq` expressions where they are data, not shell syntax.
-# Outside quotes those characters are structural and refused: a denied command
-# must not be able to ride along behind an allowed one.
+# LAYER 1 — resolve one literal argument vector, or refuse. The command is
+# walked once to split it on unquoted `|` and refuse every construct that could
+# smuggle a second command in, then walked again to produce the argv the shell
+# itself would build: quotes removed, escapes applied, words split only where
+# the shell would split them. Whatever the guard cannot resolve to a literal it
+# REFUSES rather than guesses at — brace expansion, ANSI-C quoting and globbing
+# all rewrite a word into something the guard never saw, and the rewritten form
+# is precisely what classification depends on.
+#
+# LAYER 2 — classify that argv against an allowlist. A subcommand, a flag, or a
+# filter operand that is not positively recognised as a read is denied, so a new
+# or renamed verb fails closed rather than passing unnoticed.
+#
+# The split matters: a guard that classifies command TEXT is re-implementing the
+# shell's parser, and it loses. Every bypass found in review was another
+# spelling of a word bash rewrites before the program sees it — an attached
+# flag, `{a,b}`, `$'\x6d'`, a delimiter inside a sed flag. Resolving argv first
+# deletes that whole class instead of blacklisting its members one at a time.
 #
 # Two limits are deliberate and stated rather than hidden:
 #
-#   * It classifies the command text as written. Command substitution is denied,
-#     but parameter expansion is not — the surveyor's own prescriptions use it.
-#     A deployment that also lets the agent set arbitrary environment variables
-#     must constrain that separately; this guard cannot see through `$VAR`.
-#   * The allowlist is the surveyor's measured vocabulary, not every read a forge
-#     CLI offers. Widening it is a reviewed edit here, which is the point.
+#   * Parameter expansion is allowed, because the surveyor's own prescriptions
+#     use it, and it is the one expansion the guard cannot resolve without
+#     knowing the environment. A deployment that also lets the agent set
+#     arbitrary environment variables must constrain that separately.
+#   * The allowlists are the surveyor's measured vocabulary, not every read a
+#     forge CLI offers. Widening one is a reviewed edit here, which is the
+#     point — and a false deny reports the flag it did not recognise, so the
+#     widening is a one-line change rather than an investigation.
 #
 # Written for bash 3.2 so it runs on a stock macOS agent host as well as CI.
 #
@@ -65,7 +80,7 @@ die() {
 FILTER_FLAGS_JQ=" -r -c -e -n -s -j -a -R --tab --slurp --raw-output --compact-output --exit-status --raw-input --null-input --args "
 FILTER_VALUE_FLAGS_JQ=" --indent "
 FILTER_FLAGS_GREP=" -E -F -i -v -c -o -q -n -h -w -x -s --line-buffered --extended-regexp --fixed-strings --ignore-case --invert-match --count --only-matching --quiet "
-FILTER_VALUE_FLAGS_GREP=" -e -m -A -B -C --max-count --after-context --before-context --context "
+FILTER_VALUE_FLAGS_GREP=" -e -m -A -B -C --regexp --max-count --after-context --before-context --context "
 FILTER_FLAGS_SORT=" -u -r -n -h -b -f -V --unique --reverse --numeric-sort --version-sort "
 FILTER_VALUE_FLAGS_SORT=" -k -t --key --field-separator "
 FILTER_FLAGS_HEADTAIL=" -q -v "
@@ -77,29 +92,39 @@ FILTER_VALUE_FLAGS_CUT=" -d -f -c -b --delimiter --fields --characters --bytes "
 FILTER_FLAGS_TR=" -d -s -c -C --delete --squeeze-repeats --complement "
 FILTER_FLAGS_CAT=" -n -b -s --number "
 
-# gh api flags that consume the following word. Needed so the endpoint is found
-# by position rather than mistaken for a --jq expression.
-GH_API_VALUE_FLAGS=" --jq -q --method -X --header -H --field -f --raw-field -F --input --template -t --hostname --cache --preview -p "
+# A flag that supplies grep's PATTERN, in any spelling: once one is present the
+# remaining positional words are FILES, so the operand cap must drop to zero.
+FILTER_PATTERN_FLAGS_GREP=" -e --regexp "
 
-# git global flags that consume the following word, so `git -C <path> log`
-# resolves to the `log` subcommand rather than to `-C`.
+# gh api flags, split by how they are consumed. Anything outside these three
+# sets is denied: an unrecognised flag is a flag whose effect on the request
+# method — and so on whether this is a read — has not been established.
+GH_API_STANDALONE_FLAGS=" --paginate --slurp -i --include --verbose --silent "
+GH_API_VALUE_FLAGS=" --jq -q --method -X --header -H --hostname --cache --template -t --preview -p "
+# gh switches the request to POST as soon as one of these is set, and a `-F`
+# value beginning with `@` makes gh read that file and send its contents. They
+# survive only on graphql, which has no other way to carry a query.
+GH_API_FIELD_FLAGS=" -f --raw-field -F --field --input "
+
+# git options. Read verbs are not enough on their own: several options make git
+# write a file or execute a program without any shell syntax for the scanner to
+# catch, so options are allowlisted like everything else.
 GIT_VALUE_FLAGS=" -C -c --git-dir --work-tree --exec-path --namespace "
+GIT_OK_FLAGS=" --no-pager --paginate --oneline --no-color --color --graph --decorate --no-decorate --abbrev-commit --all --branches --tags --remotes --heads --refs --stat --numstat --shortstat --name-only --name-status --porcelain --short --long --branch --verbose --count --not --reverse --first-parent --merges --no-merges --quiet --verify --symbolic --symbolic-full-name --abbrev-ref --show-toplevel --is-inside-work-tree --is-bare-repository --cached --staged --patch --no-patch --raw --text --exit-code --no-renames --topo-order --date-order --left-right --boundary --parents --children --objects --stdin --binary --full-history --follow --no-prefix --numbered "
+GIT_OK_VALUE_FLAGS=" -C --git-dir --work-tree -n --max-count --max-parents --min-parents --since --until --after --before --author --committer --grep --pretty --format --date --unified -U --diff-filter -L -S -G --abbrev --contains --no-contains --merged --no-merged --sort --points-at --glob --exclude "
 
 SEGMENTS=()
 WORDS=()
-SEGMENT_TEXT=''
-SUB_WORD=''
-SUB_INDEX=-1
 
 # Walk the command one character at a time, tracking quote state, splitting on
 # unquoted `|` and refusing every other unquoted construct that could smuggle a
-# second command in.
+# second command in — or rewrite a word into one the guard never classified.
 scan_segments() {
   local s=$1
   local n=${#s}
   local state=none
   local cur=''
-  local i=0 ch nxt
+  local i=0 ch nxt prev=''
 
   while [ "$i" -lt "$n" ]; do
     ch=${s:$i:1}
@@ -108,6 +133,7 @@ scan_segments() {
     if [ "$state" = single ]; then
       if [ "$ch" = "'" ]; then state=none; fi
       cur=$cur$ch
+      prev=$ch
       i=$((i + 1))
       continue
     fi
@@ -116,6 +142,7 @@ scan_segments() {
       case "$ch" in
         \\)
           cur=$cur$ch$nxt
+          prev=$nxt
           i=$((i + 2))
           continue
           ;;
@@ -126,6 +153,7 @@ scan_segments() {
         '"') state=none ;;
       esac
       cur=$cur$ch
+      prev=$ch
       i=$((i + 1))
       continue
     fi
@@ -141,12 +169,33 @@ scan_segments() {
         ;;
       \\)
         cur=$cur$ch$nxt
-        i=$((i + 1))
+        prev=$nxt
+        i=$((i + 2))
+        continue
         ;;
       '`') deny 'backtick command substitution is not a read' ;;
       '$')
-        if [ "$nxt" = '(' ]; then deny 'dollar-paren command substitution is not a read'; fi
+        case "$nxt" in
+          '(') deny 'dollar-paren command substitution is not a read' ;;
+          "'") deny "ANSI-C quoting \$'…' rewrites the word before the command sees it" ;;
+          '"') deny 'locale-translation quoting $"…" rewrites the word before the command sees it' ;;
+        esac
         cur=$cur$ch
+        ;;
+      # Brace expansion turns one word into several — a flag, an operand, a path
+      # the guard never classified. `${…}` is parameter expansion, which is
+      # allowed by documented exception, so only a brace NOT introduced by `$`
+      # is refused.
+      '{')
+        if [ "$prev" != '$' ]; then
+          deny 'brace expansion rewrites the word before the command sees it — quote it'
+        fi
+        cur=$cur$ch
+        ;;
+      # Pathname expansion has the same property: a matching filename becomes an
+      # argument the guard never saw, and a crafted one can be a flag.
+      '*' | '?' | '[')
+        deny "pathname expansion '$ch' rewrites the word before the command sees it — quote it"
         ;;
       '<')
         if [ "$nxt" = '(' ]; then deny 'process substitution <( ) is not a read'; fi
@@ -165,6 +214,7 @@ scan_segments() {
       $'\n' | $'\r') deny 'a newline can carry a second command' ;;
       *) cur=$cur$ch ;;
     esac
+    prev=$ch
     i=$((i + 1))
   done
 
@@ -174,13 +224,122 @@ scan_segments() {
   SEGMENTS[${#SEGMENTS[@]}]=$cur
 }
 
-unquote() {
+# Second pass: build the literal argument vector the shell would pass to the
+# program. Quotes are REMOVED rather than left on the word, which is the whole
+# difference between classifying argv and classifying text — `grep -E 'a b'` is
+# one operand to grep, and a scanner that splits on whitespace reads it as two
+# and denies an ordinary read.
+#
+# Everything this pass cannot resolve was already refused by scan_segments, so
+# it only has to apply quote removal and escaping.
+tokenize_segment() {
   local s=$1
-  s=${s%\"}
-  s=${s#\"}
-  s=${s%\'}
-  s=${s#\'}
-  printf '%s' "$s"
+  local n=${#s}
+  local i=0 ch nxt
+  local state=none
+  local cur='' started=0
+
+  WORDS=()
+  while [ "$i" -lt "$n" ]; do
+    ch=${s:$i:1}
+
+    if [ "$state" = single ]; then
+      if [ "$ch" = "'" ]; then
+        state=none
+      else
+        cur=$cur$ch
+      fi
+      i=$((i + 1))
+      continue
+    fi
+
+    if [ "$state" = double ]; then
+      if [ "$ch" = "\\" ]; then
+        nxt=${s:$((i + 1)):1}
+        case "$nxt" in
+          '"' | "\\" | '$' | '`')
+            cur=$cur$nxt
+            i=$((i + 2))
+            ;;
+          *)
+            cur=$cur$ch
+            i=$((i + 1))
+            ;;
+        esac
+        continue
+      fi
+      if [ "$ch" = '"' ]; then
+        state=none
+        i=$((i + 1))
+        continue
+      fi
+      cur=$cur$ch
+      i=$((i + 1))
+      continue
+    fi
+
+    case "$ch" in
+      "'")
+        state=single
+        started=1
+        ;;
+      '"')
+        state=double
+        started=1
+        ;;
+      \\)
+        nxt=${s:$((i + 1)):1}
+        cur=$cur$nxt
+        started=1
+        i=$((i + 1))
+        ;;
+      ' ' | $'\t')
+        if [ "$started" -eq 1 ]; then
+          WORDS[${#WORDS[@]}]=$cur
+          cur=''
+          started=0
+        fi
+        ;;
+      *)
+        cur=$cur$ch
+        started=1
+        ;;
+    esac
+    i=$((i + 1))
+  done
+
+  if [ "$started" -eq 1 ]; then WORDS[${#WORDS[@]}]=$cur; fi
+}
+
+# Split one argv word into a flag name and, when the word carries its value
+# attached, that value. `--method=GET`, `-XGET` and `-fbody=hi` are all forms gh
+# and the filters accept, and a check that only understands the separated form
+# reads every attached one as "flag absent".
+#
+# Reports through globals: FLAG_NAME, FLAG_VALUE, FLAG_HAS_VALUE.
+FLAG_NAME=''
+FLAG_VALUE=''
+FLAG_HAS_VALUE=0
+split_flag() {
+  local w=$1
+  FLAG_NAME=''
+  FLAG_VALUE=''
+  FLAG_HAS_VALUE=0
+  case "$w" in
+    --*=*)
+      FLAG_NAME=${w%%=*}
+      FLAG_VALUE=${w#*=}
+      FLAG_HAS_VALUE=1
+      ;;
+    --*) FLAG_NAME=$w ;;
+    -?) FLAG_NAME=$w ;;
+    -?*)
+      FLAG_NAME=${w:0:2}
+      FLAG_VALUE=${w:2}
+      FLAG_HAS_VALUE=1
+      ;;
+    *) FLAG_NAME=$w ;;
+  esac
 }
 
 # The first non-flag word in WORDS at or after $1, skipping flags and the values
@@ -189,6 +348,8 @@ unquote() {
 # Reports through the globals SUB_WORD and SUB_INDEX rather than stdout, because
 # a caller needs both the word and where it sat — and reading the word through
 # `$(...)` would run this in a subshell, where the index assignment dies with it.
+SUB_WORD=''
+SUB_INDEX=-1
 find_subcommand() {
   local i=$1
   local value_flags=$2
@@ -197,7 +358,7 @@ find_subcommand() {
   SUB_WORD=''
   SUB_INDEX=-1
   while [ "$i" -lt "${#WORDS[@]}" ]; do
-    w=$(unquote "${WORDS[$i]}")
+    w=${WORDS[$i]}
     case "$w" in
       --)
         i=$((i + 1))
@@ -220,86 +381,123 @@ find_subcommand() {
   return 0
 }
 
-# The HTTP method, read from WORDS rather than matched in the raw segment: gh
-# accepts `--method GET`, `--method=GET`, `-X GET` and the attached `-XGET`, and
-# a regex over the raw text misses every quoted or attached form — which reads as
-# "no method given" and quietly allows the POST.
-#
-# Sets METHOD to the upper-cased value, or to the sentinel UNPARSED when a method
-# flag is present but its value is not, so the caller can fail closed rather than
-# treat it as absent.
-METHOD=''
-parse_method() {
-  local i=1 w v
-
-  METHOD=''
-  while [ "$i" -lt "${#WORDS[@]}" ]; do
-    w=$(unquote "${WORDS[$i]}")
-    v=''
-    case "$w" in
-      --method | -X)
-        v=$(unquote "${WORDS[$((i + 1))]:-}")
-        i=$((i + 1))
-        ;;
-      --method=*) v=$(unquote "${w#--method=}") ;;
-      -X?*) v=$(unquote "${w#-X}") ;;
-      *)
-        i=$((i + 1))
-        continue
-        ;;
-    esac
-    if [ -z "$v" ]; then
-      METHOD=UNPARSED
-      return 0
-    fi
-    METHOD=$(printf '%s' "$v" | tr '[:lower:]' '[:upper:]')
-    return 0
-  done
+# GraphQL is served over POST, so the method cannot separate a read from a write
+# here — the operation keyword does. The spec has exactly three operation types,
+# and an anonymous `{ … }` document is a query, so refusing the other two is
+# exhaustive rather than a blacklist with gaps. The check runs on the RESOLVED
+# field value, which is what makes it exhaustive: `$'\x6dutation'` and
+# `'mutation'` are the same word by the time it is asked.
+check_graphql_document() {
+  local v=$1
+  if [[ "$v" =~ (^|[^A-Za-z])[Mm][Uu][Tt][Aa][Tt][Ii][Oo][Nn]([^A-Za-z]|$) ]]; then
+    deny 'GraphQL mutation is a write'
+  fi
+  if [[ "$v" =~ (^|[^A-Za-z])[Ss][Uu][Bb][Ss][Cc][Rr][Ii][Pp][Tt][Ii][Oo][Nn]([^A-Za-z]|$) ]]; then
+    deny 'GraphQL subscription is not a bounded read'
+  fi
   return 0
 }
 
 classify_gh_api() {
-  local endpoint method
+  local i=2 w name val
+  local n=${#WORDS[@]}
+  local endpoint='' seen_endpoint=0
+  local methods='' field_count=0
+  local field_values='' m
 
-  find_subcommand 2 "$GH_API_VALUE_FLAGS"
-  endpoint=$SUB_WORD
+  # gh takes the LAST method flag it is given, so a first harmless one is not
+  # evidence of anything: collect every occurrence and hold them all to the
+  # allowed method, which makes the check independent of that precedence.
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
+    case "$w" in
+      --)
+        i=$((i + 1))
+        continue
+        ;;
+      -*) ;;
+      *)
+        if [ "$seen_endpoint" -eq 0 ]; then
+          endpoint=$w
+          seen_endpoint=1
+        fi
+        i=$((i + 1))
+        continue
+        ;;
+    esac
 
-  parse_method
-  method=$METHOD
-  if [ "$method" = UNPARSED ]; then
-    deny 'gh api names a method flag whose value cannot be read'
-  fi
-  local seg=$SEGMENT_TEXT
+    split_flag "$w"
+    name=$FLAG_NAME
+    val=$FLAG_VALUE
+
+    if [ "$FLAG_HAS_VALUE" -eq 0 ]; then
+      case "$GH_API_STANDALONE_FLAGS" in
+        *" $name "*)
+          i=$((i + 1))
+          continue
+          ;;
+      esac
+    fi
+
+    case "$GH_API_FIELD_FLAGS$GH_API_VALUE_FLAGS" in
+      *" $name "*) ;;
+      *) deny "gh api flag '$w' is not on the read-only allowlist" ;;
+    esac
+
+    if [ "$FLAG_HAS_VALUE" -eq 0 ]; then
+      if [ $((i + 1)) -ge "$n" ]; then deny "gh api $name needs a value"; fi
+      val=${WORDS[$((i + 1))]}
+      i=$((i + 1))
+    fi
+
+    case "$GH_API_FIELD_FLAGS" in
+      *" $name "*)
+        field_count=$((field_count + 1))
+        if [ "$name" = --input ]; then
+          deny 'gh api --input reads a local file and makes the request a POST'
+        fi
+        # `@value` makes gh read that path and send its contents — a credential
+        # read wearing a field's name.
+        case "$val" in
+          *=@*) deny "gh api $name reads the local file named after @" ;;
+          @*) deny "gh api $name reads the local file named after @" ;;
+        esac
+        field_values="$field_values
+$val"
+        i=$((i + 1))
+        continue
+        ;;
+    esac
+
+    case "$name" in
+      --method | -X) methods="$methods $(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')" ;;
+    esac
+    i=$((i + 1))
+  done
 
   if [ "$endpoint" = graphql ]; then
-    # GraphQL is served over POST, so the method cannot separate a read from a
-    # write here — the operation keyword does. The GraphQL spec has exactly
-    # three operation types, and an anonymous `{ ... }` document is a query, so
-    # refusing the other two is exhaustive rather than a blacklist with gaps.
-    if [[ "$seg" =~ (^|[^A-Za-z])[Mm][Uu][Tt][Aa][Tt][Ii][Oo][Nn]([^A-Za-z]|$) ]]; then
-      deny 'GraphQL mutation is a write'
-    fi
-    if [[ "$seg" =~ (^|[^A-Za-z])[Ss][Uu][Bb][Ss][Cc][Rr][Ii][Pp][Tt][Ii][Oo][Nn]([^A-Za-z]|$) ]]; then
-      deny 'GraphQL subscription is not a bounded read'
-    fi
-    if [ -n "$method" ] && [ "$method" != POST ] && [ "$method" != GET ]; then
-      deny "gh api graphql --method $method is not a read"
-    fi
+    for m in $methods; do
+      if [ "$m" != POST ] && [ "$m" != GET ]; then
+        deny "gh api graphql --method $m is not a read"
+      fi
+    done
+    while IFS= read -r m; do
+      if [ -n "$m" ]; then check_graphql_document "$m"; fi
+    done <<EOF
+$field_values
+EOF
     return 0
   fi
 
-  if [ -n "$method" ] && [ "$method" != GET ]; then
-    deny "gh api --method $method is not a read"
-  fi
+  for m in $methods; do
+    if [ "$m" != GET ]; then deny "gh api --method $m is not a read"; fi
+  done
 
-  # Without an explicit --method, gh switches to POST as soon as a field is set,
-  # so a field argument on a REST endpoint is a write in everything but spelling.
-  if [ -z "$method" ] &&
-    [[ "$seg" =~ (^|[[:space:]])(-f|-F|--field|--raw-field|--input)([[:space:]]|=) ]]; then
+  if [ "$field_count" -gt 0 ]; then
     deny 'gh api field arguments make the request a POST'
   fi
 
-  if [ -z "$endpoint" ]; then
+  if [ "$seen_endpoint" -eq 0 ]; then
     deny 'gh api needs an endpoint to be classified'
   fi
   return 0
@@ -369,16 +567,19 @@ classify_gh() {
 }
 
 # A read verb is not enough for git. Several of its options turn a read into
-# arbitrary local execution: `-c protocol.ext.allow=always` with an `ext::` URL
-# runs a shell command as a "transport", and `--upload-pack` names the program
-# git executes for the remote side. None is needed by any survey read, so they
-# are refused outright rather than parsed.
+# arbitrary local execution — `-c protocol.ext.allow=always` with an `ext::` URL
+# runs a shell command as a "transport", `--upload-pack` names the program git
+# executes for the remote side — and several make git write a file itself, with
+# no shell redirection for the scanner to catch (`git diff --output=PATH`). So
+# the verb's options are allowlisted too, and an option this guard has not
+# established the effect of is denied by default.
 classify_git() {
-  local sub i w
+  local sub i w name
+  local n=${#WORDS[@]}
 
   i=1
-  while [ "$i" -lt "${#WORDS[@]}" ]; do
-    w=$(unquote "${WORDS[$i]}")
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
     case "$w" in
       -c | --config-env | --exec-path | --upload-pack | --receive-pack)
         deny "git $w can make a read execute a command"
@@ -397,10 +598,43 @@ classify_git() {
 
   case "$sub" in
     log | status | show | diff | rev-parse | rev-list | ls-remote | ls-files | cat-file | describe)
-      return 0
       ;;
     *) deny "git $sub is not a read verb" ;;
   esac
+
+  i=1
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
+    case "$w" in
+      # Everything after `--` is a pathspec, never an option.
+      --) return 0 ;;
+      # `git log -5` — the obsolete bare-count form, which the surveyor uses.
+      -[0-9]*)
+        i=$((i + 1))
+        continue
+        ;;
+      -*) ;;
+      *)
+        i=$((i + 1))
+        continue
+        ;;
+    esac
+
+    split_flag "$w"
+    name=$FLAG_NAME
+    case "$GIT_OK_FLAGS$GIT_OK_VALUE_FLAGS" in
+      *" $name "*) ;;
+      *) deny "git option '$w' is not on the read-only allowlist" ;;
+    esac
+
+    if [ "$FLAG_HAS_VALUE" -eq 0 ]; then
+      case "$GIT_OK_VALUE_FLAGS" in
+        *" $name "*) i=$((i + 1)) ;;
+      esac
+    fi
+    i=$((i + 1))
+  done
+  return 0
 }
 
 # A filter never opens the pipeline (see classify_segment) and never takes a path.
@@ -408,59 +642,58 @@ classify_git() {
 # what the filter genuinely needs — a pattern or a program, never a file.
 classify_filter() {
   local prog=$1 flags=$2 value_flags=$3 cap=$4
-  local i=1 w operands=0
+  local i=1 w name operands=0
+  local n=${#WORDS[@]}
 
-  while [ "$i" -lt "${#WORDS[@]}" ]; do
-    w=$(unquote "${WORDS[$i]}")
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
     case "$w" in
-      --) ;;
-      -*)
-        case "$flags" in
-          *" $w "*)
-            i=$((i + 1))
-            continue
-            ;;
-        esac
-        case "$value_flags" in
-          *" $w "*)
-            # A pattern supplied by -e means every positional word is a file.
-            if [ "$w" = -e ]; then cap=0; fi
-            i=$((i + 2))
-            continue
-            ;;
-        esac
-        # --flag=value, and the attached short form `-d,` / `-n5` that GNU and
-        # BSD both accept for a value-taking short flag.
-        case "$w" in
-          --*=*)
-            case "$value_flags" in
-              *" ${w%%=*} "*)
-                i=$((i + 1))
-                continue
-                ;;
-            esac
-            ;;
-          -?*)
-            case "$value_flags" in
-              *" ${w:0:2} "*)
-                i=$((i + 1))
-                continue
-                ;;
-            esac
-            ;;
-        esac
-        # head/tail still accept the obsolete bare-count form, and the surveyor
-        # uses it (`head -20`).
-        case "$prog:$w" in
-          head:-[0-9]* | tail:-[0-9]*)
-            i=$((i + 1))
-            continue
-            ;;
-        esac
-        deny "$prog flag '$w' is not on the read-only allowlist"
+      --)
+        i=$((i + 1))
+        continue
         ;;
-      *) operands=$((operands + 1)) ;;
+      -*) ;;
+      *)
+        operands=$((operands + 1))
+        i=$((i + 1))
+        continue
+        ;;
     esac
+
+    # head/tail still accept the obsolete bare-count form (`head -20`).
+    case "$prog:$w" in
+      head:-[0-9]* | tail:-[0-9]*)
+        i=$((i + 1))
+        continue
+        ;;
+    esac
+
+    split_flag "$w"
+    name=$FLAG_NAME
+
+    if [ "$FLAG_HAS_VALUE" -eq 0 ]; then
+      case "$flags" in
+        *" $name "*)
+          i=$((i + 1))
+          continue
+          ;;
+      esac
+    fi
+
+    case "$value_flags" in
+      *" $name "*) ;;
+      *) deny "$prog flag '$w' is not on the read-only allowlist" ;;
+    esac
+
+    # A pattern supplied by a flag — in EITHER spelling — means every remaining
+    # positional word is a file, so the operand cap drops to zero.
+    if [ "$prog" = grep ]; then
+      case "$FILTER_PATTERN_FLAGS_GREP" in
+        *" $name "*) cap=0 ;;
+      esac
+    fi
+
+    if [ "$FLAG_HAS_VALUE" -eq 0 ]; then i=$((i + 1)); fi
     i=$((i + 1))
   done
 
@@ -472,10 +705,13 @@ classify_filter() {
 
 # sed is allowed by shape, not by exclusion: a plain substitution or a line
 # print/delete, and nothing else. `w` writes a file and `e` executes a command,
-# and both hide in a flag position that a blacklist keeps missing.
+# and both hide in a flag position that a blacklist keeps missing — including
+# behind further delimiters, which is why the substitution is parsed to its
+# THIRD delimiter rather than split on its last one. `s/a/b/w/tmp/g` writes
+# /tmp/g, and everything after the last `/` is just `g`.
 check_sed_script() {
-  local s delim tail
-  s=$(unquote "$1")
+  local s=$1
+  local delim tail n i ch count=0
 
   if [[ "$s" =~ ^[0-9,\$]*[pd]$ ]]; then return 0; fi
 
@@ -485,7 +721,28 @@ check_sed_script() {
   esac
 
   delim=${s:1:1}
-  tail=${s##*"$delim"}
+  case "$delim" in
+    [A-Za-z0-9] | "\\" | '') deny "sed substitution delimiter '$delim' is not supported here" ;;
+  esac
+
+  n=${#s}
+  i=2
+  while [ "$i" -lt "$n" ]; do
+    ch=${s:$i:1}
+    if [ "$ch" = "\\" ]; then
+      i=$((i + 2))
+      continue
+    fi
+    if [ "$ch" = "$delim" ]; then
+      count=$((count + 1))
+      if [ "$count" -eq 2 ]; then break; fi
+    fi
+    i=$((i + 1))
+  done
+
+  if [ "$count" -ne 2 ]; then deny "sed script '$s' is not a complete substitution"; fi
+
+  tail=${s:$((i + 1))}
   if [[ ! "$tail" =~ ^[gpIiMm0-9]*$ ]]; then
     deny "sed flags '$tail' may write a file or execute a command"
   fi
@@ -494,14 +751,16 @@ check_sed_script() {
 
 classify_sed() {
   local i=1 a
+  local n=${#WORDS[@]}
 
-  while [ "$i" -lt "${#WORDS[@]}" ]; do
-    a=$(unquote "${WORDS[$i]}")
+  while [ "$i" -lt "$n" ]; do
+    a=${WORDS[$i]}
     case "$a" in
       -n | -E | -r | --regexp-extended | --quiet | --silent | --) ;;
       -e | --expression)
         i=$((i + 1))
-        check_sed_script "${WORDS[$i]:-}"
+        if [ "$i" -ge "$n" ]; then deny 'sed -e needs a script'; fi
+        check_sed_script "${WORDS[$i]}"
         ;;
       -i | --in-place | -i* | --in-place=*) deny 'sed -i rewrites a file in place' ;;
       -f | --file) deny 'sed -f takes its script from a file' ;;
@@ -517,11 +776,9 @@ classify_segment() {
   local index=$2
   local prog=''
 
-  WORDS=()
-  read -ra WORDS <<<"$seg"
-  SEGMENT_TEXT=$seg
+  tokenize_segment "$seg"
 
-  if [ "${#WORDS[@]}" -gt 0 ]; then prog=$(unquote "${WORDS[0]}"); fi
+  if [ "${#WORDS[@]}" -gt 0 ]; then prog=${WORDS[0]}; fi
   if [ -z "$prog" ]; then deny 'empty pipeline segment — || chaining or a stray |'; fi
 
   # The pipeline must START at the forge. A filter in first position has nothing
@@ -568,7 +825,7 @@ main() {
         shift
         ;;
       -h | --help)
-        sed -n '3,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        sed -n '3,54p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
         exit 0
         ;;
       *) die "unknown argument: $1" ;;

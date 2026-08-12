@@ -248,6 +248,79 @@ expect_allow 'tr takes its two sets' "gh pr list --json number | tr 'a-z' 'A-Z'"
 expect_allow 'cut with a delimiter' "gh pr list --json number | cut -d, -f1"
 expect_allow 'head with a count' "gh repo list devantler-tech | head -n 20"
 
+# --- Regressions: shell spellings a text scanner cannot see through ---------
+#
+# Every one of these was ALLOWED by the scanner that classified the command as
+# TEXT. They are not eight unrelated bugs: each is another spelling of a word
+# the shell rewrites before the program ever sees it, which is why the guard now
+# resolves one literal argument vector first and classifies only that.
+
+# A shell expansion the guard cannot perform is refused rather than guessed at,
+# because its result — a flag, a second operand, a path — is exactly what the
+# classification depends on.
+expect_deny 'brace expansion can manufacture a method flag' \
+  "gh api {--method,POST} repos/devantler-tech/monorepo/issues"
+expect_deny 'brace expansion can manufacture an operand' \
+  "gh pr list --json number | grep -E claude{,/x}"
+expect_deny 'ANSI-C quoting hides the operation keyword' \
+  "gh api graphql -f query=\$'\\x6dutation{x}'"
+expect_deny 'a glob can expand into flags the guard never saw' "git diff *"
+expect_allow 'parameter expansion stays allowed, as documented' \
+  "git -C \$REPO log --oneline -5"
+expect_allow 'a braced parameter expansion is not brace expansion' \
+  "gh api repos/\${OWNER}/monorepo/pulls --paginate"
+
+# gh switches to POST as soon as a field is set, in EVERY spelling of the flag.
+expect_deny 'attached short field flag' "gh api repos/devantler-tech/monorepo/issues -fbody=hi"
+expect_deny 'attached short raw-field flag' "gh api repos/devantler-tech/monorepo/issues -Fbody=hi"
+expect_deny 'attached long field flag' "gh api repos/devantler-tech/monorepo/issues --field=body=hi"
+expect_deny 'attached long input flag' "gh api repos/devantler-tech/monorepo/issues --input=payload.json"
+
+# gh honours the LAST method flag, so a harmless first one is a free bypass.
+expect_deny 'a repeated method flag whose last value is a write' \
+  "gh api --method GET --method POST repos/devantler-tech/monorepo/issues"
+expect_deny 'a repeated method flag in attached form' \
+  "gh api -X GET -XPOST repos/devantler-tech/monorepo/issues"
+
+# `-F value` beginning with @ makes gh read that file and send its contents.
+expect_deny 'a file-backed graphql field reads a local file' \
+  "gh api graphql -F token=@/Users/someone/.config/gh/hosts.yml -f query='{viewer{login}}'"
+expect_deny 'a file-backed field on any endpoint' \
+  "gh api graphql -f token=@/etc/passwd -f query='{viewer{login}}'"
+
+# An unknown flag is a flag whose effect the guard has not established.
+expect_deny 'an unrecognised gh api flag' "gh api repos/devantler-tech/monorepo/pulls --nope"
+
+# git writes these files itself — no shell redirection for the scanner to catch.
+expect_deny 'git diff --output writes a file' "git diff --output=/tmp/guard-bypass"
+expect_deny 'git diff --output in separated form' "git diff --output /tmp/guard-bypass"
+expect_deny 'an unrecognised git option' "git log --nope"
+
+# grep's operands are PATTERNS [FILE]: once -e supplies the pattern, every
+# positional word is a file — in the attached spelling too.
+expect_deny 'attached grep -e leaves the operand a file' \
+  "gh pr list --json number | grep -e'.*' /Users/someone/.config/gh/hosts.yml"
+expect_deny 'grep --regexp= leaves the operand a file' \
+  "gh pr list --json number | grep --regexp='.*' /etc/passwd"
+
+# GNU sed reads `w/tmp/g` as a write flag, so the last delimiter is not the end
+# of the substitution.
+expect_deny 'a sed write flag hidden behind delimiters' \
+  "gh pr list --json number | sed 's/a/b/w/tmp/g'"
+expect_deny 'a sed execute flag hidden behind delimiters' \
+  "gh pr list --json number | sed 's/a/b/e/tmp/g'"
+expect_allow 'an ordinary substitution with flags still passes' \
+  "gh pr list --json number | sed 's/a/b/g'"
+
+# Quote boundaries carry meaning: a quoted pattern is ONE operand, and a scanner
+# that splits on whitespace turns a legitimate read into a denied file read.
+expect_allow 'a quoted pattern containing a space is one operand' \
+  "gh pr list --json title --jq '.[].title' | grep -E 'release candidate'"
+expect_allow 'a quoted sed program containing a space' \
+  "gh pr list --json number | sed 's/a b/c d/'"
+expect_allow 'a quoted jq expression containing spaces' \
+  "gh api rate_limit --jq '.resources | to_entries | map(.key)'"
+
 # ---------------------------------------------------------------------------
 # Usage
 # ---------------------------------------------------------------------------

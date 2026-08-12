@@ -198,6 +198,32 @@ same boundary in their permission layer. Scheduled instances should use fresh pe
 branch namespaces, least privilege, and a non-interactive execution policy. The desired-state resource
 records those requirements without assuming a particular runtime.
 
+### Enforcing the boundary: `scripts/forge-readonly-guard.sh`
+
+[`scripts/forge-readonly-guard.sh`](scripts/forge-readonly-guard.sh) is the decision procedure that
+layer calls. It answers one question about one candidate command — is this provably a read against the
+source forge — and it is tool-neutral: a Claude Code `PreToolUse` hook, a Codex approval guard, and a
+plain wrapper all ask it the same way.
+
+```sh
+forge-readonly-guard.sh --command '<command>'   # exit 0 allow · 1 deny (prints `deny: <reason>`) · 2 usage
+<command> | forge-readonly-guard.sh --stdin
+```
+
+**A bundled `scripts/` directory is a helper location, not an auto-discovered plugin resource — so
+installing this plugin does not by itself enforce anything.** Until a consumer wires the guard into its
+runtime, the surveyor's read-only boundary rests on the model honouring its definition, exactly as it
+did before. Wiring it is the consumer's step:
+
+1. Resolve the installed plugin path for your runtime.
+2. Register the script as the runtime's pre-execution decision point for shell commands, passing the
+   candidate command as `--command`.
+3. Treat a non-zero exit as a refusal, surfacing the printed `deny:` reason.
+
+Because the guard denies by default, run your own deployment's survey vocabulary through it before
+turning it on: a read it does not yet recognise fails closed, which is the intended direction but is
+better discovered deliberately than mid-run.
+
 Tools that implement this marketplace's plugin layout auto-discover the `agents/` and `skills/`
 directories. On surfaces without full plugin support, load the same canonical agent and skill files
 from this repository; do not fork or paste copies into the consumer repository.

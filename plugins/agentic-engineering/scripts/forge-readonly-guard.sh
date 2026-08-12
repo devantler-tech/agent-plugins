@@ -151,6 +151,23 @@ GIT_OK_FLAGS=" --no-pager --no-ext-diff --no-textconv --oneline --no-color --col
 GIT_PATCH_VERBS=" show diff "
 GIT_PATCH_FLAGS=" -p --patch "
 GIT_PATCH_REQUIRED_FLAGS=" --no-ext-diff --no-textconv "
+# Refreshing the index is when git consults `core.fsmonitor`, which is a HOOK
+# PROGRAM named in repository configuration and run before any output appears —
+# the same argv-invisible blind spot as `diff.external`, reached by a plain read.
+#
+# Measured on git 2.50.1 against a repository configuring it, with a DIRTY
+# worktree: `status`, `diff` and `ls-files` each execute the hook, while `log`,
+# `show`, `rev-parse`, `rev-list`, `cat-file` and `describe --dirty` do not. A
+# clean worktree hides most of it — nothing needs refreshing — so the verb set
+# comes from the dirty case, which is the state a survey actually meets.
+#
+# `-c core.fsmonitor=` switches it off and leaves output byte-identical, so this
+# takes the patch precedent rather than excluding the verbs: require the
+# suppression exactly where the hook is reachable, and leave every other read
+# untaxed. Only the empty value is admitted; `-c core.fsmonitor=/path` SETS the
+# hook, so `-c` stays denied for every other assignment.
+GIT_FSMONITOR_VERBS=" status diff ls-files "
+GIT_FSMONITOR_SUPPRESSION="core.fsmonitor="
 GIT_OK_VALUE_FLAGS=" -C --git-dir --work-tree -n --max-count --max-parents --min-parents --since --until --after --before --author --committer --grep --pretty --format --date --unified -U --diff-filter -L -S -G --abbrev --contains --no-contains --merged --no-merged --sort --points-at --glob --exclude "
 
 SEGMENTS=()
@@ -435,6 +452,22 @@ words_contain() {
   local want=$1 w
   for w in "${WORDS[@]}"; do
     if [ "$w" = "$want" ]; then return 0; fi
+  done
+  return 1
+}
+
+# `-c name=value` is two adjacent words, and only the pair carries the meaning:
+# `-c` alone sets nothing and the value alone is a pathspec. Reporting through
+# the exit status keeps this callable directly — a helper that returned the
+# index through stdout would run in a subshell and lose it.
+words_contain_pair() {
+  local first=$1 second=$2 i=0
+  local n=${#WORDS[@]}
+  while [ "$i" -lt "$((n - 1))" ]; do
+    if [ "${WORDS[$i]}" = "$first" ] && [ "${WORDS[$((i + 1))]}" = "$second" ]; then
+      return 0
+    fi
+    i=$((i + 1))
   done
   return 1
 }
@@ -777,7 +810,18 @@ classify_git() {
   while [ "$i" -lt "$n" ]; do
     w=${WORDS[$i]}
     case "$w" in
-      -c | --config-env | --exec-path | --upload-pack | --receive-pack)
+      -c)
+        # The one assignment that REMOVES an execution path rather than adding
+        # one. Matched as an exact pair so `-c core.fsmonitor=/evil` — which
+        # installs the hook — still falls through to the denial below.
+        if [ "$((i + 1))" -lt "$n" ] &&
+          [ "${WORDS[$((i + 1))]}" = "$GIT_FSMONITOR_SUPPRESSION" ]; then
+          i=$((i + 2))
+          continue
+        fi
+        deny "git $w can make a read execute a command"
+        ;;
+      --config-env | --exec-path | --upload-pack | --receive-pack)
         deny "git $w can make a read execute a command"
         ;;
       -c=* | --config-env=* | --exec-path=* | --upload-pack=* | --receive-pack=*)
@@ -817,6 +861,14 @@ classify_git() {
       fi
     done
   fi
+  case "$GIT_FSMONITOR_VERBS" in
+    *" $sub "*)
+      if ! words_contain_pair '-c' "$GIT_FSMONITOR_SUPPRESSION"; then
+        deny "git $sub refreshes the index and must pass -c $GIT_FSMONITOR_SUPPRESSION; without it repository configuration can name a hook program git executes"
+      fi
+      ;;
+  esac
+
   if [ "$patch" -eq 1 ]; then
     for req in $GIT_PATCH_REQUIRED_FLAGS; do
       if ! words_contain "$req"; then
@@ -834,6 +886,12 @@ classify_git() {
       # `git log -5` — the obsolete bare-count form, which the surveyor uses.
       -[0-9]*)
         i=$((i + 1))
+        continue
+        ;;
+      # The fsmonitor suppression, already proven an exact pair above. Skipping
+      # both words keeps its value from being read as a stray pathspec operand.
+      -c)
+        i=$((i + 2))
         continue
         ;;
       -*) ;;

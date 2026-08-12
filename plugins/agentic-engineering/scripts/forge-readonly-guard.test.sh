@@ -104,16 +104,21 @@ expect_allow 'a longer read pipeline' \
   "gh api repos/devantler-tech/platform/pulls --paginate --jq '.[].head.ref' | sort | uniq | wc -l"
 
 expect_allow 'git log' "git -C libraries/agent-plugins log --oneline -5"
-expect_allow 'git status' "git status --porcelain"
+expect_allow 'git status' "git -c core.fsmonitor= status --porcelain"
 expect_allow 'git rev-parse' "git rev-parse HEAD"
-# The surveyor's prescribed reads carry no suppression flags and must stay that
-# way: `log` without a patch flag and `status` never reach the diff drivers, so
-# requiring anything of them would tax the everyday path for no security gain.
+# `log` reaches neither mechanism without a patch flag: it computes no patch and
+# refreshes no index, so it carries no suppression at all. That is the everyday
+# path the two requirements are kept away from.
 expect_allow 'git log needs no suppression without a patch flag' "git log --oneline -20"
 expect_allow 'git log --stat computes no external patch' "git log --stat -5"
 # A patch-producing read does pay the cost, in its fully suppressed form.
 expect_allow 'git show of a blob, suppressed' "git show --no-ext-diff --no-textconv HEAD:AGENTS.md"
-expect_allow 'git diff, suppressed' "git diff --no-ext-diff --no-textconv HEAD~1"
+# `diff` pays BOTH costs: it produces a patch and refreshes the index.
+expect_allow 'git diff, suppressed' \
+  "git -c core.fsmonitor= diff --no-ext-diff --no-textconv HEAD~1"
+expect_allow 'git ls-files, suppressed' "git -c core.fsmonitor= ls-files"
+expect_allow 'the suppression survives -C' \
+  "git -C libraries/agent-plugins -c core.fsmonitor= status --porcelain"
 expect_allow 'git log -p, suppressed' "git log -p --no-ext-diff --no-textconv -3"
 
 # GraphQL is the one read the surveyor cannot do over GET: reviewThreads is a
@@ -268,8 +273,38 @@ expect_deny 'git submodule update' "git submodule update --init libraries/agent-
 # cannot see them at all — it either refuses the request to page, or requires the
 # flag that switches the mechanism off.
 expect_deny 'git --paginate runs core.pager' "git --paginate log --oneline -5"
-expect_deny 'git diff without --no-ext-diff runs diff.external' "git diff HEAD~1"
-expect_deny 'git diff with only --no-ext-diff still runs textconv' "git diff --no-ext-diff HEAD~1"
+# These carry the fsmonitor suppression so the PATCH rule is the one that fires;
+# without it they would deny on the index-refresh rule instead and prove nothing
+# about the mechanism named in the label.
+expect_deny 'git diff without --no-ext-diff runs diff.external' \
+  "git -c core.fsmonitor= diff HEAD~1"
+expect_deny 'git diff with only --no-ext-diff still runs textconv' \
+  "git -c core.fsmonitor= diff --no-ext-diff HEAD~1"
+
+# core.fsmonitor names a HOOK PROGRAM that a plain index-refreshing read runs
+# before producing any output. Measured on git 2.50.1 with a dirty worktree.
+expect_deny 'git status runs a configured fsmonitor hook' "git status --porcelain"
+expect_deny 'git ls-files runs a configured fsmonitor hook' "git ls-files"
+expect_deny 'git diff refreshes the index even when fully patch-suppressed' \
+  "git diff --no-ext-diff --no-textconv HEAD~1"
+# The carve-out is the empty value ONLY: every other assignment ADDS an
+# execution path, and this one installs the very hook being suppressed.
+expect_deny 'a -c that SETS fsmonitor is still denied' \
+  "git -c core.fsmonitor=/tmp/evil status --porcelain"
+expect_deny 'a near-miss fsmonitor value is not the suppression' \
+  "git -c core.fsmonitor=false status --porcelain"
+expect_deny 'the carve-out does not admit any other -c assignment' \
+  "git -c core.pager=/tmp/evil status --porcelain"
+# The three above would also deny for a MISSING suppression, so each leaves the
+# -c rule untested. Here the suppression IS present and satisfies the
+# requirement, so only the -c denial can reject the second assignment.
+expect_deny 'a second -c rides alongside a satisfied suppression' \
+  "git -c core.fsmonitor= -c core.pager=/tmp/evil status --porcelain"
+# The assignment means something only as a `-c` PAIR. On its own the same text
+# is an ordinary pathspec operand that configures nothing, so a requirement
+# matched by mere presence would be satisfied by a word git ignores.
+expect_deny 'the bare value as a pathspec does not satisfy the requirement' \
+  "git status --porcelain core.fsmonitor="
 expect_deny 'git show without suppression runs diff.external' "git show HEAD"
 expect_deny 'git log -p without suppression runs diff.external' "git log -p -3"
 expect_deny 'git log -u without suppression runs diff.external' "git log -u -3"
@@ -368,8 +403,10 @@ expect_deny 'a file-backed field on any endpoint' \
 expect_deny 'an unrecognised gh api flag' "gh api repos/devantler-tech/monorepo/pulls --nope"
 
 # git writes these files itself — no shell redirection for the scanner to catch.
-expect_deny 'git diff --output writes a file' "git diff --output=/tmp/guard-bypass"
-expect_deny 'git diff --output in separated form' "git diff --output /tmp/guard-bypass"
+expect_deny 'git diff --output writes a file' \
+  "git -c core.fsmonitor= diff --no-ext-diff --no-textconv --output=/tmp/guard-bypass"
+expect_deny 'git diff --output in separated form' \
+  "git -c core.fsmonitor= diff --no-ext-diff --no-textconv --output /tmp/guard-bypass"
 expect_deny 'an unrecognised git option' "git log --nope"
 
 # grep's operands are PATTERNS [FILE]: once -e supplies the pattern, every

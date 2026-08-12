@@ -104,7 +104,7 @@ expect_allow 'a longer read pipeline' \
   "gh api repos/devantler-tech/platform/pulls --paginate --jq '.[].head.ref' | sort | uniq | wc -l"
 
 expect_allow 'git log' "git -C libraries/agent-plugins log --oneline -5"
-expect_allow 'git status' "git -c core.fsmonitor= status --porcelain"
+expect_allow 'git status' "git -c core.fsmonitor= --no-optional-locks status --porcelain"
 expect_allow 'git rev-parse' "git rev-parse HEAD"
 # `log` reaches neither mechanism without a patch flag: it computes no patch and
 # refreshes no index, so it carries no suppression at all. That is the everyday
@@ -115,10 +115,10 @@ expect_allow 'git log --stat computes no external patch' "git log --stat -5"
 expect_allow 'git show of a blob, suppressed' "git show --no-ext-diff --no-textconv HEAD:AGENTS.md"
 # `diff` pays BOTH costs: it produces a patch and refreshes the index.
 expect_allow 'git diff, suppressed' \
-  "git -c core.fsmonitor= diff --no-ext-diff --no-textconv HEAD~1"
-expect_allow 'git ls-files, suppressed' "git -c core.fsmonitor= ls-files"
+  "git -c core.fsmonitor= --no-optional-locks diff --no-ext-diff --no-textconv HEAD~1"
+expect_allow 'git ls-files, suppressed' "git -c core.fsmonitor= --no-optional-locks ls-files"
 expect_allow 'the suppression survives -C' \
-  "git -C libraries/agent-plugins -c core.fsmonitor= status --porcelain"
+  "git -C libraries/agent-plugins -c core.fsmonitor= --no-optional-locks status --porcelain"
 expect_allow 'git log -p, suppressed' "git log -p --no-ext-diff --no-textconv -3"
 
 # GraphQL is the one read the surveyor cannot do over GET: reviewThreads is a
@@ -277,9 +277,9 @@ expect_deny 'git --paginate runs core.pager' "git --paginate log --oneline -5"
 # without it they would deny on the index-refresh rule instead and prove nothing
 # about the mechanism named in the label.
 expect_deny 'git diff without --no-ext-diff runs diff.external' \
-  "git -c core.fsmonitor= diff HEAD~1"
+  "git -c core.fsmonitor= --no-optional-locks diff HEAD~1"
 expect_deny 'git diff with only --no-ext-diff still runs textconv' \
-  "git -c core.fsmonitor= diff --no-ext-diff HEAD~1"
+  "git -c core.fsmonitor= --no-optional-locks diff --no-ext-diff HEAD~1"
 
 # core.fsmonitor names a HOOK PROGRAM that a plain index-refreshing read runs
 # before producing any output. Measured on git 2.50.1 with a dirty worktree.
@@ -305,6 +305,64 @@ expect_deny 'a second -c rides alongside a satisfied suppression' \
 # matched by mere presence would be satisfied by a word git ignores.
 expect_deny 'the bare value as a pathspec does not satisfy the requirement' \
   "git status --porcelain core.fsmonitor="
+
+# --- Bypasses that reached a classification the shell would not have produced ---
+
+# An unset positional expands to NOTHING and splices the words either side
+# together, so the classifier and the shell disagree about the whole argument.
+# `${9}` already failed check_expansion; the unbraced form never reached it.
+# shellcheck disable=SC2016  # the unexpanded characters ARE the input under test
+expect_deny 'an unbraced positional parameter splices a mutation together' \
+  'gh api graphql -f query=muta$9tion{x}'
+# shellcheck disable=SC2016  # the unexpanded characters ARE the input under test
+expect_deny 'a special parameter is rewritten the same way' \
+  'gh api graphql -f query=muta$@tion{x}'
+# shellcheck disable=SC2016  # the unexpanded characters ARE the input under test
+expect_allow 'a named parameter expansion stays allowed, as documented' \
+  'git -C $REPO log --oneline -5'
+
+# An unquoted `#` starts a comment, so every word after it is discarded — which
+# would let a command satisfy a required-flag check with flags that never run.
+expect_deny 'a shell comment fakes the patch suppression' \
+  "git show HEAD # --no-ext-diff --no-textconv"
+expect_deny 'a shell comment hides a denied verb behind an allowed one' \
+  "gh pr list --repo devantler-tech/monorepo # gh pr merge 1"
+expect_allow 'a # inside quotes is data, not a comment' \
+  "gh api repos/devantler-tech/monorepo/issues --jq '.[]|\"#\\(.number)\"'"
+expect_allow 'a mid-word # is not a comment' \
+  "gh api repos/devantler-tech/monorepo/labels/bug#1"
+
+# Patch flags arrive attached too, and an exact-word scan cannot see them.
+expect_deny 'an attached patch flag cluster still produces a patch' "git log -pU3 -1"
+expect_deny 'a unified-context flag implies a patch' "git log -U3 -1"
+expect_allow 'the attached form is fine once suppressed' \
+  "git log -pU3 -1 --no-ext-diff --no-textconv"
+
+# %G asks git to verify a signature, which runs the configured gpg.program — a
+# third config-named execution path, independent of the diff drivers.
+expect_deny 'a %G placeholder runs the configured gpg.program' \
+  "git -c core.fsmonitor= --no-optional-locks log --format=%G? -1"
+expect_deny 'the same placeholder in a separated --pretty value' \
+  "git log --pretty %G? -1"
+expect_allow 'an ordinary format placeholder is untouched' "git log --format=%H -1"
+
+# gh takes a host in a POSITIONAL too, and the token travels with the host.
+expect_deny 'a positional URL retargets the authenticated request' \
+  "gh pr view https://example.com/x/y/pull/1"
+expect_deny 'a positional host/owner/repo does the same' "gh repo view example.com/x/y"
+expect_allow 'an in-repo api endpoint carries no host' \
+  "gh api repos/devantler-tech/monorepo/pulls/1"
+
+# jq can borrow its filter from a file the guard never sees.
+expect_deny 'jq include loads filter code from the surveyed tree' \
+  "gh pr list | jq 'include \"evil\"; leak'"
+expect_deny 'jq import is the same mechanism' \
+  "gh pr list | jq 'import \"evil\" as e; e::leak'"
+
+# An index refresh rewrites .git/index, which is a write inside a certified read.
+expect_deny 'git status without --no-optional-locks rewrites the index' \
+  "git -c core.fsmonitor= status --porcelain"
+expect_deny 'git ls-files without it does the same' "git -c core.fsmonitor= ls-files"
 expect_deny 'git show without suppression runs diff.external' "git show HEAD"
 expect_deny 'git log -p without suppression runs diff.external' "git log -p -3"
 expect_deny 'git log -u without suppression runs diff.external' "git log -u -3"
@@ -404,9 +462,9 @@ expect_deny 'an unrecognised gh api flag' "gh api repos/devantler-tech/monorepo/
 
 # git writes these files itself — no shell redirection for the scanner to catch.
 expect_deny 'git diff --output writes a file' \
-  "git -c core.fsmonitor= diff --no-ext-diff --no-textconv --output=/tmp/guard-bypass"
+  "git -c core.fsmonitor= --no-optional-locks diff --no-ext-diff --no-textconv --output=/tmp/guard-bypass"
 expect_deny 'git diff --output in separated form' \
-  "git -c core.fsmonitor= diff --no-ext-diff --no-textconv --output /tmp/guard-bypass"
+  "git -c core.fsmonitor= --no-optional-locks diff --no-ext-diff --no-textconv --output /tmp/guard-bypass"
 expect_deny 'an unrecognised git option' "git log --nope"
 
 # grep's operands are PATTERNS [FILE]: once -e supplies the pattern, every

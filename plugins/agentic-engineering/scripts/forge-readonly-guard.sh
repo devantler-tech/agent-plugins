@@ -134,7 +134,7 @@ GH_API_FIELD_FLAGS=" -f --raw-field -F --field --input "
 # `--paginate` is deliberately absent: it asks git to run `core.pager`, a program
 # named by configuration the guard cannot see.
 GIT_VALUE_FLAGS=" -C -c --git-dir --work-tree --exec-path --namespace "
-GIT_OK_FLAGS=" --no-pager --no-ext-diff --no-textconv --oneline --no-color --color --graph --decorate --no-decorate --abbrev-commit --all --branches --tags --remotes --heads --refs --stat --numstat --shortstat --name-only --name-status --porcelain --short --long --branch --verbose --count --not --reverse --first-parent --merges --no-merges --quiet --verify --symbolic --symbolic-full-name --abbrev-ref --show-toplevel --is-inside-work-tree --is-bare-repository --cached --staged --patch -p --no-patch --raw --text --exit-code --no-renames --topo-order --date-order --left-right --boundary --parents --children --objects --stdin --binary --full-history --follow --no-prefix --numbered "
+GIT_OK_FLAGS=" --no-pager --no-optional-locks --no-ext-diff --no-textconv --oneline --no-color --color --graph --decorate --no-decorate --abbrev-commit --all --branches --tags --remotes --heads --refs --stat --numstat --shortstat --name-only --name-status --porcelain --short --long --branch --verbose --count --not --reverse --first-parent --merges --no-merges --quiet --verify --symbolic --symbolic-full-name --abbrev-ref --show-toplevel --is-inside-work-tree --is-bare-repository --cached --staged --patch -p --no-patch --raw --text --exit-code --no-renames --topo-order --date-order --left-right --boundary --parents --children --objects --stdin --binary --full-history --follow --no-prefix --numbered "
 # Flags a PATCH-PRODUCING git read must CARRY, not merely be allowed to carry.
 # Generating patch text is what reaches the two mechanisms whose program comes
 # from configuration rather than argv, unconditionally and regardless of whether
@@ -247,6 +247,20 @@ scan_segments() {
     fi
 
     case "$ch" in
+      # An unquoted `#` that STARTS a word begins a comment: bash discards it and
+      # everything after it. The scanner would otherwise keep reading those words
+      # as real arguments — so `git show HEAD # --no-ext-diff --no-textconv`
+      # classifies as fully suppressed while the shell executes only
+      # `git show HEAD`, and the configured diff/textconv program runs after all.
+      # Every required-flag check in this guard is defeated the same way, which is
+      # why this is refused at the parser rather than per verb. Mid-word `#` is
+      # ordinary data (`issues#1`) and is untouched.
+      '#')
+        if [ -z "$prev" ] || [ "$prev" = ' ' ] || [ "$prev" = $'\t' ]; then
+          deny 'an unquoted # starts a shell comment, so the words after it are discarded before the command runs'
+        fi
+        cur=$cur$ch
+        ;;
       "'")
         state=single
         cur=$cur$ch
@@ -270,6 +284,16 @@ scan_segments() {
           '(') deny 'dollar-paren command substitution is not a read' ;;
           "'") deny "ANSI-C quoting \$'…' rewrites the word before the command sees it" ;;
           '"') deny 'locale-translation quoting $"…" rewrites the word before the command sees it' ;;
+          # A POSITIONAL or SPECIAL parameter, unbraced. `${9}` already fails
+          # check_expansion, but `$9` never reached it, and the difference is not
+          # cosmetic: an execution shell normally has no ninth argument, so `$9`
+          # expands to NOTHING and splices the words either side of it together —
+          # `-f 'muta'$9'tion{x}'` is classified as the literal `muta$9tion{x}`
+          # and executed as `mutation{x}`. That needs no control over the
+          # environment, only the knowledge that the parameter is unset.
+          [0-9] | '*' | '@' | '#' | '?' | '-' | '!' | '$')
+            deny "the parameter expansion \$$nxt is removed or rewritten before the command sees it — expand it yourself"
+            ;;
           '{')
             j=$((i + 2))
             ec=''
@@ -692,6 +716,17 @@ check_gh_verb_flags() {
         ;;
       -*) ;;
       *)
+        # A POSITIONAL can name the host too, so skipping every one of them
+        # reopens exactly the hole `--hostname` and `--repo`'s value were closed
+        # for: `gh pr view https://example.com/x/y/pull/1` and
+        # `gh repo view example.com/x/y` both send an AUTHENTICATED request to
+        # that host. The credential travels with the destination, so this is
+        # exfiltration on a read, not merely a wrong lookup. An in-repo endpoint
+        # (`repos/owner/name/pulls`) carries no dotted host and is unaffected.
+        case "$w" in
+          *://*) deny "gh positional '$w' names a host, which retargets the authenticated request" ;;
+          *.*/*) deny "gh positional '$w' names a host, which retargets the authenticated request" ;;
+        esac
         i=$((i + 1))
         continue
         ;;
@@ -861,13 +896,59 @@ classify_git() {
       fi
     done
   fi
+  # Patch flags also arrive ATTACHED, and an exact-word scan cannot see them:
+  # `git log -pU3 -1` is patch output to git and three unrecognised characters to
+  # a `words_contain "-p"` test, so the textconv/diff.external suppression is
+  # never demanded. Short options cluster, so inspect the cluster's letters; and
+  # `-U<n>`/`--unified` request patch context, which implies a patch.
+  if [ "$patch" -eq 0 ]; then
+    local wi=1 ww
+    while [ "$wi" -lt "$n" ]; do
+      ww=${WORDS[$wi]}
+      case "$ww" in
+        --unified=* | --unified) patch=1 ;;
+        --*) ;;
+        -[0-9]*) ;;
+        -*[pU]*) patch=1 ;;
+      esac
+      [ "$patch" -eq 1 ] && break
+      wi=$((wi + 1))
+    done
+  fi
   case "$GIT_FSMONITOR_VERBS" in
     *" $sub "*)
       if ! words_contain_pair '-c' "$GIT_FSMONITOR_SUPPRESSION"; then
         deny "git $sub refreshes the index and must pass -c $GIT_FSMONITOR_SUPPRESSION; without it repository configuration can name a hook program git executes"
       fi
+      # The same index refresh REWRITES `.git/index` to cache stat information,
+      # which is a file write inside a command this guard certifies as a read —
+      # touching a tracked file with unchanged contents is enough to trigger it.
+      # `--no-optional-locks` is git's own switch for exactly this class.
+      if ! words_contain '--no-optional-locks'; then
+        deny "git $sub refreshes the index and must pass --no-optional-locks; without it the read rewrites .git/index"
+      fi
       ;;
   esac
+
+  # `%G?` and its siblings ask git to VERIFY a signature, which runs the program
+  # named by `gpg.program` — a third config-named execution path, independent of
+  # the diff drivers and the fsmonitor hook, and reachable from a plain
+  # `git log --format=…`. The placeholders are a documented, closed set.
+  local fi=1 fw
+  while [ "$fi" -lt "$n" ]; do
+    fw=${WORDS[$fi]}
+    case "$fw" in
+      --format=*%G* | --pretty=*%G* | format:*%G* | tformat:*%G*)
+        deny "a %G signature placeholder makes git run the configured gpg.program"
+        ;;
+      --format | --pretty)
+        case "${WORDS[$((fi + 1))]:-}" in
+          *%G*) deny "a %G signature placeholder makes git run the configured gpg.program" ;;
+        esac
+        ;;
+    esac
+    fi=$((fi + 1))
+  done
 
   if [ "$patch" -eq 1 ]; then
     for req in $GIT_PATCH_REQUIRED_FLAGS; do
@@ -946,6 +1027,14 @@ classify_filter() {
           esac
           if [[ "$w" =~ (^|[^A-Za-z0-9_.])env([^A-Za-z0-9_]|$) ]]; then
             deny 'jq env exposes the process environment'
+          fi
+          # `include`/`import` load jq code from a FILE in the surveyed tree, so
+          # the filter this guard inspects is no longer the filter jq runs: an
+          # `evil.jq` defining `leak` as `env.GH_TOKEN` turns the innocuous text
+          # `include "evil"; leak` into a credential print. Scanning the literal
+          # operand cannot see borrowed code, so the loading forms are refused.
+          if [[ "$w" =~ (^|[^A-Za-z0-9_.])(include|import)([^A-Za-z0-9_]|$) ]]; then
+            deny 'jq include/import loads filter code from a file the guard never sees'
           fi
         fi
         operands=$((operands + 1))

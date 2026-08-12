@@ -50,7 +50,18 @@ jobs:
           persist-credentials: false
 
       - name: 🐚 ShellCheck scripts
-        run: shellcheck scripts/*.sh
+        # Repo-level scripts plus every helper a plugin bundles, whether it sits
+        # beside a skill or serves the plugin's agents. A guard that ships to
+        # consumers is linted like any other script here.
+        run: |
+          shopt -s nullglob
+          files=(scripts/*.sh plugins/*/scripts/*.sh plugins/*/skills/*/scripts/*.sh)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::Script discovery found nothing — the globs are wrong."
+            exit 1
+          fi
+          printf 'Linting %s script(s).\n' "${#files[@]}"
+          shellcheck "${files[@]}"
 
       - name: 🧪 Self-test the version-bump guard
         # Proves check-plugin-version-bump.sh PASSES what it must not block (a bumped
@@ -73,17 +84,18 @@ jobs:
         # plugin reaching consumers. Self-contained: throwaway fixtures, no network.
         run: ./scripts/validate-manifests.test.sh
 
-      - name: 🧪 Self-test skill helper scripts
-        # Runs every hermetic *.test.sh bundled alongside a skill's helper scripts
-        # (plugins/**/skills/**/scripts/), so a regression in a script that ships
-        # to users is caught here rather than mid-audit. New script tests are picked
-        # up automatically — no workflow edit needed. Self-contained: each test
-        # stubs its external tools (no network, no cluster).
+      - name: 🧪 Self-test bundled helper scripts
+        # Runs every hermetic *.test.sh bundled with a plugin — beside a skill
+        # (plugins/*/skills/*/scripts/) or serving the plugin's agents
+        # (plugins/*/scripts/) — so a regression in a script that ships to users is
+        # caught here rather than mid-audit. New script tests are picked up
+        # automatically — no workflow edit needed. Self-contained: each test stubs
+        # its external tools (no network, no cluster).
         run: |
           shopt -s nullglob
-          tests=(plugins/*/skills/*/scripts/*.test.sh)
+          tests=(plugins/*/scripts/*.test.sh plugins/*/skills/*/scripts/*.test.sh)
           if [ ${#tests[@]} -eq 0 ]; then
-            echo "No skill helper-script self-tests found."
+            echo "No bundled helper-script self-tests found."
             exit 0
           fi
           for t in "${tests[@]}"; do

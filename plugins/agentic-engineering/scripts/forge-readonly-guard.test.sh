@@ -333,6 +333,12 @@ expect_allow 'a mid-word # is not a comment' \
   "gh api repos/devantler-tech/monorepo/labels/bug#1"
 
 # Patch flags arrive attached too, and an exact-word scan cannot see them.
+# `-p` means something else on a verb that cannot produce a patch, and inferring
+# one there denies a legitimate read with a remedy that cannot work — `cat-file`
+# rejects `--no-ext-diff`. Only log/diff/show infer a patch from a flag.
+expect_allow 'git cat-file -p is pretty-print, not a patch' "git cat-file -p HEAD:AGENTS.md"
+expect_allow 'git rev-list -1 is a count, not a patch' "git rev-list -1 HEAD"
+expect_allow 'git describe takes no patch' "git describe --tags"
 expect_deny 'an attached patch flag cluster still produces a patch' "git log -pU3 -1"
 expect_deny 'a unified-context flag implies a patch' "git log -U3 -1"
 expect_allow 'the attached form is fine once suppressed' \

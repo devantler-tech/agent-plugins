@@ -466,10 +466,6 @@ split_flag() {
   esac
 }
 
-# The first non-flag word in WORDS at or after $1, skipping flags and the values
-# they consume ($2 is a space-delimited set of value-taking flags).
-#
-# Reports through the globals SUB_WORD and SUB_INDEX rather than stdout, because
 # Exact-match a resolved argv word. Compares whole words rather than substrings,
 # so `--no-pager` is not satisfied by some longer flag that merely contains it.
 words_contain() {
@@ -496,6 +492,10 @@ words_contain_pair() {
   return 1
 }
 
+# The first non-flag word in WORDS at or after $1, skipping flags and the values
+# they consume ($2 is a space-delimited set of value-taking flags).
+#
+# Reports through the globals SUB_WORD and SUB_INDEX rather than stdout, because
 # a caller needs both the word and where it sat — and reading the word through
 # `$(...)` would run this in a subshell, where the index assignment dies with it.
 SUB_WORD=''
@@ -888,7 +888,16 @@ classify_git() {
   case "$GIT_PATCH_VERBS" in
     *" $sub "*) patch=1 ;;
   esac
-  if [ "$patch" -eq 0 ]; then
+  # Only the patch-CAPABLE verbs infer a patch from a flag. `-p` means something
+  # else elsewhere — to `cat-file` it is pretty-print — and inferring a patch
+  # there denies a legitimate read while naming a remedy that cannot work, since
+  # `cat-file` rejects `--no-ext-diff` outright. A guard whose fix is impossible
+  # is worse than one that never fired: it makes the read unreachable.
+  local flagverb=0
+  case "$sub" in
+    log | diff | show) flagverb=1 ;;
+  esac
+  if [ "$patch" -eq 0 ] && [ "$flagverb" -eq 1 ]; then
     for pf in $GIT_PATCH_FLAGS; do
       if words_contain "$pf"; then
         patch=1
@@ -901,7 +910,7 @@ classify_git() {
   # a `words_contain "-p"` test, so the textconv/diff.external suppression is
   # never demanded. Short options cluster, so inspect the cluster's letters; and
   # `-U<n>`/`--unified` request patch context, which implies a patch.
-  if [ "$patch" -eq 0 ]; then
+  if [ "$patch" -eq 0 ] && [ "$flagverb" -eq 1 ]; then
     local wi=1 ww
     while [ "$wi" -lt "$n" ]; do
       ww=${WORDS[$wi]}
@@ -1222,7 +1231,11 @@ main() {
         shift
         ;;
       -h | --help)
-        sed -n '3,54p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        # Print the header comment to wherever it actually ends, rather than to a
+        # line number: a fixed range silently truncates the moment the header
+        # grows, which is how `--help` came to stop mid-sentence inside the third
+        # documented limit and drop the residue note entirely.
+        awk 'NR>=3 { if (/^#/) { sub(/^# ?/, ""); print; next } exit }' "${BASH_SOURCE[0]}"
         exit 0
         ;;
       *) die "unknown argument: $1" ;;

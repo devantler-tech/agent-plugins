@@ -224,6 +224,19 @@ Because the guard denies by default, run your own deployment's survey vocabulary
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is
 better discovered deliberately than mid-run.
 
+**Two residues the guard cannot close from argv alone — the calling runtime must.** Both are stated
+here rather than left implicit, because a guard whose limits are undocumented gets trusted for things
+it never claimed:
+
+- **`core.pager`.** A surveyed repository can name a pager program, and git runs it only when
+  standard output is a terminal. The guard refuses `--paginate` and allows `--no-pager`, but it
+  cannot see whether a TTY is attached. **Run the guarded command non-interactively** (no TTY on
+  stdout), which is already how a scheduled agent executes.
+- **Parameter expansion.** A named expansion such as `$REPO` is allowed, so the word the shell builds
+  depends on the environment the runtime provides. Positional and special parameters are refused
+  precisely because they are removable, but named ones are a deliberate convenience. **Do not
+  interpolate untrusted text into the environment** of the shell that runs a guarded command.
+
 Tools that implement this marketplace's plugin layout auto-discover the `agents/` and `skills/`
 directories. On surfaces without full plugin support, load the same canonical agent and skill files
 from this repository; do not fork or paste copies into the consumer repository.

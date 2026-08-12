@@ -70,7 +70,7 @@ check_pass() {
 check_fail() {
   local desc="$1" pat="$2" dir="$3" base="${4:-main}" out rc
   out=$(run_guard "$dir" "$base"); rc=$?
-  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "$pat"; then
+  if [ "$rc" -ne 0 ] && [[ $out == *"$pat"* ]]; then
     echo "  ✓ $desc"; pass=$((pass + 1))
   else
     echo "  ✗ $desc — expected non-zero exit + message containing '$pat'; got exit $rc"

@@ -145,7 +145,7 @@ check_pass() {
 check_fail() {
   local desc="$1" pat="$2" dir="$3" out rc
   out=$(run_guard "$dir"); rc=$?
-  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "$pat"; then
+  if [ "$rc" -ne 0 ] && [[ $out == *"$pat"* ]]; then
     echo "  ✓ $desc"; pass=$((pass + 1))
   else
     echo "  ✗ $desc — expected non-zero exit + message containing '$pat'; got exit $rc"
@@ -166,7 +166,7 @@ check_published_contract_pass() {
 check_published_contract_fail() {
   local desc="$1" dir="$2" out rc
   out=$(validate_published_rename_contract "$dir"); rc=$?
-  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "must preserve every published plugin rename"; then
+  if [ "$rc" -ne 0 ] && [[ $out == *"must preserve every published plugin rename"* ]]; then
     echo "  ✓ $desc"; pass=$((pass + 1))
   else
     echo "  ✗ $desc — expected coordinated history rewrite to fail; got exit $rc"

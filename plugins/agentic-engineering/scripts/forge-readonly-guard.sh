@@ -40,7 +40,7 @@
 # flag, `{a,b}`, `$'\x6d'`, a delimiter inside a sed flag. Resolving argv first
 # deletes that whole class instead of blacklisting its members one at a time.
 #
-# Two limits are deliberate and stated rather than hidden:
+# Three limits are deliberate and stated rather than hidden:
 #
 #   * Parameter expansion is allowed, because the surveyor's own prescriptions
 #     use it, and it is the one expansion the guard cannot resolve without
@@ -50,6 +50,14 @@
 #     forge CLI offers. Widening one is a reviewed edit here, which is the
 #     point — and a false deny reports the flag it did not recognise, so the
 #     widening is a one-line change rather than an investigation.
+#   * Git resolves configuration AFTER parsing, so no inspection of argv can show
+#     what a configuration key names. Where the effect is unconditional the guard
+#     acts: it excludes the remote-contacting verbs, whose URL comes from
+#     `remote.<name>.url`, and requires `--no-ext-diff`/`--no-textconv` on a
+#     patch-producing read. `core.pager` is the residue — it runs only when git's
+#     output is a terminal, so a request to page (`--paginate`) is refused, but a
+#     deployment that attaches a TTY should also set `GIT_PAGER=cat`. What argv
+#     cannot express, a guard over argv cannot certify.
 #
 # Written for bash 3.2 so it runs on a stock macOS agent host as well as CI.
 #
@@ -122,8 +130,27 @@ GH_API_FIELD_FLAGS=" -f --raw-field -F --field --input "
 # git options. Read verbs are not enough on their own: several options make git
 # write a file or execute a program without any shell syntax for the scanner to
 # catch, so options are allowlisted like everything else.
+#
+# `--paginate` is deliberately absent: it asks git to run `core.pager`, a program
+# named by configuration the guard cannot see.
 GIT_VALUE_FLAGS=" -C -c --git-dir --work-tree --exec-path --namespace "
-GIT_OK_FLAGS=" --no-pager --paginate --oneline --no-color --color --graph --decorate --no-decorate --abbrev-commit --all --branches --tags --remotes --heads --refs --stat --numstat --shortstat --name-only --name-status --porcelain --short --long --branch --verbose --count --not --reverse --first-parent --merges --no-merges --quiet --verify --symbolic --symbolic-full-name --abbrev-ref --show-toplevel --is-inside-work-tree --is-bare-repository --cached --staged --patch --no-patch --raw --text --exit-code --no-renames --topo-order --date-order --left-right --boundary --parents --children --objects --stdin --binary --full-history --follow --no-prefix --numbered "
+GIT_OK_FLAGS=" --no-pager --no-ext-diff --no-textconv --oneline --no-color --color --graph --decorate --no-decorate --abbrev-commit --all --branches --tags --remotes --heads --refs --stat --numstat --shortstat --name-only --name-status --porcelain --short --long --branch --verbose --count --not --reverse --first-parent --merges --no-merges --quiet --verify --symbolic --symbolic-full-name --abbrev-ref --show-toplevel --is-inside-work-tree --is-bare-repository --cached --staged --patch -p --no-patch --raw --text --exit-code --no-renames --topo-order --date-order --left-right --boundary --parents --children --objects --stdin --binary --full-history --follow --no-prefix --numbered "
+# Flags a PATCH-PRODUCING git read must CARRY, not merely be allowed to carry.
+# Generating patch text is what reaches the two mechanisms whose program comes
+# from configuration rather than argv, unconditionally and regardless of whether
+# a terminal is attached: `diff.external` replaces the diff engine outright, and a
+# `diff.<driver>.textconv` driver named by a gitattributes entry is run over each
+# blob. `--no-ext-diff` and `--no-textconv` switch them off.
+#
+# `diff` and `show` produce a patch by default. `log` does so only when asked, so
+# it pays this cost only when a patch flag is present — which is what keeps the
+# surveyor's own `git log --oneline` and `git status` unchanged.
+# `-u` is deliberately not listed: it means `--untracked-files` to `status`, so
+# treating it as a patch flag would tax an ordinary status read. It is not on
+# GIT_OK_FLAGS either, so it is refused as unrecognised rather than misread.
+GIT_PATCH_VERBS=" show diff "
+GIT_PATCH_FLAGS=" -p --patch "
+GIT_PATCH_REQUIRED_FLAGS=" --no-ext-diff --no-textconv "
 GIT_OK_VALUE_FLAGS=" -C --git-dir --work-tree -n --max-count --max-parents --min-parents --since --until --after --before --author --committer --grep --pretty --format --date --unified -U --diff-filter -L -S -G --abbrev --contains --no-contains --merged --no-merged --sort --points-at --glob --exclude "
 
 SEGMENTS=()
@@ -402,6 +429,16 @@ split_flag() {
 # they consume ($2 is a space-delimited set of value-taking flags).
 #
 # Reports through the globals SUB_WORD and SUB_INDEX rather than stdout, because
+# Exact-match a resolved argv word. Compares whole words rather than substrings,
+# so `--no-pager` is not satisfied by some longer flag that merely contains it.
+words_contain() {
+  local want=$1 w
+  for w in "${WORDS[@]}"; do
+    if [ "$w" = "$want" ]; then return 0; fi
+  done
+  return 1
+}
+
 # a caller needs both the word and where it sat — and reading the word through
 # `$(...)` would run this in a subshell, where the index assignment dies with it.
 SUB_WORD=''
@@ -458,8 +495,13 @@ classify_gh_api() {
   local i=2 w name val
   local n=${#WORDS[@]}
   local endpoint='' seen_endpoint=0
-  local methods='' field_count=0
+  local field_count=0
   local field_values='' m
+  # An ARRAY, not a string. `set -euo pipefail` does not disable pathname
+  # expansion, so iterating an unquoted string would expand a method value of `*`
+  # against the current directory — and a file named `GET` there would then read
+  # as an allowed method.
+  local methods=()
 
   # gh takes the LAST method flag it is given, so a first harmless one is not
   # evidence of anything: collect every occurrence and hold them all to the
@@ -474,6 +516,13 @@ classify_gh_api() {
       -*) ;;
       *)
         if [ "$seen_endpoint" -eq 0 ]; then
+          # An absolute URL lets the endpoint choose the outbound host. That is a
+          # destination decision, and under this deployment's egress rules the
+          # destination is never taken from text the agent read. A relative path
+          # can only ever address the configured forge.
+          case "$w" in
+            *://*) deny 'gh api endpoint is an absolute URL, which chooses the outbound host' ;;
+          esac
           endpoint=$w
           seen_endpoint=1
         fi
@@ -526,13 +575,13 @@ $val"
     esac
 
     case "$name" in
-      --method | -X) methods="$methods $(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')" ;;
+      --method | -X) methods+=("$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')") ;;
     esac
     i=$((i + 1))
   done
 
   if [ "$endpoint" = graphql ]; then
-    for m in $methods; do
+    for m in ${methods+"${methods[@]}"}; do
       if [ "$m" != POST ] && [ "$m" != GET ]; then
         deny "gh api graphql --method $m is not a read"
       fi
@@ -545,7 +594,7 @@ EOF
     return 0
   fi
 
-  for m in $methods; do
+  for m in ${methods+"${methods[@]}"}; do
     if [ "$m" != GET ]; then deny "gh api --method $m is not a read"; fi
   done
 
@@ -708,6 +757,30 @@ classify_git() {
       ;;
     *) deny "git $sub is not a read verb" ;;
   esac
+
+  # A patch-producing read reaches `diff.external` and the textconv drivers, whose
+  # programs are named in repository configuration the guard cannot see — the same
+  # blind spot that excludes the remote-contacting verbs. Here the flags that
+  # switch them off do exist, so require them rather than exclude the verb.
+  local req patch=0 pf
+  case "$GIT_PATCH_VERBS" in
+    *" $sub "*) patch=1 ;;
+  esac
+  if [ "$patch" -eq 0 ]; then
+    for pf in $GIT_PATCH_FLAGS; do
+      if words_contain "$pf"; then
+        patch=1
+        break
+      fi
+    done
+  fi
+  if [ "$patch" -eq 1 ]; then
+    for req in $GIT_PATCH_REQUIRED_FLAGS; do
+      if ! words_contain "$req"; then
+        deny "git $sub produces a patch and must pass $req; without it configuration can name the program git runs"
+      fi
+    done
+  fi
 
   i=1
   while [ "$i" -lt "$n" ]; do

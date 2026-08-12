@@ -106,7 +106,15 @@ expect_allow 'a longer read pipeline' \
 expect_allow 'git log' "git -C libraries/agent-plugins log --oneline -5"
 expect_allow 'git status' "git status --porcelain"
 expect_allow 'git rev-parse' "git rev-parse HEAD"
-expect_allow 'git show of a blob' "git show HEAD:AGENTS.md"
+# The surveyor's prescribed reads carry no suppression flags and must stay that
+# way: `log` without a patch flag and `status` never reach the diff drivers, so
+# requiring anything of them would tax the everyday path for no security gain.
+expect_allow 'git log needs no suppression without a patch flag' "git log --oneline -20"
+expect_allow 'git log --stat computes no external patch' "git log --stat -5"
+# A patch-producing read does pay the cost, in its fully suppressed form.
+expect_allow 'git show of a blob, suppressed' "git show --no-ext-diff --no-textconv HEAD:AGENTS.md"
+expect_allow 'git diff, suppressed' "git diff --no-ext-diff --no-textconv HEAD~1"
+expect_allow 'git log -p, suppressed' "git log -p --no-ext-diff --no-textconv -3"
 
 # GraphQL is the one read the surveyor cannot do over GET: reviewThreads is a
 # GraphQL-only field, so a guard that refused every POST would break it.
@@ -254,6 +262,28 @@ expect_deny 'git fetch' "git fetch origin main"
 expect_deny 'git clone' "git clone https://github.com/devantler-tech/monorepo.git"
 expect_deny 'git remote get-url' "git remote get-url origin"
 expect_deny 'git submodule update' "git submodule update --init libraries/agent-plugins"
+
+# Options whose program comes from repository CONFIGURATION rather than argv. The
+# flags above name a program in the command line; these do not, so the guard
+# cannot see them at all — it either refuses the request to page, or requires the
+# flag that switches the mechanism off.
+expect_deny 'git --paginate runs core.pager' "git --paginate log --oneline -5"
+expect_deny 'git diff without --no-ext-diff runs diff.external' "git diff HEAD~1"
+expect_deny 'git diff with only --no-ext-diff still runs textconv' "git diff --no-ext-diff HEAD~1"
+expect_deny 'git show without suppression runs diff.external' "git show HEAD"
+expect_deny 'git log -p without suppression runs diff.external' "git log -p -3"
+expect_deny 'git log -u without suppression runs diff.external' "git log -u -3"
+expect_deny 'git log --patch without suppression runs diff.external' "git log --patch -3"
+
+# `set -euo pipefail` does not disable pathname expansion, so a method value of
+# `*` must not be expanded against the working directory before validation.
+expect_deny 'a glob method value is not expanded' "gh api --method '*' repos/devantler-tech/monorepo/pulls"
+
+# An absolute-URL endpoint chooses the outbound host, which is a destination
+# decision the agent must never take from text it read.
+expect_deny 'absolute-URL endpoint' "gh api https://example.com/repos/devantler-tech/monorepo"
+expect_deny 'absolute-URL endpoint on the forge host' "gh api https://api.github.com/repos/devantler-tech/monorepo"
+expect_allow 'a relative endpoint is still fine' "gh api repos/devantler-tech/monorepo/pulls"
 
 # A filter is not a reader: it may not open the pipeline, and it may not take a
 # path. `cat ~/.config/gh/hosts.yml` is a credential read wearing a filter name.

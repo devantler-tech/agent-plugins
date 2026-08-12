@@ -125,7 +125,8 @@ config) stays local and fast. That is the whole point of splitting on volatility
 reason the trade is **accepted** rather than a regression — but it is a real trade and is recorded here so
 it is a deliberate choice, not a surprise. **Guardrail unchanged:** self-improvement still may never
 weaken a safety control, in whichever repo the change lands; and all three repos are inside the trust
-gate, so the loop stays fully devantler-tech-autonomous (draft-PR checkpoint, maintainer promotes).
+gate, so the loop stays fully devantler-tech-autonomous (draft-PR checkpoint, self-promoted on genuine
+readiness).
 
 ### D4 — Sequencing and the agent-skills dependency (scope of the follow-up children)
 

@@ -10,6 +10,7 @@
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "agentic-engineering",
       "entrypoint": "agentic-engineer",
+      "entrypointSha256": "ed1f8cf97fbc2d4bdc375a4de048ef2fdcc40ab6612a69ea9e395b7b8e26e5a4",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -41,7 +42,8 @@
       },
       "portfolio-surveyor": {
         "enabled": true,
-        "mode": "delegated-read-only"
+        "mode": "delegated-read-only",
+        "definitionSha256": "53d4a9f0a37440cfbda999120e35fcb47662af70bee9f8e62407c56d1c455981"
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",

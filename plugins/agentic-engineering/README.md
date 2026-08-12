@@ -198,6 +198,45 @@ same boundary in their permission layer. Scheduled instances should use fresh pe
 branch namespaces, least privilege, and a non-interactive execution policy. The desired-state resource
 records those requirements without assuming a particular runtime.
 
+### Enforcing the boundary: `scripts/forge-readonly-guard.sh`
+
+[`scripts/forge-readonly-guard.sh`](scripts/forge-readonly-guard.sh) is the decision procedure that
+layer calls. It answers one question about one candidate command — is this provably a read against the
+source forge — and it is tool-neutral: a Claude Code `PreToolUse` hook, a Codex approval guard, and a
+plain wrapper all ask it the same way.
+
+```sh
+forge-readonly-guard.sh --command '<command>'   # exit 0 allow · 1 deny (prints `deny: <reason>`) · 2 usage
+<command> | forge-readonly-guard.sh --stdin
+```
+
+**A bundled `scripts/` directory is a helper location, not an auto-discovered plugin resource — so
+installing this plugin does not by itself enforce anything.** Until a consumer wires the guard into its
+runtime, the surveyor's read-only boundary rests on the model honouring its definition, exactly as it
+did before. Wiring it is the consumer's step:
+
+1. Resolve the installed plugin path for your runtime.
+2. Register the script as the runtime's pre-execution decision point for shell commands, passing the
+   candidate command as `--command`.
+3. Treat a non-zero exit as a refusal, surfacing the printed `deny:` reason.
+
+Because the guard denies by default, run your own deployment's survey vocabulary through it before
+turning it on: a read it does not yet recognise fails closed, which is the intended direction but is
+better discovered deliberately than mid-run.
+
+**Two residues the guard cannot close from argv alone — the calling runtime must.** Both are stated
+here rather than left implicit, because a guard whose limits are undocumented gets trusted for things
+it never claimed:
+
+- **`core.pager`.** A surveyed repository can name a pager program, and git runs it only when
+  standard output is a terminal. The guard refuses `--paginate` and allows `--no-pager`, but it
+  cannot see whether a TTY is attached. **Run the guarded command non-interactively** (no TTY on
+  stdout), which is already how a scheduled agent executes.
+- **Parameter expansion.** A named expansion such as `$REPO` is allowed, so the word the shell builds
+  depends on the environment the runtime provides. Positional and special parameters are refused
+  precisely because they are removable, but named ones are a deliberate convenience. **Do not
+  interpolate untrusted text into the environment** of the shell that runs a guarded command.
+
 Tools that implement this marketplace's plugin layout auto-discover the `agents/` and `skills/`
 directories. On surfaces without full plugin support, load the same canonical agent and skill files
 from this repository; do not fork or paste copies into the consumer repository.

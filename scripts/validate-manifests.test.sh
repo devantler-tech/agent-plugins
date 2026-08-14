@@ -580,7 +580,18 @@ check_fail "agent with an empty block-scalar description fails" "must declare a 
 # plugin README so a consumer can actually find it.
 make_desired_state() {
   local root="$1" name="$2" entrypoint_sha256 portfolio_surveyor_sha256
-  mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents"
+  local agent_improver_sha256 agent_improvement_skill_sha256
+  mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents" \
+    "$root/plugins/$name/skills/agent-improvement"
+  cat > "$root/plugins/$name/skills/agent-improvement/SKILL.md" <<'EOF'
+---
+name: agent-improvement
+description: Fixture Agent Improver procedure.
+metadata:
+  github-repo: https://github.com/devantler-tech/agent-skills
+---
+Fixture procedure.
+EOF
   cat > "$root/plugins/$name/agents/agentic-engineer.agent.md" <<'EOF'
 ---
 name: agentic-engineer
@@ -659,13 +670,16 @@ An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`
 EOF
   awk -v name="$name" '
     index($0, "[`" name "`](plugins/" name "/)") {
-      sub("`example-skill`", "`agent-improver`, `agentic-engineer`, `example-skill`, `portfolio-surveyor`")
+      sub("`example-skill`", "`agent-improvement`, `agent-improver`, `agentic-engineer`, `example-skill`, `portfolio-surveyor`")
     }
     { print }
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
   entrypoint_sha256=$(sha256_file "$root/plugins/$name/agents/agentic-engineer.agent.md")
   portfolio_surveyor_sha256=$(sha256_file "$root/plugins/$name/agents/portfolio-surveyor.agent.md")
   agent_improver_sha256=$(sha256_file "$root/plugins/$name/agents/agent-improver.agent.md")
+  agent_improvement_skill_sha256=$(
+    sha256_file "$root/plugins/$name/skills/agent-improvement/SKILL.md"
+  )
   cat > "$root/plugins/$name/resources/provider-neutral.desired-state.json" <<EOF
 {
   "apiVersion": "agent-plugins.devantler.tech/v1alpha1",
@@ -717,7 +731,8 @@ EOF
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
         "mode": "separate-schedule-or-on-demand",
-        "definitionSha256": "$agent_improver_sha256"
+        "definitionSha256": "$agent_improver_sha256",
+        "skillSha256": "$agent_improvement_skill_sha256"
       }
     },
     "runtime": {
@@ -1153,10 +1168,35 @@ check_fail "Agent Improver rejects a malformed full-definition digest" \
   "agentImprover definitionSha256 must be a lowercase SHA-256 digest" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.roles["agent-improver"].skillSha256)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agent Improver requires a procedure-skill digest" \
+  "agentImprover skillSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.roles["agent-improver"].skillSha256 = "not-a-digest"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agent Improver rejects a malformed procedure-skill digest" \
+  "agentImprover skillSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
 printf '\nDrift that must invalidate the desired-state pin.\n' \
   >> "$d/plugins/alpha/agents/agent-improver.agent.md"
 check_fail "Agent Improver rejects a stale full-definition digest" \
   "agent-improver digest must match the bundled agent" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '\nDrift that must invalidate the desired-state pin.\n' \
+  >> "$d/plugins/alpha/skills/agent-improvement/SKILL.md"
+check_fail "Agent Improver rejects a stale procedure-skill digest" \
+  "agent-improvement skill digest must match the bundled skill" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+rm "$d/plugins/alpha/skills/agent-improvement/SKILL.md"
+check_fail "Agent Improver digest requires the bundled procedure skill" \
+  "agent-improvement skill digest must resolve to the bundled skill" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 awk '{ printf "%s\r\n", $0 }' \

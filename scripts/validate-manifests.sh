@@ -605,6 +605,27 @@ validate_desired_state_resources() {
       fi
     fi
 
+    agent_improvement_skill="$plugin_dir/skills/agent-improvement/SKILL.md"
+    agent_improvement_skill_sha256=$(
+      jq -r '.spec.roles["agent-improver"].skillSha256 // ""' "$resource"
+    )
+    if ! printf '%s\n' "$agent_improvement_skill_sha256" | grep -Eq '^[a-f0-9]{64}$'; then
+      echo "::error::$resource: agentImprover skillSha256 must be a lowercase SHA-256 digest"
+      failed=1
+      resource_failed=1
+    elif [ ! -f "$agent_improvement_skill" ]; then
+      echo "::error::$resource: agent-improvement skill digest must resolve to the bundled skill"
+      failed=1
+      resource_failed=1
+    else
+      actual_agent_improvement_skill_sha256=$(sha256_file "$agent_improvement_skill")
+      if [ "$agent_improvement_skill_sha256" != "$actual_agent_improvement_skill_sha256" ]; then
+        echo "::error::$resource: agent-improvement skill digest must match the bundled skill"
+        failed=1
+        resource_failed=1
+      fi
+    fi
+
     if ! jq -e '
       .spec.source.marketplace == "devantler-tech/agent-plugins"
       and .spec.source.updatePolicy == "latest-reviewed-default-branch"
@@ -748,8 +769,8 @@ validate_desired_state_resources() {
         | only_keys(["enabled", "mode", "definitionSha256"])
           and has_keys(["enabled", "mode", "definitionSha256"]))
       and (.spec.roles["agent-improver"]
-        | only_keys(["enabledWhen", "mode", "definitionSha256"])
-          and has_keys(["enabledWhen", "mode", "definitionSha256"]))
+        | only_keys(["enabledWhen", "mode", "definitionSha256", "skillSha256"])
+          and has_keys(["enabledWhen", "mode", "definitionSha256", "skillSha256"]))
       and (.spec.runtime
         | only_keys(["scheduler", "execution", "model", "memory"])
           and has_keys(["scheduler", "execution", "model", "memory"]))

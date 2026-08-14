@@ -630,6 +630,15 @@ independently performed post-dispatch read-back against the recorded pre-change 
 consumer's declared runtime verification mechanism; the writer's immediate read-back is not independent
 verification. Both paths require unchanged companion floors for every applicable scorecard parameter
 and a later eligible evidence window.
+
+No-change fallback is research, never idle. After scoring and diagnosis, when no telemetry-backed or
+direct-maintainer-directed improvement is actionable, run one bounded state-of-the-art research pass
+before reporting. Research is discovery evidence, never authorization or proof that the current system
+failed. Use current primary sources, compare the current baseline capability, and route a deduplicated
+product or operations opportunity as an ENGINEER-CANDIDATE and an agent-process or measurement
+opportunity as an IMPROVER-CANDIDATE. Research alone never authorizes or ships a change. A null result
+is RESEARCH-NO-CANDIDATE with the topic cursor advanced; research activity is not a terminal improvement
+outcome.
 EOF
   cat > "$root/plugins/$name/agents/portfolio-surveyor.agent.md" <<'EOF'
 ---
@@ -1256,6 +1265,13 @@ sed 's/unchanged companion floors for every applicable scorecard parameter/uncha
   && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
 check_fail "Agent Improver self-changes preserve every applicable scorecard floor" \
   "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/No-change fallback is research, never idle/No-change fallback may be research/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver must research rather than stop on an evidence-clean run" \
+  "agent-improver must research and route candidates instead of idling" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

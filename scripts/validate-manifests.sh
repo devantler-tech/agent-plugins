@@ -587,6 +587,24 @@ validate_desired_state_resources() {
       fi
     fi
 
+    agent_improver_sha256=$(
+      jq -r '.spec.roles["agent-improver"].definitionSha256 // ""' "$resource"
+    )
+    if ! printf '%s\n' "$agent_improver_sha256" | grep -Eq '^[a-f0-9]{64}$'; then
+      echo "::error::$resource: agentImprover definitionSha256 must be a lowercase SHA-256 digest"
+      failed=1
+      resource_failed=1
+    elif [ -f "$plugin_dir/agents/agent-improver.agent.md" ]; then
+      actual_agent_improver_sha256=$(
+        sha256_file "$plugin_dir/agents/agent-improver.agent.md"
+      )
+      if [ "$agent_improver_sha256" != "$actual_agent_improver_sha256" ]; then
+        echo "::error::$resource: agent-improver digest must match the bundled agent"
+        failed=1
+        resource_failed=1
+      fi
+    fi
+
     if ! jq -e '
       .spec.source.marketplace == "devantler-tech/agent-plugins"
       and .spec.source.updatePolicy == "latest-reviewed-default-branch"
@@ -730,7 +748,8 @@ validate_desired_state_resources() {
         | only_keys(["enabled", "mode", "definitionSha256"])
           and has_keys(["enabled", "mode", "definitionSha256"]))
       and (.spec.roles["agent-improver"]
-        | only_keys(["enabledWhen", "mode"]) and has_keys(["enabledWhen", "mode"]))
+        | only_keys(["enabledWhen", "mode", "definitionSha256"])
+          and has_keys(["enabledWhen", "mode", "definitionSha256"]))
       and (.spec.runtime
         | only_keys(["scheduler", "execution", "model", "memory"])
           and has_keys(["scheduler", "execution", "model", "memory"]))

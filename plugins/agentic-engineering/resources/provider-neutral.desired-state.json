@@ -47,7 +47,8 @@
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
-        "mode": "separate-schedule-or-on-demand"
+        "mode": "separate-schedule-or-on-demand",
+        "definitionSha256": "bd7562cf141a0c965c1189e5a0fe37b10d444ac076211c405f385dd68019f882"
       }
     },
     "runtime": {

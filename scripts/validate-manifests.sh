@@ -453,6 +453,7 @@ validate_desired_state_resources() {
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
   local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
   local improver_self_observation_contract="The Agent Improver is one of its own measured subjects. Keep the Agentic Engineer execution plane and every Agent Improver observation plane in separate scorecards; never average them together or let one hide the other's regression. Measure observer coverage, calibration, hypothesis discipline, verified intervention effectiveness, reliability, efficiency, and verified rollout throughput. Outcome throughput counts only verified terminal outcomes; productive sessions and work advanced are execution-flow indicators, never improvement verdicts. Observation-plane verdicts require independent computation from an immutable or read-only source, or verification by a separate eligible run or instance; the same Improver's unsupported assertion is UNKNOWN, never success. Activity such as PRs, metrics, reports, and memory writes is not improvement. A version-controlled self-referential change requires an independent green current-head review with all findings resolved. A runtime-local self-referential change requires an independently performed post-dispatch read-back against the recorded pre-change baseline through the consumer's declared runtime verification mechanism; the writer's immediate read-back is not independent verification. Both paths require unchanged companion floors for every applicable scorecard parameter and a later eligible evidence window."
+  local improver_research_fallback_contract="No-change fallback is research, never idle. After scoring and diagnosis, when no telemetry-backed or direct-maintainer-directed improvement is actionable, run one bounded state-of-the-art research pass before reporting. Research is discovery evidence, never authorization or proof that the current system failed. Use current primary sources, compare the current baseline capability, and route a deduplicated product or operations opportunity as an ENGINEER-CANDIDATE and an agent-process or measurement opportunity as an IMPROVER-CANDIDATE. Research alone never authorizes or ships a change. A null result is RESEARCH-NO-CANDIDATE with the topic cursor advanced; research activity is not a terminal improvement outcome."
   local money_guardrail="Spend stewardship never moves money: prepare the financial decision, route it to the maintainer's declared private channel, and keep private financial data out of every public artifact."
   local portfolio_survey_recovery_contract="**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates \`QUERY-UNKNOWN\`; never discard completed evidence or collapse it into portfolio-wide \`QUERY-UNKNOWN\`."
   local portfolio_survey_global_failure_contract="Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures."
@@ -941,6 +942,15 @@ validate_desired_state_resources() {
         | tr -s '[:space:]' ' ' \
         | grep -qF "$improver_self_observation_contract"; then
       echo "::error::$resource: agent-improver must measure its own observation plane without self-scoring"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
+      || ! tr '\n' ' ' < "$plugin_dir/agents/agent-improver.agent.md" \
+        | tr -s '[:space:]' ' ' \
+        | grep -qF "$improver_research_fallback_contract"; then
+      echo "::error::$resource: agent-improver must research and route candidates instead of idling"
       failed=1
       resource_failed=1
     fi

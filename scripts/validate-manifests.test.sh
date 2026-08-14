@@ -665,6 +665,7 @@ EOF
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
   entrypoint_sha256=$(sha256_file "$root/plugins/$name/agents/agentic-engineer.agent.md")
   portfolio_surveyor_sha256=$(sha256_file "$root/plugins/$name/agents/portfolio-surveyor.agent.md")
+  agent_improver_sha256=$(sha256_file "$root/plugins/$name/agents/agent-improver.agent.md")
   cat > "$root/plugins/$name/resources/provider-neutral.desired-state.json" <<EOF
 {
   "apiVersion": "agent-plugins.devantler.tech/v1alpha1",
@@ -715,7 +716,8 @@ EOF
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
-        "mode": "separate-schedule-or-on-demand"
+        "mode": "separate-schedule-or-on-demand",
+        "definitionSha256": "$agent_improver_sha256"
       }
     },
     "runtime": {
@@ -1135,6 +1137,26 @@ jq '.spec.roles["portfolio-surveyor"].definitionSha256 = "not-a-digest"' \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "portfolio surveyor rejects a malformed full-definition digest" \
   "portfolioSurveyor definitionSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.roles["agent-improver"].definitionSha256)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agent Improver requires a full-definition digest" \
+  "agentImprover definitionSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.roles["agent-improver"].definitionSha256 = "not-a-digest"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agent Improver rejects a malformed full-definition digest" \
+  "agentImprover definitionSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '\nDrift that must invalidate the desired-state pin.\n' \
+  >> "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver rejects a stale full-definition digest" \
+  "agent-improver digest must match the bundled agent" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 awk '{ printf "%s\r\n", $0 }' \

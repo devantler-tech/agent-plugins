@@ -614,6 +614,8 @@ Fixture agent.
 Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge.
 
 Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence.
+
+The Agent Improver is one of its own measured subjects. Keep the Agentic Engineer execution plane and every Agent Improver observation plane in separate scorecards; never average them together or let one hide the other's regression. Measure observer coverage, calibration, hypothesis discipline, verified intervention effectiveness, reliability, efficiency, and verified rollout throughput. Activity such as PRs, metrics, reports, and memory writes is not improvement. A self-referential change requires independent current-head review, unchanged safety and quality floors, and a later eligible evidence window.
 EOF
   cat > "$root/plugins/$name/agents/portfolio-surveyor.agent.md" <<'EOF'
 ---
@@ -1191,6 +1193,13 @@ sed '/Runtime-local definition surfaces are delivered in place/,+1d' \
   && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
 check_fail "Agent Improver must preserve runtime-local in-place delivery" \
   "agent-improver must preserve backed-up runtime-local in-place delivery" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/The Agent Improver is one of its own measured subjects/The Agent Improver observes only the Engineer/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver must measure its own observation plane" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

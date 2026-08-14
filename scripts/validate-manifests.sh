@@ -452,6 +452,7 @@ validate_desired_state_resources() {
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
   local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
+  local improver_self_observation_contract="The Agent Improver is one of its own measured subjects. Keep the Agentic Engineer execution plane and every Agent Improver observation plane in separate scorecards; never average them together or let one hide the other's regression. Measure observer coverage, calibration, hypothesis discipline, verified intervention effectiveness, reliability, efficiency, and verified rollout throughput. Activity such as PRs, metrics, reports, and memory writes is not improvement. A self-referential change requires independent current-head review, unchanged safety and quality floors, and a later eligible evidence window."
   local money_guardrail="Spend stewardship never moves money: prepare the financial decision, route it to the maintainer's declared private channel, and keep private financial data out of every public artifact."
   local portfolio_survey_recovery_contract="**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates \`QUERY-UNKNOWN\`; never discard completed evidence or collapse it into portfolio-wide \`QUERY-UNKNOWN\`."
   local portfolio_survey_global_failure_contract="Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures."
@@ -931,6 +932,15 @@ validate_desired_state_resources() {
       || ! grep -qF "$runtime_local_delivery" \
         "$plugin_dir/agents/agent-improver.agent.md"; then
       echo "::error::$resource: agent-improver must preserve backed-up runtime-local in-place delivery"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
+      || ! tr '\n' ' ' < "$plugin_dir/agents/agent-improver.agent.md" \
+        | tr -s '[:space:]' ' ' \
+        | grep -qF "$improver_self_observation_contract"; then
+      echo "::error::$resource: agent-improver must measure its own observation plane without self-scoring"
       failed=1
       resource_failed=1
     fi

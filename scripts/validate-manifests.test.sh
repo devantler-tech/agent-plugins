@@ -614,6 +614,22 @@ Fixture agent.
 Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge.
 
 Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence.
+
+The Agent Improver is one of its own measured subjects. Keep the Agentic Engineer execution plane
+and every Agent Improver observation plane in separate scorecards; never average them together or let
+one hide the other's regression. Measure observer coverage, calibration, hypothesis discipline,
+verified intervention effectiveness, reliability, efficiency, and verified rollout throughput.
+Outcome throughput counts only verified terminal outcomes; productive sessions and work advanced are
+execution-flow indicators, never improvement verdicts. Observation-plane verdicts require independent
+computation from an immutable or read-only source, or verification by a separate eligible run or
+instance; the same Improver's unsupported assertion is UNKNOWN, never success. Activity such as PRs,
+metrics, reports, and memory writes is not improvement. A version-controlled self-referential change
+requires an independent green current-head review with all findings resolved. A runtime-local
+self-referential change requires an
+independently performed post-dispatch read-back against the recorded pre-change baseline through the
+consumer's declared runtime verification mechanism; the writer's immediate read-back is not independent
+verification. Both paths require unchanged companion floors for every applicable scorecard parameter
+and a later eligible evidence window.
 EOF
   cat > "$root/plugins/$name/agents/portfolio-surveyor.agent.md" <<'EOF'
 ---
@@ -1191,6 +1207,55 @@ sed '/Runtime-local definition surfaces are delivered in place/,+1d' \
   && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
 check_fail "Agent Improver must preserve runtime-local in-place delivery" \
   "agent-improver must preserve backed-up runtime-local in-place delivery" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/The Agent Improver is one of its own measured subjects/The Agent Improver observes only the Engineer/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver must measure its own observation plane" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/Outcome throughput counts only verified terminal outcomes/Outcome throughput counts productive activity/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver outcome throughput must exclude unfinished activity" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed "s/the same Improver's unsupported assertion is UNKNOWN, never success/the same Improver scores itself as successful/" \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver observation verdicts need independent evidence" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/version-controlled self-referential change/self-reviewed change/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver version-controlled self-changes need current-head review" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/an independent green current-head review with all findings resolved/an independent current-head review/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver self-change review must be green and resolved" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/independently performed post-dispatch read-back/immediate read-back/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver runtime-local self-changes need post-dispatch verification" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/unchanged companion floors for every applicable scorecard parameter/unchanged safety and quality floors/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver self-changes preserve every applicable scorecard floor" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

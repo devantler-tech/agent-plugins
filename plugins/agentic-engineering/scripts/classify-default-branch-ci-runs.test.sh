@@ -99,10 +99,10 @@ expect_output \
 
 expect_output \
   'raw pagination documents are flattened before latest-state selection' \
-  '{"workflow_runs":[
+  '{"total_count":2,"workflow_runs":[
     {"id":11,"workflow_id":11,"event":"workflow_dispatch","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"Template Sync"}
   ]}
-  {"workflow_runs":[
+  {"total_count":2,"workflow_runs":[
     {"id":10,"workflow_id":11,"event":"schedule","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"}
   ]}' \
   ''
@@ -110,10 +110,10 @@ expect_output \
 expect_output \
   'slurped pagination envelopes are flattened before classification' \
   '[
-    {"workflow_runs":[
+    {"total_count":2,"workflow_runs":[
       {"id":11,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"}
     ]},
-    {"workflow_runs":[
+    {"total_count":2,"workflow_runs":[
       {"id":10,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/ok","name":"Template Sync"}
     ]}
   ]' \
@@ -146,6 +146,32 @@ expect_error \
   '[
     {"id":10,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"not-a-timestamp","html_url":"https://example.test/fail","name":"CI"}
   ]'
+
+expect_error \
+  'a calendar-normalized timestamp makes the classification unknown' \
+  '[
+    {"id":10,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-02-31T10:00:00Z","html_url":"https://example.test/fail","name":"CI"}
+  ]'
+
+expect_error \
+  'a dynamic run without a complete managed identity makes health unknown' \
+  '[
+    {"id":20,"workflow_id":107623015,"event":"dynamic","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/managed-fail","name":"helm in /pkg/svc"}
+  ]'
+
+expect_output \
+  'run id precedes attempt when distinct runs start in the same second' \
+  '[
+    {"id":101,"run_attempt":2,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T08:00:00Z","run_started_at":"2026-07-14T10:00:00Z","html_url":"https://example.test/old-rerun-ok","name":"CI"},
+    {"id":102,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","run_started_at":"2026-07-14T10:00:00Z","html_url":"https://example.test/new-fail","name":"CI"}
+  ]' \
+  $'11\tfailure\thttps://example.test/new-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t102'
+
+expect_error \
+  'a filtered result cap makes the classification unknown' \
+  '{"total_count":1001,"workflow_runs":[
+    {"id":10,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"CI"}
+  ]}'
 
 expect_remote_failure
 

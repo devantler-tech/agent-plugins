@@ -412,10 +412,12 @@ The helper flattens all page envelopes before deciding and keeps only branch-lev
 schedule, merge-group, manual dispatch, and GitHub-managed dynamic runs). Repository workflows are
 keyed by workflow id — never display name, because two workflow files can legally share a name.
 GitHub-managed dynamic jobs add their normalized logical run name to that identity, because one
-managed workflow id can aggregate independent dependency jobs. Within each identity, only a newer
-success clears a prior failure; queued/in-progress, cancelled, skipped, and neutral retries are not
-recovery evidence. Equal creation timestamps are broken by numeric run id. Red conclusions are
-`failure`, `timed_out`, and `startup_failure`.
+managed workflow id can aggregate independent dependency jobs; a dynamic run without a nonempty
+`dynamic/` path and logical name makes health unknown rather than collapsing identities. Within each
+identity, only a newer success clears a prior failure; queued/in-progress, cancelled, skipped, and
+neutral retries are not recovery evidence. Order by the current attempt's execution start (falling
+back to creation time), then numeric run id, then attempt number, so a rerun cannot be hidden behind a
+different run. Red conclusions are `failure`, `timed_out`, and `startup_failure`.
 
 All four filters are load-bearing, each against a different false positive:
 
@@ -427,8 +429,10 @@ All four filters are load-bearing, each against a different false positive:
   failure behind a later skip — a fail-open this exact check was caught making.
 - **Not filtered to the branch** — a release or sync branch can point at the same commit, and its
   runs then pass both filters above while failing for reasons that are not the branch's health.
-- **Unpaginated or partially fetched** — a busy head can carry more runs than one page. The helper
-  owns the whole producer call, validates every page before classification, and refuses partial data.
+- **Unpaginated, capped, or partially fetched** — a busy head can carry more runs than one page, and
+  GitHub caps filtered workflow-run results at 1,000. The helper owns the whole producer call,
+  validates every page and its `total_count` before classification, and refuses partial or capped
+  data.
 
 The helper preserves event, path, timestamp, and run id with each red so a deployment can route
 GitHub-managed runs without rejoining the original payload. **Always name the judged sha** so the

@@ -111,9 +111,28 @@ jq_filter='
       error("invalid runs payload")
     end;
 
+  def page_envelopes:
+    if type == "object" and has("workflow_runs") and (.workflow_runs | type == "array") then
+      [.]
+    elif type == "array" then
+      if length == 0 then
+        []
+      elif all(.[]; type == "object"
+                       and has("workflow_runs")
+                       and (.workflow_runs | type == "array")) then
+        .
+      elif all(.[]; type == "object" and (has("workflow_runs") | not)) then
+        []
+      else
+        error("invalid runs page collection")
+      end
+    else
+      error("invalid runs payload")
+    end;
+
   def run_identity:
-    if .event == "dynamic" and ((.path // "") | startswith("dynamic/")) then
-      ["managed", .workflow_id, ((.name // "") | sub("( - Update)? #[0-9]+$"; ""))]
+    if .event == "dynamic" then
+      ["managed", .workflow_id, (.name | sub("( - Update)? #[0-9]+$"; ""))]
     else
       ["workflow", .workflow_id]
     end;
@@ -124,18 +143,42 @@ jq_filter='
     or .conclusion == "startup_failure";
 
   def valid_github_timestamp:
-    type == "string"
-    and length > 0
-    and (try (fromdateiso8601 | true) catch false);
+    . as $timestamp
+    | type == "string"
+      and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
+      and (try ((fromdateiso8601 | strftime("%Y-%m-%dT%H:%M:%SZ")) == $timestamp)
+           catch false);
 
   if length == 0 then error("empty input") else . end
+  | [.[] | page_envelopes[]] as $envelopes
   | [.[] | page_runs[]] as $runs
-  | (if any($runs[]; (.event | type != "string") or (.event | length == 0))
+  | (if ($envelopes | length) == 0 then
+       $runs
+     elif any($envelopes[];
+       (.total_count | type != "number" or . < 0 or floor != .)) then
+       error("runs page is missing a valid total_count")
+     elif ($envelopes | map(.total_count) | unique | length) != 1 then
+       error("runs pages disagree on total_count")
+     elif ($runs | length) != $envelopes[0].total_count then
+       error("filtered runs result is incomplete or capped")
+     else
+       $runs
+     end) as $counted_runs
+  | (if any($counted_runs[]; (.event | type != "string") or (.event | length == 0))
      then error("run is missing its event discriminator")
-     else $runs
+     else $counted_runs
      end) as $complete_runs
+  | (if any($complete_runs[];
+       .event == "dynamic"
+       and ((.path | type != "string")
+            or ((.path | startswith("dynamic/")) | not)
+            or (.name | type != "string")
+            or (.name | length == 0)))
+     then error("dynamic run is missing its managed identity")
+     else $complete_runs
+     end) as $identified_runs
   | ["push", "schedule", "merge_group", "workflow_dispatch", "dynamic"] as $branch_events
-  | ($complete_runs
+  | ($identified_runs
       | map(select((.event as $event | $branch_events | index($event)) != null))) as $branch_runs
   | if any($branch_runs[];
       (.workflow_id | type != "number")
@@ -149,7 +192,7 @@ jq_filter='
     end
   | group_by(run_identity)
   | map(
-      sort_by([(.run_started_at // .created_at), (.run_attempt // 1), .id])
+      sort_by([(.run_started_at // .created_at), .id, (.run_attempt // 1)])
       | map(select(.conclusion == "success" or red))
       | last
     )

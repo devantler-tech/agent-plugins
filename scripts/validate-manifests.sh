@@ -560,8 +560,10 @@ validate_desired_state_resources() {
           continue
           ;;
       esac
-      if [ ! -x "$plugin_dir/$runtime_asset" ]; then
-        echo "::error::$resource: required runtime asset is missing or not executable: $runtime_asset"
+      if [ ! -f "$plugin_dir/$runtime_asset" ] \
+        || [ -L "$plugin_dir/$runtime_asset" ] \
+        || [ ! -x "$plugin_dir/$runtime_asset" ]; then
+        echo "::error::$resource: required runtime asset is missing, linked, or not executable: $runtime_asset"
         failed=1
         resource_failed=1
       fi

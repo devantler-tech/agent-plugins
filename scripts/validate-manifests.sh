@@ -445,7 +445,7 @@ validate_readme_parity() {
 #    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
 validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
-  local schedule_source schedule_plugin schedule_agent
+  local schedule_source schedule_plugin schedule_agent runtime_asset
   local entrypoint_sha256 actual_entrypoint_sha256
   local portfolio_surveyor_sha256 actual_portfolio_surveyor_sha256
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
@@ -549,6 +549,25 @@ validate_desired_state_resources() {
       failed=1
       resource_failed=1
     fi
+
+    while IFS= read -r runtime_asset; do
+      [ -n "$runtime_asset" ] || continue
+      case "$runtime_asset" in
+        /* | .. | ../* | */../* | */..)
+          echo "::error::$resource: required runtime asset must be a plugin-relative path: $runtime_asset"
+          failed=1
+          resource_failed=1
+          continue
+          ;;
+      esac
+      if [ ! -f "$plugin_dir/$runtime_asset" ] \
+        || [ -L "$plugin_dir/$runtime_asset" ] \
+        || [ ! -x "$plugin_dir/$runtime_asset" ]; then
+        echo "::error::$resource: required runtime asset is missing, linked, or not executable: $runtime_asset"
+        failed=1
+        resource_failed=1
+      fi
+    done < <(jq -r '.spec.source.requiredRuntimeAssets[]? // empty' "$resource")
 
     # This is a content-integrity and review gate, not a natural-language semantic parser:
     # the canonical block pins the required rule, while the digest makes every other
@@ -742,13 +761,15 @@ validate_desired_state_resources() {
           and has_keys(["source", "consumer", "roles", "runtime", "onboarding", "guardrails"]))
       and (.spec.source
         | only_keys([
-            "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
-            "refreshTiming", "hotSwapDuringRun"
+          "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
+            "refreshTiming", "hotSwapDuringRun", "requiredRuntimeAssets"
           ])
           and has_keys([
             "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
             "refreshTiming", "hotSwapDuringRun"
-          ]))
+          ])
+          and ((.requiredRuntimeAssets // [])
+            | type == "array" and all(.[]; type == "string" and length > 0)))
       and (.spec.consumer
         | only_keys([
             "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",

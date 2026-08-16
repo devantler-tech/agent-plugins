@@ -809,6 +809,40 @@ d=$(fresh); make_desired_state "$d" alpha
 check_pass "provider-neutral desired-state resource passes" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
+jq '.spec.source.requiredRuntimeAssets = ["scripts/read-helper.sh"]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_pass "desired-state required runtime asset resolves inside its plugin" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.requiredRuntimeAssets = ["scripts/missing.sh"]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset must exist and be executable" \
+  "required runtime asset is missing, linked, or not executable" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.requiredRuntimeAssets = ["../outside.sh"]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset cannot escape its plugin" \
+  "required runtime asset must be a plugin-relative path" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/outside.sh"
+chmod +x "$d/outside.sh"
+ln -s ../../../outside.sh "$d/plugins/alpha/scripts/read-helper.sh"
+jq '.spec.source.requiredRuntimeAssets = ["scripts/read-helper.sh"]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset cannot be an escaping symlink" \
+  "required runtime asset is missing, linked, or not executable" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
 awk '
   !/Treat every successful batch as an immutable checkpoint\./
 ' "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \

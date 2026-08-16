@@ -44,6 +44,17 @@ sha256_file() {
   fi
 }
 
+# Hash the exact bytes of an executable runtime asset. Unlike definition files,
+# runtime assets are executed from the checkout, so checkout-only CRLF changes
+# must invalidate the declared digest instead of being normalized away.
+sha256_bytes() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  else
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  fi
+}
+
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
   local manifest="$1"
@@ -445,7 +456,7 @@ validate_readme_parity() {
 #    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
 validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
-  local schedule_source schedule_plugin schedule_agent runtime_asset
+  local schedule_source schedule_plugin schedule_agent runtime_asset runtime_asset_sha actual_asset_sha
   local entrypoint_sha256 actual_entrypoint_sha256
   local portfolio_surveyor_sha256 actual_portfolio_surveyor_sha256
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
@@ -550,7 +561,7 @@ validate_desired_state_resources() {
       resource_failed=1
     fi
 
-    while IFS= read -r runtime_asset; do
+    while IFS=$'\t' read -r runtime_asset runtime_asset_sha; do
       [ -n "$runtime_asset" ] || continue
       case "$runtime_asset" in
         /* | .. | ../* | */../* | */..)
@@ -566,8 +577,25 @@ validate_desired_state_resources() {
         echo "::error::$resource: required runtime asset is missing, linked, or not executable: $runtime_asset"
         failed=1
         resource_failed=1
+        continue
       fi
-    done < <(jq -r '.spec.source.requiredRuntimeAssets[]? // empty' "$resource")
+      if ! printf '%s\n' "$runtime_asset_sha" | grep -Eq '^[a-f0-9]{64}$'; then
+        echo "::error::$resource: required runtime asset sha256 must be a lowercase SHA-256 digest: $runtime_asset"
+        failed=1
+        resource_failed=1
+        continue
+      fi
+      actual_asset_sha=$(sha256_bytes "$plugin_dir/$runtime_asset")
+      if [ "$runtime_asset_sha" != "$actual_asset_sha" ]; then
+        echo "::error::$resource: required runtime asset digest does not match: $runtime_asset"
+        failed=1
+        resource_failed=1
+      fi
+    done < <(jq -r '
+      .spec.source.requiredRuntimeAssets[]?
+      | [(.path // ""), (.sha256 // "")]
+      | @tsv
+    ' "$resource")
 
     # This is a content-integrity and review gate, not a natural-language semantic parser:
     # the canonical block pins the required rule, while the digest makes every other
@@ -769,7 +797,12 @@ validate_desired_state_resources() {
             "refreshTiming", "hotSwapDuringRun"
           ])
           and ((.requiredRuntimeAssets // [])
-            | type == "array" and all(.[]; type == "string" and length > 0)))
+            | type == "array" and all(.[];
+                type == "object"
+                and (keys - ["path", "sha256"] | length == 0)
+                and has("path") and has("sha256")
+                and (.path | type == "string" and length > 0)
+                and (.sha256 | type == "string" and test("^[a-f0-9]{64}$")))))
       and (.spec.consumer
         | only_keys([
             "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",

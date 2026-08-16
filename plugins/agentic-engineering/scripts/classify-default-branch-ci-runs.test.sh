@@ -117,7 +117,8 @@ expect_remote_failure
 
 if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
   grep -Fq 'Do not reimplement the helper' "$SURVEYOR" &&
-  grep -Fq 'exit 2 means `unknown`' "$SURVEYOR"; then
+  grep -Fq 'exit 2 means' "$SURVEYOR" &&
+  grep -Fq 'never green' "$SURVEYOR"; then
   pass=$((pass + 1))
 else
   record_failure 'generic surveyor delegates fail-closed classification to the shipped helper'

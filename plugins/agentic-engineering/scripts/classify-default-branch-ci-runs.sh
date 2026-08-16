@@ -67,14 +67,18 @@ cleanup() {
 trap cleanup EXIT
 
 if [ -n "$input_path" ]; then
-  [ -z "$repo" ] && [ -z "$branch" ] && [ -z "$head_sha" ] || usage
+  if [ -n "$repo" ] || [ -n "$branch" ] || [ -n "$head_sha" ]; then
+    usage
+  fi
   [ -r "$input_path" ] || {
     echo "classify-default-branch-ci-runs: input is not readable: $input_path" >&2
     exit 2
   }
   payload_path=$input_path
 else
-  [ -n "$repo" ] && [ -n "$branch" ] && [ -n "$head_sha" ] || usage
+  if [ -z "$repo" ] || [ -z "$branch" ] || [ -z "$head_sha" ]; then
+    usage
+  fi
   [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || usage
   [[ "$head_sha" =~ ^[0-9a-fA-F]{40}$ ]] || usage
   command -v gh >/dev/null 2>&1 || {

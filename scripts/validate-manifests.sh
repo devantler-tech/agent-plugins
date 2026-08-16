@@ -457,6 +457,9 @@ validate_readme_parity() {
 validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
   local schedule_source schedule_plugin schedule_agent runtime_asset runtime_asset_sha actual_asset_sha
+  local plugin_root runtime_asset_dir resolved_asset asset_parent asset_component asset_component_path
+  local parent_linked
+  local -a asset_components
   local entrypoint_sha256 actual_entrypoint_sha256
   local portfolio_surveyor_sha256 actual_portfolio_surveyor_sha256
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
@@ -578,6 +581,41 @@ validate_desired_state_resources() {
         failed=1
         resource_failed=1
         continue
+      fi
+      plugin_root=$(cd -P "$plugin_dir" && pwd -P)
+      if ! runtime_asset_dir=$(cd -P "$(dirname "$plugin_dir/$runtime_asset")" 2>/dev/null && pwd -P); then
+        echo "::error::$resource: required runtime asset parent cannot be resolved: $runtime_asset"
+        failed=1
+        resource_failed=1
+        continue
+      fi
+      resolved_asset="$runtime_asset_dir/$(basename "$runtime_asset")"
+      case "$resolved_asset" in
+        "$plugin_root"/*) ;;
+        *)
+          echo "::error::$resource: required runtime asset resolves outside its plugin: $runtime_asset"
+          failed=1
+          resource_failed=1
+          continue
+          ;;
+      esac
+      asset_parent=${runtime_asset%/*}
+      if [ "$asset_parent" != "$runtime_asset" ]; then
+        IFS='/' read -r -a asset_components <<< "$asset_parent"
+        asset_component_path="$plugin_dir"
+        parent_linked=0
+        for asset_component in "${asset_components[@]}"; do
+          [ -n "$asset_component" ] && [ "$asset_component" != "." ] || continue
+          asset_component_path="$asset_component_path/$asset_component"
+          if [ -L "$asset_component_path" ]; then
+            echo "::error::$resource: required runtime asset parent path is linked: $runtime_asset"
+            failed=1
+            resource_failed=1
+            parent_linked=1
+            break
+          fi
+        done
+        [ "$parent_linked" -eq 0 ] || continue
       fi
       if ! printf '%s\n' "$runtime_asset_sha" | grep -Eq '^[a-f0-9]{64}$'; then
         echo "::error::$resource: required runtime asset sha256 must be a lowercase SHA-256 digest: $runtime_asset"

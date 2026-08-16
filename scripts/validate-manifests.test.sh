@@ -30,6 +30,15 @@ sha256_file() {
   fi
 }
 
+# Hash fixture runtime assets byte-for-byte, matching the executable integrity gate.
+sha256_bytes() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  else
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  fi
+}
+
 # Refresh a fixture's declared digest after intentionally changing its canonical contract.
 sync_entrypoint_digest() {
   local root="$1" name="$2" resource digest
@@ -812,7 +821,7 @@ d=$(fresh); make_desired_state "$d" alpha
 mkdir -p "$d/plugins/alpha/scripts"
 printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
 chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
-asset_digest=$(sha256_file "$d/plugins/alpha/scripts/read-helper.sh")
+asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/read-helper.sh")
 jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
@@ -843,6 +852,30 @@ jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"sc
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state required runtime asset cannot be an escaping symlink" \
   "required runtime asset is missing, linked, or not executable" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/outside-dir"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/outside-dir/read-helper.sh"
+chmod +x "$d/outside-dir/read-helper.sh"
+ln -s ../../outside-dir "$d/plugins/alpha/scripts"
+asset_digest=$(sha256_bytes "$d/outside-dir/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset cannot escape through an intermediate symlink" \
+  "required runtime asset resolves outside its plugin" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/real-scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/real-scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/real-scripts/read-helper.sh"
+ln -s real-scripts "$d/plugins/alpha/scripts"
+asset_digest=$(sha256_bytes "$d/plugins/alpha/real-scripts/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset rejects an internal parent symlink" \
+  "required runtime asset parent path is linked" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 mkdir -p "$d/plugins/alpha/scripts"

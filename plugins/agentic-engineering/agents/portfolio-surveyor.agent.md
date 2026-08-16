@@ -396,12 +396,21 @@ hands-off.
 
 Judge the default branch by **its current head**, and only by runs that represent that branch's
 health. Resolve the head first, using the **full-length sha** — a runs endpoint typically returns an
-empty set for an abbreviated one, which reads exactly like "nothing failed". Then fetch runs for that
-head **paginated** and filtered to the default branch, keep only **branch-level events** (push,
-schedule, merge-group, manual dispatch), take the **latest run per workflow id** (by the id, never
-the display name — two workflow files can legally share a name, and collapsing them hides one
-failure behind the other's later success), and report a red for any that concluded failed or timed
-out.
+empty set for an abbreviated one, which reads exactly like "nothing failed". Then invoke the shipped
+[`../scripts/classify-default-branch-ci-runs.sh`](../scripts/classify-default-branch-ci-runs.sh) with
+the repository, default-branch name, and that exact sha. **Do not reimplement the helper** inline. It
+owns the paginated API call as well as classification, so a later-page API failure cannot be masked by
+a successful consumer of partial output. Exit 0 is a complete classification; exit 2 means `unknown`,
+never green.
+
+The helper flattens all page envelopes before deciding and keeps only branch-level events (push,
+schedule, merge-group, manual dispatch, and GitHub-managed dynamic runs). Repository workflows are
+keyed by workflow id — never display name, because two workflow files can legally share a name.
+GitHub-managed dynamic jobs add their normalized logical run name to that identity, because one
+managed workflow id can aggregate independent dependency jobs. Within each identity, only a newer
+success clears a prior failure; queued/in-progress, cancelled, skipped, and neutral retries are not
+recovery evidence. Equal creation timestamps are broken by numeric run id. Red conclusions are
+`failure`, `timed_out`, and `startup_failure`.
 
 All four filters are load-bearing, each against a different false positive:
 
@@ -413,11 +422,12 @@ All four filters are load-bearing, each against a different false positive:
   failure behind a later skip — a fail-open this exact check was caught making.
 - **Not filtered to the branch** — a release or sync branch can point at the same commit, and its
   runs then pass both filters above while failing for reasons that are not the branch's health.
-- **Unpaginated** — a busy head can carry more runs than one page, and each page is a separate
-  document, so aggregate in the shell rather than with a per-page reduction.
+- **Unpaginated or partially fetched** — a busy head can carry more runs than one page. The helper
+  owns the whole producer call, validates every page before classification, and refuses partial data.
 
-Treat skipped, neutral, and still-running as **not red**. **Always name the judged sha** so the claim
-is falsifiable, and fail closed on a query error (report `unknown`, never a silent green).
+The helper preserves event, path, timestamp, and run id with each red so a deployment can route
+GitHub-managed runs without rejoining the original payload. **Always name the judged sha** so the
+claim is falsifiable, and fail closed on any helper error (report `unknown`, never a silent green).
 
 ### 5. Triage, stale, and advance signals
 

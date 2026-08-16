@@ -822,20 +822,42 @@ mkdir -p "$d/plugins/alpha/scripts"
 printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
 chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
 asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/read-helper.sh")
-jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_pass "desired-state required runtime asset resolves inside its plugin" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-jq '.spec.source.requiredRuntimeAssets = [{path:"scripts/missing.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000"}]' \
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
+asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset must declare executability" \
+  "required runtime asset executable must be true" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
+asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:false}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset cannot disable executability" \
+  "required runtime asset executable must be true" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.requiredRuntimeAssets = [{path:"scripts/missing.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000",executable:true}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state required runtime asset must exist and be executable" \
   "required runtime asset is missing, linked, or not executable" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-jq '.spec.source.requiredRuntimeAssets = [{path:"../outside.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000"}]' \
+jq '.spec.source.requiredRuntimeAssets = [{path:"../outside.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000",executable:true}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state required runtime asset cannot escape its plugin" \
@@ -847,7 +869,7 @@ printf '%s\n' '#!/usr/bin/env bash' > "$d/outside.sh"
 chmod +x "$d/outside.sh"
 ln -s ../../../outside.sh "$d/plugins/alpha/scripts/read-helper.sh"
 asset_digest=$(sha256_file "$d/outside.sh")
-jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state required runtime asset cannot be an escaping symlink" \
@@ -859,7 +881,7 @@ printf '%s\n' '#!/usr/bin/env bash' > "$d/outside-dir/read-helper.sh"
 chmod +x "$d/outside-dir/read-helper.sh"
 ln -s ../../outside-dir "$d/plugins/alpha/scripts"
 asset_digest=$(sha256_bytes "$d/outside-dir/read-helper.sh")
-jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state required runtime asset cannot escape through an intermediate symlink" \
@@ -871,7 +893,7 @@ printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/real-scripts/read-helper
 chmod +x "$d/plugins/alpha/real-scripts/read-helper.sh"
 ln -s real-scripts "$d/plugins/alpha/scripts"
 asset_digest=$(sha256_bytes "$d/plugins/alpha/real-scripts/read-helper.sh")
-jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state required runtime asset rejects an internal parent symlink" \
@@ -881,7 +903,7 @@ d=$(fresh); make_desired_state "$d" alpha
 mkdir -p "$d/plugins/alpha/scripts"
 printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
 chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
-jq '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000"}]' \
+jq '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000",executable:true}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "desired-state required runtime asset rejects a stale digest" \
@@ -893,7 +915,7 @@ printf '%s\n' '#!/usr/bin/env bash' > "$d/reviewed-helper.sh"
 asset_digest=$(sha256_file "$d/reviewed-helper.sh")
 printf '#!/usr/bin/env bash\r\n' > "$d/plugins/alpha/scripts/read-helper.sh"
 chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
-jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
   "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "runtime asset digest compares exact bytes rather than normalized text" \

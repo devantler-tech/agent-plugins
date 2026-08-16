@@ -456,7 +456,8 @@ validate_readme_parity() {
 #    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
 validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
-  local schedule_source schedule_plugin schedule_agent runtime_asset runtime_asset_sha actual_asset_sha
+  local schedule_source schedule_plugin schedule_agent runtime_asset runtime_asset_sha
+  local runtime_asset_executable actual_asset_sha
   local plugin_root runtime_asset_dir resolved_asset asset_parent asset_component asset_component_path
   local parent_linked
   local -a asset_components
@@ -564,7 +565,7 @@ validate_desired_state_resources() {
       resource_failed=1
     fi
 
-    while IFS=$'\t' read -r runtime_asset runtime_asset_sha; do
+    while IFS=$'\t' read -r runtime_asset runtime_asset_sha runtime_asset_executable; do
       [ -n "$runtime_asset" ] || continue
       case "$runtime_asset" in
         /* | .. | ../* | */../* | */..)
@@ -574,6 +575,12 @@ validate_desired_state_resources() {
           continue
           ;;
       esac
+      if [ "$runtime_asset_executable" != "true" ]; then
+        echo "::error::$resource: required runtime asset executable must be true: $runtime_asset"
+        failed=1
+        resource_failed=1
+        continue
+      fi
       if [ ! -f "$plugin_dir/$runtime_asset" ] \
         || [ -L "$plugin_dir/$runtime_asset" ] \
         || [ ! -x "$plugin_dir/$runtime_asset" ]; then
@@ -633,7 +640,7 @@ validate_desired_state_resources() {
       fi
     done < <(jq -r '
       .spec.source.requiredRuntimeAssets[]?
-      | [(.path // ""), (.sha256 // "")]
+      | [(.path // ""), (.sha256 // ""), (.executable // "")]
       | @tsv
     ' "$resource")
 
@@ -839,10 +846,11 @@ validate_desired_state_resources() {
           and ((.requiredRuntimeAssets // [])
             | type == "array" and all(.[];
                 type == "object"
-                and (keys - ["path", "sha256"] | length == 0)
-                and has("path") and has("sha256")
+                and (keys - ["path", "sha256", "executable"] | length == 0)
+                and has("path") and has("sha256") and has("executable")
                 and (.path | type == "string" and length > 0)
-                and (.sha256 | type == "string" and test("^[a-f0-9]{64}$")))))
+                and (.sha256 | type == "string" and test("^[a-f0-9]{64}$"))
+                and .executable == true)))
       and (.spec.consumer
         | only_keys([
             "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",

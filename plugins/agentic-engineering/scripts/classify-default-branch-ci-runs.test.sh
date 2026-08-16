@@ -199,7 +199,8 @@ if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
   jq -e --arg digest "$classifier_sha" '
     .spec.source.requiredRuntimeAssets == [{
       path: "scripts/classify-default-branch-ci-runs.sh",
-      sha256: $digest
+      sha256: $digest,
+      executable: true
     }]
   ' "$DESIRED_STATE" > /dev/null; then
   pass=$((pass + 1))

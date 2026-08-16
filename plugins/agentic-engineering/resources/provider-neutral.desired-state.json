@@ -11,7 +11,10 @@
       "plugin": "agentic-engineering",
       "entrypoint": "agentic-engineer",
       "requiredRuntimeAssets": [
-        "scripts/classify-default-branch-ci-runs.sh"
+        {
+          "path": "scripts/classify-default-branch-ci-runs.sh",
+          "sha256": "40bc088c3e07d6ddb8bf5cd924eab9f071521a2090f0acf1df9451f110f82f63"
+        }
       ],
       "entrypointSha256": "ed1f8cf97fbc2d4bdc375a4de048ef2fdcc40ab6612a69ea9e395b7b8e26e5a4",
       "updatePolicy": "latest-reviewed-default-branch",
@@ -97,7 +100,7 @@
       "copyPasteInstruction": "Adopt this document as the desired state for this workspace. Reconcile it using your native plugin, agent, scheduler, memory, permission, and model controls. Keep AGENTS.md as the canonical organization contract and this plugin as the canonical role. Make only the minimum runtime-local wiring needed to point at those sources. Before enabling writes, complete every onboarding step and report the resulting state and any unsupported capability.",
       "steps": [
         "Resolve the canonical consumer repository from the current workspace.",
-        "Install or refresh agentic-engineering from the declared marketplace using the runtime's native mechanism. If full plugins are unsupported, load the canonical agent and skill files plus the referenced runtime assets from the declared source without creating divergent copies, including scripts/classify-default-branch-ci-runs.sh for the portfolio-surveyor.",
+        "Install or refresh agentic-engineering from the declared marketplace using the runtime's native mechanism. If full plugins are unsupported, load the canonical agent and skill files plus the referenced runtime assets from the declared source without creating divergent copies, including scripts/classify-default-branch-ci-runs.sh for the portfolio-surveyor, and verify every declared SHA-256 before use.",
         "Read AGENTS.md and verify every required consumer contract section. Enable agent-improver only when both additional sections are present, and enable the agentic-engineer's spend stewardship only when the Spend contract section resolves its cost evidence sources, protected-outcomes floor, run procedure, and private decision channel; otherwise run the engineer with the cost dimension failed closed.",
         "Map the declared roles onto native agent capabilities, preserve portfolio-surveyor as read-only, and grant least privilege for each role.",
         "Allocate a unique branch namespace for every deployed writer instance and record it in the consumer contract before enabling writes.",

@@ -224,7 +224,8 @@ Because the guard denies by default, run your own deployment's survey vocabulary
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is
 better discovered deliberately than mid-run.
 
-The sole bundled compound read is `scripts/classify-default-branch-ci-runs.sh` in remote mode. The
+The sole bundled compound read is `scripts/classify-default-branch-ci-runs.sh` in remote mode. Its
+provider-neutral desired-state entry pins both the plugin-relative path and reviewed SHA-256. The
 guard accepts only the exact classifier beside itself and only `--repo`, `--branch`, and a full
 `--head-sha`; it refuses the helper's offline `--input` mode. Resolve both scripts from the same
 installed, reviewed plugin directory. The classifier captures its fixed paginated API GET in memory,

@@ -190,11 +190,21 @@ else
   record_failure 'generic survey digest preserves managed-run routing fields'
 fi
 
+if command -v sha256sum >/dev/null 2>&1; then
+  classifier_sha=$(sha256sum "$CLASSIFIER" | awk '{print $1}')
+else
+  classifier_sha=$(shasum -a 256 "$CLASSIFIER" | awk '{print $1}')
+fi
 if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
-  grep -Fq 'scripts/classify-default-branch-ci-runs.sh' "$DESIRED_STATE"; then
+  jq -e --arg digest "$classifier_sha" '
+    .spec.source.requiredRuntimeAssets == [{
+      path: "scripts/classify-default-branch-ci-runs.sh",
+      sha256: $digest
+    }]
+  ' "$DESIRED_STATE" > /dev/null; then
   pass=$((pass + 1))
 else
-  record_failure 'agent-only onboarding includes the surveyor classifier runtime asset'
+  record_failure 'agent-only onboarding pins the surveyor classifier runtime asset bytes'
 fi
 
 if [ "$fail" -ne 0 ]; then

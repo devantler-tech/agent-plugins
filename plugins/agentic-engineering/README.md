@@ -224,6 +224,12 @@ Because the guard denies by default, run your own deployment's survey vocabulary
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is
 better discovered deliberately than mid-run.
 
+The sole bundled compound read is `scripts/classify-default-branch-ci-runs.sh` in remote mode. The
+guard accepts only the exact classifier beside itself and only `--repo`, `--branch`, and a full
+`--head-sha`; it refuses the helper's offline `--input` mode. Resolve both scripts from the same
+installed, reviewed plugin directory. The classifier captures its fixed paginated API GET in memory,
+so this exception neither writes an intermediate file nor permits an arbitrary local executable.
+
 **Two residues the guard cannot close from argv alone — the calling runtime must.** Both are stated
 here rather than left implicit, because a guard whose limits are undocumented gets trusted for things
 it never claimed:

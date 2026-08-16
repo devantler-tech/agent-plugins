@@ -63,6 +63,9 @@
 #
 set -euo pipefail
 
+GUARD_DIR=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+DEFAULT_BRANCH_CLASSIFIER="${GUARD_DIR}/classify-default-branch-ci-runs.sh"
+
 deny() {
   printf 'deny: %s\n' "$1"
   exit 1
@@ -1143,6 +1146,49 @@ classify_filter() {
   return 0
 }
 
+# One reviewed plugin helper is a compound forge read rather than a generic
+# filter: it performs a fixed paginated Actions GET in memory and classifies the
+# result. Match the exact sibling of this guard, never a basename or caller-
+# supplied path, then admit only its remote-mode argument shape. Offline
+# `--input` can read an arbitrary local file and therefore remains denied.
+classify_default_branch_ci() {
+  local i=1 w repo='' branch='' head_sha=''
+  local n=${#WORDS[@]}
+
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
+    case "$w" in
+      --repo)
+        [ -z "$repo" ] || deny 'default-branch classifier repeats --repo'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'default-branch classifier --repo needs a value'
+        repo=${WORDS[$i]}
+        ;;
+      --branch)
+        [ -z "$branch" ] || deny 'default-branch classifier repeats --branch'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'default-branch classifier --branch needs a value'
+        branch=${WORDS[$i]}
+        ;;
+      --head-sha)
+        [ -z "$head_sha" ] || deny 'default-branch classifier repeats --head-sha'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'default-branch classifier --head-sha needs a value'
+        head_sha=${WORDS[$i]}
+        ;;
+      *) deny "default-branch classifier argument '$w' is not the guarded remote-mode shape" ;;
+    esac
+    i=$((i + 1))
+  done
+
+  [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] ||
+    deny 'default-branch classifier repository is not OWNER/REPO'
+  [ -n "$branch" ] || deny 'default-branch classifier needs --branch'
+  [[ "$head_sha" =~ ^[0-9a-fA-F]{40}$ ]] ||
+    deny 'default-branch classifier head sha is not full length'
+  return 0
+}
+
 # sed is allowed by shape, not by exclusion: a plain substitution or a line
 # print/delete, and nothing else. `w` writes a file and `e` executes a command,
 # and both hide in a flag position that a blacklist keeps missing — including
@@ -1240,7 +1286,7 @@ classify_segment() {
   # `cat ~/.config/gh/hosts.yml` would otherwise pass as a "safe filter".
   if [ "$index" -eq 0 ]; then
     case "$prog" in
-      gh | git) ;;
+      gh | git | "$DEFAULT_BRANCH_CLASSIFIER") ;;
       *) deny "a read must begin with a forge command, not '$prog'" ;;
     esac
   fi
@@ -1248,6 +1294,7 @@ classify_segment() {
   case "$prog" in
     gh) classify_gh ;;
     git) classify_git ;;
+    "$DEFAULT_BRANCH_CLASSIFIER") classify_default_branch_ci ;;
     sed) classify_sed ;;
     jq) classify_filter jq "$FILTER_FLAGS_JQ" "$FILTER_VALUE_FLAGS_JQ" 1 ;;
     grep) classify_filter grep "$FILTER_FLAGS_GREP" "$FILTER_VALUE_FLAGS_GREP" 1 ;;

@@ -81,6 +81,8 @@ expect_allow 'release view' "gh release view --repo devantler-tech/ksail"
 expect_allow 'api rest get' "gh api repos/devantler-tech/monorepo/issues/2786/comments --paginate"
 expect_allow 'api with an explicit GET method' \
   "gh api --method GET repos/devantler-tech/platform/rulesets"
+expect_allow 'bundled default-branch classifier is a guarded compound forge read' \
+  "$HERE/classify-default-branch-ci-runs.sh --repo devantler-tech/platform --branch main --head-sha 0123456789abcdef0123456789abcdef01234567"
 expect_allow 'api rate_limit with a jq object expression' \
   "gh api rate_limit --jq '{graphql:.resources.graphql,core:.resources.core}'"
 
@@ -158,6 +160,10 @@ expect_deny 'issue close' "gh issue close 108"
 expect_deny 'repo clone' "gh repo clone devantler-tech/platform"
 expect_deny 'repo delete' "gh repo delete devantler-tech/platform"
 expect_deny 'run rerun' "gh run rerun 31544900207"
+expect_deny 'classifier cannot read an arbitrary local fixture under the survey guard' \
+  "$HERE/classify-default-branch-ci-runs.sh --input /tmp/runs.json"
+expect_deny 'classifier rejects an unscoped repository value' \
+  "$HERE/classify-default-branch-ci-runs.sh --repo example.com/devantler-tech/platform --branch main --head-sha 0123456789abcdef0123456789abcdef01234567"
 expect_deny 'run cancel' "gh run cancel 31544900207"
 expect_deny 'workflow run' "gh workflow run cd.yaml"
 expect_deny 'release create' "gh release create v1.0.0"

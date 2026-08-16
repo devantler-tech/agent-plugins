@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fetch and classify the health of one GitHub repository default-branch head.
 #
-# Remote mode owns pagination so an API failure can never be hidden by a successful consumer:
+# Remote mode owns pagination in memory so an API failure can never be hidden by a successful
+# consumer and the read-only surveyor never writes a response file:
 #   classify-default-branch-ci-runs.sh --repo OWNER/REPO --branch BRANCH --head-sha FULL_SHA
 #
 # Fixture/offline mode accepts a flat run array, raw page-envelope stream, or --slurp envelope array:
@@ -58,13 +59,7 @@ command -v jq >/dev/null 2>&1 || {
 }
 
 payload_path=""
-temporary_payload=""
-cleanup() {
-  if [ -n "$temporary_payload" ]; then
-    rm -f -- "$temporary_payload"
-  fi
-}
-trap cleanup EXIT
+payload=""
 
 if [ -n "$input_path" ]; then
   if [ -n "$repo" ] || [ -n "$branch" ] || [ -n "$head_sha" ]; then
@@ -86,18 +81,17 @@ else
     exit 2
   }
 
-  temporary_payload=$(mktemp "${TMPDIR:-/tmp}/default-branch-ci-runs.XXXXXX")
-  payload_path=$temporary_payload
-  if ! gh api --paginate --slurp --method GET "repos/${repo}/actions/runs" \
+  if ! payload=$(gh api --paginate --slurp --method GET "repos/${repo}/actions/runs" \
     -f head_sha="$head_sha" \
     -f branch="$branch" \
-    -F per_page=100 >"$payload_path"; then
+    -F per_page=100); then
     echo "classify-default-branch-ci-runs: GitHub Actions pagination failed; health is unknown" >&2
     exit 2
   fi
 fi
 
-if ! jq -rs '
+# shellcheck disable=SC2016  # jq program; dollar-prefixed names belong to jq
+jq_filter='
   def page_runs:
     if type == "object" and has("workflow_runs") and (.workflow_runs | type == "array") then
       .workflow_runs
@@ -131,19 +125,27 @@ if ! jq -rs '
 
   if length == 0 then error("empty input") else . end
   | [.[] | page_runs[]] as $runs
+  | (if any($runs[]; (.event | type != "string") or (.event | length == 0))
+     then error("run is missing its event discriminator")
+     else $runs
+     end) as $complete_runs
   | ["push", "schedule", "merge_group", "workflow_dispatch", "dynamic"] as $branch_events
-  | ($runs | map(select((.event as $event | $branch_events | index($event)) != null))) as $branch_runs
+  | ($complete_runs
+      | map(select((.event as $event | $branch_events | index($event)) != null))) as $branch_runs
   | if any($branch_runs[];
       (.workflow_id | type != "number")
       or (.id | type != "number")
       or (.created_at | type != "string")
-      or (.created_at | length == 0))
-    then error("branch run is missing workflow_id, id, or created_at")
+      or (.created_at | length == 0)
+      or ((.run_started_at // null) != null
+          and ((.run_started_at | type != "string") or (.run_started_at | length == 0)))
+      or ((.run_attempt // null) != null and (.run_attempt | type != "number")))
+    then error("branch run is missing workflow_id, id, or execution time")
     else $branch_runs
     end
   | group_by(run_identity)
   | map(
-      sort_by([.created_at, .id])
+      sort_by([(.run_started_at // .created_at), (.run_attempt // 1), .id])
       | map(select(.conclusion == "success" or red))
       | last
     )
@@ -153,7 +155,19 @@ if ! jq -rs '
   | [.workflow_id, .conclusion, (.html_url // ""), (.name // ""),
      (.event // ""), (.path // ""), .created_at, .id]
   | @tsv
-' "$payload_path"; then
+' 
+
+classification=""
+if [ -n "$payload_path" ]; then
+  if ! classification=$(jq -rs "$jq_filter" "$payload_path"); then
+    echo "classify-default-branch-ci-runs: malformed or incomplete runs payload; health is unknown" >&2
+    exit 2
+  fi
+elif ! classification=$(printf '%s\n' "$payload" | jq -rs "$jq_filter"); then
   echo "classify-default-branch-ci-runs: malformed or incomplete runs payload; health is unknown" >&2
   exit 2
+fi
+
+if [ -n "$classification" ]; then
+  printf '%s\n' "$classification"
 fi

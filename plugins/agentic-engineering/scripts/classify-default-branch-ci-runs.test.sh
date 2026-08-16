@@ -5,6 +5,7 @@ set -euo pipefail
 HERE=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 CLASSIFIER="$HERE/classify-default-branch-ci-runs.sh"
 SURVEYOR="$HERE/../agents/portfolio-surveyor.agent.md"
+DESIRED_STATE="$HERE/../resources/provider-neutral.desired-state.json"
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/classify-default-branch-ci-runs.test.XXXXXX")
 trap 'rm -rf "$TEST_TMP"' EXIT
 
@@ -27,6 +28,19 @@ expect_output() {
     printf '      expected exit 0 and output:\n%s\n      got exit %s and output:\n%s\n' \
       "$expected" "$status" "$out" >&2
     sed 's/^/      stderr: /' "$TEST_TMP/stderr" >&2
+  fi
+}
+
+expect_error() {
+  local label=$1 payload=$2 fixture="$TEST_TMP/input.json" out status=0
+  printf '%s\n' "$payload" >"$fixture"
+  out=$("$CLASSIFIER" --input "$fixture" 2>"$TEST_TMP/stderr") || status=$?
+  if [ "$status" -eq 2 ] && [ -z "$out" ]; then
+    pass=$((pass + 1))
+  else
+    record_failure "$label"
+    printf '      expected exit 2 and empty output, got exit %s and output: %s\n' \
+      "$status" "$out" >&2
   fi
 }
 
@@ -113,6 +127,20 @@ expect_output \
   ]' \
   $'11\tfailure\thttps://example.test/new-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t102'
 
+expect_output \
+  'a later rerun attempt is ordered by its execution time' \
+  '[
+    {"id":10,"run_attempt":2,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","run_started_at":"2026-07-14T11:00:00Z","html_url":"https://example.test/rerun-fail","name":"CI"},
+    {"id":11,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T10:00:00Z","run_started_at":"2026-07-14T10:00:00Z","html_url":"https://example.test/ok","name":"CI"}
+  ]' \
+  $'11\tfailure\thttps://example.test/rerun-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t10'
+
+expect_error \
+  'a run without an event discriminator makes the classification unknown' \
+  '[
+    {"id":10,"workflow_id":11,"conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}
+  ]'
+
 expect_remote_failure
 
 if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
@@ -122,6 +150,19 @@ if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
   pass=$((pass + 1))
 else
   record_failure 'generic surveyor delegates fail-closed classification to the shipped helper'
+fi
+
+if grep -Fq 'event=<event>, path=<path>, created=<created_at>, run=<run_id>' "$SURVEYOR"; then
+  pass=$((pass + 1))
+else
+  record_failure 'generic survey digest preserves managed-run routing fields'
+fi
+
+if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
+  grep -Fq 'scripts/classify-default-branch-ci-runs.sh' "$DESIRED_STATE"; then
+  pass=$((pass + 1))
+else
+  record_failure 'agent-only onboarding includes the surveyor classifier runtime asset'
 fi
 
 if [ "$fail" -ne 0 ]; then

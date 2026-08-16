@@ -123,6 +123,11 @@ jq_filter='
     or .conclusion == "timed_out"
     or .conclusion == "startup_failure";
 
+  def valid_github_timestamp:
+    type == "string"
+    and length > 0
+    and (try (fromdateiso8601 | true) catch false);
+
   if length == 0 then error("empty input") else . end
   | [.[] | page_runs[]] as $runs
   | (if any($runs[]; (.event | type != "string") or (.event | length == 0))
@@ -135,10 +140,9 @@ jq_filter='
   | if any($branch_runs[];
       (.workflow_id | type != "number")
       or (.id | type != "number")
-      or (.created_at | type != "string")
-      or (.created_at | length == 0)
+      or ((.created_at | valid_github_timestamp) | not)
       or ((.run_started_at // null) != null
-          and ((.run_started_at | type != "string") or (.run_started_at | length == 0)))
+          and ((.run_started_at | valid_github_timestamp) | not))
       or ((.run_attempt // null) != null and (.run_attempt | type != "number")))
     then error("branch run is missing workflow_id, id, or execution time")
     else $branch_runs

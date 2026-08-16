@@ -141,6 +141,12 @@ expect_error \
     {"id":10,"workflow_id":11,"conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}
   ]'
 
+expect_error \
+  'an invalid execution timestamp makes the classification unknown' \
+  '[
+    {"id":10,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"not-a-timestamp","html_url":"https://example.test/fail","name":"CI"}
+  ]'
+
 expect_remote_failure
 
 if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&

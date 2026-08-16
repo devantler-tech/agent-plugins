@@ -605,7 +605,9 @@ validate_desired_state_resources() {
         asset_component_path="$plugin_dir"
         parent_linked=0
         for asset_component in "${asset_components[@]}"; do
-          [ -n "$asset_component" ] && [ "$asset_component" != "." ] || continue
+          if [ -z "$asset_component" ] || [ "$asset_component" = "." ]; then
+            continue
+          fi
           asset_component_path="$asset_component_path/$asset_component"
           if [ -L "$asset_component_path" ]; then
             echo "::error::$resource: required runtime asset parent path is linked: $runtime_asset"

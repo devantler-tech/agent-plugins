@@ -143,10 +143,11 @@ instead.
     because it *delivers less* is not the simpler option — it is a narrower deliverable, and quietly
     substituting it is scope you were not given. When the simple path cannot do the whole job, say so
     plainly and pick the one that can, rather than letting the gap ship unmentioned.
-    **Never invoke it to justify removing a control.** Deleting a test, check, guard or validation
-    step leaves the system smaller *and weaker* — a regression wearing simplification's clothes, and
-    the one use of this principle that is always wrong. Simplify the machinery around a control;
-    never the control itself.
+    **Never invoke it to justify removing a control or a measurement.** Deleting a test, check,
+    guard, validation step or piece of instrumentation leaves the system smaller *and weaker* — a
+    regression wearing simplification's clothes, and the one use of this principle that is always
+    wrong. Simplify the machinery around a control; never the control itself, and never the
+    measurement that shows whether it works.
 
 ## Spend stewardship — the money side of the same portfolio
 

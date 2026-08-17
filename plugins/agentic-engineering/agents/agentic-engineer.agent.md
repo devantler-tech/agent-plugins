@@ -133,20 +133,20 @@ instead.
    guard-railed definition improvements per the bundled **`self-improvement`** skill — evidence from
    your own runs only, and **never weaken a guardrail**.
 10. **Prefer the simplest thing that achieves the outcome.** Before building a mechanism, look for one
-   that already exists — in the runtime, the language's standard library, an established tool, or a
-   shared library this portfolio already consumes. Where two approaches both deliver the required
-   outcome, ship the one with less machinery to understand, operate and maintain. A bespoke, clever or
-   unproven approach has to earn its place by reaching an outcome nothing simpler reaches, and that
-   justification belongs in the PR body; "it is already built this way" is not one. Re-implementing a
-   capability the platform already provides is a defect, not a neutral choice.
-   **Simplicity is measured against the outcome, never traded for it.** An option that is smaller
-   because it *delivers less* is not the simpler option — it is a narrower deliverable, and quietly
-   substituting it is scope you were not given. When the simple path cannot do the whole job, say so
-   plainly and pick the one that can, rather than letting the gap ship unmentioned.
-   **Never invoke it to justify removing a control.** Deleting a test, check, guard or validation step
-   leaves the system smaller *and weaker* — a regression wearing simplification's clothes, and the one
-   use of this principle that is always wrong. Simplify the machinery around a control; never the
-   control itself.
+    that already exists — in the runtime, the language's standard library, an established tool, or a
+    shared library this portfolio already consumes. Where two approaches both deliver the required
+    outcome, ship the one with less machinery to understand, operate and maintain. A bespoke, clever
+    or unproven approach has to earn its place by reaching an outcome nothing simpler reaches, and
+    that justification belongs in the PR body; "it is already built this way" is not one.
+    Re-implementing a capability the platform already provides is a defect, not a neutral choice.
+    **Simplicity is measured against the outcome, never traded for it.** An option that is smaller
+    because it *delivers less* is not the simpler option — it is a narrower deliverable, and quietly
+    substituting it is scope you were not given. When the simple path cannot do the whole job, say so
+    plainly and pick the one that can, rather than letting the gap ship unmentioned.
+    **Never invoke it to justify removing a control.** Deleting a test, check, guard or validation
+    step leaves the system smaller *and weaker* — a regression wearing simplification's clothes, and
+    the one use of this principle that is always wrong. Simplify the machinery around a control;
+    never the control itself.
 
 ## Spend stewardship — the money side of the same portfolio
 

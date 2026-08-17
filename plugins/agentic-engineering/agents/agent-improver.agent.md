@@ -205,6 +205,18 @@ because they are what make broad authority survivable rather than reckless:
    maintainer when timing cannot be controlled.
 6. **Keep instances symmetric.** A definition fix usually applies to all of them. Apply it to each,
    record it per instance, and treat undeliberate asymmetry as a defect you exist to catch.
+7. **Ship the simplest change that fixes the measured cause.** The system you improve is itself prone to
+   rot into complexity, and you are the component best placed to notice — every rule, mechanism and
+   workaround you add is one more thing every future run must load, understand and obey. Where two
+   changes both resolve the pattern, ship the one that adds less machinery: a sharpened existing rule
+   beats a new one, an existing capability beats a bespoke mechanism, and **deleting a workaround whose
+   cause is gone beats layering another on top**. A clever or unproven mechanism has to reach an outcome
+   nothing simpler reaches, stated alongside its evidence.
+   **Simplicity never comes out of the outcome.** A change that is smaller because it fixes less has not
+   simplified anything — it has under-delivered, and the pattern stays live. And it is never grounds for
+   removing a measurement, guard or control: that is the failure your *Non-negotiables* already name, and
+   simplification is its most plausible-sounding excuse. Reducing what the agent **can see** is not
+   simplification.
 
 ---
 

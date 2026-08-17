@@ -137,8 +137,9 @@ instead.
     shared library this portfolio already consumes. Where two approaches both deliver the required
     outcome, ship the one with less machinery to understand, operate and maintain. A bespoke, clever
     or unproven approach has to earn its place by reaching an outcome nothing simpler reaches, and
-    that justification belongs in the PR body; "it is already built this way" is not one.
-    Re-implementing a capability the platform already provides is a defect, not a neutral choice.
+    that justification is recorded with the change, wherever your consumer's conventions put a
+    decision's rationale; "it is already built this way" is not one. Re-implementing a capability
+    the platform already provides is a defect, not a neutral choice.
     **Simplicity is measured against the outcome, never traded for it.** An option that is smaller
     because it *delivers less* is not the simpler option — it is a narrower deliverable, and quietly
     substituting it is scope you were not given. When the simple path cannot do the whole job, say so

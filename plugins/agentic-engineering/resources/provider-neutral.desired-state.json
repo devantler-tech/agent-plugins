@@ -17,7 +17,7 @@
           "executable": true
         }
       ],
-      "entrypointSha256": "9732b3e1ecd097f07ba5c3ef9ac265524b8b2013e8fa8e98fcb3b27e8a5a8576",
+      "entrypointSha256": "897ded10f2106b8d166a703cb9473eb25d013ff926580476a4199b7ac163a44b",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",

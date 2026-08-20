@@ -186,6 +186,45 @@ expect_deny 'api raw-field implies POST' \
   "gh api repos/devantler-tech/monorepo/issues/2786/comments -F body=@x"
 expect_deny 'api --input implies POST' \
   "gh api repos/devantler-tech/monorepo/issues --input payload.json"
+
+# --- #144: fields are a GET query string when an explicit GET method is present ---
+# `gh api --help`: parameters switch the method to POST "unless --method GET is given",
+# in which case they are serialised into the query string. Both reads below are
+# prescribed by the surveyor definition, so denying them would remove the
+# active-work signal and the issue census.
+expect_allow 'api -X GET with a field is a query-string read' \
+  "gh api -X GET repos/devantler-tech/monorepo/activity -f per_page=100"
+expect_allow 'api --method GET with a field is a query-string read' \
+  "gh api --method GET repos/devantler-tech/monorepo/activity -f per_page=100"
+expect_allow 'api -X GET with a field and a ref value' \
+  "gh api -X GET repos/devantler-tech/monorepo/activity -f per_page=100 -f ref=refs/heads/main"
+expect_allow 'api GET method is matched case-insensitively' \
+  "gh api -X get repos/devantler-tech/monorepo/activity -f per_page=100"
+expect_allow 'api -X GET with a long raw-field' \
+  "gh api -X GET search/issues --raw-field q=org:devantler-tech"
+expect_allow 'api -X GET with a typed field' \
+  "gh api -X GET search/issues -F per_page=100"
+expect_allow 'api --method get with the long field form' \
+  "gh api --method get search/issues --field per_page=100"
+expect_allow 'api -X GET with the long field form' \
+  "gh api -X GET search/issues --field per_page=100"
+expect_allow 'api -X GET issue census with pagination' \
+  "gh api -X GET search/issues -f q=org:devantler-tech --paginate"
+
+# The widening is scoped to the METHOD. Every adjacent protection is independent
+# and must survive it.
+expect_deny 'api field with no method still implies POST' \
+  "gh api repos/devantler-tech/monorepo/issues/2786/comments -f body=hi"
+expect_deny 'api field under an explicit POST stays denied' \
+  "gh api -X POST repos/devantler-tech/monorepo/issues/2786/comments -f body=hi"
+expect_deny 'api field under an explicit PATCH stays denied' \
+  "gh api --method PATCH repos/devantler-tech/monorepo/issues/2786 -f state=closed"
+expect_deny 'api -X GET does not widen the @file read' \
+  "gh api -X GET repos/devantler-tech/monorepo/issues -F body=@secret.txt"
+expect_deny 'api -X GET does not widen the bare @file read' \
+  "gh api -X GET repos/devantler-tech/monorepo/issues -f @secret.txt"
+expect_deny 'api -X GET does not widen --input' \
+  "gh api -X GET repos/devantler-tech/monorepo/issues --input payload.json"
 expect_deny 'api with no endpoint' "gh api --paginate"
 
 expect_deny 'graphql mutation' \

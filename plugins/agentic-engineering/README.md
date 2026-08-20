@@ -210,15 +210,18 @@ forge-readonly-guard.sh --command '<command>'   # exit 0 allow · 1 deny (prints
 <command> | forge-readonly-guard.sh --stdin
 ```
 
-**A bundled `scripts/` directory is a helper location, not an auto-discovered plugin resource — so
-installing this plugin does not by itself enforce anything.** Until a consumer wires the guard into its
-runtime, the surveyor's read-only boundary rests on the model honouring its definition, exactly as it
-did before. Wiring it is the consumer's step:
+The wrapper [`scripts/surveyor-forge-readonly.sh`](scripts/surveyor-forge-readonly.sh) is the
+surveyor-scoped PreToolUse adapter for that guard. It is not a second classifier: it extracts the
+candidate command from stdin and asks `forge-readonly-guard.sh --command`. Both scripts are
+`requiredRuntimeAssets`. A deployment that has not installed them, or has not wired the wrapper onto
+the surveyor agent, fails closed: forge reads are `QUERY-UNKNOWN`.
 
-1. Resolve the installed plugin path for your runtime.
-2. Register the script as the runtime's pre-execution decision point for shell commands, passing the
-   candidate command as `--command`.
-3. Treat a non-zero exit as a refusal, surfacing the printed `deny:` reason.
+This plugin does not ship `.claude-plugin/hooks.json`. Claude Code auto-discovers that file for every
+agent in the plugin, and a plugin-wide `Bash` matcher would deny the engineer's write path. Wire the
+wrapper onto `portfolio-surveyor` only. A Claude Code consumer that does so registers
+`${CLAUDE_PLUGIN_ROOT}/scripts/surveyor-forge-readonly.sh` as that agent's PreToolUse command for
+`Bash`; other runtimes call the same wrapper at their surveyor-only pre-execution point. Do not put a
+provider-named hook path in desired-state JSON.
 
 Because the guard denies by default, run your own deployment's survey vocabulary through it before
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is

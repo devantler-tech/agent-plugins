@@ -135,9 +135,12 @@ GH_API_VALUE_FLAGS=" --jq -q --method -X --header -H --template -t --preview -p 
 # local program the guard never classified. So the verbs are allowlisted too.
 GH_VERB_FLAGS=" --draft --no-draft --archived --no-archived --merged --closed --comments --paginate --fork --source --include-prs --exclude-drafts --checks --required "
 GH_VERB_VALUE_FLAGS=" -R --repo --state --limit -L --json --jq -q --search --author --owner --assignee --label --milestone --app --branch --workflow --event --user --sort --order --created --updated --language --match --visibility --topic --exclude --head --base --commit --template -t --filter "
-# gh switches the request to POST as soon as one of these is set, and a `-F`
-# value beginning with `@` makes gh read that file and send its contents. They
-# survive only on graphql, which has no other way to carry a query.
+# gh switches the request to POST as soon as one of these is set, UNLESS an
+# explicit `--method GET` is also given — then gh serialises them into the query
+# string and the request stays a read. So these survive on graphql (which has no
+# other way to carry a query) and on an explicit GET. A `-F` value beginning with
+# `@` makes gh read that file and send its contents; that is a separate rule and
+# is denied in every case, GET included.
 GH_API_FIELD_FLAGS=" -f --raw-field -F --field --input "
 
 # git options. Read verbs are not enough on their own: several options make git
@@ -579,7 +582,7 @@ classify_gh_api() {
   local i=2 w name val
   local n=${#WORDS[@]}
   local endpoint='' seen_endpoint=0
-  local field_count=0
+  local field_count=0 method_count=0
   local field_values='' m
   # An ARRAY, not a string. `set -euo pipefail` does not disable pathname
   # expansion, so iterating an unquoted string would expand a method value of `*`
@@ -661,7 +664,13 @@ $val"
     check_gh_flag_value "$name" "$val"
 
     case "$name" in
-      --method | -X) methods+=("$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')") ;;
+      --method | -X)
+        methods+=("$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')")
+        # Counted separately: `set -u` under bash 3.2 makes "${methods[@]}" an
+        # error on an empty array, so a plain counter is the portable way to ask
+        # "was a method given at all?" below.
+        method_count=$((method_count + 1))
+        ;;
     esac
     i=$((i + 1))
   done
@@ -684,8 +693,14 @@ EOF
     if [ "$m" != GET ]; then deny "gh api --method $m is not a read"; fi
   done
 
-  if [ "$field_count" -gt 0 ]; then
-    deny 'gh api field arguments make the request a POST'
+  # A field argument switches gh to POST *unless* an explicit GET method is given,
+  # in which case gh serialises the fields into the query string — still a read.
+  # The loop above already denied every non-GET method, so reaching here with a
+  # method means that method is GET. No method at all means gh's POST default.
+  # This narrows only the METHOD question: the @file and --input denials are
+  # independent, fire earlier, and are unaffected.
+  if [ "$field_count" -gt 0 ] && [ "$method_count" -eq 0 ]; then
+    deny 'gh api field arguments make the request a POST without an explicit --method GET'
   fi
 
   if [ "$seen_endpoint" -eq 0 ]; then

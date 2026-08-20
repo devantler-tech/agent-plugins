@@ -80,6 +80,10 @@ else
     echo "classify-default-branch-ci-runs: gh is required in remote mode" >&2
     exit 2
   }
+  # Default gh telemetry writes gh/device-id before the API result exists.
+  # The forge-readonly guard requires this in the process environment; argv
+  # cannot carry it (an env-prefixed command is denied).
+  export GH_TELEMETRY=0
 
   if ! payload=$(gh api --paginate --slurp --method GET "repos/${repo}/actions/runs" \
     -f head_sha="$head_sha" \

@@ -58,6 +58,12 @@
 #     output is a terminal, so a request to page (`--paginate`) is refused, but a
 #     deployment that attaches a TTY should also set `GIT_PAGER=cat`. What argv
 #     cannot express, a guard over argv cannot certify.
+#   Environment: GitHub CLI's default telemetry creates gh/device-id on an
+#     otherwise-allowed read. The guard therefore requires a disabling
+#     GH_TELEMETRY (0 or false) in the process environment before it classifies
+#     any gh segment; argv cannot carry that value (an env-prefixed command is
+#     denied). Deployments must export GH_TELEMETRY=0 in the runtime that
+#     invokes gh, the same way a TTY-attached host should set GIT_PAGER=cat.
 #
 # Written for bash 3.2 so it runs on a stock macOS agent host as well as CI.
 #
@@ -802,6 +808,17 @@ check_gh_verb_flags() {
 
 classify_gh() {
   local sub sub2 sub_at
+
+  # GH_TELEMETRY is an environment class, not argv: an env-prefixed command is
+  # already denied, so the disabling value must already be in the process
+  # environment. 0 and false are the documented GitHub CLI disable values.
+  case "${GH_TELEMETRY-}" in
+    0|false) ;;
+    *)
+      printf '%s\n' 'deny: export GH_TELEMETRY=0 before any gh read (prevents gh/device-id telemetry writes)'
+      return 1
+      ;;
+  esac
 
   find_subcommand 1 ' '
   sub=$SUB_WORD

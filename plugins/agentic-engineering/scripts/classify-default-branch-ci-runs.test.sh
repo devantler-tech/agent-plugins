@@ -190,6 +190,12 @@ else
   record_failure 'generic survey digest preserves managed-run routing fields'
 fi
 
+if grep -q 'export GH_TELEMETRY=0' "$CLASSIFIER"; then
+  pass=$((pass + 1))
+else
+  record_failure 'classifier helper exports GH_TELEMETRY=0 before any gh invocation'
+fi
+
 if command -v sha256sum >/dev/null 2>&1; then
   classifier_sha=$(sha256sum "$CLASSIFIER" | awk '{print $1}')
 else

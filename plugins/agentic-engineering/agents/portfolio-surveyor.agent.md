@@ -408,6 +408,11 @@ partial output and the read-only role never writes an intermediate file. The bun
 shape; offline `--input` remains denied. Exit 0 is a complete classification; exit 2 means `unknown`,
 never green.
 
+Invoke it from a process that already has `GH_TELEMETRY=0` (or `false`) in the environment,
+or rely on the helper's own export of `GH_TELEMETRY=0` before its remote `gh api` GET — GitHub CLI
+2.96.0 otherwise writes `gh/device-id` on a certified read. Do not prefix the helper with
+`GH_TELEMETRY=0` on the command line; the guard denies env-prefixed `gh`.
+
 The helper flattens all page envelopes before deciding and keeps only branch-level events (push,
 schedule, merge-group, manual dispatch, and GitHub-managed dynamic runs). Repository workflows are
 keyed by workflow id — never display name, because two workflow files can legally share a name.

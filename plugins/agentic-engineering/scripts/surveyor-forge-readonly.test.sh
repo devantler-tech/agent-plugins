@@ -61,41 +61,31 @@ else
   fail "missing jq must deny (st=$st out=$out)"
 fi
 
-# --- empty stdin fails closed ---
-st="$(
-  set +e
-  printf '' | "$WRAPPER" >/dev/null 2>&1
-  echo $?
-)"
-if [ "$st" -ne 0 ]; then
-  pass
-else
-  fail "empty stdin must deny"
-fi
+# --- invalid hook input fails closed WITH the structured deny payload ---
+#
+# Exit status alone is not the contract. The runtime renders
+# hookSpecificOutput.permissionDecision to show the operator WHY a command was
+# refused, so a wrapper that exited 2 while printing nothing would satisfy an
+# exit-status-only assertion and leave every refusal unexplained. Assert both,
+# the same way the missing-jq case above already does.
+assert_deny_payload() {
+  local label="$1" input="$2" out st
+  out="$(printf '%s' "$input" | "$WRAPPER" 2>/dev/null || true)"
+  st="$(
+    set +e
+    printf '%s' "$input" | "$WRAPPER" >/dev/null 2>&1
+    echo $?
+  )"
+  if [ "$st" -ne 0 ] && printf '%s\n' "$out" | grep -q '"permissionDecision":"deny"'; then
+    pass
+  else
+    fail "$label (st=$st out=$out)"
+  fi
+}
 
-# --- malformed JSON fails closed ---
-st="$(
-  set +e
-  printf '{not-json\n' | "$WRAPPER" >/dev/null 2>&1
-  echo $?
-)"
-if [ "$st" -ne 0 ]; then
-  pass
-else
-  fail "malformed JSON must deny"
-fi
-
-# --- missing command field fails closed ---
-st="$(
-  set +e
-  printf '%s\n' '{"tool_name":"Bash","tool_input":{}}' | "$WRAPPER" >/dev/null 2>&1
-  echo $?
-)"
-if [ "$st" -ne 0 ]; then
-  pass
-else
-  fail "missing tool_input.command must deny"
-fi
+assert_deny_payload "empty stdin must deny" ''
+assert_deny_payload "malformed JSON must deny" '{not-json'
+assert_deny_payload "missing tool_input.command must deny" '{"tool_name":"Bash","tool_input":{}}'
 
 # --- stub guard: the wrapper must pass --command and map 0 / 1 / 2 ---
 cat >"$TMP/stub-guard" <<'EOF'

@@ -70,6 +70,15 @@ expect_allow 'issue view' "gh issue view 108 --repo devantler-tech/agent-plugins
 expect_allow 'issue list' "gh issue list --repo devantler-tech/ksail --state open --limit 200"
 expect_allow 'search issues' "gh search issues --owner devantler-tech --state open --limit 300"
 expect_allow 'search prs' "gh search prs --owner devantler-tech --state open"
+# Both filters are prescribed by the surveyor definition this guard wraps: the
+# maintainer-comment sweep keys on --commenter, and the merged-PR retrospective
+# on --merged-at. Each only narrows the query server-side -- neither reaches a
+# local file, a program, or a different host -- so denying them fails the run
+# closed on a read the definition is told to perform.
+expect_allow 'search issues filtered by commenter' \
+  "gh search issues --owner devantler-tech --state open --commenter devantler --limit 300"
+expect_allow 'search prs filtered by merge date' \
+  "gh search prs --owner devantler-tech --merged --merged-at 2026-08-17..2026-08-20 --limit 100"
 expect_allow 'repo list' "gh repo list devantler-tech --limit 100"
 expect_allow 'run list' "gh run list --repo devantler-tech/platform --branch main --limit 40"
 expect_allow 'run view' "gh run view 31544900207 --repo devantler-tech/platform --json jobs"

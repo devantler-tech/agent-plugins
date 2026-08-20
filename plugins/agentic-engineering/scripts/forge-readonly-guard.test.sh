@@ -204,6 +204,10 @@ expect_allow 'api -X GET with a long raw-field' \
   "gh api -X GET search/issues --raw-field q=org:devantler-tech"
 expect_allow 'api -X GET with a typed field' \
   "gh api -X GET search/issues -F per_page=100"
+expect_allow 'api --method get with the long field form' \
+  "gh api --method get search/issues --field per_page=100"
+expect_allow 'api -X GET with the long field form' \
+  "gh api -X GET search/issues --field per_page=100"
 expect_allow 'api -X GET issue census with pagination' \
   "gh api -X GET search/issues -f q=org:devantler-tech --paginate"
 

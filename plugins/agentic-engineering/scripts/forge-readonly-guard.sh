@@ -135,12 +135,15 @@ GH_API_VALUE_FLAGS=" --jq -q --method -X --header -H --template -t --preview -p 
 # local program the guard never classified. So the verbs are allowlisted too.
 GH_VERB_FLAGS=" --draft --no-draft --archived --no-archived --merged --closed --comments --paginate --fork --source --include-prs --exclude-drafts --checks --required "
 GH_VERB_VALUE_FLAGS=" -R --repo --state --limit -L --json --jq -q --search --author --owner --assignee --label --milestone --app --branch --workflow --event --user --sort --order --created --updated --language --match --visibility --topic --exclude --head --base --commit --template -t --filter "
-# gh switches the request to POST as soon as one of these is set, UNLESS an
-# explicit `--method GET` is also given — then gh serialises them into the query
-# string and the request stays a read. So these survive on graphql (which has no
-# other way to carry a query) and on an explicit GET. A `-F` value beginning with
-# `@` makes gh read that file and send its contents; that is a separate rule and
-# is denied in every case, GET included.
+# gh switches the request to POST as soon as a field argument is set, UNLESS an
+# explicit `--method GET` is also given — then gh serialises it into the query
+# string and the request stays a read. So the four FIELD spellings below —
+# `-f`, `--raw-field`, `-F`, `--field` — survive on graphql (which has no other way
+# to carry a query) and on an explicit GET.
+# Two members of this group are NOT covered by that and are denied for every
+# method, GET included: `--input` reads a local file as the request body, and a
+# field VALUE beginning with `@` makes gh read the file it names. Both are
+# independent rules that fire earlier, and neither is widened by an explicit GET.
 GH_API_FIELD_FLAGS=" -f --raw-field -F --field --input "
 
 # git options. Read verbs are not enough on their own: several options make git

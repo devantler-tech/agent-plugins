@@ -134,7 +134,7 @@ GH_API_VALUE_FLAGS=" --jq -q --method -X --header -H --template -t --preview -p 
 # on its own: `gh pr view --web` opens a URL through `$BROWSER`, which runs a
 # local program the guard never classified. So the verbs are allowlisted too.
 GH_VERB_FLAGS=" --draft --no-draft --archived --no-archived --merged --closed --comments --paginate --fork --source --include-prs --exclude-drafts --checks --required "
-GH_VERB_VALUE_FLAGS=" -R --repo --state --limit -L --json --jq -q --search --author --owner --assignee --label --milestone --app --branch --workflow --event --user --sort --order --created --updated --language --match --visibility --topic --exclude --head --base --commit --template -t --filter "
+GH_VERB_VALUE_FLAGS=" -R --repo --state --limit -L --json --jq -q --search --author --owner --assignee --label --milestone --app --branch --workflow --event --user --sort --order --created --updated --language --match --visibility --topic --exclude --head --base --commit --template -t --filter --commenter --merged-at "
 # gh switches the request to POST as soon as a field argument is set, UNLESS an
 # explicit `--method GET` is also given — then gh serialises it into the query
 # string and the request stays a read. So the four FIELD spellings below —

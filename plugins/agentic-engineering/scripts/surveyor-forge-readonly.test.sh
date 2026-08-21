@@ -198,6 +198,9 @@ fi
 if [ ! -x "$GUARD" ]; then
   fail "forge-readonly-guard.sh missing next to the wrapper"
 else
+  # The guard admits certified gh reads only once telemetry is pinned off, so
+  # supply it here: this block isolates read-vs-mutation, not the telemetry rule.
+  export GH_TELEMETRY=0
   st="$(
     set +e
     run_wrapper "$(hook_stdin 'gh pr view 2786 --repo devantler-tech/monorepo --json number,state,headRefOid')" \

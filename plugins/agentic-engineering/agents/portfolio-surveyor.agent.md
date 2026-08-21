@@ -484,6 +484,16 @@ number itself: it must equal the count of in-scope open issues carrying no type,
 out-of-map is the signature of this defect, not a backlog — reporting it sends a run to do work the
 forge may refuse outright, since issue mutations on an archived repository are blocked.
 
+🔴 **A TRUNCATED OPERAND INVALIDATES THE RESIDUAL — do not report it, and say why.** Post-retrieval
+filtering cannot recover rows a result cap already dropped: if either side was cut short, the
+subtraction silently reports genuinely-typed issues as untyped. Caps are easy to hit unnoticed
+because they are usually a **caller-supplied limit** rather than an error — a sweep asking for fewer
+results than the surface holds returns a full-looking page and no warning. So assert each operand
+was enumerated **completely** (compare the rows actually retrieved against the surface's reported
+total) before subtracting, and where a single sweep would exceed the surface's hard result cap,
+scope it at retrieval — batched in-scope `repo:` qualifiers, filtering kept as a second line of
+defence — rather than filtering afterwards.
+
 Report security work; **never prioritise it** — the queue stays oldest-actionable-first, and only an
 urgent security hotfix jumps under the normal breakage rule. **Exclude a timeboxed measurement issue
 whose named measurement date is still in the FUTURE** (report it separately with its date): it is

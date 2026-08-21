@@ -162,6 +162,38 @@ else
   fail "stub usage (exit 2) must deny (st=$st out=$out)"
 fi
 
+# --- a deny states its reason on stderr as well as in the JSON payload ---
+#
+# Exit 2 blocks the command regardless of the payload, so the JSON alone is not
+# what guarantees the operator learns WHY. A runtime that derives its blocking
+# message from stderr would render an unexplained refusal if the wrapper spoke
+# only on stdout. Assert the reason reaches stderr, and that it is the guard's
+# own reason rather than a generic placeholder.
+err="$(
+  set +e
+  SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" \
+    run_wrapper "$(hook_stdin 'deny-me')" "$WRAPPER" 2>&1 >/dev/null
+  true
+)"
+if printf '%s\n' "$err" | grep -q 'stub refused deny-me'; then
+  pass
+else
+  fail "deny must write the guard reason to stderr (err=$err)"
+fi
+
+# The same must hold for a malformed payload, where there is no guard reason to
+# forward and the wrapper supplies its own.
+err="$(
+  set +e
+  printf '%s' '{not-json' | "$WRAPPER" 2>&1 >/dev/null
+  true
+)"
+if printf '%s\n' "$err" | grep -q 'deny:'; then
+  pass
+else
+  fail "malformed stdin must write a deny reason to stderr (err=$err)"
+fi
+
 # --- real guard: one admitted read and one refused mutation ---
 if [ ! -x "$GUARD" ]; then
   fail "forge-readonly-guard.sh missing next to the wrapper"

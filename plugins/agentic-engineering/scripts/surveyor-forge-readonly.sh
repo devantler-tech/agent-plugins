@@ -12,8 +12,12 @@
 # Stdin: Claude Code PreToolUse JSON (tool_input.command, or .command).
 # Exit 0: allow (guard admitted the command).
 # Exit 2: deny (guard refused, usage error, missing jq, or malformed stdin).
-# A deny always emits hookSpecificOutput.permissionDecision=deny JSON on
-# stdout so the runtime can show the reason.
+# A deny emits hookSpecificOutput.permissionDecision=deny JSON on stdout AND
+# the bare reason on stderr. Exit 2 is deliberate: it blocks the command
+# whether or not the JSON parses, so a malformed payload can never fail open.
+# The reason is written to both streams because the runtime derives the
+# blocking message from the JSON decision when it reads one and from stderr
+# otherwise -- emitting both means the operator sees the reason either way.
 #
 # Override the guard path with SURVEYOR_FORGE_READONLY_GUARD (tests).
 set -euo pipefail
@@ -33,6 +37,9 @@ emit_deny() {
   else
     printf '%s\n' "$STATIC_JQ_MISSING"
   fi
+  # Also on stderr: a runtime that takes its blocking message from stderr
+  # rather than from the JSON decision would otherwise refuse with no reason.
+  printf '%s\n' "$reason" >&2
 }
 
 if ! command -v jq >/dev/null 2>&1; then

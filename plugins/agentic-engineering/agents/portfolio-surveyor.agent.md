@@ -466,7 +466,23 @@ always compute the residual** — ready-work selection reads both halves, never 
 rather than honoured (returning the full set instead of the untyped one), derive the untyped set as
 **(the primary open-issue enumeration) minus (the union of the type sweeps)** and report it as a
 **triage** signal — an untyped issue is invisible to every type filter, so typing it is the fix.
-**Drop hits from archived repos** when a raw search surface offers no archived filter.
+
+🔴 **BOTH OPERANDS OF THAT SUBTRACTION MUST COVER THE SAME POPULATION, or the residual is an
+artifact of the mismatch rather than a finding.** The two sides are naturally drawn from *different*
+surfaces — the primary enumeration already excludes archived and out-of-map repos, while a raw
+per-type search surface has no such filter — so subtracting one from the other silently reports
+every issue that only ONE side can see. The failure is quiet and total: it yields a residual whose
+entries are **all** out of scope, while looking exactly like real triage debt.
+
+So apply the in-scope and archived exclusions to **both** operands (equivalently: the residual
+inherits the primary sweep's scope), and **drop hits from archived repos** on any raw search surface
+that offers no archived filter — the residual included, not only the typed rows.
+
+⚠️ **Verify the residual rather than reporting it unchecked**, because a mismatch is invisible in the
+number itself: it must equal the count of in-scope open issues carrying no type, obtained from the
+**same** enumeration the typed sweeps came from. A residual that is entirely archived or entirely
+out-of-map is the signature of this defect, not a backlog — reporting it sends a run to do work the
+forge may refuse outright, since issue mutations on an archived repository are blocked.
 
 Report security work; **never prioritise it** — the queue stays oldest-actionable-first, and only an
 urgent security hotfix jumps under the normal breakage rule. **Exclude a timeboxed measurement issue

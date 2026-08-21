@@ -45,7 +45,7 @@ assert_file "${MILESTONES}" "synced github-issues milestones reference still pre
 
 if [ -f "${README}" ]; then
   assert_contains "${README}" "--input" "safe --input JSON alternative"
-  assert_contains "${README}" '-f "title=${title}"' "safe shell-held -f alternative"
+  assert_contains "${README}" "-f \"title=\${title}\"" "safe shell-held -f alternative"
   assert_contains "${README}" "github-issues" "names the synced skill"
   assert_contains "${README}" "milestones" "names the milestones reference"
   assert_contains "${README}" "skills/" "states the overlay stays outside skills/"

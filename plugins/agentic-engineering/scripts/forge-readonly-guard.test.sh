@@ -59,6 +59,11 @@ expect_usage() {
   fi
 }
 
+# GH_TELEMETRY must already be in the process environment: an env-prefixed
+# command is denied, so argv cannot carry the disabling value. Existing gh
+# cases below inherit this export and keep asserting their original reasons.
+export GH_TELEMETRY=0
+
 # ---------------------------------------------------------------------------
 # Intended path — the surveyor's measured vocabulary
 # ---------------------------------------------------------------------------
@@ -651,6 +656,25 @@ expect_usage 'no arguments'
 expect_usage 'unknown argument' --nope
 expect_usage 'command flag with no value' --command
 expect_usage 'an all-whitespace command' --command '   '
+
+# GH_TELEMETRY environment class — deny unless 0 or false is already set.
+# Git-only commands stay allowed without it; gh reads do not.
+(
+  unset GH_TELEMETRY
+  expect_deny 'gh read with GH_TELEMETRY unset' \
+    'gh pr list --json number' \
+    'export GH_TELEMETRY=0'
+  GH_TELEMETRY='' expect_deny 'gh read with GH_TELEMETRY empty' \
+    'gh pr list --json number' \
+    'export GH_TELEMETRY=0'
+  GH_TELEMETRY=1 expect_deny 'gh read with GH_TELEMETRY=1' \
+    'gh pr list --json number' \
+    'export GH_TELEMETRY=0'
+  expect_allow 'git-only rev-parse with GH_TELEMETRY unset' \
+    'git rev-parse HEAD'
+)
+GH_TELEMETRY=false expect_allow 'gh read with GH_TELEMETRY=false' \
+  'gh pr list --json number'
 
 # stdin form
 stdin_status=0

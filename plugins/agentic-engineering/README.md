@@ -245,6 +245,8 @@ surveyor-scoped read-only path. The wiring being consumer-side is a statement ab
 owns the mechanism* — it is not permission to run the surveyor unguarded, and the guard is not
 optional defence in depth.
 
+A consumer runtime that wires `gh` through the guard must also `export GH_TELEMETRY=0` (or `false`) in the process environment before any `gh` read. GitHub CLI 2.96.0 otherwise writes `gh/device-id` on a certified `gh api` GET. The guard denies every `gh` segment unless that export is already in the environment; putting `GH_TELEMETRY=0` on the command line is itself denied as an env-prefixed `gh`. The bundled `classify-default-branch-ci-runs.sh` helper exports `GH_TELEMETRY=0` before its remote `gh api` GET so that one compound read stays allowed.
+
 Because the guard denies by default, run your own deployment's survey vocabulary through it before
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is
 better discovered deliberately than mid-run.
@@ -257,7 +259,7 @@ guard accepts only the exact classifier beside itself and only `--repo`, `--bran
 installed, reviewed plugin directory. The classifier captures its fixed paginated API GET in memory,
 so this exception neither writes an intermediate file nor permits an arbitrary local executable.
 
-**Two residues the guard cannot close from argv alone — the calling runtime must.** Both are stated
+**Three residues the guard cannot close from argv alone — the calling runtime must.** They are stated
 here rather than left implicit, because a guard whose limits are undocumented gets trusted for things
 it never claimed:
 
@@ -269,6 +271,10 @@ it never claimed:
   depends on the environment the runtime provides. Positional and special parameters are refused
   precisely because they are removable, but named ones are a deliberate convenience. **Do not
   interpolate untrusted text into the environment** of the shell that runs a guarded command.
+- **`GH_TELEMETRY`.** GitHub CLI's default telemetry writes `gh/device-id` before the API result
+  exists. The guard denies any `gh` segment unless a disabling value (`0` or `false`) is already in
+  the process environment; argv cannot carry it. **`export GH_TELEMETRY=0` before any `gh` read.**
+  The bundled classifier does that before its own `gh` call. Git-only commands do not need it.
 
 Tools that implement this marketplace's plugin layout auto-discover the `agents/` and `skills/`
 directories. On surfaces without full plugin support, load the same canonical agent and skill files

@@ -210,15 +210,40 @@ forge-readonly-guard.sh --command '<command>'   # exit 0 allow · 1 deny (prints
 <command> | forge-readonly-guard.sh --stdin
 ```
 
-**A bundled `scripts/` directory is a helper location, not an auto-discovered plugin resource — so
-installing this plugin does not by itself enforce anything.** Until a consumer wires the guard into its
-runtime, the surveyor's read-only boundary rests on the model honouring its definition, exactly as it
-did before. Wiring it is the consumer's step:
+`forge-readonly-guard.sh --command` is the whole portable contract. A runtime whose pre-execution
+interface hands you the candidate command calls the guard directly and needs nothing else.
 
-1. Resolve the installed plugin path for your runtime.
-2. Register the script as the runtime's pre-execution decision point for shell commands, passing the
-   candidate command as `--command`.
-3. Treat a non-zero exit as a refusal, surfacing the printed `deny:` reason.
+The wrapper [`scripts/surveyor-forge-readonly.sh`](scripts/surveyor-forge-readonly.sh) exists only for
+runtimes that present the candidate command as structured JSON on stdin rather than as an argument. It
+is not a second classifier and not a second policy: it reads `tool_input.command` and asks
+`forge-readonly-guard.sh --command`. Use it where that shape matches; call the guard directly where it
+does not. A deployment that has installed neither, or has not wired one of them onto the surveyor
+agent, fails closed: forge reads are `QUERY-UNKNOWN`.
+
+#### The wiring is the consumer's, and it cannot be shipped from here
+
+**A plugin cannot wire this onto the surveyor for you, and this plugin does not pretend to.** Two
+mechanisms exist and neither reaches an agent-scoped hook from inside a plugin:
+
+- **Plugin-wide hooks** (`hooks/hooks.json`, or inline in `plugin.json`) are auto-discovered for
+  *every* agent in the plugin and cannot be scoped to one. A plugin-wide `Bash` matcher would deny the
+  engineer's own write path, so this plugin deliberately ships no such file.
+- **Agent-scoped hooks in agent frontmatter** are supported for project and user agents, but *not* for
+  plugin-shipped ones: `hooks`, `mcpServers`, and `permissionMode` are unsupported in a plugin agent's
+  frontmatter and are ignored when the agent is loaded from a plugin. Adding a `hooks:` block to
+  `agents/portfolio-surveyor.agent.md` would therefore be silently inert — the appearance of
+  enforcement with none of it.
+
+So the enforcement is **consumer-side by construction**. A consumer that wants it registers the guard
+at its own surveyor-only pre-execution point — for a runtime with agent frontmatter hooks, by taking
+its own copy of the surveyor agent under the consumer's agent directory and adding the `PreToolUse`
+`Bash` hook there. Keep the hook path out of desired-state JSON, which stays provider-neutral.
+
+**Until a consumer does that, the deployment is incomplete for forge reads.** It must treat forge
+reads as `QUERY-UNKNOWN` and must not permit them until it installs and registers a supported
+surveyor-scoped read-only path. The wiring being consumer-side is a statement about *which layer
+owns the mechanism* — it is not permission to run the surveyor unguarded, and the guard is not
+optional defence in depth.
 
 Because the guard denies by default, run your own deployment's survey vocabulary through it before
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is

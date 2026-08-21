@@ -190,18 +190,38 @@ else
   record_failure 'generic survey digest preserves managed-run routing fields'
 fi
 
-if command -v sha256sum >/dev/null 2>&1; then
-  classifier_sha=$(sha256sum "$CLASSIFIER" | awk '{print $1}')
-else
-  classifier_sha=$(shasum -a 256 "$CLASSIFIER" | awk '{print $1}')
-fi
+hash_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+classifier_sha=$(hash_file "$CLASSIFIER")
+guard_sha=$(hash_file "$HERE/forge-readonly-guard.sh")
+wrapper_sha=$(hash_file "$HERE/surveyor-forge-readonly.sh")
 if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
-  jq -e --arg digest "$classifier_sha" '
-    .spec.source.requiredRuntimeAssets == [{
-      path: "scripts/classify-default-branch-ci-runs.sh",
-      sha256: $digest,
-      executable: true
-    }]
+  jq -e \
+    --arg classifier_sha "$classifier_sha" \
+    --arg guard_sha "$guard_sha" \
+    --arg wrapper_sha "$wrapper_sha" '
+    .spec.source.requiredRuntimeAssets == [
+      {
+        path: "scripts/classify-default-branch-ci-runs.sh",
+        sha256: $classifier_sha,
+        executable: true
+      },
+      {
+        path: "scripts/forge-readonly-guard.sh",
+        sha256: $guard_sha,
+        executable: true
+      },
+      {
+        path: "scripts/surveyor-forge-readonly.sh",
+        sha256: $wrapper_sha,
+        executable: true
+      }
+    ]
   ' "$DESIRED_STATE" > /dev/null; then
   pass=$((pass + 1))
 else

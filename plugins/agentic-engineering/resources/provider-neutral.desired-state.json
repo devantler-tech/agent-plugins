@@ -15,6 +15,16 @@
           "path": "scripts/classify-default-branch-ci-runs.sh",
           "sha256": "40bc088c3e07d6ddb8bf5cd924eab9f071521a2090f0acf1df9451f110f82f63",
           "executable": true
+        },
+        {
+          "path": "scripts/forge-readonly-guard.sh",
+          "sha256": "99f3209bf71b9cd961fa6465a85cc64b94895b82f0aed979a326ac437734fe19",
+          "executable": true
+        },
+        {
+          "path": "scripts/surveyor-forge-readonly.sh",
+          "sha256": "e4a5c8d7ae08e37c42386bbe7b809e90bb1e2e705070e64d82c9297ac540283f",
+          "executable": true
         }
       ],
       "entrypointSha256": "897ded10f2106b8d166a703cb9473eb25d013ff926580476a4199b7ac163a44b",
@@ -50,7 +60,7 @@
       "portfolio-surveyor": {
         "enabled": true,
         "mode": "delegated-read-only",
-        "definitionSha256": "4c65674d8fe9870480f2e1927cac1a01a23c0672212c08a575aebd57d4640e97"
+        "definitionSha256": "028b6d5ac8876b11cd201ff6ebbcea77498b575057e9cf4a4e80825a32cda66e"
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
@@ -101,7 +111,7 @@
       "copyPasteInstruction": "Adopt this document as the desired state for this workspace. Reconcile it using your native plugin, agent, scheduler, memory, permission, and model controls. Keep AGENTS.md as the canonical organization contract and this plugin as the canonical role. Make only the minimum runtime-local wiring needed to point at those sources. Before enabling writes, complete every onboarding step and report the resulting state and any unsupported capability.",
       "steps": [
         "Resolve the canonical consumer repository from the current workspace.",
-        "Install or refresh agentic-engineering from the declared marketplace using the runtime's native mechanism. If full plugins are unsupported, load the canonical agent and skill files plus the referenced runtime assets from the declared source without creating divergent copies, including scripts/classify-default-branch-ci-runs.sh for the portfolio-surveyor, and verify every declared SHA-256 and executable requirement before use.",
+        "Install or refresh agentic-engineering from the declared marketplace using the runtime's native mechanism. If full plugins are unsupported, load the canonical agent and skill files plus the referenced runtime assets from the declared source without creating divergent copies, including scripts/classify-default-branch-ci-runs.sh and scripts/forge-readonly-guard.sh for the portfolio-surveyor, plus scripts/surveyor-forge-readonly.sh only where the runtime presents a candidate command as structured JSON on standard input rather than as an argument, and verify every declared SHA-256 and executable requirement before use. forge-readonly-guard.sh --command is the portable contract; the wrapper is an input adapter for it, never a second policy. Register the guard at the surveyor's own pre-execution point only, directly or through that adapter, using the runtime's own agent-scoped mechanism; plugin-shipped agent definitions cannot carry that registration themselves, so it is always consumer-side wiring. A deployment that has not installed those assets or has not registered the guard for that agent fails closed (forge reads are QUERY-UNKNOWN).",
         "Read AGENTS.md and verify every required consumer contract section. Enable agent-improver only when both additional sections are present, and enable the agentic-engineer's spend stewardship only when the Spend contract section resolves its cost evidence sources, protected-outcomes floor, run procedure, and private decision channel; otherwise run the engineer with the cost dimension failed closed.",
         "Map the declared roles onto native agent capabilities, preserve portfolio-surveyor as read-only, and grant least privilege for each role.",
         "Allocate a unique branch namespace for every deployed writer instance and record it in the consumer contract before enabling writes.",

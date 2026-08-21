@@ -498,9 +498,16 @@ is a **successful** response, not an error, and the limit is usually **caller-su
 asking for fewer results than the surface holds returns a full-looking page with no warning, so a
 generic failure rule keyed on failed queries will not fire. Assert each operand's retrieved rows
 against the surface's reported total. If an operand cannot be completed, do not merely omit the
-residual: classify it as a failed mandatory query, emit the digest's unavailable-residual row naming
-the operand and the cap, and set `nothing_on_fire: false` — ready-work output must never be derived
-from a partition known to be incomplete.
+residual: classify it as a failed mandatory query, emit the digest's unavailable-residual row, and
+set `nothing_on_fire: false` — ready-work output must never be derived from a partition known to be
+incomplete.
+
+⚠️ **Withhold only the AFFECTED repository's residual, not every repository's.** Because the sweeps
+above are already scoped per in-scope repository, a cap failure is inherently local to one of them,
+and suppressing the whole portfolio's triage and ready-work output over it would discard successful
+checkpoints — the opposite of the bounded-recovery rule, which marks only the failed candidate
+unknown. Name the repository and the operand (and the specific type sweep where that is what was
+capped), withhold that repository's residual alone, and report the rest normally.
 
 Report security work; **never prioritise it** — the queue stays oldest-actionable-first, and only an
 urgent security hotfix jumps under the normal breakage rule. **Exclude a timeboxed measurement issue
@@ -597,7 +604,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - <repo>: NO roadmap yet → strategy-review candidate
 - <repo> #<n> "<title>" — CLAIMED: assignee=<login>|none(<lane>), claim-branch=<name>, no open PR
 - <repo>: untyped issues (invisible to type filters) → #a,#b
-- UNTYPED-RESIDUAL-UNAVAILABLE — operand=<primary|typed> truncated at <cap> of <total> → residual withheld; partition incomplete, so nothing_on_fire: false
+- UNTYPED-RESIDUAL-UNAVAILABLE — <repo>: operand=<primary|typed:<Type>> truncated at <cap> of <total> → THAT repo's residual withheld (others unaffected); mandatory-query failure ⇒ nothing_on_fire: false
 - <repo> #<n> "<title>" — future-dated measurement, date=<UTC date> (not yet actionable)
 ```
 

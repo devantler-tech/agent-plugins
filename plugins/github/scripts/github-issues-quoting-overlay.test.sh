@@ -10,6 +10,10 @@ README="${PLUGIN_DIR}/README.md"
 SKILLS_DIR="${PLUGIN_DIR}/skills"
 MILESTONES="${SKILLS_DIR}/github-issues/references/milestones.md"
 
+# The overlay identifies itself by this heading. Both the presence check and the
+# stays-outside-skills check key on it, so the marker cannot drift unnoticed.
+OVERLAY_HEADING="## Quoting overlay for github-issues"
+
 pass=0
 fail=0
 
@@ -44,27 +48,22 @@ if [ -f "${README}" ]; then
   assert_contains "${README}" "github-issues" "names the synced skill"
   assert_contains "${README}" "milestones" "names the milestones reference"
   assert_contains "${README}" "skills/" "states the overlay stays outside skills/"
-  case "${README}" in
-    */skills/*)
-      echo "FAIL: overlay README lives under skills/ and would be overwritten by update-agent-skills" >&2
-      fail=$((fail + 1))
-      ;;
-    *)
-      pass=$((pass + 1))
-      ;;
-  esac
+  assert_contains "${README}" "${OVERLAY_HEADING}" "overlay heading present"
 fi
 
+# The overlay must not live under skills/, where an update-agent-skills pull
+# would revert it. Identify the overlay by its own heading rather than by
+# filename: a synced skill may legitimately ship a README of its own, and
+# failing on that would block CI while blaming this overlay for a file it does
+# not own.
 if [ -d "${SKILLS_DIR}" ]; then
   overlay_under_skills=0
   while IFS= read -r -d '' f; do
-    case "${f}" in
-      *README.md)
-        overlay_under_skills=1
-        echo "FAIL: plugin overlay README found under skills/: ${f}" >&2
-        ;;
-    esac
-  done < <(find "${SKILLS_DIR}" -type f -name 'README.md' -print0 2>/dev/null || true)
+    if grep -F -- "${OVERLAY_HEADING}" "${f}" >/dev/null 2>&1; then
+      overlay_under_skills=1
+      echo "FAIL: quoting overlay found under skills/, where update-agent-skills would revert it: ${f}" >&2
+    fi
+  done < <(find "${SKILLS_DIR}" -type f -name '*.md' -print0 2>/dev/null || true)
   if [ "${overlay_under_skills}" -eq 0 ]; then
     pass=$((pass + 1))
   else

@@ -210,18 +210,39 @@ forge-readonly-guard.sh --command '<command>'   # exit 0 allow · 1 deny (prints
 <command> | forge-readonly-guard.sh --stdin
 ```
 
-The wrapper [`scripts/surveyor-forge-readonly.sh`](scripts/surveyor-forge-readonly.sh) is the
-surveyor-scoped PreToolUse adapter for that guard. It is not a second classifier: it extracts the
-candidate command from stdin and asks `forge-readonly-guard.sh --command`. Both scripts are
-`requiredRuntimeAssets`. A deployment that has not installed them, or has not wired the wrapper onto
-the surveyor agent, fails closed: forge reads are `QUERY-UNKNOWN`.
+`forge-readonly-guard.sh --command` is the whole portable contract. A runtime whose pre-execution
+interface hands you the candidate command calls the guard directly and needs nothing else.
 
-This plugin does not ship `.claude-plugin/hooks.json`. Claude Code auto-discovers that file for every
-agent in the plugin, and a plugin-wide `Bash` matcher would deny the engineer's write path. Wire the
-wrapper onto `portfolio-surveyor` only. A Claude Code consumer that does so registers
-`${CLAUDE_PLUGIN_ROOT}/scripts/surveyor-forge-readonly.sh` as that agent's PreToolUse command for
-`Bash`; other runtimes call the same wrapper at their surveyor-only pre-execution point. Do not put a
-provider-named hook path in desired-state JSON.
+The wrapper [`scripts/surveyor-forge-readonly.sh`](scripts/surveyor-forge-readonly.sh) exists only for
+runtimes that present the candidate command as structured JSON on stdin rather than as an argument. It
+is not a second classifier and not a second policy: it reads `tool_input.command` and asks
+`forge-readonly-guard.sh --command`. Use it where that shape matches; call the guard directly where it
+does not. A deployment that has installed neither, or has not wired one of them onto the surveyor
+agent, fails closed: forge reads are `QUERY-UNKNOWN`.
+
+#### The wiring is the consumer's, and it cannot be shipped from here
+
+**A plugin cannot wire this onto the surveyor for you, and this plugin does not pretend to.** Two
+mechanisms exist and neither reaches an agent-scoped hook from inside a plugin:
+
+- **Plugin-wide hooks** (`hooks/hooks.json`, or inline in `plugin.json`) are auto-discovered for
+  *every* agent in the plugin and cannot be scoped to one. A plugin-wide `Bash` matcher would deny the
+  engineer's own write path, so this plugin deliberately ships no such file.
+- **Agent-scoped hooks in agent frontmatter** are supported for project and user agents, but *not* for
+  plugin-shipped ones: `hooks`, `mcpServers`, and `permissionMode` are unsupported in a plugin agent's
+  frontmatter and are ignored when the agent is loaded from a plugin. Adding a `hooks:` block to
+  `agents/portfolio-surveyor.agent.md` would therefore be silently inert — the appearance of
+  enforcement with none of it.
+
+So the enforcement is **consumer-side by construction**. A consumer that wants it registers the guard
+at its own surveyor-only pre-execution point — for a runtime with agent frontmatter hooks, by taking
+its own copy of the surveyor agent under the consumer's agent directory and adding the `PreToolUse`
+`Bash` hook there. Keep the hook path out of desired-state JSON, which stays provider-neutral.
+
+**Until a consumer does that, the surveyor's read-only discipline rests on its definition and on the
+deployment's own permission layer, not on this guard.** Treat the guard as defence in depth that a
+deployment opts into, and say so plainly rather than claiming a fail-closed posture the install does
+not have.
 
 Because the guard denies by default, run your own deployment's survey vocabulary through it before
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is

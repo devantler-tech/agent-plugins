@@ -467,32 +467,40 @@ rather than honoured (returning the full set instead of the untyped one), derive
 **(the primary open-issue enumeration) minus (the union of the type sweeps)** and report it as a
 **triage** signal — an untyped issue is invisible to every type filter, so typing it is the fix.
 
-🔴 **BOTH OPERANDS OF THAT SUBTRACTION MUST COVER THE SAME POPULATION, or the residual is an
-artifact of the mismatch rather than a finding.** The two sides are naturally drawn from *different*
-surfaces — the primary enumeration already excludes archived and out-of-map repos, while a raw
-per-type search surface has no such filter — so subtracting one from the other silently reports
-every issue that only ONE side can see. The failure is quiet and total: it yields a residual whose
-entries are **all** out of scope, while looking exactly like real triage debt.
+🔴 **THE RESIDUAL INHERITS THE LEFT OPERAND'S SCOPE, so an out-of-scope entry means the PRIMARY
+enumeration was broad — never that a type sweep was.** `residual = primary \ typed` contains only
+members of `primary`, so a row that only a type sweep can see cannot enter the residual, and
+narrowing *that* side can never remove one. When the residual fills with archived or out-of-map
+issues, the primary operand enumerated them, and no type sweep could have cancelled them anyway: an
+untyped row matches no `type:` query at any scope. Diagnose which operand is actually at fault —
+a **broad primary**, or an **incomplete typed union** — and scope that one. The failure is quiet and
+total: every entry is out of scope while looking exactly like real triage debt.
 
-So apply the in-scope and archived exclusions to **both** operands (equivalently: the residual
-inherits the primary sweep's scope), and **drop hits from archived repos** on any raw search surface
-that offers no archived filter — the residual included, not only the typed rows.
+🔴 **Scope every sweep AT RETRIEVAL, not afterwards — this is a boundary rule, not an efficiency
+one.** Where the Portfolio map is a subset of an owner, an owner-wide raw sweep *enumerates*
+out-of-map repositories, and discarding those rows afterwards cannot undo the unauthorized
+enumeration. Build every sweep — primary and per-type alike — from batched in-scope `repo:`
+qualifiers, and keep post-retrieval filtering only as a second line of defence. This is required
+always, not merely when a result cap is anticipated.
 
-⚠️ **Verify the residual rather than reporting it unchecked**, because a mismatch is invisible in the
-number itself: it must equal the count of in-scope open issues carrying no type, obtained from the
-**same** enumeration the typed sweeps came from. A residual that is entirely archived or entirely
-out-of-map is the signature of this defect, not a backlog — reporting it sends a run to do work the
-forge may refuse outright, since issue mutations on an archived repository are blocked.
+⚠️ **Verify the residual without assuming a count you cannot obtain.** Where the forge ignores the
+"no type" qualifier, the typed sweeps contain only typed issues and the primary enumeration need not
+project a type at all — so there is generally **no independent untyped count**, and demanding one
+would either be circular (it is the very subtraction under test) or suppress valid triage output.
+Verify what *is* observable: that both operands were enumerated completely and carry the same scope.
+Only where the forge can project each issue's type per in-scope repository is a direct count
+available; prefer it when it is, and never gate the residual on it when it is not.
 
-🔴 **A TRUNCATED OPERAND INVALIDATES THE RESIDUAL — do not report it, and say why.** Post-retrieval
-filtering cannot recover rows a result cap already dropped: if either side was cut short, the
-subtraction silently reports genuinely-typed issues as untyped. Caps are easy to hit unnoticed
-because they are usually a **caller-supplied limit** rather than an error — a sweep asking for fewer
-results than the surface holds returns a full-looking page and no warning. So assert each operand
-was enumerated **completely** (compare the rows actually retrieved against the surface's reported
-total) before subtracting, and where a single sweep would exceed the surface's hard result cap,
-scope it at retrieval — batched in-scope `repo:` qualifiers, filtering kept as a second line of
-defence — rather than filtering afterwards.
+🔴 **AN UNRECOVERABLY TRUNCATED OPERAND IS A MANDATORY-QUERY FAILURE — fail the digest closed.**
+Post-retrieval filtering cannot recover rows a cap already dropped, so a truncated operand makes the
+subtraction report genuinely-typed issues as untyped. Caps are easy to miss because a capped search
+is a **successful** response, not an error, and the limit is usually **caller-supplied** — a sweep
+asking for fewer results than the surface holds returns a full-looking page with no warning, so a
+generic failure rule keyed on failed queries will not fire. Assert each operand's retrieved rows
+against the surface's reported total. If an operand cannot be completed, do not merely omit the
+residual: classify it as a failed mandatory query, emit the digest's unavailable-residual row naming
+the operand and the cap, and set `nothing_on_fire: false` — ready-work output must never be derived
+from a partition known to be incomplete.
 
 Report security work; **never prioritise it** — the queue stays oldest-actionable-first, and only an
 urgent security hotfix jumps under the normal breakage rule. **Exclude a timeboxed measurement issue
@@ -589,6 +597,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - <repo>: NO roadmap yet → strategy-review candidate
 - <repo> #<n> "<title>" — CLAIMED: assignee=<login>|none(<lane>), claim-branch=<name>, no open PR
 - <repo>: untyped issues (invisible to type filters) → #a,#b
+- UNTYPED-RESIDUAL-UNAVAILABLE — operand=<primary|typed> truncated at <cap> of <total> → residual withheld; partition incomplete, so nothing_on_fire: false
 - <repo> #<n> "<title>" — future-dated measurement, date=<UTC date> (not yet actionable)
 ```
 

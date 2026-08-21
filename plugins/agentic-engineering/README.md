@@ -239,10 +239,11 @@ at its own surveyor-only pre-execution point — for a runtime with agent frontm
 its own copy of the surveyor agent under the consumer's agent directory and adding the `PreToolUse`
 `Bash` hook there. Keep the hook path out of desired-state JSON, which stays provider-neutral.
 
-**Until a consumer does that, the surveyor's read-only discipline rests on its definition and on the
-deployment's own permission layer, not on this guard.** Treat the guard as defence in depth that a
-deployment opts into, and say so plainly rather than claiming a fail-closed posture the install does
-not have.
+**Until a consumer does that, the deployment is incomplete for forge reads.** It must treat forge
+reads as `QUERY-UNKNOWN` and must not permit them until it installs and registers a supported
+surveyor-scoped read-only path. The wiring being consumer-side is a statement about *which layer
+owns the mechanism* — it is not permission to run the surveyor unguarded, and the guard is not
+optional defence in depth.
 
 Because the guard denies by default, run your own deployment's survey vocabulary through it before
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is

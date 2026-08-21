@@ -664,7 +664,7 @@ expect_usage 'an all-whitespace command' --command '   '
   expect_deny 'gh read with GH_TELEMETRY unset' \
     'gh pr list --json number' \
     'export GH_TELEMETRY=0'
-  GH_TELEMETRY= expect_deny 'gh read with GH_TELEMETRY empty' \
+  GH_TELEMETRY='' expect_deny 'gh read with GH_TELEMETRY empty' \
     'gh pr list --json number' \
     'export GH_TELEMETRY=0'
   GH_TELEMETRY=1 expect_deny 'gh read with GH_TELEMETRY=1' \

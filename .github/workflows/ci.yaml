@@ -84,6 +84,14 @@ jobs:
         # plugin reaching consumers. Self-contained: throwaway fixtures, no network.
         run: ./scripts/validate-manifests.test.sh
 
+      - name: 🧪 Self-test the bundled-skill edit guard
+        # Proves the guard FAILS a hand-edit to a synced skill tree and names its
+        # upstream, PASSES the programmed sync (actor AND branch), passes a wholly
+        # new skill directory and every authored path, reads provenance at the BASE
+        # ref so stripping the line at head cannot disable it, and treats missing CI
+        # context as UNKNOWN rather than a pass.
+        run: ./scripts/guard-bundled-skill-edits.test.sh
+
       - name: 🧪 Self-test bundled helper scripts
         # Runs every hermetic *.test.sh bundled with a plugin — beside a skill
         # (plugins/*/skills/*/scripts/) or serving the plugin's agents
@@ -179,6 +187,69 @@ jobs:
           fi
           ./scripts/check-plugin-version-bump.sh "$BASE_SHA" HEAD
 
+  check-bundled-skill-edits:
+    name: Check bundled skill edits
+    runs-on: ubuntu-latest
+    # 🔴 PULL REQUESTS ONLY. On a push to main there is no PR context — `head_ref` and
+    # `pull_request.user.login` are both empty — but `github.event.before` IS populated,
+    # so a base-only skip does NOT fire and the guard reaches its missing-context check
+    # and exits 2 (UNKNOWN, fail-closed). That turns main red on the first sync merge
+    # after this lands: the guard would break the branch for precisely the writer it was
+    # built to permit. The decision this job makes is only meaningful pre-merge anyway.
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - name: 📄 Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          # The guard diffs against the base commit and reads the base copy of each
+          # touched SKILL.md, so it needs real history.
+          fetch-depth: 0
+
+      - name: 🚫 Refuse hand-edits to bundled skill trees
+        # Bundled skills are pulled from other people's repositories, and the daily
+        # sync re-pulls them — so an edit committed here is reverted with no conflict
+        # and no signal. This turns that silent revert into a failure that names the
+        # upstream to fix it in.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # 🔴 DIFF AGAINST THE PR's OWN HEAD, NOT `HEAD`. `actions/checkout` checks out
+          # `refs/pull/N/merge` for a pull_request event, so `HEAD` is the merge commit
+          # and `merge-base(base.sha, HEAD)` IS base.sha — meaning `BASE_SHA...HEAD`
+          # includes everything else merged into main since this PR branched. A PR that
+          # touches only its own files would then be failed for a bundled edit somebody
+          # else merged, on every open PR whose base predates a sync, i.e. daily. A guard
+          # that cries wolf daily gets routed around, which is its own security problem.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_ACTOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          # The default step shell is `bash -e` WITHOUT pipefail, so the pipeline below
+          # would report only the guard's status: a failed `git diff` would print nothing,
+          # the guard would see no paths, and "no bundled skill tree touched" would be
+          # reported for a diff that never ran. Fail closed on the producer instead.
+          set -o pipefail
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null ||
+             ! git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
+            echo "::error::base or head commit is unreadable, so bundled-skill edits cannot be judged"
+            exit 2
+          fi
+          # -z: emit paths raw. `--name-only` alone quotes non-ASCII, spaces and quotes,
+          # and a quoted path matches none of the guard's anchored patterns, so the file
+          # is dropped unchecked — a bypass the attacker names their own file to trigger.
+          #
+          # --no-renames: with rename detection on (the default), moving a file OUT of a
+          # bundled skill tree reports only the DESTINATION, so the synced path never
+          # reaches the guard and the removal passes unseen — then the next sync restores
+          # it, which is the silent revert this whole job exists to catch. Reproduced:
+          # `git mv plugins/p/skills/s/references/z.md docs/z.md` lists just `docs/z.md`
+          # by default, and both paths with this flag. The bypass is in the producer, not
+          # the guard, so it is closed here.
+          git diff -z --no-renames --name-only "$BASE_SHA...$HEAD_SHA" |
+            ./scripts/guard-bundled-skill-edits.sh --null
+
   discover-skills:
     name: Discover skills
     runs-on: ubuntu-latest
@@ -248,7 +319,7 @@ jobs:
       statuses: read
       pull-requests: read
     timeout-minutes: 5
-    needs: [validate-manifests, lint-scripts, check-version-bump, discover-skills, validate-spec]
+    needs: [validate-manifests, lint-scripts, check-version-bump, check-bundled-skill-edits, discover-skills, validate-spec]
     if: ${{ always() }}
     steps:
       - uses: devantler-tech/actions/require-checks-in-pr@1f66c91d45d374ceac9fe830a783444ebc9be958 # v3.2.0
@@ -257,5 +328,6 @@ jobs:
             ${{ needs.validate-manifests.result }}
             ${{ needs.lint-scripts.result }}
             ${{ needs.check-version-bump.result }}
+            ${{ needs.check-bundled-skill-edits.result }}
             ${{ needs.discover-skills.result }}
             ${{ needs.validate-spec.result }}

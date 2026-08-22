@@ -84,6 +84,14 @@ jobs:
         # plugin reaching consumers. Self-contained: throwaway fixtures, no network.
         run: ./scripts/validate-manifests.test.sh
 
+      - name: 🧪 Self-test the bundled-skill edit guard
+        # Proves the guard FAILS a hand-edit to a synced skill tree and names its
+        # upstream, PASSES the programmed sync (actor AND branch), passes a wholly
+        # new skill directory and every authored path, reads provenance at the BASE
+        # ref so stripping the line at head cannot disable it, and treats missing CI
+        # context as UNKNOWN rather than a pass.
+        run: ./scripts/guard-bundled-skill-edits.test.sh
+
       - name: 🧪 Self-test bundled helper scripts
         # Runs every hermetic *.test.sh bundled with a plugin — beside a skill
         # (plugins/*/skills/*/scripts/) or serving the plugin's agents
@@ -179,6 +187,37 @@ jobs:
           fi
           ./scripts/check-plugin-version-bump.sh "$BASE_SHA" HEAD
 
+  check-bundled-skill-edits:
+    name: Check bundled skill edits
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📄 Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          # The guard diffs against the base commit and reads the base copy of each
+          # touched SKILL.md, so it needs real history.
+          fetch-depth: 0
+
+      - name: 🚫 Refuse hand-edits to bundled skill trees
+        # Bundled skills are pulled from other people's repositories, and the daily
+        # sync re-pulls them — so an edit committed here is reverted with no conflict
+        # and no signal. This turns that silent revert into a failure that names the
+        # upstream to fix it in. PR gate only: on a push to main the change has
+        # already merged, so an absent base is reported and passed.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_ACTOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo "No usable base commit for this event — skipping (PR gate only)."
+            exit 0
+          fi
+          git diff --name-only "$BASE_SHA...HEAD" | ./scripts/guard-bundled-skill-edits.sh
+
   discover-skills:
     name: Discover skills
     runs-on: ubuntu-latest
@@ -248,7 +287,7 @@ jobs:
       statuses: read
       pull-requests: read
     timeout-minutes: 5
-    needs: [validate-manifests, lint-scripts, check-version-bump, discover-skills, validate-spec]
+    needs: [validate-manifests, lint-scripts, check-version-bump, check-bundled-skill-edits, discover-skills, validate-spec]
     if: ${{ always() }}
     steps:
       - uses: devantler-tech/actions/require-checks-in-pr@1f66c91d45d374ceac9fe830a783444ebc9be958 # v3.2.0
@@ -257,5 +296,6 @@ jobs:
             ${{ needs.validate-manifests.result }}
             ${{ needs.lint-scripts.result }}
             ${{ needs.check-version-bump.result }}
+            ${{ needs.check-bundled-skill-edits.result }}
             ${{ needs.discover-skills.result }}
             ${{ needs.validate-spec.result }}

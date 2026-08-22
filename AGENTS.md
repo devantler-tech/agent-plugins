@@ -129,9 +129,13 @@ bundled `SKILL.md` must carry a non-empty `metadata.github-repo` provenance line
 or provenance-stripped skill fails CI rather than reaching consumers.
 `guard-bundled-skill-edits.sh` covers the rest of the tree: a PR that changes any file inside a
 synced skill fails and names the upstream to fix it in, so the edit is refused at review instead of
-being silently reverted by the next sync. The programmed sync PR is exempt — it is the one writer
-those trees are supposed to have — and a wholly new skill directory is not blocked, since there is
-no upstream copy to diverge from yet. Only the marketplace structure (manifests, `plugin.json`,
+being silently reverted by the next sync. The programmed sync PR is exempt, a wholly new skill
+directory is not blocked (there is no upstream copy to diverge from yet), and retiring a skill
+outright is allowed because plugin membership is authored here. **The exemption is scoped to the
+PR, not to the commit author**: it keys on who opened the sync PR and what its head branch is
+called, so any commit pushed onto that branch is exempt too — which is deliberate, since adapting a
+bot branch is a documented workflow, but it means the guard stops accidental silent-revert edits
+rather than a writer who sets out to bypass it. Only the marketplace structure (manifests, `plugin.json`,
 plugin membership) is authored here.
 
 ## Conventions

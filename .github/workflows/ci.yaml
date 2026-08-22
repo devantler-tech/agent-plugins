@@ -190,6 +190,13 @@ jobs:
   check-bundled-skill-edits:
     name: Check bundled skill edits
     runs-on: ubuntu-latest
+    # 🔴 PULL REQUESTS ONLY. On a push to main there is no PR context — `head_ref` and
+    # `pull_request.user.login` are both empty — but `github.event.before` IS populated,
+    # so a base-only skip does NOT fire and the guard reaches its missing-context check
+    # and exits 2 (UNKNOWN, fail-closed). That turns main red on the first sync merge
+    # after this lands: the guard would break the branch for precisely the writer it was
+    # built to permit. The decision this job makes is only meaningful pre-merge anyway.
+    if: github.event_name == 'pull_request'
     permissions:
       contents: read
     steps:
@@ -205,18 +212,35 @@ jobs:
         # Bundled skills are pulled from other people's repositories, and the daily
         # sync re-pulls them — so an edit committed here is reverted with no conflict
         # and no signal. This turns that silent revert into a failure that names the
-        # upstream to fix it in. PR gate only: on a push to main the change has
-        # already merged, so an absent base is reported and passed.
+        # upstream to fix it in.
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # 🔴 DIFF AGAINST THE PR's OWN HEAD, NOT `HEAD`. `actions/checkout` checks out
+          # `refs/pull/N/merge` for a pull_request event, so `HEAD` is the merge commit
+          # and `merge-base(base.sha, HEAD)` IS base.sha — meaning `BASE_SHA...HEAD`
+          # includes everything else merged into main since this PR branched. A PR that
+          # touches only its own files would then be failed for a bundled edit somebody
+          # else merged, on every open PR whose base predates a sync, i.e. daily. A guard
+          # that cries wolf daily gets routed around, which is its own security problem.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_ACTOR: ${{ github.event.pull_request.user.login }}
           PR_HEAD_BRANCH: ${{ github.head_ref }}
         run: |
-          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
-            echo "No usable base commit for this event — skipping (PR gate only)."
-            exit 0
+          # The default step shell is `bash -e` WITHOUT pipefail, so the pipeline below
+          # would report only the guard's status: a failed `git diff` would print nothing,
+          # the guard would see no paths, and "no bundled skill tree touched" would be
+          # reported for a diff that never ran. Fail closed on the producer instead.
+          set -o pipefail
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null ||
+             ! git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
+            echo "::error::base or head commit is unreadable, so bundled-skill edits cannot be judged"
+            exit 2
           fi
-          git diff --name-only "$BASE_SHA...HEAD" | ./scripts/guard-bundled-skill-edits.sh
+          # -z: emit paths raw. `--name-only` alone quotes non-ASCII, spaces and quotes,
+          # and a quoted path matches none of the guard's anchored patterns, so the file
+          # is dropped unchecked — a bypass the attacker names their own file to trigger.
+          git diff -z --name-only "$BASE_SHA...$HEAD_SHA" |
+            ./scripts/guard-bundled-skill-edits.sh --null
 
   discover-skills:
     name: Discover skills

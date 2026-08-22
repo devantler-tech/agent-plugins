@@ -39,51 +39,93 @@ SYNC_ACTOR="${SYNC_ACTOR:-botantler-1[bot]}"
 SYNC_BRANCH="${SYNC_BRANCH:-deps/agent-skills-update}"
 
 usage() {
-  cat >&2 <<'USAGE'
-usage: guard-bundled-skill-edits.sh
+  cat <<'USAGE'
+usage: guard-bundled-skill-edits.sh [-z|--null]
 
-Reads NEWLINE-separated changed paths on stdin (repo-relative).
+Reads changed paths on stdin (repo-relative), newline-separated by default.
+
+  -z, --null   read NUL-separated paths, as produced by `git diff -z --name-only`.
+               PREFER THIS IN CI. `git diff --name-only` quotes any path it considers
+               unusual — non-ASCII, spaces, quotes, backslashes — emitting a leading
+               `"` and octal escapes. A quoted path matches none of the anchored
+               patterns below, so the file is dropped before any provenance check and
+               the guard passes an edit it should have refused. The attacker picks the
+               filename, so that bypass needs no pre-existing condition. `-z` emits
+               paths raw and unquoted, which removes the failure mode rather than
+               working around it, and also handles a newline inside a filename.
 
 Environment:
   BASE_SHA         required when any changed path is inside plugins/*/skills/*/
+  HEAD_SHA         required with BASE_SHA; the revision the change proposes. Used only
+                   to tell a RETIREMENT from an edit: dropping a skill from a plugin is
+                   plugin membership, which AGENTS.md says is authored here, so a skill
+                   whose SKILL.md is gone at HEAD is allowed rather than refused with a
+                   "fix it upstream" message that cannot be acted on.
   PR_ACTOR         the login that opened the change  (required, same condition)
   PR_HEAD_BRANCH   the head branch name              (required, same condition)
   SYNC_ACTOR       override the exempt actor         (default: botantler-1[bot])
   SYNC_BRANCH      override the exempt branch        (default: deps/agent-skills-update)
-  GIT_DIR_OVERRIDE run git against this repo instead of the script's own
+  GUARD_REPO_DIR   run git against this repo instead of the script's own
 
-exit 0  no synced skill tree was touched, or the change is the programmed sync
+exit 0  no synced skill tree was touched, the change is the programmed sync, or the
+        only bundled trees touched were newly added or retired outright
 exit 1  a synced skill tree was hand-edited
 exit 2  usage, or the context needed to decide is missing/unreadable
 USAGE
 }
 
-git_at() { git -C "${GIT_DIR_OVERRIDE:-$REPO_ROOT}" "$@"; }
+git_at() { git -C "${GUARD_REPO_DIR:-$REPO_ROOT}" "$@"; }
 
 # skill_dir_of PATH -> "plugins/<plugin>/skills/<skill>" for a path inside a skill,
 # empty otherwise. Anchored, and it requires at least one path component BELOW the
 # skill directory so `plugins/p/skills/s` itself is not mistaken for a file in it.
+#
+# 🔴 SPLIT ON COMPONENTS, DO NOT GLOB. A shell `*` matches `/` too, so the pattern
+# `plugins/*/skills/*/*` also accepts `plugins/p/EXTRA/skills/s/f.md` — and taking the
+# first four components of that yields `plugins/p/EXTRA/skills`, a directory holding no
+# SKILL.md. That mis-derived directory then reads as "no upstream recorded", i.e. as a
+# locally-authored skill, and the edit is allowed. Splitting on `/` and requiring the
+# literal components in their exact positions cannot drift that way, and it replaces
+# four `cut` subshells per path with none.
 skill_dir_of() {
-  case "$1" in
-    plugins/*/skills/*/*)
-      printf '%s/%s/%s/%s\n' \
-        "$(printf '%s' "$1" | cut -d/ -f1)" \
-        "$(printf '%s' "$1" | cut -d/ -f2)" \
-        "$(printf '%s' "$1" | cut -d/ -f3)" \
-        "$(printf '%s' "$1" | cut -d/ -f4)"
-      ;;
-    *) : ;;
-  esac
+  local a b c d rest IFS=/
+  read -r a b c d rest <<<"$1"
+  [ "$a" = plugins ] || return 0
+  [ "$c" = skills ] || return 0
+  [ -n "$b" ] && [ -n "$d" ] && [ -n "$rest" ] || return 0
+  printf '%s/%s/%s/%s\n' "$a" "$b" "$c" "$d"
 }
 
+# exists_at REV PATH -> true when the blob is present at that revision.
+exists_at() { git_at cat-file -e "${1}:${2}" 2>/dev/null; }
+
 # upstream_at_base SKILL_DIR -> the metadata.github-repo recorded at BASE_SHA.
-# Prints nothing and returns 1 when the skill did not exist at base (a new skill),
-# which is the one shape this guard lets through.
+# Returns 1 when the skill did not exist at base (a new skill), which is the one shape
+# this guard lets through, and 2 when the answer cannot be read at all.
+#
+# 🔴 "ABSENT" AND "UNREADABLE" ARE DIFFERENT ANSWERS. Collapsing every `git show`
+# failure into "new skill" hands the guard's single most reassuring output — "only new
+# or locally-authored skill directories touched" — to an unreadable base, a corrupt or
+# partial object store, or a mis-derived path. That is an affirmative all-clear the
+# guard has not earned, and it contradicts this script's own promise to exit 2 when the
+# context is unreadable. Probe existence first, and only call it new when the base
+# itself is readable and the file is genuinely not in it.
 upstream_at_base() {
   local skill_dir="$1" blob
-  blob="$(git_at show "${BASE_SHA}:${skill_dir}/SKILL.md" 2>/dev/null)" || return 1
+  if ! exists_at "$BASE_SHA" "${skill_dir}/SKILL.md"; then
+    git_at cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null || return 2
+    return 1
+  fi
+  blob="$(git_at show "${BASE_SHA}:${skill_dir}/SKILL.md" 2>/dev/null)" || return 2
   # The provenance line must sit INSIDE the metadata: block, so a top-level
-  # github-repo: cannot satisfy it — same rule validate-manifests.sh applies.
+  # github-repo: cannot satisfy it.
+  #
+  # ⚠️ This is deliberately NOT byte-identical to validate-manifests.sh's
+  # `validate_skill_provenance`, and the difference matters in one direction: that one
+  # accepts a literal `null` as valid provenance, while this treats it as "no upstream
+  # recorded" and therefore lets the edit through. A skill carrying `github-repo: null`
+  # is consequently green there and unguarded here. Reconciling the two into one shared
+  # parser is worth doing; until then, do not describe them as the same rule.
   printf '%s\n' "$blob" | awk '
     /^metadata:[[:space:]]*$/ { in_meta = 1; next }
     /^[^[:space:]]/           { in_meta = 0 }
@@ -97,13 +139,28 @@ upstream_at_base() {
 }
 
 main() {
-  case "${1:-}" in -h|--help) usage; exit 2 ;; esac
-  [ "$#" -eq 0 ] || { echo "::error::unexpected argument: $1" >&2; usage; exit 2; }
+  local nul=0
+  case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+    -z|--null) nul=1; shift ;;
+  esac
+  [ "$#" -eq 0 ] || { echo "::error::unexpected argument: $1"; usage >&2; exit 2; }
 
   local -a touched=()
   local line skill_dir
-  while IFS= read -r line || [ -n "$line" ]; do
+  while { [ "$nul" -eq 1 ] && IFS= read -r -d '' line; } ||
+        { [ "$nul" -eq 0 ] && IFS= read -r line; } || [ -n "${line:-}" ]; do
     [ -n "$line" ] || continue
+    # 🔴 A QUOTED PATH IS UNKNOWN, NEVER "no match". In newline mode the producer may be
+    # `git diff --name-only`, which quotes any path it considers unusual. Such a path
+    # matches nothing below, so it would be dropped silently and the guard would pass an
+    # edit it never inspected — the exact fail-open `-z` exists to remove. Callers that
+    # cannot use `-z` must at least be told the input was unreadable.
+    case "$line" in
+      '"'*) echo "::error::changed path arrived quoted, so it cannot be matched reliably: $line"
+            echo "  re-run the producer with -z (or core.quotePath=false) and pass --null"
+            exit 2 ;;
+    esac
     skill_dir="$(skill_dir_of "$line")"
     [ -n "$skill_dir" ] || continue
     touched+=("$skill_dir")
@@ -120,10 +177,11 @@ main() {
   # the actor would block every legitimate sync instead.
   local missing=()
   [ -n "${BASE_SHA:-}" ]       || missing+=(BASE_SHA)
+  [ -n "${HEAD_SHA:-}" ]       || missing+=(HEAD_SHA)
   [ -n "${PR_ACTOR:-}" ]       || missing+=(PR_ACTOR)
   [ -n "${PR_HEAD_BRANCH:-}" ] || missing+=(PR_HEAD_BRANCH)
   if [ "${#missing[@]}" -gt 0 ]; then
-    echo "::error::a bundled skill tree changed but the context to judge it is missing: ${missing[*]}" >&2
+    echo "::error::a bundled skill tree changed but the context to judge it is missing: ${missing[*]}"
     exit 2
   fi
 
@@ -136,27 +194,42 @@ main() {
 
   # Deduplicate while preserving first-seen order, so one edited skill is reported
   # once however many of its files changed.
-  local -a seen=() offenders=()
-  local d s
+  local -a seen=() offenders=() retired=()
+  local d s upstream rc
   for d in "${touched[@]}"; do
     for s in ${seen[@]+"${seen[@]}"}; do [ "$s" = "$d" ] && continue 2; done
     seen+=("$d")
-    local upstream
-    if upstream="$(upstream_at_base "$d")" && [ -n "$upstream" ]; then
-      offenders+=("$d	$upstream")
+    upstream="$(upstream_at_base "$d")" && rc=0 || rc=$?
+    if [ "$rc" -eq 2 ]; then
+      echo "::error::cannot read ${d}/SKILL.md at ${BASE_SHA}, so this change cannot be judged"
+      exit 2
     fi
+    [ "$rc" -eq 0 ] && [ -n "$upstream" ] || continue
+    # Retiring a bundled skill is plugin membership, which IS authored here — and it is
+    # unblockable by the message this guard would otherwise print, since there is nothing
+    # to "fix upstream" about a directory you are removing.
+    if ! exists_at "$HEAD_SHA" "${d}/SKILL.md"; then
+      retired+=("$d")
+      continue
+    fi
+    offenders+=("$d	$upstream")
   done
 
   if [ "${#offenders[@]}" -eq 0 ]; then
-    echo "✓ only new or locally-authored skill directories touched"
+    if [ "${#retired[@]}" -gt 0 ]; then
+      echo "✓ bundled skill(s) retired outright, which is plugin membership and authored here:"
+      for d in "${retired[@]}"; do printf '  %s\n' "$d"; done
+    else
+      echo "✓ only new or locally-authored skill directories touched"
+    fi
     exit 0
   fi
 
-  echo "::error::a bundled skill was edited here, and the daily sync will silently revert it" >&2
+  echo "::error::a bundled skill was edited here, and the daily sync will silently revert it"
   local entry
   for entry in "${offenders[@]}"; do
     printf '  %s\n    fix it upstream in %s, then let the sync pull it through\n' \
-      "${entry%%	*}" "${entry##*	}" >&2
+      "${entry%%	*}" "${entry##*	}"
   done
   exit 1
 }

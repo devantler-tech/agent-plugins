@@ -204,7 +204,11 @@ main() {
       echo "::error::cannot read ${d}/SKILL.md at ${BASE_SHA}, so this change cannot be judged"
       exit 2
     fi
-    [ "$rc" -eq 0 ] && [ -n "$upstream" ] || continue
+    # Spelled as an `if` rather than `A && B || C`: that form is not if-then-else, and
+    # here the trailing branch must run for BOTH a non-zero rc and an empty upstream.
+    if [ "$rc" -ne 0 ] || [ -z "$upstream" ]; then
+      continue
+    fi
     # Retiring a bundled skill is plugin membership, which IS authored here — and it is
     # unblockable by the message this guard would otherwise print, since there is nothing
     # to "fix upstream" about a directory you are removing.

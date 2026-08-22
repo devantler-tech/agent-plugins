@@ -239,7 +239,15 @@ jobs:
           # -z: emit paths raw. `--name-only` alone quotes non-ASCII, spaces and quotes,
           # and a quoted path matches none of the guard's anchored patterns, so the file
           # is dropped unchecked — a bypass the attacker names their own file to trigger.
-          git diff -z --name-only "$BASE_SHA...$HEAD_SHA" |
+          #
+          # --no-renames: with rename detection on (the default), moving a file OUT of a
+          # bundled skill tree reports only the DESTINATION, so the synced path never
+          # reaches the guard and the removal passes unseen — then the next sync restores
+          # it, which is the silent revert this whole job exists to catch. Reproduced:
+          # `git mv plugins/p/skills/s/references/z.md docs/z.md` lists just `docs/z.md`
+          # by default, and both paths with this flag. The bypass is in the producer, not
+          # the guard, so it is closed here.
+          git diff -z --no-renames --name-only "$BASE_SHA...$HEAD_SHA" |
             ./scripts/guard-bundled-skill-edits.sh --null
 
   discover-skills:

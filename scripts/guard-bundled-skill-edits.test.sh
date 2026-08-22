@@ -39,6 +39,14 @@ expect() {
   pass=$((pass + 1))
 }
 
+# `pass` and `fail` above are COUNTERS, not functions — a case that asserts without going
+# through expect() must tally by hand. Calling them as commands prints
+# "pass: command not found" and, worse, tallies NOTHING: the failure path would not
+# increment `fail`, so a broken check would leave the suite exiting 0. Verified the hard
+# way while adding the wiring checks below.
+note_ok()   { echo "ok: $1";        pass=$((pass + 1)); }
+note_fail() { echo "FAIL: $1" >&2;  fail=$((fail + 1)); }
+
 FIXTURE="$WORK/repo"
 mkdir -p "$FIXTURE"
 git -C "$FIXTURE" init -q -b main
@@ -263,6 +271,59 @@ expect 1 'fluxcd/agent-skills' 'two edited skills are both named, not just the f
 SHA="$TWO" run "$REF
 plugins/github/skills/second-skill/SKILL.md"
 expect 1 'github/awesome-copilot' 'the first of two edited skills is named too'
+
+# TWO files in the SAME synced skill. The dedup loop is only exercised with a repeat here;
+# every other case sends one file per skill, so nothing asserted that one edited skill is
+# reported once however many of its files changed.
+SHA="$TWO" run "$REF
+plugins/github/skills/github-issues/SKILL.md"
+expect 1 'github/awesome-copilot' 'two files in one skill still fail'
+dupes="$(grep -c 'fix it upstream' "$WORK/out" || true)"
+if [ "$dupes" -eq 1 ]; then
+  note_ok 'one edited skill is reported once, not once per changed file'
+else
+  note_fail "the dedup loop reported the same skill $dupes times"
+fi
+
+# Argument handling: --help is not an error, and an unexpected argument is.
+"$GUARD" --help >"$WORK/out" 2>&1
+rc=$?
+expect 0 'usage: guard-bundled-skill-edits.sh' '--help exits 0 — help is not an error'
+
+printf '%s' 'README.md' | "$GUARD" --bogus >"$WORK/out" 2>&1
+rc=$?
+expect 2 'unexpected argument' 'an unexpected argument exits 2'
+
+# ---------------------------------------------------------------------------
+# THE CALLER-SIDE PROPERTIES ARE PART OF THE CONTRACT, AND THREE OF THEM FAIL **OPEN**.
+# Everything that makes this guard actually see a change lives in ci.yaml, not here: the
+# NUL-separated input, the PR's own head sha, `--no-renames`, `pipefail`, and the
+# pull_request-only gate. Nothing asserted any of them, so a later edit could revert one
+# and every case above would still pass while the guard silently stopped catching things.
+# Read the job out of the workflow and pin each property.
+# ---------------------------------------------------------------------------
+WF="$SCRIPT_DIR/../.github/workflows/ci.yaml"
+if [ ! -f "$WF" ]; then
+  note_fail "ci.yaml not found at $WF — the caller-side properties cannot be checked"
+else
+  job="$(awk '/^  check-bundled-skill-edits:/{f=1} f&&/^  [a-z-]+:$/&&!/check-bundled-skill-edits/{f=0} f' "$WF")"
+  if [ -z "$job" ]; then
+    note_fail 'the check-bundled-skill-edits job was not found in ci.yaml — every check below would pass vacuously'
+  else
+    check_wiring() { # PATTERN LABEL
+      if printf '%s\n' "$job" | grep -qF -- "$1"; then
+        note_ok "ci.yaml wiring: $2"
+      else
+        note_fail "ci.yaml wiring: $2 (pattern '$1' absent from the job)"
+      fi
+    }
+    check_wiring "github.event_name == 'pull_request'" 'the job runs on pull_request only (else a push turns main red)'
+    check_wiring 'guard-bundled-skill-edits.sh --null' 'the guard is invoked with --null (else a quoted path is dropped unchecked)'
+    check_wiring '-z --no-renames --name-only' 'the diff is raw and rename-free (else a move out of a skill tree is invisible)'
+    check_wiring 'set -o pipefail' 'the step sets pipefail (else a failed git diff reads as no changes)'
+    check_wiring 'pull_request.head.sha' "the diff targets the PR's own head, not the merge ref"
+  fi
+fi
 
 echo
 if [ "$fail" -gt 0 ]; then

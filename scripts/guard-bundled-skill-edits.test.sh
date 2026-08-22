@@ -223,6 +223,47 @@ git -C "$FIXTURE" revert --no-edit HEAD >/dev/null
 run 'plugins/github/EXTRA/skills/github-issues/references/a.md'
 expect 0 'no bundled skill tree touched' 'a deeper path shape is not mistaken for a skill file'
 
+# The SKILL.md itself is the primary file a hand-edit lands in, yet every case above
+# reaches the guard through a reference file or a NEW skill's SKILL.md. Edit the existing
+# synced one directly.
+run 'plugins/github/skills/github-issues/SKILL.md'
+expect 1 'github/awesome-copilot' 'editing the synced SKILL.md itself is refused'
+
+# TWO distinct synced skills in one change. This is the only case that reaches the
+# dedup loop's `continue 2` with more than one offender, and it proves the report names
+# both rather than stopping at the first.
+mkdir -p "$FIXTURE/plugins/github/skills/second-skill"
+cat > "$FIXTURE/plugins/github/skills/second-skill/SKILL.md" <<'SKILL'
+---
+name: second-skill
+description: another synced skill
+metadata:
+  github-repo: https://github.com/fluxcd/agent-skills
+---
+body
+SKILL
+# An earlier case stripped github-issues' provenance at head, so it must be restored here
+# or this base carries only ONE synced skill and the case silently stops testing the
+# two-offender path — which is what the first run of it did.
+cat > "$FIXTURE/plugins/github/skills/github-issues/SKILL.md" <<'SKILL'
+---
+name: github-issues
+description: manage issues
+metadata:
+  github-repo: https://github.com/github/awesome-copilot
+---
+body
+SKILL
+git -C "$FIXTURE" add -A >/dev/null
+git -C "$FIXTURE" commit -qm 'add a second synced skill'
+TWO="$(git -C "$FIXTURE" rev-parse HEAD)"
+SHA="$TWO" run "$REF
+plugins/github/skills/second-skill/SKILL.md"
+expect 1 'fluxcd/agent-skills' 'two edited skills are both named, not just the first'
+SHA="$TWO" run "$REF
+plugins/github/skills/second-skill/SKILL.md"
+expect 1 'github/awesome-copilot' 'the first of two edited skills is named too'
+
 echo
 if [ "$fail" -gt 0 ]; then
   echo "FAIL: bundled-skill edit guard ($pass passed, $fail failed)"

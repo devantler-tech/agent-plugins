@@ -222,6 +222,21 @@ $REF"
 expect 0 'retired outright' 'retiring a bundled skill outright is allowed'
 git -C "$FIXTURE" revert --no-edit HEAD >/dev/null
 
+# ...but a PARTIAL retirement is not a retirement. Deleting only `SKILL.md` while keeping
+# (or editing) the rest of the skill would otherwise read as "the whole thing went away"
+# and carry the hand-edit through with it — and the manifest validator accepts a plugin
+# whose other skills are still valid, so the marketplace would advertise a partially
+# retained, undiscoverable skill.
+git -C "$FIXTURE" rm -q plugins/github/skills/github-issues/SKILL.md
+echo 'hand-edited while the manifest was deleted' \
+  > "$FIXTURE/plugins/github/skills/github-issues/references/milestones.md"
+git -C "$FIXTURE" add -A >/dev/null
+git -C "$FIXTURE" commit -qm 'delete only SKILL.md and edit a reference'
+SHA="$BASE" run "plugins/github/skills/github-issues/SKILL.md
+$REF"
+expect 1 'github/awesome-copilot' 'deleting only SKILL.md is not a retirement and does not carry an edit through'
+git -C "$FIXTURE" revert --no-edit HEAD >/dev/null
+
 # ---------------------------------------------------------------------------
 # A DEEPER SHAPE IS NOT A SKILL PATH. Shell globs match `/` too, so `plugins/*/skills/*/*`
 # also accepts `plugins/p/EXTRA/skills/s/f.md`; taking its first four components yields

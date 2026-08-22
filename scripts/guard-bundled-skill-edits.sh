@@ -99,6 +99,21 @@ skill_dir_of() {
 # exists_at REV PATH -> true when the blob is present at that revision.
 exists_at() { git_at cat-file -e "${1}:${2}" 2>/dev/null; }
 
+# dir_gone_at REV DIR -> true when the directory holds NO files at that revision.
+#
+# 🔴 RETIREMENT MEANS THE WHOLE DIRECTORY, NOT JUST `SKILL.md`. Keying it on the manifest
+# alone lets a change delete `SKILL.md` while hand-editing `references/` in the same
+# skill: the missing manifest reads as a retirement and the edit rides along unchecked —
+# and the manifest validator accepts it whenever the plugin still has another valid
+# skill, so the marketplace ends up advertising a partially-retained, undiscoverable
+# skill. A failed listing is NOT emptiness: it returns 1, so the caller falls through to
+# the ordinary offender path rather than granting the exemption.
+dir_gone_at() {
+  local rev="$1" dir="$2" listing
+  listing="$(git_at ls-tree -r --name-only "$rev" -- "$dir" 2>/dev/null)" || return 1
+  [ -z "$listing" ]
+}
+
 # upstream_at_base SKILL_DIR -> the metadata.github-repo recorded at BASE_SHA.
 # Returns 1 when the skill did not exist at base (a new skill), which is the one shape
 # this guard lets through, and 2 when the answer cannot be read at all.
@@ -212,7 +227,7 @@ main() {
     # Retiring a bundled skill is plugin membership, which IS authored here — and it is
     # unblockable by the message this guard would otherwise print, since there is nothing
     # to "fix upstream" about a directory you are removing.
-    if ! exists_at "$HEAD_SHA" "${d}/SKILL.md"; then
+    if dir_gone_at "$HEAD_SHA" "$d"; then
       retired+=("$d")
       continue
     fi

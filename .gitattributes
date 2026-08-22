@@ -1,0 +1,4 @@
+# Runtime-asset hashes are SHA-256 of checkout bytes. CI and local
+# checkouts must see the same LF line endings, or requiredRuntimeAssets
+# digests fail closed on a runner-only CRLF rewrite.
+*.sh text eol=lf

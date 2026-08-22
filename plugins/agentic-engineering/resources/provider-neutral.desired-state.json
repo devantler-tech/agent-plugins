@@ -10,7 +10,24 @@
       "marketplace": "devantler-tech/agent-plugins",
       "plugin": "agentic-engineering",
       "entrypoint": "agentic-engineer",
-      "entrypointSha256": "96d10e59e00a081ba52d45ad95849cfe74ba69cc9bbc841ce70028468aa80de5",
+      "requiredRuntimeAssets": [
+        {
+          "path": "scripts/classify-default-branch-ci-runs.sh",
+          "sha256": "26d856cdb58c6eb89c6d39c7e9594eecb27513598f2f47186277cd415947cc0a",
+          "executable": true
+        },
+        {
+          "path": "scripts/forge-readonly-guard.sh",
+          "sha256": "2cb2531ee2bc1d4e85024fb48ffce1c72f8c72c9d9c7100afe2f7328c193fc98",
+          "executable": true
+        },
+        {
+          "path": "scripts/surveyor-forge-readonly.sh",
+          "sha256": "e4a5c8d7ae08e37c42386bbe7b809e90bb1e2e705070e64d82c9297ac540283f",
+          "executable": true
+        }
+      ],
+      "entrypointSha256": "897ded10f2106b8d166a703cb9473eb25d013ff926580476a4199b7ac163a44b",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -43,11 +60,13 @@
       "portfolio-surveyor": {
         "enabled": true,
         "mode": "delegated-read-only",
-        "definitionSha256": "53d4a9f0a37440cfbda999120e35fcb47662af70bee9f8e62407c56d1c455981"
+        "definitionSha256": "a2df8a13149503a8e94ced0f20d5ca3a854609256ecc18bd1a0fc80a140cb4b1"
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
-        "mode": "separate-schedule-or-on-demand"
+        "mode": "separate-schedule-or-on-demand",
+        "definitionSha256": "4e5d1dac3307ac7151d40dababae48b1da7a68f927a11026f1f5f87424b336aa",
+        "skillSha256": "dccf7463ecf0e11a12f03ae5e26dedbdc0b2c668616de548c68c269a69240cfa"
       }
     },
     "runtime": {
@@ -92,7 +111,7 @@
       "copyPasteInstruction": "Adopt this document as the desired state for this workspace. Reconcile it using your native plugin, agent, scheduler, memory, permission, and model controls. Keep AGENTS.md as the canonical organization contract and this plugin as the canonical role. Make only the minimum runtime-local wiring needed to point at those sources. Before enabling writes, complete every onboarding step and report the resulting state and any unsupported capability.",
       "steps": [
         "Resolve the canonical consumer repository from the current workspace.",
-        "Install or refresh agentic-engineering from the declared marketplace using the runtime's native mechanism. If full plugins are unsupported, load the canonical agent and skill files from the declared source without creating divergent copies.",
+        "Install or refresh agentic-engineering from the declared marketplace using the runtime's native mechanism. If full plugins are unsupported, load the canonical agent and skill files plus the referenced runtime assets from the declared source without creating divergent copies, including scripts/classify-default-branch-ci-runs.sh and scripts/forge-readonly-guard.sh for the portfolio-surveyor, plus scripts/surveyor-forge-readonly.sh only where the runtime presents a candidate command as structured JSON on standard input rather than as an argument, and verify every declared SHA-256 and executable requirement before use. forge-readonly-guard.sh --command is the portable contract; the wrapper is an input adapter for it, never a second policy. Register the guard at the surveyor's own pre-execution point only, directly or through that adapter, using the runtime's own agent-scoped mechanism; plugin-shipped agent definitions cannot carry that registration themselves, so it is always consumer-side wiring. A deployment that has not installed those assets or has not registered the guard for that agent fails closed (forge reads are QUERY-UNKNOWN).",
         "Read AGENTS.md and verify every required consumer contract section. Enable agent-improver only when both additional sections are present, and enable the agentic-engineer's spend stewardship only when the Spend contract section resolves its cost evidence sources, protected-outcomes floor, run procedure, and private decision channel; otherwise run the engineer with the cost dimension failed closed.",
         "Map the declared roles onto native agent capabilities, preserve portfolio-surveyor as read-only, and grant least privilege for each role.",
         "Allocate a unique branch namespace for every deployed writer instance and record it in the consumer contract before enabling writes.",

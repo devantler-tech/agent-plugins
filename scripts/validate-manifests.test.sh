@@ -30,6 +30,15 @@ sha256_file() {
   fi
 }
 
+# Hash fixture runtime assets byte-for-byte, matching the executable integrity gate.
+sha256_bytes() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  else
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  fi
+}
+
 # Refresh a fixture's declared digest after intentionally changing its canonical contract.
 sync_entrypoint_digest() {
   local root="$1" name="$2" resource digest
@@ -580,7 +589,18 @@ check_fail "agent with an empty block-scalar description fails" "must declare a 
 # plugin README so a consumer can actually find it.
 make_desired_state() {
   local root="$1" name="$2" entrypoint_sha256 portfolio_surveyor_sha256
-  mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents"
+  local agent_improver_sha256 agent_improvement_skill_sha256
+  mkdir -p "$root/plugins/$name/resources" "$root/plugins/$name/agents" \
+    "$root/plugins/$name/skills/agent-improvement"
+  cat > "$root/plugins/$name/skills/agent-improvement/SKILL.md" <<'EOF'
+---
+name: agent-improvement
+description: Fixture Agent Improver procedure.
+metadata:
+  github-repo: https://github.com/devantler-tech/agent-skills
+---
+Fixture procedure.
+EOF
   cat > "$root/plugins/$name/agents/agentic-engineer.agent.md" <<'EOF'
 ---
 name: agentic-engineer
@@ -614,6 +634,31 @@ Fixture agent.
 Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge.
 
 Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence.
+
+The Agent Improver is one of its own measured subjects. Keep the Agentic Engineer execution plane
+and every Agent Improver observation plane in separate scorecards; never average them together or let
+one hide the other's regression. Measure observer coverage, calibration, hypothesis discipline,
+verified intervention effectiveness, reliability, efficiency, and verified rollout throughput.
+Outcome throughput counts only verified terminal outcomes; productive sessions and work advanced are
+execution-flow indicators, never improvement verdicts. Observation-plane verdicts require independent
+computation from an immutable or read-only source, or verification by a separate eligible run or
+instance; the same Improver's unsupported assertion is UNKNOWN, never success. Activity such as PRs,
+metrics, reports, and memory writes is not improvement. A version-controlled self-referential change
+requires an independent green current-head review with all findings resolved. A runtime-local
+self-referential change requires an
+independently performed post-dispatch read-back against the recorded pre-change baseline through the
+consumer's declared runtime verification mechanism; the writer's immediate read-back is not independent
+verification. Both paths require unchanged companion floors for every applicable scorecard parameter
+and a later eligible evidence window.
+
+No-change fallback is research, never idle. After scoring and diagnosis, when no telemetry-backed or
+direct-maintainer-directed improvement is actionable, run one bounded state-of-the-art research pass
+before reporting. Research is discovery evidence, never authorization or proof that the current system
+failed. Use current primary sources, compare the current baseline capability, and route a deduplicated
+product or operations opportunity as an ENGINEER-CANDIDATE and an agent-process or measurement
+opportunity as an IMPROVER-CANDIDATE. Research alone never authorizes or ships a change. A null result
+is RESEARCH-NO-CANDIDATE with the topic cursor advanced; research activity is not a terminal improvement
+outcome.
 EOF
   cat > "$root/plugins/$name/agents/portfolio-surveyor.agent.md" <<'EOF'
 ---
@@ -634,12 +679,16 @@ An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`
 EOF
   awk -v name="$name" '
     index($0, "[`" name "`](plugins/" name "/)") {
-      sub("`example-skill`", "`agent-improver`, `agentic-engineer`, `example-skill`, `portfolio-surveyor`")
+      sub("`example-skill`", "`agent-improvement`, `agent-improver`, `agentic-engineer`, `example-skill`, `portfolio-surveyor`")
     }
     { print }
   ' "$root/README.md" > "$root/README.tmp" && mv "$root/README.tmp" "$root/README.md"
   entrypoint_sha256=$(sha256_file "$root/plugins/$name/agents/agentic-engineer.agent.md")
   portfolio_surveyor_sha256=$(sha256_file "$root/plugins/$name/agents/portfolio-surveyor.agent.md")
+  agent_improver_sha256=$(sha256_file "$root/plugins/$name/agents/agent-improver.agent.md")
+  agent_improvement_skill_sha256=$(
+    sha256_file "$root/plugins/$name/skills/agent-improvement/SKILL.md"
+  )
   cat > "$root/plugins/$name/resources/provider-neutral.desired-state.json" <<EOF
 {
   "apiVersion": "agent-plugins.devantler.tech/v1alpha1",
@@ -690,7 +739,9 @@ EOF
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
-        "mode": "separate-schedule-or-on-demand"
+        "mode": "separate-schedule-or-on-demand",
+        "definitionSha256": "$agent_improver_sha256",
+        "skillSha256": "$agent_improvement_skill_sha256"
       }
     },
     "runtime": {
@@ -765,6 +816,110 @@ EOF
 
 d=$(fresh); make_desired_state "$d" alpha
 check_pass "provider-neutral desired-state resource passes" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
+asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_pass "desired-state required runtime asset resolves inside its plugin" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
+asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset must declare executability" \
+  "required runtime asset executable must be true" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
+asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:false}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset cannot disable executability" \
+  "required runtime asset executable must be true" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.requiredRuntimeAssets = [{path:"scripts/missing.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000",executable:true}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset must exist and be executable" \
+  "required runtime asset is missing, linked, or not executable" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.source.requiredRuntimeAssets = [{path:"../outside.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000",executable:true}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset cannot escape its plugin" \
+  "required runtime asset must be a plugin-relative path" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/outside.sh"
+chmod +x "$d/outside.sh"
+ln -s ../../../outside.sh "$d/plugins/alpha/scripts/read-helper.sh"
+asset_digest=$(sha256_file "$d/outside.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset cannot be an escaping symlink" \
+  "required runtime asset is missing, linked, or not executable" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/outside-dir"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/outside-dir/read-helper.sh"
+chmod +x "$d/outside-dir/read-helper.sh"
+ln -s ../../outside-dir "$d/plugins/alpha/scripts"
+asset_digest=$(sha256_bytes "$d/outside-dir/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset cannot escape through an intermediate symlink" \
+  "required runtime asset resolves outside its plugin" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/real-scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/real-scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/real-scripts/read-helper.sh"
+ln -s real-scripts "$d/plugins/alpha/scripts"
+asset_digest=$(sha256_bytes "$d/plugins/alpha/real-scripts/read-helper.sh")
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset rejects an internal parent symlink" \
+  "required runtime asset parent path is linked" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/plugins/alpha/scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
+jq '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:"0000000000000000000000000000000000000000000000000000000000000000",executable:true}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "desired-state required runtime asset rejects a stale digest" \
+  "required runtime asset digest does not match" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+mkdir -p "$d/plugins/alpha/scripts"
+printf '%s\n' '#!/usr/bin/env bash' > "$d/reviewed-helper.sh"
+asset_digest=$(sha256_file "$d/reviewed-helper.sh")
+printf '#!/usr/bin/env bash\r\n' > "$d/plugins/alpha/scripts/read-helper.sh"
+chmod +x "$d/plugins/alpha/scripts/read-helper.sh"
+jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"scripts/read-helper.sh",sha256:$digest,executable:true}]' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "runtime asset digest compares exact bytes rather than normalized text" \
+  "required runtime asset digest does not match" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 awk '
@@ -1112,6 +1267,51 @@ check_fail "portfolio surveyor rejects a malformed full-definition digest" \
   "portfolioSurveyor definitionSha256 must be a lowercase SHA-256 digest" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.roles["agent-improver"].definitionSha256)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agent Improver requires a full-definition digest" \
+  "agentImprover definitionSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.roles["agent-improver"].definitionSha256 = "not-a-digest"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agent Improver rejects a malformed full-definition digest" \
+  "agentImprover definitionSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq 'del(.spec.roles["agent-improver"].skillSha256)' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agent Improver requires a procedure-skill digest" \
+  "agentImprover skillSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+jq '.spec.roles["agent-improver"].skillSha256 = "not-a-digest"' \
+  "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+check_fail "Agent Improver rejects a malformed procedure-skill digest" \
+  "agentImprover skillSha256 must be a lowercase SHA-256 digest" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '\nDrift that must invalidate the desired-state pin.\n' \
+  >> "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver rejects a stale full-definition digest" \
+  "agent-improver digest must match the bundled agent" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+printf '\nDrift that must invalidate the desired-state pin.\n' \
+  >> "$d/plugins/alpha/skills/agent-improvement/SKILL.md"
+check_fail "Agent Improver rejects a stale procedure-skill digest" \
+  "agent-improvement skill digest must match the bundled skill" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+rm "$d/plugins/alpha/skills/agent-improvement/SKILL.md"
+check_fail "Agent Improver digest requires the bundled procedure skill" \
+  "agent-improvement skill digest must resolve to the bundled skill" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
 awk '{ printf "%s\r\n", $0 }' \
   "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
@@ -1191,6 +1391,62 @@ sed '/Runtime-local definition surfaces are delivered in place/,+1d' \
   && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
 check_fail "Agent Improver must preserve runtime-local in-place delivery" \
   "agent-improver must preserve backed-up runtime-local in-place delivery" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/The Agent Improver is one of its own measured subjects/The Agent Improver observes only the Engineer/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver must measure its own observation plane" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/Outcome throughput counts only verified terminal outcomes/Outcome throughput counts productive activity/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver outcome throughput must exclude unfinished activity" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed "s/the same Improver's unsupported assertion is UNKNOWN, never success/the same Improver scores itself as successful/" \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver observation verdicts need independent evidence" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/version-controlled self-referential change/self-reviewed change/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver version-controlled self-changes need current-head review" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/an independent green current-head review with all findings resolved/an independent current-head review/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver self-change review must be green and resolved" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/independently performed post-dispatch read-back/immediate read-back/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver runtime-local self-changes need post-dispatch verification" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/unchanged companion floors for every applicable scorecard parameter/unchanged safety and quality floors/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver self-changes preserve every applicable scorecard floor" \
+  "agent-improver must measure its own observation plane without self-scoring" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/No-change fallback is research, never idle/No-change fallback may be research/' \
+  "$d/plugins/alpha/agents/agent-improver.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agent-improver.agent.md"
+check_fail "Agent Improver must research rather than stop on an evidence-clean run" \
+  "agent-improver must research and route candidates instead of idling" "$d"
 
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"

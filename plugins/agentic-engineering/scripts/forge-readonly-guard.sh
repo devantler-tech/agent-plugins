@@ -58,10 +58,19 @@
 #     output is a terminal, so a request to page (`--paginate`) is refused, but a
 #     deployment that attaches a TTY should also set `GIT_PAGER=cat`. What argv
 #     cannot express, a guard over argv cannot certify.
+#   Environment: GitHub CLI's default telemetry creates gh/device-id on an
+#     otherwise-allowed read. The guard therefore requires a disabling
+#     GH_TELEMETRY (0 or false) in the process environment before it classifies
+#     any gh segment; argv cannot carry that value (an env-prefixed command is
+#     denied). Deployments must export GH_TELEMETRY=0 in the runtime that
+#     invokes gh, the same way a TTY-attached host should set GIT_PAGER=cat.
 #
 # Written for bash 3.2 so it runs on a stock macOS agent host as well as CI.
 #
 set -euo pipefail
+
+GUARD_DIR=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+DEFAULT_BRANCH_CLASSIFIER="${GUARD_DIR}/classify-default-branch-ci-runs.sh"
 
 deny() {
   printf 'deny: %s\n' "$1"
@@ -131,10 +140,16 @@ GH_API_VALUE_FLAGS=" --jq -q --method -X --header -H --template -t --preview -p 
 # on its own: `gh pr view --web` opens a URL through `$BROWSER`, which runs a
 # local program the guard never classified. So the verbs are allowlisted too.
 GH_VERB_FLAGS=" --draft --no-draft --archived --no-archived --merged --closed --comments --paginate --fork --source --include-prs --exclude-drafts --checks --required "
-GH_VERB_VALUE_FLAGS=" -R --repo --state --limit -L --json --jq -q --search --author --owner --assignee --label --milestone --app --branch --workflow --event --user --sort --order --created --updated --language --match --visibility --topic --exclude --head --base --commit --template -t --filter "
-# gh switches the request to POST as soon as one of these is set, and a `-F`
-# value beginning with `@` makes gh read that file and send its contents. They
-# survive only on graphql, which has no other way to carry a query.
+GH_VERB_VALUE_FLAGS=" -R --repo --state --limit -L --json --jq -q --search --author --owner --assignee --label --milestone --app --branch --workflow --event --user --sort --order --created --updated --language --match --visibility --topic --exclude --head --base --commit --template -t --filter --commenter --merged-at "
+# gh switches the request to POST as soon as a field argument is set, UNLESS an
+# explicit `--method GET` is also given — then gh serialises it into the query
+# string and the request stays a read. So the four FIELD spellings below —
+# `-f`, `--raw-field`, `-F`, `--field` — survive on graphql (which has no other way
+# to carry a query) and on an explicit GET.
+# Two members of this group are NOT covered by that and are denied for every
+# method, GET included: `--input` reads a local file as the request body, and a
+# field VALUE beginning with `@` makes gh read the file it names. Both are
+# independent rules that fire earlier, and neither is widened by an explicit GET.
 GH_API_FIELD_FLAGS=" -f --raw-field -F --field --input "
 
 # git options. Read verbs are not enough on their own: several options make git
@@ -576,7 +591,7 @@ classify_gh_api() {
   local api_at=$1 i=1 w name val
   local n=${#WORDS[@]}
   local endpoint='' seen_endpoint=0
-  local field_count=0
+  local field_count=0 method_count=0
   local field_values='' m
   # An ARRAY, not a string. `set -euo pipefail` does not disable pathname
   # expansion, so iterating an unquoted string would expand a method value of `*`
@@ -665,7 +680,13 @@ $val"
     check_gh_flag_value "$name" "$val"
 
     case "$name" in
-      --method | -X) methods+=("$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')") ;;
+      --method | -X)
+        methods+=("$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')")
+        # Counted separately: `set -u` under bash 3.2 makes "${methods[@]}" an
+        # error on an empty array, so a plain counter is the portable way to ask
+        # "was a method given at all?" below.
+        method_count=$((method_count + 1))
+        ;;
     esac
     i=$((i + 1))
   done
@@ -688,8 +709,14 @@ EOF
     if [ "$m" != GET ]; then deny "gh api --method $m is not a read"; fi
   done
 
-  if [ "$field_count" -gt 0 ]; then
-    deny 'gh api field arguments make the request a POST'
+  # A field argument switches gh to POST *unless* an explicit GET method is given,
+  # in which case gh serialises the fields into the query string — still a read.
+  # The loop above already denied every non-GET method, so reaching here with a
+  # method means that method is GET. No method at all means gh's POST default.
+  # This narrows only the METHOD question: the @file and --input denials are
+  # independent, fire earlier, and are unaffected.
+  if [ "$field_count" -gt 0 ] && [ "$method_count" -eq 0 ]; then
+    deny 'gh api field arguments make the request a POST without an explicit --method GET'
   fi
 
   if [ "$seen_endpoint" -eq 0 ]; then
@@ -788,6 +815,17 @@ check_gh_verb_flags() {
 
 classify_gh() {
   local sub sub2 sub_at
+
+  # GH_TELEMETRY is an environment class, not argv: an env-prefixed command is
+  # already denied, so the disabling value must already be in the process
+  # environment. 0 and false are the documented GitHub CLI disable values.
+  case "${GH_TELEMETRY-}" in
+    0|false) ;;
+    *)
+      printf '%s\n' 'deny: export GH_TELEMETRY=0 before any gh read (prevents gh/device-id telemetry writes)'
+      return 1
+      ;;
+  esac
 
   find_subcommand 1 ' '
   sub=$SUB_WORD
@@ -1150,6 +1188,49 @@ classify_filter() {
   return 0
 }
 
+# One reviewed plugin helper is a compound forge read rather than a generic
+# filter: it performs a fixed paginated Actions GET in memory and classifies the
+# result. Match the exact sibling of this guard, never a basename or caller-
+# supplied path, then admit only its remote-mode argument shape. Offline
+# `--input` can read an arbitrary local file and therefore remains denied.
+classify_default_branch_ci() {
+  local i=1 w repo='' branch='' head_sha=''
+  local n=${#WORDS[@]}
+
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
+    case "$w" in
+      --repo)
+        [ -z "$repo" ] || deny 'default-branch classifier repeats --repo'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'default-branch classifier --repo needs a value'
+        repo=${WORDS[$i]}
+        ;;
+      --branch)
+        [ -z "$branch" ] || deny 'default-branch classifier repeats --branch'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'default-branch classifier --branch needs a value'
+        branch=${WORDS[$i]}
+        ;;
+      --head-sha)
+        [ -z "$head_sha" ] || deny 'default-branch classifier repeats --head-sha'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'default-branch classifier --head-sha needs a value'
+        head_sha=${WORDS[$i]}
+        ;;
+      *) deny "default-branch classifier argument '$w' is not the guarded remote-mode shape" ;;
+    esac
+    i=$((i + 1))
+  done
+
+  [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] ||
+    deny 'default-branch classifier repository is not OWNER/REPO'
+  [ -n "$branch" ] || deny 'default-branch classifier needs --branch'
+  [[ "$head_sha" =~ ^[0-9a-fA-F]{40}$ ]] ||
+    deny 'default-branch classifier head sha is not full length'
+  return 0
+}
+
 # sed is allowed by shape, not by exclusion: a plain substitution or a line
 # print/delete, and nothing else. `w` writes a file and `e` executes a command,
 # and both hide in a flag position that a blacklist keeps missing — including
@@ -1247,7 +1328,7 @@ classify_segment() {
   # `cat ~/.config/gh/hosts.yml` would otherwise pass as a "safe filter".
   if [ "$index" -eq 0 ]; then
     case "$prog" in
-      gh | git) ;;
+      gh | git | "$DEFAULT_BRANCH_CLASSIFIER") ;;
       *) deny "a read must begin with a forge command, not '$prog'" ;;
     esac
   fi
@@ -1255,6 +1336,7 @@ classify_segment() {
   case "$prog" in
     gh) classify_gh ;;
     git) classify_git ;;
+    "$DEFAULT_BRANCH_CLASSIFIER") classify_default_branch_ci ;;
     sed) classify_sed ;;
     jq) classify_filter jq "$FILTER_FLAGS_JQ" "$FILTER_VALUE_FLAGS_JQ" 1 ;;
     grep) classify_filter grep "$FILTER_FLAGS_GREP" "$FILTER_VALUE_FLAGS_GREP" 1 ;;

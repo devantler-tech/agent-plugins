@@ -42,6 +42,8 @@ scripts/
 ├── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
 ├── check-plugin-version-bump.sh      # Gate: a plugin whose shipped content changed must move its version
 ├── check-plugin-version-bump.test.sh # Self-test for the gate above
+├── guard-bundled-skill-edits.sh      # Gate: refuse a hand-edit to a synced skill tree, naming its upstream
+├── guard-bundled-skill-edits.test.sh # Self-test for the gate above
 ├── bump-plugin-version.sh      # Move a plugin's version across all four manifests (the fix the gate points at)
 └── bump-plugin-version.test.sh # Self-test for the bump helper
 README.md                       # Human-facing index — the plugin table + per-tool install instructions
@@ -119,12 +121,22 @@ which records the true upstream in the skill's `metadata.github-*` frontmatter (
 [`gh skill update --all`](https://github.com/devantler-tech/actions/tree/main/update-agent-skills) via
 the [`update-agent-skills`](https://github.com/devantler-tech/actions/blob/main/.github/workflows/update-agent-skills.yaml)
 reusable workflow and opens a PR when any upstream's content drifts — **no lockfile, no sync bot, no
-custom metadata.** Never hand-edit a bundled `SKILL.md` to diverge from its upstream; fix it in the
-skill's **own** upstream (the repo named in its `metadata.github-repo`) and let the update workflow pull
-it through. `validate-manifests.sh` enforces this mechanically: every bundled `SKILL.md` must carry a
-non-empty `metadata.github-repo` provenance line, so a hand-authored or provenance-stripped skill fails
-CI rather than reaching consumers. Only the marketplace structure (manifests, `plugin.json`, plugin
-membership) is authored here.
+custom metadata.** Never hand-edit anything inside a bundled skill — not the `SKILL.md`, and not the
+`references/`, `scripts/` and `assets/` files beside it, which are equally the upstream's and equally
+re-pulled. Fix it in the skill's **own** upstream (the repo named in its `metadata.github-repo`) and
+let the update workflow pull it through. `validate-manifests.sh` enforces this mechanically: every
+bundled `SKILL.md` must carry a non-empty `metadata.github-repo` provenance line, so a hand-authored
+or provenance-stripped skill fails CI rather than reaching consumers.
+`guard-bundled-skill-edits.sh` covers the rest of the tree: a PR that changes any file inside a
+synced skill fails and names the upstream to fix it in, so the edit is refused at review instead of
+being silently reverted by the next sync. The programmed sync PR is exempt, a wholly new skill
+directory is not blocked (there is no upstream copy to diverge from yet), and retiring a skill
+outright is allowed because plugin membership is authored here. **The exemption is scoped to the
+PR, not to the commit author**: it keys on who opened the sync PR and what its head branch is
+called, so any commit pushed onto that branch is exempt too — which is deliberate, since adapting a
+bot branch is a documented workflow, but it means the guard stops accidental silent-revert edits
+rather than a writer who sets out to bypass it. Only the marketplace structure (manifests, `plugin.json`,
+plugin membership) is authored here.
 
 ## Conventions
 

@@ -44,6 +44,17 @@ sha256_file() {
   fi
 }
 
+# Hash the exact bytes of an executable runtime asset. Unlike definition files,
+# runtime assets are executed from the checkout, so checkout-only CRLF changes
+# must invalidate the declared digest instead of being normalized away.
+sha256_bytes() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  else
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  fi
+}
+
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
   local manifest="$1"
@@ -445,13 +456,19 @@ validate_readme_parity() {
 #    new runtime how to load that role and resolve deployment facts from the consumer AGENTS.md.
 validate_desired_state_resources() {
   local failed=0 resource_failed resource kind plugin_dir plugin_name readme basename entrypoint
-  local schedule_source schedule_plugin schedule_agent
+  local schedule_source schedule_plugin schedule_agent runtime_asset runtime_asset_sha
+  local runtime_asset_executable actual_asset_sha
+  local plugin_root runtime_asset_dir resolved_asset asset_parent asset_component asset_component_path
+  local parent_linked
+  local -a asset_components
   local entrypoint_sha256 actual_entrypoint_sha256
   local portfolio_surveyor_sha256 actual_portfolio_surveyor_sha256
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
   local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
+  local improver_self_observation_contract="The Agent Improver is one of its own measured subjects. Keep the Agentic Engineer execution plane and every Agent Improver observation plane in separate scorecards; never average them together or let one hide the other's regression. Measure observer coverage, calibration, hypothesis discipline, verified intervention effectiveness, reliability, efficiency, and verified rollout throughput. Outcome throughput counts only verified terminal outcomes; productive sessions and work advanced are execution-flow indicators, never improvement verdicts. Observation-plane verdicts require independent computation from an immutable or read-only source, or verification by a separate eligible run or instance; the same Improver's unsupported assertion is UNKNOWN, never success. Activity such as PRs, metrics, reports, and memory writes is not improvement. A version-controlled self-referential change requires an independent green current-head review with all findings resolved. A runtime-local self-referential change requires an independently performed post-dispatch read-back against the recorded pre-change baseline through the consumer's declared runtime verification mechanism; the writer's immediate read-back is not independent verification. Both paths require unchanged companion floors for every applicable scorecard parameter and a later eligible evidence window."
+  local improver_research_fallback_contract="No-change fallback is research, never idle. After scoring and diagnosis, when no telemetry-backed or direct-maintainer-directed improvement is actionable, run one bounded state-of-the-art research pass before reporting. Research is discovery evidence, never authorization or proof that the current system failed. Use current primary sources, compare the current baseline capability, and route a deduplicated product or operations opportunity as an ENGINEER-CANDIDATE and an agent-process or measurement opportunity as an IMPROVER-CANDIDATE. Research alone never authorizes or ships a change. A null result is RESEARCH-NO-CANDIDATE with the topic cursor advanced; research activity is not a terminal improvement outcome."
   local money_guardrail="Spend stewardship never moves money: prepare the financial decision, route it to the maintainer's declared private channel, and keep private financial data out of every public artifact."
   local portfolio_survey_recovery_contract="**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates \`QUERY-UNKNOWN\`; never discard completed evidence or collapse it into portfolio-wide \`QUERY-UNKNOWN\`."
   local portfolio_survey_global_failure_contract="Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures."
@@ -548,6 +565,85 @@ validate_desired_state_resources() {
       resource_failed=1
     fi
 
+    while IFS=$'\t' read -r runtime_asset runtime_asset_sha runtime_asset_executable; do
+      [ -n "$runtime_asset" ] || continue
+      case "$runtime_asset" in
+        /* | .. | ../* | */../* | */..)
+          echo "::error::$resource: required runtime asset must be a plugin-relative path: $runtime_asset"
+          failed=1
+          resource_failed=1
+          continue
+          ;;
+      esac
+      if [ "$runtime_asset_executable" != "true" ]; then
+        echo "::error::$resource: required runtime asset executable must be true: $runtime_asset"
+        failed=1
+        resource_failed=1
+        continue
+      fi
+      if [ ! -f "$plugin_dir/$runtime_asset" ] \
+        || [ -L "$plugin_dir/$runtime_asset" ] \
+        || [ ! -x "$plugin_dir/$runtime_asset" ]; then
+        echo "::error::$resource: required runtime asset is missing, linked, or not executable: $runtime_asset"
+        failed=1
+        resource_failed=1
+        continue
+      fi
+      plugin_root=$(cd -P "$plugin_dir" && pwd -P)
+      if ! runtime_asset_dir=$(cd -P "$(dirname "$plugin_dir/$runtime_asset")" 2>/dev/null && pwd -P); then
+        echo "::error::$resource: required runtime asset parent cannot be resolved: $runtime_asset"
+        failed=1
+        resource_failed=1
+        continue
+      fi
+      resolved_asset="$runtime_asset_dir/$(basename "$runtime_asset")"
+      case "$resolved_asset" in
+        "$plugin_root"/*) ;;
+        *)
+          echo "::error::$resource: required runtime asset resolves outside its plugin: $runtime_asset"
+          failed=1
+          resource_failed=1
+          continue
+          ;;
+      esac
+      asset_parent=${runtime_asset%/*}
+      if [ "$asset_parent" != "$runtime_asset" ]; then
+        IFS='/' read -r -a asset_components <<< "$asset_parent"
+        asset_component_path="$plugin_dir"
+        parent_linked=0
+        for asset_component in "${asset_components[@]}"; do
+          if [ -z "$asset_component" ] || [ "$asset_component" = "." ]; then
+            continue
+          fi
+          asset_component_path="$asset_component_path/$asset_component"
+          if [ -L "$asset_component_path" ]; then
+            echo "::error::$resource: required runtime asset parent path is linked: $runtime_asset"
+            failed=1
+            resource_failed=1
+            parent_linked=1
+            break
+          fi
+        done
+        [ "$parent_linked" -eq 0 ] || continue
+      fi
+      if ! printf '%s\n' "$runtime_asset_sha" | grep -Eq '^[a-f0-9]{64}$'; then
+        echo "::error::$resource: required runtime asset sha256 must be a lowercase SHA-256 digest: $runtime_asset"
+        failed=1
+        resource_failed=1
+        continue
+      fi
+      actual_asset_sha=$(sha256_bytes "$plugin_dir/$runtime_asset")
+      if [ "$runtime_asset_sha" != "$actual_asset_sha" ]; then
+        echo "::error::$resource: required runtime asset digest does not match: $runtime_asset"
+        failed=1
+        resource_failed=1
+      fi
+    done < <(jq -r '
+      .spec.source.requiredRuntimeAssets[]?
+      | [(.path // ""), (.sha256 // ""), (.executable // "")]
+      | @tsv
+    ' "$resource")
+
     # This is a content-integrity and review gate, not a natural-language semantic parser:
     # the canonical block pins the required rule, while the digest makes every other
     # entrypoint edit visible as a coordinated desired-state change. Ignore checkout-only
@@ -580,6 +676,45 @@ validate_desired_state_resources() {
       )
       if [ "$portfolio_surveyor_sha256" != "$actual_portfolio_surveyor_sha256" ]; then
         echo "::error::$resource: portfolio-surveyor digest must match the bundled agent"
+        failed=1
+        resource_failed=1
+      fi
+    fi
+
+    agent_improver_sha256=$(
+      jq -r '.spec.roles["agent-improver"].definitionSha256 // ""' "$resource"
+    )
+    if ! printf '%s\n' "$agent_improver_sha256" | grep -Eq '^[a-f0-9]{64}$'; then
+      echo "::error::$resource: agentImprover definitionSha256 must be a lowercase SHA-256 digest"
+      failed=1
+      resource_failed=1
+    elif [ -f "$plugin_dir/agents/agent-improver.agent.md" ]; then
+      actual_agent_improver_sha256=$(
+        sha256_file "$plugin_dir/agents/agent-improver.agent.md"
+      )
+      if [ "$agent_improver_sha256" != "$actual_agent_improver_sha256" ]; then
+        echo "::error::$resource: agent-improver digest must match the bundled agent"
+        failed=1
+        resource_failed=1
+      fi
+    fi
+
+    agent_improvement_skill="$plugin_dir/skills/agent-improvement/SKILL.md"
+    agent_improvement_skill_sha256=$(
+      jq -r '.spec.roles["agent-improver"].skillSha256 // ""' "$resource"
+    )
+    if ! printf '%s\n' "$agent_improvement_skill_sha256" | grep -Eq '^[a-f0-9]{64}$'; then
+      echo "::error::$resource: agentImprover skillSha256 must be a lowercase SHA-256 digest"
+      failed=1
+      resource_failed=1
+    elif [ ! -f "$agent_improvement_skill" ]; then
+      echo "::error::$resource: agent-improvement skill digest must resolve to the bundled skill"
+      failed=1
+      resource_failed=1
+    else
+      actual_agent_improvement_skill_sha256=$(sha256_file "$agent_improvement_skill")
+      if [ "$agent_improvement_skill_sha256" != "$actual_agent_improvement_skill_sha256" ]; then
+        echo "::error::$resource: agent-improvement skill digest must match the bundled skill"
         failed=1
         resource_failed=1
       fi
@@ -701,13 +836,21 @@ validate_desired_state_resources() {
           and has_keys(["source", "consumer", "roles", "runtime", "onboarding", "guardrails"]))
       and (.spec.source
         | only_keys([
-            "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
-            "refreshTiming", "hotSwapDuringRun"
+          "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
+            "refreshTiming", "hotSwapDuringRun", "requiredRuntimeAssets"
           ])
           and has_keys([
             "marketplace", "plugin", "entrypoint", "entrypointSha256", "updatePolicy", "providerPolicy",
             "refreshTiming", "hotSwapDuringRun"
-          ]))
+          ])
+          and ((.requiredRuntimeAssets // [])
+            | type == "array" and all(.[];
+                type == "object"
+                and (keys - ["path", "sha256", "executable"] | length == 0)
+                and has("path") and has("sha256") and has("executable")
+                and (.path | type == "string" and length > 0)
+                and (.sha256 | type == "string" and test("^[a-f0-9]{64}$"))
+                and .executable == true)))
       and (.spec.consumer
         | only_keys([
             "canonicalInstructions", "repositoryResolution", "organizationScopeFrom",
@@ -728,7 +871,8 @@ validate_desired_state_resources() {
         | only_keys(["enabled", "mode", "definitionSha256"])
           and has_keys(["enabled", "mode", "definitionSha256"]))
       and (.spec.roles["agent-improver"]
-        | only_keys(["enabledWhen", "mode"]) and has_keys(["enabledWhen", "mode"]))
+        | only_keys(["enabledWhen", "mode", "definitionSha256", "skillSha256"])
+          and has_keys(["enabledWhen", "mode", "definitionSha256", "skillSha256"]))
       and (.spec.runtime
         | only_keys(["scheduler", "execution", "model", "memory"])
           and has_keys(["scheduler", "execution", "model", "memory"]))
@@ -931,6 +1075,24 @@ validate_desired_state_resources() {
       || ! grep -qF "$runtime_local_delivery" \
         "$plugin_dir/agents/agent-improver.agent.md"; then
       echo "::error::$resource: agent-improver must preserve backed-up runtime-local in-place delivery"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
+      || ! tr '\n' ' ' < "$plugin_dir/agents/agent-improver.agent.md" \
+        | tr -s '[:space:]' ' ' \
+        | grep -qF "$improver_self_observation_contract"; then
+      echo "::error::$resource: agent-improver must measure its own observation plane without self-scoring"
+      failed=1
+      resource_failed=1
+    fi
+
+    if [ ! -f "$plugin_dir/agents/agent-improver.agent.md" ] \
+      || ! tr '\n' ' ' < "$plugin_dir/agents/agent-improver.agent.md" \
+        | tr -s '[:space:]' ' ' \
+        | grep -qF "$improver_research_fallback_contract"; then
+      echo "::error::$resource: agent-improver must research and route candidates instead of idling"
       failed=1
       resource_failed=1
     fi

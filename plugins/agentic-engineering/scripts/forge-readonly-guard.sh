@@ -588,7 +588,7 @@ check_graphql_document() {
 }
 
 classify_gh_api() {
-  local i=2 w name val
+  local api_at=$1 i=1 w name val
   local n=${#WORDS[@]}
   local endpoint='' seen_endpoint=0
   local field_count=0 method_count=0
@@ -603,6 +603,13 @@ classify_gh_api() {
   # evidence of anything: collect every occurrence and hold them all to the
   # allowed method, which makes the check independent of that precedence.
   while [ "$i" -lt "$n" ]; do
+    # `gh` accepts attached api flags before the subcommand. Classify the whole
+    # argv around the located `api` word so those flags cannot escape the
+    # request-policy checks below.
+    if [ "$i" -eq "$api_at" ]; then
+      i=$((i + 1))
+      continue
+    fi
     w=${WORDS[$i]}
     case "$w" in
       --)
@@ -826,7 +833,7 @@ classify_gh() {
   if [ -z "$sub" ]; then deny 'gh needs a subcommand to be classified'; fi
 
   if [ "$sub" = api ]; then
-    classify_gh_api
+    classify_gh_api "$sub_at"
     return 0
   fi
 

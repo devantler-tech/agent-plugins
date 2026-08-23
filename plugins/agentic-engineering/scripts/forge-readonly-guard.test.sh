@@ -95,6 +95,8 @@ expect_allow 'release view' "gh release view --repo devantler-tech/ksail"
 expect_allow 'api rest get' "gh api repos/devantler-tech/monorepo/issues/2786/comments --paginate"
 expect_allow 'api with an explicit GET method' \
   "gh api --method GET repos/devantler-tech/platform/rulesets"
+expect_allow 'api with an attached GET method before the subcommand' \
+  "gh --method=GET api repos/devantler-tech/platform/rulesets"
 expect_allow 'bundled default-branch classifier is a guarded compound forge read' \
   "$HERE/classify-default-branch-ci-runs.sh --repo devantler-tech/platform --branch main --head-sha 0123456789abcdef0123456789abcdef01234567"
 expect_allow 'api rate_limit with a jq object expression' \
@@ -193,6 +195,12 @@ expect_deny 'api DELETE' "gh api --method DELETE repos/devantler-tech/monorepo/i
 expect_deny 'api PATCH' "gh api --method PATCH repos/devantler-tech/monorepo/issues/1"
 expect_deny 'api PUT' "gh api --method PUT repos/devantler-tech/monorepo/pulls/1/merge"
 expect_deny 'api lowercase post' "gh api --method post repos/devantler-tech/monorepo/issues"
+expect_deny 'api prefix method cannot bypass classification' \
+  "gh --method=PUT api user/starred/devantler-tech/agent-plugins"
+expect_deny 'api prefix input cannot bypass classification' \
+  "gh --input=/etc/passwd api markdown/raw"
+expect_deny 'api prefix hostname cannot bypass classification' \
+  "gh --hostname=example.com api rate_limit"
 # gh makes the request a POST as soon as a field is set, with no --method in sight.
 expect_deny 'api field argument implies POST' \
   "gh api repos/devantler-tech/monorepo/issues/2786/comments -f body=hi"

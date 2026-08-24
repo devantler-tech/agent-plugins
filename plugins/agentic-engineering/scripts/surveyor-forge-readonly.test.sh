@@ -327,5 +327,38 @@ else
   fail "unscoped mode must ignore agent_type and still deny (st=$st)"
 fi
 
+# --- an out-of-scope allow is SILENT unless explicitly tracing ---
+#
+# Installed on a `Bash` matcher this path is taken by every main-thread call in
+# every lane. A line here would print on essentially every command the engineer
+# runs, and the one message that matters -- a DENY -- would be lost in it.
+err="$(
+  set +e
+  printf '%s\n' "$(hook_stdin 'deny-me')" |
+    SURVEYOR_FORGE_READONLY_SCOPE='portfolio-surveyor' \
+      SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" "$WRAPPER" 2>&1 >/dev/null
+  true
+)"
+if [ -z "$err" ]; then
+  pass
+else
+  fail "out-of-scope allow must be silent by default (err=$err)"
+fi
+
+# ...but stays diagnosable, so an operator verifying an install can tell
+# "allowed, out of scope" from "allowed, the guard admitted it".
+err="$(
+  set +e
+  printf '%s\n' "$(hook_stdin 'deny-me')" |
+    SURVEYOR_FORGE_READONLY_DEBUG=1 SURVEYOR_FORGE_READONLY_SCOPE='portfolio-surveyor' \
+      SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" "$WRAPPER" 2>&1 >/dev/null
+  true
+)"
+if printf '%s\n' "$err" | grep -q 'out of scope'; then
+  pass
+else
+  fail "debug tracing must explain an out-of-scope allow (err=$err)"
+fi
+
 echo "pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]

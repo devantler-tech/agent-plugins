@@ -59,11 +59,19 @@ emit_deny() {
   printf '%s\n' "$reason" >&2
 }
 
-# Out of scope: not this wrapper's call to refuse. Announced on stderr so an
-# operator debugging an install can tell "allowed because out of scope" from
-# "allowed because the guard admitted it".
+# Out of scope: not this wrapper's call to refuse.
+#
+# SILENT by design. Once installed on a `Bash` matcher this path is taken by
+# every main-thread call in every lane, so anything written here is emitted on
+# essentially every command the engineer runs. A guard that narrates each of
+# its own no-ops is a tax on the everyday path, and the useful signal (a DENY)
+# would be the one lost in it. Set SURVEYOR_FORGE_READONLY_DEBUG=1 to trace an
+# install, where distinguishing "allowed, out of scope" from "allowed, guard
+# admitted it" is exactly the question being asked.
 out_of_scope() {
-  printf 'surveyor-forge-readonly: out of scope (%s), allowing\n' "$1" >&2
+  if [ -n "${SURVEYOR_FORGE_READONLY_DEBUG:-}" ]; then
+    printf 'surveyor-forge-readonly: out of scope (%s), allowing\n' "$1" >&2
+  fi
   exit 0
 }
 

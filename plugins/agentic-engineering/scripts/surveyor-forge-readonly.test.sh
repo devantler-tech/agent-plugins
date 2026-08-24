@@ -229,5 +229,136 @@ else
   fi
 fi
 
+# --- agent scoping (opt-in): SURVEYOR_FORGE_READONLY_SCOPE ---
+#
+# A PreToolUse `matcher` filters on tool name only, so a Bash matcher fires for
+# every agent — including the engineer's own lane, whose writes are legitimate.
+# The runtime does carry the agent identity in the same stdin this wrapper
+# already parses (`agent_type`, plus `agent_id` inside a subagent call), so the
+# scoping the boundary needs is available here rather than in the matcher.
+#
+# The gate is OPT-IN and strictly additive: with SURVEYOR_FORGE_READONLY_SCOPE
+# unset the wrapper behaves exactly as before, which is what every assertion
+# above continues to prove. With it set, the wrapper enforces only when the
+# payload positively identifies that agent.
+#
+# Scoping deliberately fails OPEN while command classification keeps failing
+# CLOSED. The two directions are not symmetric: this wrapper exists to constrain
+# the surveyor, so if it cannot establish that it IS the surveyor it has no
+# mandate to refuse — and refusing would deny every main-thread Bash call the
+# moment the hook is installed. Refusing to classify a command, by contrast,
+# still denies.
+
+hook_stdin_agent() {
+  local cmd="$1" agent="$2"
+  jq -nc --arg cmd "$cmd" --arg agent "$agent" \
+    '{tool_name:"Bash",agent_id:"sub_1",agent_type:$agent,tool_input:{command:$cmd}}'
+}
+
+scoped_status() {
+  local stdin="$1" scope="$2"
+  set +e
+  printf '%s\n' "$stdin" |
+    SURVEYOR_FORGE_READONLY_SCOPE="$scope" \
+      SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" "$WRAPPER" >/dev/null 2>&1
+  local st=$?
+  set -e
+  echo "$st"
+}
+
+# In scope and mutating: the guard still decides, and still refuses.
+st="$(scoped_status "$(hook_stdin_agent 'deny-me' 'portfolio-surveyor')" 'portfolio-surveyor')"
+if [ "$st" -ne 0 ]; then
+  pass
+else
+  fail "in-scope mutation must still deny (st=$st)"
+fi
+
+# In scope and admitted: the gate must not turn an allow into a deny.
+st="$(scoped_status "$(hook_stdin_agent 'allow-me' 'portfolio-surveyor')" 'portfolio-surveyor')"
+if [ "$st" -eq 0 ]; then
+  pass
+else
+  fail "in-scope read must still allow (st=$st)"
+fi
+
+# A DIFFERENT subagent is out of scope: allow, even though the command is one
+# the guard would refuse. This is the assertion that makes a Bash-wide matcher
+# safe to install.
+st="$(scoped_status "$(hook_stdin_agent 'deny-me' 'Explore')" 'portfolio-surveyor')"
+if [ "$st" -eq 0 ]; then
+  pass
+else
+  fail "a different agent must be out of scope and allowed (st=$st)"
+fi
+
+# Main thread carries no agent_type at all: out of scope, allow. Without this
+# the engineer's own lane could not push once the hook is installed.
+st="$(scoped_status "$(hook_stdin 'deny-me')" 'portfolio-surveyor')"
+if [ "$st" -eq 0 ]; then
+  pass
+else
+  fail "main-thread call (no agent_type) must be allowed when scoped (st=$st)"
+fi
+
+# Unparseable payload while scoped: the agent cannot be identified, so the
+# wrapper has no mandate to refuse. Asserted explicitly because it is the one
+# place the gate is deliberately more permissive than the unscoped default.
+st="$(scoped_status '{not-json' 'portfolio-surveyor')"
+if [ "$st" -eq 0 ]; then
+  pass
+else
+  fail "unidentifiable payload must be out of scope when scoped (st=$st)"
+fi
+
+# NEGATIVE CONTROL — the gate must not leak into the default mode. With the
+# scope UNSET, an out-of-scope-looking agent_type changes nothing and the
+# mutation is still refused. If this ever passes as an allow, the opt-in gate
+# has silently become the default and every assertion above it is void.
+st="$(
+  set +e
+  printf '%s\n' "$(hook_stdin_agent 'deny-me' 'Explore')" |
+    SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" "$WRAPPER" >/dev/null 2>&1
+  echo $?
+)"
+if [ "$st" -ne 0 ]; then
+  pass
+else
+  fail "unscoped mode must ignore agent_type and still deny (st=$st)"
+fi
+
+# --- an out-of-scope allow is SILENT unless explicitly tracing ---
+#
+# Installed on a `Bash` matcher this path is taken by every main-thread call in
+# every lane. A line here would print on essentially every command the engineer
+# runs, and the one message that matters -- a DENY -- would be lost in it.
+err="$(
+  set +e
+  printf '%s\n' "$(hook_stdin 'deny-me')" |
+    SURVEYOR_FORGE_READONLY_SCOPE='portfolio-surveyor' \
+      SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" "$WRAPPER" 2>&1 >/dev/null
+  true
+)"
+if [ -z "$err" ]; then
+  pass
+else
+  fail "out-of-scope allow must be silent by default (err=$err)"
+fi
+
+# ...but stays diagnosable, so an operator verifying an install can tell
+# "allowed, out of scope" from "allowed, the guard admitted it".
+err="$(
+  set +e
+  printf '%s\n' "$(hook_stdin 'deny-me')" |
+    SURVEYOR_FORGE_READONLY_DEBUG=1 SURVEYOR_FORGE_READONLY_SCOPE='portfolio-surveyor' \
+      SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" "$WRAPPER" 2>&1 >/dev/null
+  true
+)"
+if printf '%s\n' "$err" | grep -q 'out of scope'; then
+  pass
+else
+  fail "debug tracing must explain an out-of-scope allow (err=$err)"
+fi
+
 echo "pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]

@@ -5,12 +5,8 @@
 # read-only forge contract. It is NOT a second classifier: it extracts the
 # tool command from hook stdin and delegates to forge-readonly-guard.sh.
 #
-# Attach this wrapper ONLY to the portfolio-surveyor agent's Bash PreToolUse
-# path. A plugin-wide Bash matcher would refuse the engineer agent's
-# legitimate writes (gh pr create, git push, tests).
-#
 # Stdin: Claude Code PreToolUse JSON (tool_input.command, or .command).
-# Exit 0: allow (guard admitted the command).
+# Exit 0: allow (the guard admitted the command, or the call is out of scope).
 # Exit 2: deny (guard refused, usage error, missing jq, or malformed stdin).
 # A deny emits hookSpecificOutput.permissionDecision=deny JSON on stdout AND
 # the bare reason on stderr. Exit 2 is deliberate: it blocks the command
@@ -19,11 +15,32 @@
 # blocking message from the JSON decision when it reads one and from stderr
 # otherwise -- emitting both means the operator sees the reason either way.
 #
+# SCOPING. A PreToolUse `matcher` filters on tool name only, so a `Bash`
+# matcher fires for every agent, including the engineer's own lane whose
+# writes are legitimate. Attaching this wrapper to a bare `Bash` matcher with
+# no scope would therefore refuse `gh pr create`, `git push` and test runs
+# everywhere. The runtime does carry the agent identity in the same stdin this
+# wrapper already parses: `agent_type` (the agent's name) and `agent_id`
+# (present only inside a subagent call).
+#
+# Set SURVEYOR_FORGE_READONLY_SCOPE to the surveyor's agent name to enforce
+# only for that agent. The gate is OPT-IN and strictly additive: with the
+# variable unset this wrapper behaves exactly as it always has.
+#
+# The two failure directions are deliberately NOT symmetric:
+#   * command classification fails CLOSED -- an unreadable or unclassifiable
+#     command still denies. That is the property this guard exists for.
+#   * agent scoping fails OPEN -- if the wrapper cannot positively establish
+#     that the call is the scoped agent's, it exits 0. It exists to constrain
+#     the surveyor, so without that identification it has no mandate to refuse,
+#     and refusing would deny every main-thread call the moment it is installed.
+#
 # Override the guard path with SURVEYOR_FORGE_READONLY_GUARD (tests).
 set -euo pipefail
 
 HERE=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 GUARD="${SURVEYOR_FORGE_READONLY_GUARD:-${HERE}/forge-readonly-guard.sh}"
+SCOPE="${SURVEYOR_FORGE_READONLY_SCOPE:-}"
 
 # Static deny payload used when jq is unavailable. The reason is a fixed
 # ASCII string so this JSON needs no escaping.
@@ -42,14 +59,33 @@ emit_deny() {
   printf '%s\n' "$reason" >&2
 }
 
+# Out of scope: not this wrapper's call to refuse. Announced on stderr so an
+# operator debugging an install can tell "allowed because out of scope" from
+# "allowed because the guard admitted it".
+out_of_scope() {
+  printf 'surveyor-forge-readonly: out of scope (%s), allowing\n' "$1" >&2
+  exit 0
+}
+
 if ! command -v jq >/dev/null 2>&1; then
+  # Without jq the agent cannot be identified, so a scoped install cannot know
+  # this call is the surveyor's. Denying would block every lane's Bash.
+  [ -z "$SCOPE" ] || out_of_scope "jq unavailable, agent unidentifiable"
   emit_deny "deny: jq is required to parse PreToolUse stdin"
   exit 2
 fi
 
 if ! payload="$(cat)"; then
+  [ -z "$SCOPE" ] || out_of_scope "stdin unreadable, agent unidentifiable"
   emit_deny "deny: failed to read PreToolUse stdin"
   exit 2
+fi
+
+# Scope gate, evaluated before any command handling: an out-of-scope call is
+# none of this wrapper's business regardless of what it is asking to run.
+if [ -n "$SCOPE" ]; then
+  agent="$(printf '%s\n' "$payload" | jq -er '.agent_type // empty' 2>/dev/null)" || agent=""
+  [ "$agent" = "$SCOPE" ] || out_of_scope "agent_type='${agent}' != '${SCOPE}'"
 fi
 
 if [ -z "$payload" ]; then

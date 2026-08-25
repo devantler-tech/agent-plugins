@@ -28,12 +28,13 @@ prefix, or a repository.
 
 ## Safety (non-negotiable)
 
-- **Read-only.** Use only read verbs (list/view/search/API GETs, `git log`/`git status`, file
+- **Read-only.** Use only read verbs (list/view/search/API GETs,
+  `git log`/`git --no-optional-locks -c core.fsmonitor= status`, file
   reads). Never a merge, create, comment, edit, or review call; never `git push`; never write a
   file. A read that refreshes the index — `status`, `diff`, `ls-files` — does two things a read
   should not: it runs the `core.fsmonitor` hook program if the surveyed repository configures one,
   and it rewrites `.git/index` to cache stat information. Pass both switches on those three
-  (`git -c core.fsmonitor= --no-optional-locks status --porcelain`): output is unchanged, the
+  (`git --no-optional-locks -c core.fsmonitor= status --porcelain`): output is unchanged, the
   repository you are only reading cannot execute code through you, and you leave no write behind.
   A read that produces a PATCH — `diff` and `show`, or `log` with `-p`/`-U<n>` — reaches two more
   configured programs, `diff.external` and the textconv drivers, so it carries

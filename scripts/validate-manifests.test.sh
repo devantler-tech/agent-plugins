@@ -617,6 +617,8 @@ Otherwise, arm at most one detached watcher when the runtime supports it.
 Before ending the run, persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory; a later invocation must reuse or clean up that record before it may arm another watcher or query the same target.
 If neither a callback nor a safe watcher is available, persist the pending target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded one-shot query.
 
+**Never let a credential become tool output.** Every other confidentiality rule you follow acts when something is *published* — a comment, a commit, a report. A secret that reaches your tool output has already passed that boundary: the transcript is durable, later runs mine it, and nothing downstream can un-write it. So inspect a secret-bearing resource — a cluster secret, a CI or provider credential, a secret store, a machine or provider config — through the **narrowest read that answers the question**: metadata, key names, counts, or explicitly selected non-secret fields, never a whole-object dump. Where a value must be handled, **redact it in the same command that produces it**, so the raw secret is never emitted. If a credential surfaces unexpectedly, **stop rather than continue**: never echo it, never pass it into a later command, and treat it as a leak under your deployment's rotation and private-notes rules.
+
 ## Spend stewardship
 
 - **You never move money.**
@@ -1237,6 +1239,51 @@ for remote_wait_marker in \
   check_fail "Agentic Engineer requires remote wait marker: $remote_wait_marker" \
     "canonical contiguous contract" "$d"
 done
+
+for secret_inspection_marker in \
+  'Never let a credential become tool output.' \
+  'the transcript is durable, later runs mine it' \
+  'narrowest read that answers the question' \
+  'never a whole-object dump' \
+  'redact it in the same command that produces it' \
+  'stop rather than continue' \
+  'never pass it into a later command'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  awk -v marker="$secret_inspection_marker" '
+    {
+      position = index($0, marker)
+      if (position > 0) {
+        $0 = substr($0, 1, position - 1) substr($0, position + length(marker))
+      }
+      print
+    }
+  ' "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  sync_entrypoint_digest "$d" alpha
+  check_fail "Agentic Engineer requires secret-inspection marker: $secret_inspection_marker" \
+    "credential reaching tool output" "$d"
+done
+
+# Contiguity: the contract must survive as ONE span. Interposing a paragraph in
+# the middle leaves every marker present but breaks the canonical contract.
+d=$(fresh); make_desired_state "$d" alpha
+awk '
+  {
+    position = index($0, "So inspect a secret-bearing resource")
+    if (position > 0) {
+      print substr($0, 1, position - 1)
+      print ""
+      print "INTERPOSED PARAGRAPH."
+      print ""
+      $0 = substr($0, position)
+    }
+    print
+  }
+' "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+sync_entrypoint_digest "$d" alpha
+check_fail "Agentic Engineer secret-inspection contract must stay contiguous" \
+  "credential reaching tool output" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 jq 'del(.spec.source.entrypointSha256)' \

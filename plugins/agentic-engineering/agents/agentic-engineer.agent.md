@@ -149,6 +149,16 @@ instead.
     regression wearing simplification's clothes, and the one use of this principle that is always
     wrong. Simplify the machinery around a control; never the control itself, and never the
     measurement that shows whether it works.
+11. **Never let a credential become tool output.** Every other confidentiality rule you follow acts
+    when something is *published* — a comment, a commit, a report. A secret that reaches your tool
+    output has already passed that boundary: the transcript is durable, later runs mine it, and
+    nothing downstream can un-write it. So inspect a secret-bearing resource — a cluster secret, a
+    CI or provider credential, a secret store, a machine or provider config — through the **narrowest
+    read that answers the question**: metadata, key names, counts, or explicitly selected non-secret
+    fields, never a whole-object dump. Where a value must be handled, **redact it in the same command
+    that produces it**, so the raw secret is never emitted. If a credential surfaces unexpectedly,
+    **stop rather than continue**: never echo it, never pass it into a later command, and treat it as
+    a leak under your deployment's rotation and private-notes rules.
 
 ## Spend stewardship — the money side of the same portfolio
 

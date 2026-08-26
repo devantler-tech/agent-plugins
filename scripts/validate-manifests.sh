@@ -995,6 +995,23 @@ validate_desired_state_resources() {
       esac
     fi
 
+    secret_inspection_contract="**Never let a credential become tool output.** Every other confidentiality rule you follow acts when something is *published* — a comment, a commit, a report. A secret that reaches your tool output has already passed that boundary: the transcript is durable, later runs mine it, and nothing downstream can un-write it. So inspect a secret-bearing resource — a cluster secret, a CI or provider credential, a secret store, a machine or provider config — through the **narrowest read that answers the question**: metadata, key names, counts, or explicitly selected non-secret fields, never a whole-object dump. Where a value must be handled, **redact it in the same command that produces it**, so the raw secret is never emitted. If a credential surfaces unexpectedly, **stop rather than continue**: never echo it, never pass it into a later command, and treat it as a leak under your deployment's rotation and private-notes rules."
+    if [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
+      normalized_agent_secret="$(
+        tr '\n' ' ' < "$plugin_dir/agents/$entrypoint.agent.md" \
+          | sed 's/[[:space:]][[:space:]]*/ /g'
+      )"
+      case "$normalized_agent_secret" in
+        *"$secret_inspection_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: agentic-engineer must forbid a credential reaching tool output with the canonical contiguous contract"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+    fi
+
     if [ -f "$plugin_dir/agents/portfolio-surveyor.agent.md" ]; then
       normalized_surveyor="$(
         tr '\n' ' ' < "$plugin_dir/agents/portfolio-surveyor.agent.md" \

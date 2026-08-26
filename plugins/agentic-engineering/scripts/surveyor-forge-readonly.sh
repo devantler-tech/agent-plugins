@@ -30,10 +30,10 @@
 # The two failure directions are deliberately NOT symmetric:
 #   * command classification fails CLOSED -- an unreadable or unclassifiable
 #     command still denies. That is the property this guard exists for.
-#   * agent scoping fails OPEN -- if the wrapper cannot positively establish
-#     that the call is the scoped agent's, it exits 0. It exists to constrain
-#     the surveyor, so without that identification it has no mandate to refuse,
-#     and refusing would deny every main-thread call the moment it is installed.
+#   * agent scoping normally fails OPEN -- a positively identified different
+#     agent exits 0. A valid payload with no agent_type is the exception: when
+#     a scope is configured that combination can never match and would silently
+#     disable the guard for every call, so it is refused as a broken install.
 #
 # Override the guard path with SURVEYOR_FORGE_READONLY_GUARD (tests).
 set -euo pipefail
@@ -92,7 +92,12 @@ fi
 # Scope gate, evaluated before any command handling: an out-of-scope call is
 # none of this wrapper's business regardless of what it is asking to run.
 if [ -n "$SCOPE" ]; then
-  agent="$(printf '%s\n' "$payload" | jq -er '.agent_type // empty' 2>/dev/null)" || agent=""
+  agent="$(printf '%s\n' "$payload" | jq -r '.agent_type // ""' 2>/dev/null)" ||
+    out_of_scope "malformed stdin, agent unidentifiable"
+  if [ -z "$agent" ]; then
+    emit_deny "deny: identity scope is configured but agent_type is missing"
+    exit 2
+  fi
   [ "$agent" = "$SCOPE" ] || out_of_scope "agent_type='${agent}' != '${SCOPE}'"
 fi
 

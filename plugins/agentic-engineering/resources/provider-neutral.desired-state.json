@@ -23,7 +23,7 @@
         },
         {
           "path": "scripts/surveyor-forge-readonly.sh",
-          "sha256": "ce5a3b71d5ae28b0787651aa191b9c7df510be1db7ab81211a0e0fb1e66ca2a2",
+          "sha256": "00ff00bb88d847bfaab91d228060b84b722f1ccbc4e8e23f785dba663ca0ddd7",
           "executable": true
         }
       ],

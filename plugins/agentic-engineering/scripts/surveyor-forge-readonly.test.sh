@@ -292,13 +292,22 @@ else
   fail "a different agent must be out of scope and allowed (st=$st)"
 fi
 
-# Main thread carries no agent_type at all: out of scope, allow. Without this
-# the engineer's own lane could not push once the hook is installed.
-st="$(scoped_status "$(hook_stdin 'deny-me')" 'portfolio-surveyor')"
-if [ "$st" -eq 0 ]; then
+# A configured identity scope without agent_type cannot ever match, so treating
+# it as out of scope silently disables the guard for every call. Refuse that
+# misconfiguration loudly instead of reporting a successful no-op.
+scoped_missing_identity="$(hook_stdin 'deny-me')"
+out="$(
+  SURVEYOR_FORGE_READONLY_SCOPE='portfolio-surveyor' \
+    SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" \
+    run_wrapper "$scoped_missing_identity" "$WRAPPER" 2>/dev/null
+  true
+)" || true
+st="$(scoped_status "$scoped_missing_identity" 'portfolio-surveyor')"
+if [ "$st" -ne 0 ] &&
+  printf '%s\n' "$out" | grep -q 'permissionDecisionReason.*scope is configured but agent_type is missing'; then
   pass
 else
-  fail "main-thread call (no agent_type) must be allowed when scoped (st=$st)"
+  fail "configured scope without agent_type must deny loudly (st=$st out=$out)"
 fi
 
 # Unparseable payload while scoped: the agent cannot be identified, so the
@@ -334,7 +343,7 @@ fi
 # runs, and the one message that matters -- a DENY -- would be lost in it.
 err="$(
   set +e
-  printf '%s\n' "$(hook_stdin 'deny-me')" |
+  printf '%s\n' "$(hook_stdin_agent 'deny-me' 'Explore')" |
     SURVEYOR_FORGE_READONLY_SCOPE='portfolio-surveyor' \
       SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" "$WRAPPER" 2>&1 >/dev/null
   true
@@ -349,7 +358,7 @@ fi
 # "allowed, out of scope" from "allowed, the guard admitted it".
 err="$(
   set +e
-  printf '%s\n' "$(hook_stdin 'deny-me')" |
+  printf '%s\n' "$(hook_stdin_agent 'deny-me' 'Explore')" |
     SURVEYOR_FORGE_READONLY_DEBUG=1 SURVEYOR_FORGE_READONLY_SCOPE='portfolio-surveyor' \
       SURVEYOR_FORGE_READONLY_GUARD="$TMP/stub-guard" "$WRAPPER" 2>&1 >/dev/null
   true

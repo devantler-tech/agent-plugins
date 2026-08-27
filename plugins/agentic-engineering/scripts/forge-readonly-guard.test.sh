@@ -727,6 +727,127 @@ GH_TELEMETRY=false expect_allow 'gh read with GH_TELEMETRY=false' \
   'gh pr list --json number'
 
 # stdin form
+# ── consumer-declared, stdin-only classifiers ────────────────────────────────
+#
+# BOTH STATES are tested, because either alone proves nothing: with the variable
+# unset the guard must behave exactly as it did before (or this is not additive),
+# and with it set exactly one shape may pass (or it is not a narrow widening).
+#
+# DECL is never executed — the guard only ever classifies a string — so it is a
+# path, not a file, and this stays hermetic.
+DECL=/opt/consumer/.claude/scripts/pr-ownership-disclosure.sh
+DECL2=/opt/consumer/.claude/scripts/second-classifier.sh
+FORGE="gh pr view 3034 --repo devantler-tech/platform --json body --jq .body"
+
+expect_allow_declared() {
+  local label=$1 cmd=$2 out status=0
+  out=$(SURVEYOR_FORGE_READONLY_CLASSIFIERS="$DECL:$DECL2" "$GUARD" --command "$cmd" 2>&1) || status=$?
+  if [ "$status" -eq 0 ]; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %s\n      expected allow, got exit %s: %s\n      command: %s\n' \
+      "$label" "$status" "$out" "$cmd"
+  fi
+}
+
+expect_deny_declared() {
+  local label=$1 cmd=$2 out status=0
+  out=$(SURVEYOR_FORGE_READONLY_CLASSIFIERS="$DECL:$DECL2" "$GUARD" --command "$cmd" 2>&1) || status=$?
+  if [ "$status" -eq 1 ]; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %s\n      expected deny (exit 1), got exit %s: %s\n      command: %s\n' \
+      "$label" "$status" "$out" "$cmd"
+  fi
+}
+
+# STATE 1 — undeclared (the default). Nothing changes.
+expect_deny 'undeclared classifier is denied as a filter' \
+  "$FORGE | $DECL --input -"
+expect_deny 'undeclared classifier is denied in leading position' \
+  "$DECL --input -"
+
+# An EMPTY declaration admits nothing. Guards the `[ -n ... ]` early return: a
+# bug that treated empty as "match anything" would pass every test above.
+empty_status=0
+SURVEYOR_FORGE_READONLY_CLASSIFIERS='' "$GUARD" --command "$FORGE | $DECL --input -" \
+  >/dev/null 2>&1 || empty_status=$?
+if [ "$empty_status" -eq 1 ]; then
+  pass=$((pass + 1))
+else
+  fail=$((fail + 1))
+  printf 'FAIL  empty declaration admits nothing\n      expected deny, got exit %s\n' "$empty_status"
+fi
+
+# STATE 2 — declared. Exactly one shape passes.
+expect_allow_declared 'declared classifier consumes a forge read on stdin' \
+  "$FORGE | $DECL --input -"
+expect_allow_declared 'the second entry in the list is split correctly' \
+  "$FORGE | $DECL2 --input -"
+expect_allow_declared 'declared classifier may sit after another filter' \
+  "$FORGE | jq -r '.body' | $DECL --input -"
+
+# The forge-first invariant survives the widening: a declared classifier still
+# may not OPEN the pipeline, which is what keeps it off the local filesystem.
+expect_deny_declared 'declared classifier still may not lead the pipeline' \
+  "$DECL --input -"
+
+# argv is restricted to the stdin form, so it cannot be aimed at a file or at a
+# second network target.
+expect_deny_declared 'declared classifier may not take a path operand' \
+  "$FORGE | $DECL --input /tmp/body.json"
+expect_deny_declared 'declared classifier may not use its fetching mode' \
+  "$FORGE | $DECL --repo devantler-tech/platform --pr 3034"
+expect_deny_declared 'declared classifier needs an explicit --input' \
+  "$FORGE | $DECL"
+expect_deny_declared 'declared classifier may not repeat --input' \
+  "$FORGE | $DECL --input - --input -"
+expect_deny_declared 'declared classifier --input needs a value' \
+  "$FORGE | $DECL --input"
+
+# Identity is the exact absolute path, so neither a basename nor a lookalike
+# prefix inherits the declaration.
+expect_deny_declared 'a basename does not inherit the declaration' \
+  "$FORGE | pr-ownership-disclosure.sh --input -"
+expect_deny_declared 'a relative spelling does not inherit the declaration' \
+  "$FORGE | ./.claude/scripts/pr-ownership-disclosure.sh --input -"
+expect_deny_declared 'a path-prefix lookalike is not the declared path' \
+  "$FORGE | ${DECL}.bak --input -"
+expect_deny_declared 'an undeclared sibling script is still denied' \
+  "$FORGE | /opt/consumer/.claude/scripts/board-add.sh --input -"
+
+# A RELATIVE ENTRY in the declaration authorises nothing, even when the
+# invocation matches it character for character. Without this case the
+# absolute-path requirement is untested: every entry above is already absolute,
+# so string equality alone would pass all of them and the `/*` guard could be
+# deleted with no test noticing. A relative entry cannot identify one file —
+# it resolves against whatever directory the agent happens to be standing in —
+# which is exactly why it must not be honoured.
+for rel_entry in '.claude/scripts/pr-ownership-disclosure.sh' \
+  './.claude/scripts/pr-ownership-disclosure.sh' \
+  '../scripts/pr-ownership-disclosure.sh'; do
+  rel_status=0
+  SURVEYOR_FORGE_READONLY_CLASSIFIERS="$rel_entry" \
+    "$GUARD" --command "$FORGE | $rel_entry --input -" >/dev/null 2>&1 || rel_status=$?
+  if [ "$rel_status" -eq 1 ]; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  relative declaration entry authorises nothing (%s)\n      expected deny, got exit %s\n' \
+      "$rel_entry" "$rel_status"
+  fi
+done
+
+# NEGATIVE CONTROLS — the write-blocking layer is untouched by the declaration.
+expect_deny_declared 'a write is still denied while a classifier is declared' \
+  "gh pr merge 3034 --repo devantler-tech/platform --squash"
+expect_deny_declared 'a classifier cannot carry a chained write' \
+  "$FORGE | $DECL --input - ; gh pr merge 3034 --squash"
+expect_deny_declared 'a classifier cannot carry a redirection to a file' \
+  "$FORGE | $DECL --input - > /tmp/owner.txt"
+
 stdin_status=0
 printf '%s' "gh pr list --json number" | "$GUARD" --stdin >/dev/null 2>&1 || stdin_status=$?
 if [ "$stdin_status" -eq 0 ]; then

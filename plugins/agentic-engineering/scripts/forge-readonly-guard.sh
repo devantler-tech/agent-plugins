@@ -50,6 +50,13 @@
 #     forge CLI offers. Widening one is a reviewed edit here, which is the
 #     point — and a false deny reports the flag it did not recognise, so the
 #     widening is a one-line change rather than an investigation.
+#   * A consuming deployment's own reviewed classifiers are admitted only when
+#     that deployment DECLARES them, in the hook environment, as absolute paths
+#     (SURVEYOR_FORGE_READONLY_CLASSIFIERS). Declaring a path is a trust
+#     assertion the guard cannot verify — see the variable's own note below —
+#     so it is deliberately not inferable from the filesystem, from a directory
+#     convention, or from anything the classified agent can write. Unset admits
+#     nothing.
 #   * Git resolves configuration AFTER parsing, so no inspection of argv can show
 #     what a configuration key names. Where the effect is unconditional the guard
 #     acts: it excludes the remote-contacting verbs, whose URL comes from
@@ -71,6 +78,39 @@ set -euo pipefail
 
 GUARD_DIR=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 DEFAULT_BRANCH_CLASSIFIER="${GUARD_DIR}/classify-default-branch-ci-runs.sh"
+
+# Consumer-declared, stdin-only classifiers (default: none).
+#
+# The guard bundles exactly one local helper, its own BASH_SOURCE sibling. A
+# CONSUMING deployment also ships reviewed classifiers the surveyor is told to
+# call — the PR-ownership disclosure classifier is the measured case — and those
+# had no allowed shape at all: denied leading (not a forge command) and denied as
+# a filter (not on the allowlist). The surveyor's documented fallback is to
+# re-derive the match by hand, on a surface its own definition marks hazardous,
+# and that substitution has already misread live maintainer PRs.
+#
+# Colon-separated ABSOLUTE paths, supplied by the same hook configuration that
+# supplies SURVEYOR_FORGE_READONLY_SCOPE. Unset — the default — leaves behaviour
+# byte-identical to before, so this is strictly additive.
+#
+# Three properties keep the widening narrow, and all three are enforced below:
+#
+#   * NON-LEADING ONLY. The pipeline must still start at the forge, so a
+#     declared classifier only ever consumes forge output on stdin. It can never
+#     be the thing that opens a local file, which is the invariant that keeps
+#     `cat ~/.config/gh/hosts.yml` out.
+#   * STDIN-ONLY ARGV. Exactly `--input -` and nothing else. No path operand, no
+#     repository or PR selector, so argv cannot redirect it at the filesystem or
+#     at a second network target.
+#   * EXACT ABSOLUTE MATCH. No PATH lookup and no basename comparison, so a
+#     same-named script earlier on PATH is not the declared one.
+#
+# What this CANNOT do is verify that a declared path is in fact a read-only
+# filter. Declaring one asserts it, exactly as the allowlists above assert that
+# `gh pr list` reads. That is why the list lives in the hook environment — the
+# guard's own trust domain, which the classified agent does not write — and why
+# an empty value admits nothing rather than everything.
+CONSUMER_CLASSIFIERS="${SURVEYOR_FORGE_READONLY_CLASSIFIERS:-}"
 
 deny() {
   printf 'deny: %s\n' "$1"
@@ -1361,6 +1401,78 @@ classify_sed() {
   done
 }
 
+# Is $1 one of the consumer-declared classifier paths?
+#
+# Splitting on ':' is done by assigning IFS for a single unquoted expansion and
+# restoring it immediately, because bash 3.2 has no `readarray`. A relative
+# entry is SKIPPED rather than denied: the comparison is against the argv word
+# the tokenizer resolved, and only an absolute path identifies one file.
+is_consumer_classifier() {
+  local prog=$1 entry saved_ifs=$IFS found=1 reglob=0
+  # No empty-string early return: an empty value splits to zero words, so the
+  # loop below never runs and `found` stays 1. Ablation confirmed a guard there
+  # separates no input from any other, and a conjunct that cannot fail is not a
+  # protection — it only reads like one.
+  #
+  # PATHNAME EXPANSION IS DISABLED FOR THE SPLIT. `set -- $VAR` both splits AND
+  # globs, so a declaration containing `*`, `?` or `[…]` would expand against
+  # the filesystem: the declared set silently becomes whatever happens to exist,
+  # and the result depends on the process's current directory rather than on
+  # what the deployment wrote. That is the same word-rewriting hazard this guard
+  # refuses everywhere else — an entry must mean exactly the characters in it.
+  # Restore only if this shell did not already have noglob set.
+  case $- in
+    *f*) : ;;
+    *)
+      reglob=1
+      set -f
+      ;;
+  esac
+  IFS=':'
+  # shellcheck disable=SC2086 # deliberate word split on the IFS set above; globbing is off
+  set -- $CONSUMER_CLASSIFIERS
+  IFS=$saved_ifs
+  [ "$reglob" -eq 1 ] && set +f
+  for entry in "$@"; do
+    case "$entry" in
+      /*) [ "$entry" = "$prog" ] && found=0 ;;
+      *) : ;;
+    esac
+  done
+  return "$found"
+}
+
+# A declared classifier accepts exactly `--input -`, and nothing else.
+#
+# The flag is REQUIRED rather than optional. A bare invocation would rely on the
+# script defaulting to stdin, which is a property of that script rather than of
+# this argv, and this guard certifies argv. Requiring the explicit form means a
+# classifier that later grows a file or network mode cannot reach it from here
+# without this allowlist being widened in review.
+classify_consumer_classifier() {
+  local i=1 w saw_stdin=0
+  local n=${#WORDS[@]}
+
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
+    case "$w" in
+      --input)
+        [ "$saw_stdin" -eq 0 ] || deny 'declared classifier repeats --input'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'declared classifier --input needs a value'
+        [ "${WORDS[$i]}" = '-' ] ||
+          deny 'declared classifier --input must be the stdin form, not a path'
+        saw_stdin=1
+        ;;
+      *) deny "declared classifier argument '$w' is not the stdin-only shape" ;;
+    esac
+    i=$((i + 1))
+  done
+
+  [ "$saw_stdin" -eq 1 ] || deny 'declared classifier needs --input -'
+  return 0
+}
+
 classify_segment() {
   local seg=$1
   local index=$2
@@ -1395,7 +1507,28 @@ classify_segment() {
     cut) classify_filter cut "$FILTER_FLAGS_CUT" "$FILTER_VALUE_FLAGS_CUT" 0 ;;
     tr) classify_filter tr "$FILTER_FLAGS_TR" ' ' 2 ;;
     cat) classify_filter cat "$FILTER_FLAGS_CAT" ' ' 0 ;;
-    *) deny "'$prog' is not on the read-only allowlist" ;;
+    *)
+      # LAST, so a declared path can never shadow a built-in classification: if
+      # a deployment declares `/usr/bin/git`, git's own rules still apply and
+      # the declaration only ever narrows.
+      #
+      # The index test is a SECOND line of defence and is deliberately kept
+      # even though ablation shows it currently separates no input: the
+      # leading-position check above already denies a declared classifier at
+      # index 0, because that allowlist holds only `gh`, `git` and this guard's
+      # own sibling. Unlike the empty-value guard removed from
+      # is_consumer_classifier, this one is not merely redundant arithmetic —
+      # it holds a security invariant (a declared classifier never OPENS a
+      # pipeline, so it never reads local state) that would otherwise rest
+      # entirely on a list three hundred lines away. Widen that list and this
+      # is what still stops a declared path leading. The test suite pins the
+      # behaviour; it cannot pin which of the two checks produced it.
+      if [ "$index" -gt 0 ] && is_consumer_classifier "$prog"; then
+        classify_consumer_classifier
+      else
+        deny "'$prog' is not on the read-only allowlist"
+      fi
+      ;;
   esac
 }
 

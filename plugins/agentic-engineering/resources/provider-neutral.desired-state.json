@@ -18,7 +18,7 @@
         },
         {
           "path": "scripts/forge-readonly-guard.sh",
-          "sha256": "e81dd0a61b0febf9f6f4439e89a5adcf58a1c4000d8240a9c93d024b2b89edda",
+          "sha256": "1068d0f013b8a2486ff64c7bc793d2ac869e8db96f4069da50c4327d5a2596d7",
           "executable": true
         },
         {

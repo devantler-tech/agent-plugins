@@ -309,6 +309,11 @@ expect_deny 'newline after a duplicated descriptor' "gh pr list --json number 2>
 gh pr merge 1 --squash"
 expect_deny 'newline after the null device' "gh pr list --json number 2>/dev/null
 gh pr merge 1 --squash"
+expect_deny 'chaining after the null device' "gh pr list --json number 2>/dev/null;gh pr merge 1 --squash"
+expect_deny 'chaining after a duplicated descriptor' "gh pr list --json number 2>&1&&gh pr merge 1"
+expect_deny 'a file redirect after a duplication' "gh pr list --json number 2>&1>/tmp/x"
+expect_deny 'input redirect after the null device' "gh pr list --json number 2>/dev/null<f"
+expect_deny 'a second redirect can still name a file' "gh pr list --json number >/dev/null 2>/tmp/x"
 expect_deny 'null-device prefix is not the null device' "gh pr list --json number 2>/dev/nullx"
 expect_deny 'null-device prefix on stdout' "gh pr list --json number > /dev/nullx"
 expect_deny 'input redirection' "gh api repos/x/y/issues < payload.json"

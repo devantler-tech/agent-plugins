@@ -1408,15 +1408,31 @@ classify_sed() {
 # entry is SKIPPED rather than denied: the comparison is against the argv word
 # the tokenizer resolved, and only an absolute path identifies one file.
 is_consumer_classifier() {
-  local prog=$1 entry saved_ifs=$IFS found=1
+  local prog=$1 entry saved_ifs=$IFS found=1 reglob=0
   # No empty-string early return: an empty value splits to zero words, so the
   # loop below never runs and `found` stays 1. Ablation confirmed a guard there
   # separates no input from any other, and a conjunct that cannot fail is not a
   # protection — it only reads like one.
+  #
+  # PATHNAME EXPANSION IS DISABLED FOR THE SPLIT. `set -- $VAR` both splits AND
+  # globs, so a declaration containing `*`, `?` or `[…]` would expand against
+  # the filesystem: the declared set silently becomes whatever happens to exist,
+  # and the result depends on the process's current directory rather than on
+  # what the deployment wrote. That is the same word-rewriting hazard this guard
+  # refuses everywhere else — an entry must mean exactly the characters in it.
+  # Restore only if this shell did not already have noglob set.
+  case $- in
+    *f*) : ;;
+    *)
+      reglob=1
+      set -f
+      ;;
+  esac
   IFS=':'
-  # shellcheck disable=SC2086 # deliberate word split on the IFS set above
+  # shellcheck disable=SC2086 # deliberate word split on the IFS set above; globbing is off
   set -- $CONSUMER_CLASSIFIERS
   IFS=$saved_ifs
+  [ "$reglob" -eq 1 ] && set +f
   for entry in "$@"; do
     case "$entry" in
       /*) [ "$entry" = "$prog" ] && found=0 ;;

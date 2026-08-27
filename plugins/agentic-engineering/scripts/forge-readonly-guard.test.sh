@@ -840,6 +840,46 @@ for rel_entry in '.claude/scripts/pr-ownership-disclosure.sh' \
   fi
 done
 
+# PATHNAME EXPANSION must not widen a declaration.
+#
+# This case needs real files or it cannot discriminate: with nothing to match,
+# bash leaves the pattern literal and an unguarded split passes the test by
+# accident. With two matching files present, an unguarded `set -- $VAR` expands
+# the wildcard into BOTH real paths, and an executable the deployment never
+# named is then accepted as a declared classifier.
+glob_tmp=$(mktemp -d)
+mkdir -p "$glob_tmp/a" "$glob_tmp/b"
+: > "$glob_tmp/a/x.sh"
+: > "$glob_tmp/b/x.sh"
+glob_status=0
+SURVEYOR_FORGE_READONLY_CLASSIFIERS="$glob_tmp/*/x.sh" \
+  "$GUARD" --command "gh pr list --json number | $glob_tmp/a/x.sh --input -" \
+  >/dev/null 2>&1 || glob_status=$?
+if [ "$glob_status" -eq 1 ]; then
+  pass=$((pass + 1))
+else
+  fail=$((fail + 1))
+  printf 'FAIL  a wildcard declaration does not expand to real paths\n      expected deny, got exit %s\n' \
+    "$glob_status"
+fi
+# And the COMMAND side needs no separate rule: a word carrying a glob character
+# is refused by the tokenizer before any classification runs, declared or not.
+# That is why disabling expansion on the DECLARATION is the whole fix — a
+# wildcard entry can never be invoked as written, so its only possible effect
+# was to silently authorise the real paths it expanded to.
+lit_status=0
+SURVEYOR_FORGE_READONLY_CLASSIFIERS="$glob_tmp/*/x.sh" \
+  "$GUARD" --command "gh pr list --json number | $glob_tmp/*/x.sh --input -" \
+  >/dev/null 2>&1 || lit_status=$?
+if [ "$lit_status" -eq 1 ]; then
+  pass=$((pass + 1))
+else
+  fail=$((fail + 1))
+  printf 'FAIL  a glob-bearing command word is refused by the tokenizer\n      expected deny, got exit %s\n' \
+    "$lit_status"
+fi
+rm -rf "$glob_tmp"
+
 # NEGATIVE CONTROLS — the write-blocking layer is untouched by the declaration.
 expect_deny_declared 'a write is still denied while a classifier is declared' \
   "gh pr merge 3034 --repo devantler-tech/platform --squash"

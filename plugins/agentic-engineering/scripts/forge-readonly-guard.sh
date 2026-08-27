@@ -383,7 +383,7 @@ scan_segments() {
           # A bare `>&` with no digits is `&>`, and `>&-` closes a descriptor;
           # only a digit run followed by a word boundary is a duplication.
           if [ -n "$d" ]; then
-            case "${s:$j:1}" in '' | ' ' | $'\t' | '|') rt=dup ;; esac
+            case "${s:$j:1}" in '' | ' ' | $'\t' | $'\n' | $'\r' | '|') rt=dup ;; esac
           fi
         else
           while [ "$j" -lt "$n" ]; do
@@ -391,7 +391,7 @@ scan_segments() {
           done
           w=''
           while [ "$j" -lt "$n" ]; do
-            case "${s:$j:1}" in ' ' | $'\t' | '|') break ;; *) w=$w${s:$j:1}; j=$((j + 1)) ;; esac
+            case "${s:$j:1}" in ' ' | $'\t' | $'\n' | $'\r' | '|') break ;; *) w=$w${s:$j:1}; j=$((j + 1)) ;; esac
           done
           # Exact match only: `/dev/nullx` is a file, and a quoted spelling is
           # left to deny rather than unquoted here on a guess.

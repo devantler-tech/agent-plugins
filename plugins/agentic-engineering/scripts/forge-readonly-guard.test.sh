@@ -303,6 +303,12 @@ expect_deny 'closing a descriptor is not a read' "gh pr list --json number >&-"
 expect_deny 'fd duplication needs a word boundary' "gh pr list --json number >&1x"
 expect_deny 'digits then a path is still a file' "gh pr list --json number >&12/tmp/x"
 expect_deny 'bare >& with a space is &>' "gh pr list --json number >& /tmp/x"
+# A newline is a word boundary too, so a consumed redirect must hand the scanner
+# back to the newline rule rather than swallowing it into the redirect target.
+expect_deny 'newline after a duplicated descriptor' "gh pr list --json number 2>&1
+gh pr merge 1 --squash"
+expect_deny 'newline after the null device' "gh pr list --json number 2>/dev/null
+gh pr merge 1 --squash"
 expect_deny 'null-device prefix is not the null device' "gh pr list --json number 2>/dev/nullx"
 expect_deny 'null-device prefix on stdout' "gh pr list --json number > /dev/nullx"
 expect_deny 'input redirection' "gh api repos/x/y/issues < payload.json"

@@ -274,6 +274,48 @@ expect_deny 'substitution inside double quotes' "gh pr view --json \"\$(gh pr me
 expect_deny 'process substitution' "gh pr list --json number < <(gh pr merge 2786)"
 expect_deny 'output redirection' "gh pr list --json number > /tmp/out.json"
 expect_deny 'append redirection' "gh pr list --json number >> /tmp/out.json"
+
+# Redirection that provably creates no file. Refusing these denied 17 of 120
+# measured surveyor commands, none of which writes anything: merging stderr and
+# silencing stderr are read idioms, not writes.
+expect_allow 'stderr merged into stdout' "gh pr list --json number 2>&1"
+expect_allow 'stderr to the null device' "gh pr list --json number 2>/dev/null"
+expect_allow 'null device with a space' "gh pr list --json number 2> /dev/null"
+expect_allow 'stdout to the null device' "gh pr list --json number >/dev/null"
+expect_allow 'stdout duplicated onto stderr' "gh pr list --json number 1>&2"
+expect_allow 'consumed redirect mid-pipeline' "gh api x --jq .b 2>/dev/null | grep -c foo"
+# The fd prefix is not an argument, but a digit-suffixed OPERAND is. Eating the
+# wrong one would silently change the argv Layer 2 classifies.
+expect_allow 'operand digits survive the fd strip' "gh pr view 163 --repo o/r --json body 2>/dev/null"
+expect_allow 'multi-digit fd word is stripped whole' "gh api x --jq .a | head -5 2>/dev/null"
+expect_allow 'digit-suffixed flag is not an fd' "gh api x --jq .a | head -52>/dev/null"
+# Layer 2 must still see the argv after a redirect is consumed.
+expect_deny 'bad flag survives a consumed redirect' "gh api x --jq .a | head -z 2>/dev/null"
+expect_deny 'bad subcommand survives a consumed redirect' "gh nonsense list 2>/dev/null"
+expect_deny 'write verb survives a consumed redirect' "gh pr merge 1 --repo o/r --squash 2>/dev/null"
+# Everything that can NAME a file still denies.
+expect_deny 'stderr to a real file' "gh pr list --json number 2> /tmp/err.log"
+expect_deny '>&word is &>word and writes a file' "gh pr list --json number >&/tmp/x"
+expect_deny 'closing a descriptor is not a read' "gh pr list --json number >&-"
+# These separate the two >& conjuncts. Without the word-boundary check `>&1x`
+# passes as a duplication though bash writes a file named `1x`; without the
+# digit-run check `>& /tmp/x` passes though it is `&> /tmp/x`.
+expect_deny 'fd duplication needs a word boundary' "gh pr list --json number >&1x"
+expect_deny 'digits then a path is still a file' "gh pr list --json number >&12/tmp/x"
+expect_deny 'bare >& with a space is &>' "gh pr list --json number >& /tmp/x"
+# A newline is a word boundary too, so a consumed redirect must hand the scanner
+# back to the newline rule rather than swallowing it into the redirect target.
+expect_deny 'newline after a duplicated descriptor' "gh pr list --json number 2>&1
+gh pr merge 1 --squash"
+expect_deny 'newline after the null device' "gh pr list --json number 2>/dev/null
+gh pr merge 1 --squash"
+expect_deny 'chaining after the null device' "gh pr list --json number 2>/dev/null;gh pr merge 1 --squash"
+expect_deny 'chaining after a duplicated descriptor' "gh pr list --json number 2>&1&&gh pr merge 1"
+expect_deny 'a file redirect after a duplication' "gh pr list --json number 2>&1>/tmp/x"
+expect_deny 'input redirect after the null device' "gh pr list --json number 2>/dev/null<f"
+expect_deny 'a second redirect can still name a file' "gh pr list --json number >/dev/null 2>/tmp/x"
+expect_deny 'null-device prefix is not the null device' "gh pr list --json number 2>/dev/nullx"
+expect_deny 'null-device prefix on stdout' "gh pr list --json number > /dev/nullx"
 expect_deny 'input redirection' "gh api repos/x/y/issues < payload.json"
 expect_deny 'a newline carrying a second command' "gh pr list --json number
 gh pr merge 2786 --squash"

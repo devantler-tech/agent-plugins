@@ -234,7 +234,7 @@ scan_segments() {
   local n=${#s}
   local state=none
   local cur=''
-  local i=0 ch nxt prev='' j ec
+  local i=0 ch nxt prev='' j ec rt d w t
 
   while [ "$i" -lt "$n" ]; do
     ch=${s:$i:1}
@@ -366,6 +366,54 @@ scan_segments() {
         ;;
       '>')
         if [ "$nxt" = '(' ]; then deny 'process substitution >( ) is not a read'; fi
+        # Two redirection targets provably create NO file: duplicating a file
+        # descriptor (`2>&1`) and the null device (`2>/dev/null`). Both are
+        # ordinary read idioms — merging or silencing stderr — and refusing them
+        # denied 17 of 120 measured surveyor commands that write nothing at all.
+        # Everything that can name a file still denies, including `>&word`,
+        # which bash treats as `&>word` and which DOES write one.
+        j=$((i + 1))
+        rt=''
+        if [ "${s:$j:1}" = '&' ]; then
+          j=$((j + 1))
+          d=''
+          while [ "$j" -lt "$n" ]; do
+            case "${s:$j:1}" in [0-9]) d=$d${s:$j:1}; j=$((j + 1)) ;; *) break ;; esac
+          done
+          # A bare `>&` with no digits is `&>`, and `>&-` closes a descriptor;
+          # only a digit run followed by a word boundary is a duplication.
+          if [ -n "$d" ]; then
+            case "${s:$j:1}" in '' | ' ' | $'\t' | $'\n' | $'\r' | '|' | ';' | '&' | '<' | '>') rt=dup ;; esac
+          fi
+        else
+          while [ "$j" -lt "$n" ]; do
+            case "${s:$j:1}" in ' ' | $'\t') j=$((j + 1)) ;; *) break ;; esac
+          done
+          w=''
+          while [ "$j" -lt "$n" ]; do
+            case "${s:$j:1}" in ' ' | $'\t' | $'\n' | $'\r' | '|' | ';' | '&' | '<' | '>') break ;; *) w=$w${s:$j:1}; j=$((j + 1)) ;; esac
+          done
+          # Exact match only: `/dev/nullx` is a file, and a quoted spelling is
+          # left to deny rather than unquoted here on a guess.
+          if [ "$w" = '/dev/null' ]; then rt=null; fi
+        fi
+        if [ -n "$rt" ]; then
+          # The redirection is not part of argv. Drop the target, and drop a
+          # leading fd digit run only when it is a WORD of its own — in
+          # `foo2>/dev/null` bash reads `foo2` as an argument, not a descriptor.
+          case "$cur" in
+            *[0-9])
+              t=$cur
+              while [ -n "$t" ]; do
+                case "$t" in *[0-9]) t=${t%?} ;; *) break ;; esac
+              done
+              case "$t" in '' | *' ' | *$'\t') cur=$t ;; esac
+              ;;
+          esac
+          prev='>'
+          i=$j
+          continue
+        fi
         deny 'output redirection writes a file'
         ;;
       ';') deny 'chaining with ; can carry a write' ;;

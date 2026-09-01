@@ -28,32 +28,11 @@ CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
 RENAME_HISTORY="scripts/marketplace-rename-history.json"
 README="README.md"
 
-# Hash entrypoint bytes after normalizing checkout-only CRLF pairs to committed LF bytes.
-# Clear inherited Perl I/O controls and set both stream handles to raw bytes explicitly.
-# This preserves invalid UTF-8, NULs, lone CRs, and a missing final newline instead of
-# decoding or reconstructing the file as text.
-sha256_file() {
-  if command -v sha256sum > /dev/null 2>&1; then
-    LC_ALL=C PERL5OPT='' PERL_UNICODE='' PERLIO='' perl -C0 -pe \
-      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
-      < "$1" | sha256sum | awk '{ print $1 }'
-  else
-    LC_ALL=C PERL5OPT='' PERL_UNICODE='' PERLIO='' perl -C0 -pe \
-      'BEGIN { binmode STDIN, ":raw"; binmode STDOUT, ":raw" } s/\r\n/\n/g' \
-      < "$1" | shasum -a 256 | awk '{ print $1 }'
-  fi
-}
-
-# Hash the exact bytes of an executable runtime asset. Unlike definition files,
-# runtime assets are executed from the checkout, so checkout-only CRLF changes
-# must invalidate the declared digest instead of being normalized away.
-sha256_bytes() {
-  if command -v sha256sum > /dev/null 2>&1; then
-    sha256sum "$1" | awk '{ print $1 }'
-  else
-    shasum -a 256 "$1" | awk '{ print $1 }'
-  fi
-}
+# Digest helpers are shared with the desired-state digest generator, so the value this
+# gate demands and the value that generator writes cannot drift apart. See
+# scripts/sha256.lib.sh.
+# shellcheck source=scripts/sha256.lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sha256.lib.sh"
 
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
@@ -470,6 +449,7 @@ validate_desired_state_resources() {
   local improver_self_observation_contract="The Agent Improver is one of its own measured subjects. Keep the Agentic Engineer execution plane and every Agent Improver observation plane in separate scorecards; never average them together or let one hide the other's regression. Measure observer coverage, calibration, hypothesis discipline, verified intervention effectiveness, reliability, efficiency, and verified rollout throughput. Outcome throughput counts only verified terminal outcomes; productive sessions and work advanced are execution-flow indicators, never improvement verdicts. Observation-plane verdicts require independent computation from an immutable or read-only source, or verification by a separate eligible run or instance; the same Improver's unsupported assertion is UNKNOWN, never success. Activity such as PRs, metrics, reports, and memory writes is not improvement. A version-controlled self-referential change requires an independent green current-head review with all findings resolved. A runtime-local self-referential change requires an independently performed post-dispatch read-back against the recorded pre-change baseline through the consumer's declared runtime verification mechanism; the writer's immediate read-back is not independent verification. Both paths require unchanged companion floors for every applicable scorecard parameter and a later eligible evidence window."
   local improver_research_fallback_contract="No-change fallback is research, never idle. After scoring and diagnosis, when no telemetry-backed or direct-maintainer-directed improvement is actionable, run one bounded state-of-the-art research pass before reporting. Research is discovery evidence, never authorization or proof that the current system failed. Use current primary sources, compare the current baseline capability, and route a deduplicated product or operations opportunity as an ENGINEER-CANDIDATE and an agent-process or measurement opportunity as an IMPROVER-CANDIDATE. Research alone never authorizes or ships a change. A null result is RESEARCH-NO-CANDIDATE with the topic cursor advanced; research activity is not a terminal improvement outcome."
   local money_guardrail="Spend stewardship never moves money: prepare the financial decision, route it to the maintainer's declared private channel, and keep private financial data out of every public artifact."
+  local portfolio_survey_json_vocabulary_contract="**Every \`gh --json\` vocabulary is local to its subcommand.** Use the exact literal field lists prescribed by this definition. Before any ad hoc JSON read, run that same subcommand with bare \`--json\` and validate every requested field against the vocabulary it returns; never transfer a field name between subcommands. The bare diagnostic intentionally exits nonzero after listing its fields; treat a present vocabulary as successful discovery. If the vocabulary is missing or malformed, or the validated read fails, mark the affected evidence \`QUERY-UNKNOWN\` and report the query error — never translate it to an empty result."
   local portfolio_survey_recovery_contract="**Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates \`QUERY-UNKNOWN\`; never discard completed evidence or collapse it into portfolio-wide \`QUERY-UNKNOWN\`."
   local portfolio_survey_global_failure_contract="Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures."
   local portfolio_survey_head_revalidation_contract="Before emitting any PR disposition, re-read every checkpointed candidate's current head OID. If it changed, discard only that candidate's stale checkpoint and refresh its mandatory evidence; if refresh fails, emit \`NEEDS-FIX\` with \`QUERY-UNKNOWN\`. Never emit \`CLEAR\`, \`REVIEW-READY\`, or \`MERGE-READY\` from evidence bound to a superseded head."
@@ -1017,6 +997,15 @@ validate_desired_state_resources() {
         tr '\n' ' ' < "$plugin_dir/agents/portfolio-surveyor.agent.md" \
           | sed 's/[[:space:]][[:space:]]*/ /g'
       )"
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_json_vocabulary_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must validate ad hoc gh JSON fields against the same subcommand"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
       case "$normalized_surveyor" in
         *"$portfolio_survey_recovery_contract"*)
           ;;

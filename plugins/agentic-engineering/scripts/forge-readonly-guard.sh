@@ -890,6 +890,17 @@ check_gh_verb_flags() {
     else
       case "$GH_VERB_VALUE_FLAGS" in
         *" $name "*)
+          # A TRAILING bare `--json` is gh's field-vocabulary diagnostic: gh
+          # prints the subcommand's field list and exits nonzero WITHOUT
+          # contacting the forge. The surveyor's definition requires that probe
+          # before any ad hoc JSON read, so denying it makes the mandated
+          # discovery step unreachable. Admitted only as the final word, and
+          # only for `--json` — every other value flag still needs its value,
+          # and a value that IS present goes through the normal field check.
+          if [ "$name" = "--json" ] && [ $((i + 1)) -ge "$n" ]; then
+            i=$((i + 1))
+            continue
+          fi
           if [ $((i + 1)) -ge "$n" ]; then deny "gh $name needs a value"; fi
           val=${WORDS[$((i + 1))]}
           check_gh_flag_value "$name" "$val"

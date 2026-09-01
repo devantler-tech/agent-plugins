@@ -21,13 +21,17 @@ jobs:
     secrets:
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 
-  # A skill sync changes shipped plugin content. Consumers cache plugins by version, so
-  # without a matching version bump the update is unreachable for everyone who already
-  # installed that version — and the `Check version bump` CI gate rejects it. The sync
-  # workflow that opens the PR has no post-update hook, so the bump lands here as a
-  # follow-up commit on the same branch.
+  # A skill sync changes shipped plugin content, and two repository gates then reject the
+  # branch the sync produced. Consumers cache plugins by version, so without a matching
+  # version bump the update is unreachable for everyone who already installed that
+  # version, and `Check version bump` rejects it. A synced agent or skill also moves a
+  # content digest that `Validate manifests` pins, and nothing else in this repository
+  # writes those digests — so without the refresh the branch is only greenable by a hand
+  # edit, which the next sync force-pushes away with no signal that it happened. The sync
+  # workflow that opens the PR has no post-update hook, so both land here as follow-up
+  # commits on the same branch.
   bump-versions:
-    name: Bump versions of changed plugins
+    name: Refresh digests and bump versions of changed plugins
     needs: update
     runs-on: ubuntu-latest
     permissions:
@@ -53,6 +57,22 @@ jobs:
         # the branch does not exist and there is nothing to bump.
         continue-on-error: true
         id: checkout
+
+      - name: 🔐 Refresh the desired-state digests the sync moved
+        if: steps.checkout.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          ./scripts/refresh-desired-state-digests.sh
+          if git diff --quiet; then
+            echo "Declared digests already match the synced content."
+            exit 0
+          fi
+          # Stage only what the generator is allowed to touch, so an unrelated working-tree
+          # change could never ride along in this commit.
+          git add -- '*.desired-state.json'
+          git commit -m "chore(deps): refresh desired-state digests for synced content"
+          git push origin HEAD:deps/agent-skills-update
 
       - name: 🔢 Bump every plugin whose content changed
         if: steps.checkout.outcome == 'success'

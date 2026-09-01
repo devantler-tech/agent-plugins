@@ -84,6 +84,15 @@ jobs:
         # plugin reaching consumers. Self-contained: throwaway fixtures, no network.
         run: ./scripts/validate-manifests.test.sh
 
+      - name: 🧪 Self-test the desired-state digest generator
+        # Proves the generator writes exactly what validate-manifests.sh demands — a
+        # generator that disagreed with the gate would leave a sync branch just as
+        # unmergeable as having none. Asserts the coupling against the REAL validator on
+        # a copy of this tree, keeps the two hashing rules distinct (definition files
+        # normalize CRLF, executed runtime assets do not), and proves every unresolvable
+        # digest fails closed rather than being written wrong.
+        run: ./scripts/refresh-desired-state-digests.test.sh
+
       - name: 🧪 Self-test the bundled-skill edit guard
         # Proves the guard FAILS a hand-edit to a synced skill tree and names its
         # upstream, PASSES the programmed sync (actor AND branch), passes a wholly

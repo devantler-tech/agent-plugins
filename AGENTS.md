@@ -45,7 +45,10 @@ scripts/
 ├── guard-bundled-skill-edits.sh      # Gate: refuse a hand-edit to a synced skill tree, naming its upstream
 ├── guard-bundled-skill-edits.test.sh # Self-test for the gate above
 ├── bump-plugin-version.sh      # Move a plugin's version across all four manifests (the fix the gate points at)
-└── bump-plugin-version.test.sh # Self-test for the bump helper
+├── bump-plugin-version.test.sh # Self-test for the bump helper
+├── refresh-desired-state-digests.sh      # Writer: recompute every digest a *.desired-state.json pins (the fix "digest must match" points at)
+├── refresh-desired-state-digests.test.sh # Self-test for the generator, incl. its coupling to the validator
+└── sha256.lib.sh               # The two hashing rules, sourced by BOTH the validator and the generator so they cannot drift
 README.md                       # Human-facing index — the plugin table + per-tool install instructions
 ```
 
@@ -209,6 +212,11 @@ does not currently enforce but that keeps workflow changes clean:
 #     never reaches consumers that cache by version (CI's "Check version bump" job).
 #     Fix a failure with: ./scripts/bump-plugin-version.sh <plugin> [patch|minor|major]
 ./scripts/check-plugin-version-bump.sh origin/main HEAD
+
+# 1c. Every content digest a desired-state resource pins must match the file it pins.
+#     Those digests have a writer: refresh them rather than hand-editing, or the next
+#     agent-skills sync force-pushes the hand edit away. --check reports without writing.
+./scripts/refresh-desired-state-digests.sh --check
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.

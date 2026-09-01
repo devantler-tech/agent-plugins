@@ -60,6 +60,7 @@ fi
 
 drift=0
 missing=0
+seen=0
 
 # Resolve one declared digest against the file it pins. Emits nothing and returns 1
 # when the target is absent, so a missing file fails closed here instead of being
@@ -74,6 +75,7 @@ digest_for() {
 }
 
 while IFS= read -r resource; do
+  seen=$((seen + 1))
   [ -n "$resource" ] || continue
   if ! jq -e . "$resource" > /dev/null 2>&1; then
     echo "::error::$resource: not valid JSON — refusing to rewrite" >&2
@@ -191,6 +193,14 @@ while IFS= read -r resource; do
   printf '%s\n' "$updated" > "$resource"
   echo "✓ refreshed $resource"
 done < <(find plugins -type f -path '*/resources/*.desired-state.json' | sort)
+
+# Zero resources is never a legitimate clean run: this repository always declares at least one.
+# Without this, an enumeration that matched nothing is indistinguishable from one that matched
+# everything and found it current — the same success-over-nothing shape guarded against above.
+if [ "$seen" -eq 0 ]; then
+  echo "::error::refresh-desired-state-digests: no *.desired-state.json resource found under plugins/" >&2
+  exit 2
+fi
 
 if [ "$missing" -ne 0 ]; then
   exit 1

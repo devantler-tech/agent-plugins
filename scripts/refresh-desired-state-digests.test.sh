@@ -237,5 +237,31 @@ else
   else ko "refresh then validate is clean (rc=$rc): $(tail -1 "$d/v2")"; fi
 fi
 
+# ---------------------------------------------------------------------------
+# Reporting success over a tree it never examined is the exact failure this script
+# exists to remove, so it must not commit that failure itself. The enumeration is
+# cwd-relative BY DESIGN (the cases above exercise the script against synthetic
+# trees), but its `find` runs inside a process substitution whose failure neither
+# `set -e` nor the loop's exit status observes. Run where nothing matches, it
+# printed "every declared desired-state digest is already current" and exited 0.
+# Zero resources is never a clean run.
+# ---------------------------------------------------------------------------
+d=$(fresh)
+out=$( cd "$d" && "$REFRESH" 2>&1 ); rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'no \*.desired-state.json resource found'; then
+  ok "an enumeration matching nothing fails closed instead of reporting success"
+else
+  ko "an enumeration matching nothing fails closed (rc=$rc): $out"
+fi
+
+d=$(fresh)
+mkdir -p "$d/plugins"
+out=$( cd "$d" && "$REFRESH" --check 2>&1 ); rc=$?
+if [ "$rc" -eq 2 ]; then
+  ok "--check also fails closed on an empty enumeration"
+else
+  ko "--check also fails closed on an empty enumeration (rc=$rc): $out"
+fi
+
 echo "refresh-desired-state-digests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

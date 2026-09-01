@@ -175,6 +175,36 @@ if [ "$(jq -r '.spec.roles["some-other-role"].skillSha256' "$J")" = "$ZERO" ]; t
   ok "the unmapped role's digest is left untouched"
 else ko "the unmapped role's digest is left untouched"; fi
 
+# A declared digest that nothing resolves must not be silently skipped: exiting 0 there would
+# report "every digest is current" over one the generator never examined, which is the same
+# shape of failure this generator exists to remove one level up.
+d=$(fresh); make_fixture "$d"
+J="$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+jq '.spec.source.entrypoint = ""' "$J" > "$J.tmp" && mv "$J.tmp" "$J"
+( cd "$d" && "$REFRESH" > "$d/out" 2>&1 ); rc=$?
+if [ "$rc" -eq 1 ] && grep -q 'entrypointSha256 is declared but entrypoint is empty' "$d/out"; then
+  ok "entrypointSha256 with no entrypoint fails closed instead of exiting 0"
+else ko "entrypointSha256 with no entrypoint fails closed instead of exiting 0 (rc=$rc)"; fi
+
+d=$(fresh); make_fixture "$d"
+J="$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+jq 'del(.spec.source.requiredRuntimeAssets[0].path)' "$J" > "$J.tmp" && mv "$J.tmp" "$J"
+( cd "$d" && "$REFRESH" > "$d/out" 2>&1 ); rc=$?
+if [ "$rc" -eq 1 ] && grep -q 'declares no path' "$d/out"; then
+  ok "a runtime asset with a digest but no path fails closed"
+else ko "a runtime asset with a digest but no path fails closed (rc=$rc)"; fi
+
+# A missing hasher is an environment failure (exit 2), not a claim that a present file is absent.
+d=$(fresh); make_fixture "$d"
+mkdir -p "$d/onlybin"
+for t in bash env jq perl awk find sort dirname; do
+  real=$(command -v "$t" 2> /dev/null) && ln -sf "$real" "$d/onlybin/$t"
+done
+( cd "$d" && PATH="$d/onlybin" "$REFRESH" > "$d/out" 2>&1 ); rc=$?
+if [ "$rc" -eq 2 ] && grep -q 'no SHA-256 program found' "$d/out"; then
+  ok "no sha256sum and no shasum exits 2, not a bogus missing-file exit 1"
+else ko "no sha256sum and no shasum exits 2, not a bogus missing-file exit 1 (rc=$rc): $(head -1 "$d/out")"; fi
+
 d=$(fresh); make_fixture "$d"
 ( cd "$d" && "$REFRESH" --bogus > /dev/null 2>&1 ); rc=$?
 if [ "$rc" -eq 2 ]; then ok "an unknown flag exits 2"; else ko "an unknown flag exits 2 (got $rc)"; fi

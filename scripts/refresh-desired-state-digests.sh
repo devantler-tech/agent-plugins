@@ -50,6 +50,14 @@ for tool in jq perl awk; do
   }
 done
 
+# A missing hasher is an environment failure, not a finding about the tree. Without this check
+# sha256_file simply fails, digest_for reports it as an absent target, and the run exits 1 blaming
+# a file that is present — the misdiagnosis costing more than the failure.
+if ! command -v sha256sum > /dev/null 2>&1 && ! command -v shasum > /dev/null 2>&1; then
+  echo "::error::refresh-desired-state-digests: no SHA-256 program found (need sha256sum or shasum)" >&2
+  exit 2
+fi
+
 drift=0
 missing=0
 
@@ -82,8 +90,13 @@ while IFS= read -r resource; do
 
   entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$resource")
   if jq -e 'has("spec") and (.spec | has("source")) and (.spec.source | has("entrypointSha256"))' \
-    "$resource" > /dev/null && [ -n "$entrypoint" ]; then
-    if value=$(digest_for "$plugin_dir/agents/$entrypoint.agent.md" "$resource" entrypointSha256); then
+    "$resource" > /dev/null; then
+    if [ -z "$entrypoint" ]; then
+      # Declared but unresolvable. Skipping it would exit 0 over a digest nothing examined — the
+      # exact shape of failure this generator exists to remove, one level up.
+      echo "::error::$resource: entrypointSha256 is declared but entrypoint is empty, so nothing resolves it" >&2
+      missing=1
+    elif value=$(digest_for "$plugin_dir/agents/$entrypoint.agent.md" "$resource" entrypointSha256); then
       args+=(--arg entrypointSha256 "$value")
       program="$program | .spec.source.entrypointSha256 = \$entrypointSha256"
     else
@@ -136,7 +149,13 @@ while IFS= read -r resource; do
   # checkout-only CRLF change must invalidate the digest rather than be normalized away.
   asset_map='{}'
   while IFS= read -r asset_path; do
-    [ -n "$asset_path" ] || continue
+    if [ -z "$asset_path" ]; then
+      # An entry with a declared digest and no path is unverifiable, so filtering it out would
+      # again exit 0 over something never examined.
+      echo "::error::$resource: a requiredRuntimeAssets entry declares no path, so nothing resolves its digest" >&2
+      missing=1
+      continue
+    fi
     if [ ! -f "$plugin_dir/$asset_path" ]; then
       echo "::error::$resource: requiredRuntimeAssets pins a file that does not exist: $asset_path" >&2
       missing=1
@@ -146,7 +165,7 @@ while IFS= read -r resource; do
       jq -c --arg p "$asset_path" --arg s "$(sha256_bytes "$plugin_dir/$asset_path")" \
         '.[$p] = $s' <<< "$asset_map"
     )
-  done < <(jq -r '.spec.source.requiredRuntimeAssets[]?.path // empty' "$resource")
+  done < <(jq -r '.spec.source.requiredRuntimeAssets[]? | .path // ""' "$resource")
 
   if [ "$asset_map" != '{}' ]; then
     args+=(--argjson assetDigests "$asset_map")

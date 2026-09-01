@@ -72,6 +72,27 @@ expect_allow 'pr view with a json field list' \
   "gh pr view 2786 --repo devantler-tech/monorepo --json number,state,headRefOid"
 expect_allow 'pr list' "gh pr list --repo devantler-tech/platform --state open --limit 100"
 expect_allow 'issue view' "gh issue view 108 --repo devantler-tech/agent-plugins --json body"
+
+# The bare `--json` vocabulary probe. The surveyor's definition REQUIRES this
+# diagnostic before any ad hoc JSON read — gh prints the subcommand's field list
+# and exits nonzero without contacting the forge — so a guard that denies it
+# makes the mandated discovery step unreachable and forces QUERY-UNKNOWN on every
+# ad hoc read. It is admitted only as the FINAL word: with a value following, the
+# ordinary field-list validation still applies.
+expect_allow 'bare --json vocabulary probe on pr list' "gh pr list --json"
+expect_allow 'bare --json vocabulary probe on pr view' "gh pr view --json"
+expect_allow 'bare --json vocabulary probe on run list' "gh run list --json"
+expect_allow 'bare --json vocabulary probe on issue list' "gh issue list --json"
+expect_allow 'bare --json probe keeps preceding flags' \
+  "gh pr view 2786 --repo devantler-tech/monorepo --json"
+# Negative controls: the carve-out is trailing-`--json` ONLY. It must not admit a
+# mutation riding behind the probe, nor widen any other value-taking flag.
+expect_deny 'trailing --json does not license a chained mutation' \
+  "gh pr list --json; gh pr merge 2786 --squash"
+expect_deny 'trailing --json does not license redirection' "gh pr list --json > /tmp/v.json"
+expect_deny 'a different value flag left bare is still denied' "gh pr list --repo"
+expect_deny 'trailing --jq left bare is still denied' "gh pr list --json number --jq"
+expect_deny 'the probe does not make a mutation verb readable' "gh pr merge --json"
 expect_allow 'issue list' "gh issue list --repo devantler-tech/ksail --state open --limit 200"
 expect_allow 'search issues' "gh search issues --owner devantler-tech --state open --limit 300"
 expect_allow 'search prs' "gh search prs --owner devantler-tech --state open"

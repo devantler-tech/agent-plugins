@@ -669,7 +669,7 @@ description: Fixture read-only surveyor.
 ---
 Fixture surveyor.
 
-**Every `gh --json` vocabulary is local to its subcommand.** Use the exact literal field lists prescribed by this definition. Before any ad hoc JSON read, run that same subcommand with bare `--json` and validate every requested field against the vocabulary it returns; never transfer a field name between subcommands. If the vocabulary probe or the validated read fails, mark the affected evidence `QUERY-UNKNOWN` and report the query error — never translate it to an empty result.
+**Every `gh --json` vocabulary is local to its subcommand.** Use the exact literal field lists prescribed by this definition. Before any ad hoc JSON read, run that same subcommand with bare `--json` and validate every requested field against the vocabulary it returns; never transfer a field name between subcommands. The bare diagnostic intentionally exits nonzero after listing its fields; treat a present vocabulary as successful discovery. If the vocabulary is missing or malformed, or the validated read fails, mark the affected evidence `QUERY-UNKNOWN` and report the query error — never translate it to an empty result.
 
 **Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
 
@@ -932,6 +932,13 @@ sed 's/run that same subcommand with bare `--json`/inspect the available fields/
   "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
 check_fail "portfolio surveyor must discover ad hoc JSON fields from the same subcommand" \
+  "portfolio-surveyor must validate ad hoc gh JSON fields against the same subcommand" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/intentionally exits nonzero after listing its fields/exits zero after listing its fields/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must accept the bare vocabulary diagnostic intentional nonzero exit" \
   "portfolio-surveyor must validate ad hoc gh JSON fields against the same subcommand" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha

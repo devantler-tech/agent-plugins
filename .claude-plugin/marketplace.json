@@ -15,13 +15,13 @@
     {
       "name": "gitops-kubernetes",
       "description": "Flux CD debugging, knowledge, repository auditing, and tenant onboarding — skills plus the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./plugins/gitops-kubernetes"
     },
     {
       "name": "github",
       "description": "GitHub CLI, stacked PRs, Actions docs, and issue management skills",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "source": "./plugins/github"
     },
     {

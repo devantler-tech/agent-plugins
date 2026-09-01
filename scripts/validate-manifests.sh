@@ -455,6 +455,7 @@ validate_desired_state_resources() {
   local portfolio_survey_head_revalidation_contract="Before emitting any PR disposition, re-read every checkpointed candidate's current head OID. If it changed, discard only that candidate's stale checkpoint and refresh its mandatory evidence; if refresh fails, emit \`NEEDS-FIX\` with \`QUERY-UNKNOWN\`. Never emit \`CLEAR\`, \`REVIEW-READY\`, or \`MERGE-READY\` from evidence bound to a superseded head."
   local portfolio_survey_maintainer_control_contract="Authenticated maintainer controls are mandatory evidence, not optional enrichment. Collect exact-login, non-AI-disclosed maintainer comments for every ownership-gated PR or Advance candidate before classifying or ranking it; a failed control-channel query makes only that candidate \`QUERY-UNKNOWN\`."
   local portfolio_survey_fail_closed_contract="An incomplete candidate can never be classified clean: no \`CLEAR\`, \`MERGE-READY\`, \`REVIEW-READY\`, or \"no signal\"."
+  local portfolio_survey_call_shape_contract="**Every forge read is one command in one call.** The read-only guard refuses on shape before it ever inspects intent: output redirection, \`;\`, \`&\`, \`&&\`, a newline, command substitution, and any leading program that is not a forge command are all denied, so an ordinary shell idiom silently costs the read. Emit exactly one forge command per call and reduce it in-band with \`--paginate\` and \`--jq\`, or a pipe into the allowlisted read-only filters; never redirect to a scratch file. Sweep repositories with one call per repository or one org-wide search, never a \`for\` loop. Take every timestamp from a payload you already read, never from \`date\`. Select with \`--jq\` rather than \`grep -oE\` or \`xargs\`. A shape denial is a lost read that reads exactly like no evidence: mark the affected evidence \`QUERY-UNKNOWN\` and reissue in the admitted shape — never work around the guard."
 
   if [ -d plugins/agentic-engineering ]; then
     if [ ! -f "$canonical_resource" ]; then
@@ -1051,12 +1052,22 @@ validate_desired_state_resources() {
           resource_failed=1
           ;;
       esac
+      case "$normalized_surveyor" in
+        *"$portfolio_survey_call_shape_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: portfolio-surveyor must state the guard's admitted call shape"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
     else
       echo "::error::$resource: portfolio-surveyor must preserve bounded resumable mandatory-query recovery"
       echo "::error::$resource: portfolio-surveyor must preserve immediate fail-closed handling for global failures"
       echo "::error::$resource: portfolio-surveyor must revalidate checkpoint heads before readiness"
       echo "::error::$resource: portfolio-surveyor must preserve mandatory authenticated maintainer-control evidence"
       echo "::error::$resource: portfolio-surveyor must preserve candidate-scoped fail-closed dispositions"
+      echo "::error::$resource: portfolio-surveyor must state the guard's admitted call shape"
       failed=1
       resource_failed=1
     fi

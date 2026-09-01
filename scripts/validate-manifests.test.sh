@@ -669,6 +669,8 @@ description: Fixture read-only surveyor.
 ---
 Fixture surveyor.
 
+**Every `gh --json` vocabulary is local to its subcommand.** Use the exact literal field lists prescribed by this definition. Before any ad hoc JSON read, run that same subcommand with bare `--json` and validate every requested field against the vocabulary it returns; never transfer a field name between subcommands. If the vocabulary probe or the validated read fails, mark the affected evidence `QUERY-UNKNOWN` and report the query error — never translate it to an empty result.
+
 **Mandatory-query recovery is bounded and resumable.** Process mandatory surfaces in deterministic batches of at most eight candidates. Treat every successful batch as an immutable checkpoint. On failure, partition only the failed batch into two deterministic contiguous halves (the first half gets the extra candidate when the count is odd), execute both halves, and recursively partition each failed half until only failed singleton candidates remain. Never re-run a successful half. Continue unaffected batches and mark only failed singleton candidates `QUERY-UNKNOWN`; never discard completed evidence or collapse it into portfolio-wide `QUERY-UNKNOWN`.
 
 Known candidate-independent failures—exhausted query budget, invalid authentication, or a forge-wide transport failure—must fail the affected mandatory surface closed immediately without splitting. Partition only candidate-specific, shape-specific, or partial failures.
@@ -922,6 +924,36 @@ jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets = [{path:"sc
   && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
 check_fail "runtime asset digest compares exact bytes rather than normalized text" \
   "required runtime asset digest does not match" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+# The backticked CLI flag is fixture text, not shell syntax.
+# shellcheck disable=SC2016
+sed 's/run that same subcommand with bare `--json`/inspect the available fields/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must discover ad hoc JSON fields from the same subcommand" \
+  "portfolio-surveyor must validate ad hoc gh JSON fields against the same subcommand" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/validate every requested field/accept each requested field/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must validate every requested ad hoc JSON field" \
+  "portfolio-surveyor must validate ad hoc gh JSON fields against the same subcommand" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/never transfer a field name between subcommands/field names may be reused between subcommands/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must forbid cross-subcommand JSON field reuse" \
+  "portfolio-surveyor must validate ad hoc gh JSON fields against the same subcommand" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/never translate it to an empty result/report it as an empty result/' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must not collapse a failed JSON read to an empty result" \
+  "portfolio-surveyor must validate ad hoc gh JSON fields against the same subcommand" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 awk '

@@ -3,9 +3,9 @@ description: How a meta-engineer improves an autonomous AI engineer from the OUT
 license: Apache-2.0
 metadata:
     github-path: agent-improvement
-    github-ref: refs/tags/v1.11.7
+    github-ref: refs/tags/v1.11.2
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: d72c62a065c767fee9a8dc1c2d7a55b6f901cce3
+    github-tree-sha: aa67318d2750e0dff85c29f675f0caae89f619ab
 name: agent-improvement
 ---
 # Agent-improvement loop
@@ -121,30 +121,6 @@ confirm a trend is real rather than a spike). A miner should be **read-only** an
 attributed to the tool that produced them; latency waste; guard firings and denials; cross-instance
 collisions; loader↔contract drift; per-session value-bearing and terminal outcomes; and post-merge
 outcomes.
-
-**Cover the whole corpus — delegated transcripts are usually stored separately.** Where the runtime
-records delegated work (subagents, sidechains, sub-sessions) in files stored separately from the
-parent session's — commonly nested beneath it rather than beside it — an enumeration that walks only
-the top level of the session store silently omits every one of them. That fails open on the
-observation plane: delegated work is where a guard's firings and a delegated survey's cost actually
-land, so a denial family occurring only inside subagents reads as *never occurring*, and a live
-regression scores as absent. Enumerate delegated transcripts explicitly, and **report coverage
-alongside every measurement** — files enumerated, and the share of records drawn from delegated
-sessions — so an omission is visible in the output instead of being inferred from a
-plausible-looking number. Before accepting that share, build an **independent expected
-delegated-session inventory** from runtime metadata that does not depend on the transcript walk — for
-example parent/child session IDs, dispatch records, or a runtime index — and report every expected
-session missing from the transcript walk. If no independent source exists, delegated coverage is
-**UNKNOWN**, never zero percent.
-
-**A control must vary the suspected filter, not merely the method.** Re-counting one file list with a
-second tool re-measures the same population: it confirms the parser and cannot reveal a population
-that was never enumerated. Before a count becomes a verdict, re-derive it once with the filter you
-most doubt removed — the enumeration root, the traversal depth, the time window, the record-type
-predicate. Re-derive a comparable count with the suspected filter removed, then reconcile the delta to
-the records that the filter intentionally excluded; an equivalent-cohort comparison may instead hold
-everything except that filter constant. Only an unexplained residual is a finding about the filter. A
-control that shares the enumeration is not a control.
 
 Supplement it with:
 
@@ -425,25 +401,15 @@ Two verifications, both required:
    sessions, dispatches, requests, or artifacts). Count only evidence generated at or after the
    verification-window start toward the post-change volume.
    A state metric whose outcome is decisive from one live inspection may omit the volume floor.
-   **Before any adverse verdict, prove the intervention is deployed.** A metric that did not move
-   has two causes taking opposite remedies: the diagnosis was wrong, or the change never reached the
-   runtime that generated the evidence. Establish deployment by reading the intervention's content at
-   the revision the consuming deployment loads; an upstream merge, a version string, or a green check
-   on the authoring pull request is not delivery, because a synced or vendored artifact reaches the
-   runtime only after every intermediate hop lands. An intervention that is not live is NOT-YET-DUE,
-   blocked on rollout, never NOT-WORKING, and the stalled rollout is itself the finding to pursue
-   rather than a reason to revert or reshape.
-
    The next run checks eligibility before applying a verdict:
-   - if either floor is unmet, or the intervention is not live at the consuming deployment's loaded
-     revision → record **NOT-YET-DUE**, keep the hypothesis open without applying a
+   - if either floor is unmet → record **NOT-YET-DUE**, keep the hypothesis open without applying a
      verdict, and continue with other authorised work;
    - metric moved in its expected direction and every declared companion floor held → close the
      hypothesis, keep the change;
-   - metric unchanged **and the intervention proven live** → the diagnosis was wrong. **Say so**,
-     then revert or reshape — never layer a second guess on an unverified first;
-   - metric moved in the wrong direction, or a companion safety or quality floor regressed,
-     **and the intervention proven live** → **revert first, diagnose after**.
+   - metric unchanged → the diagnosis was wrong. **Say so**, then revert or reshape — never layer a
+     second guess on an unverified first;
+   - metric moved in the wrong direction, or a companion safety or quality floor regressed → **revert
+     first, diagnose after**.
 
 While the hypothesis remains pending, continue only with work that cannot affect its tracked signature
 or metric; otherwise wait for evidence or choose a non-overlapping improvement.

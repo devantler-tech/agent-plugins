@@ -117,41 +117,12 @@ jobs:
           # with none — an unrelated test carries the step. Pair them explicitly,
           # over BOTH helper locations: a check scoped to one of them lets a new
           # helper in the other ship untested while CI stays green.
-          #
-          # Inherited debt is carried by NAME, not by exempting a whole location.
-          # These three predate the convention (devantler-tech/agent-plugins#122);
-          # every other skill helper — including any added after this line — is
-          # held to the pairing rule.
-          grandfathered=(
-            plugins/gitops-kubernetes/skills/gitops-repo-audit/scripts/check-deprecated.sh
-            plugins/gitops-kubernetes/skills/gitops-repo-audit/scripts/discover.sh
-            plugins/gitops-kubernetes/skills/gitops-repo-audit/scripts/validate.sh
-          )
-
           missing=0
           for helper in "${helpers[@]}"; do
             case "$helper" in *.test.sh) continue ;; esac
             [ -f "${helper%.sh}.test.sh" ] && continue
-            exempt=0
-            for known in "${grandfathered[@]}"; do
-              if [ "$helper" = "$known" ]; then exempt=1; break; fi
-            done
-            if [ "$exempt" -eq 1 ]; then
-              echo "::warning file=$helper::Grandfathered without a self-test (agent-plugins#122)."
-              continue
-            fi
             echo "::error file=$helper::No adjacent self-test (${helper%.sh}.test.sh)."
             missing=1
-          done
-
-          # An exemption that outlives its debt is a hole nobody sees close: once
-          # a listed helper gains its test or goes away, the entry must go too, or
-          # a later helper could be added under that path untested.
-          for known in "${grandfathered[@]}"; do
-            if [ ! -f "$known" ] || [ -f "${known%.sh}.test.sh" ]; then
-              echo "::error file=.github/workflows/ci.yaml::Stale grandfathered entry '$known' — it now has a test or no longer exists. Remove it from the list."
-              missing=1
-            fi
           done
 
           if [ "$missing" -ne 0 ]; then

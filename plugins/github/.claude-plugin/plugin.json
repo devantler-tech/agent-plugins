@@ -1,7 +1,7 @@
 {
   "name": "github",
   "description": "GitHub CLI, stacked PRs, Actions docs, and issue management skills",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": {
     "name": "devantler-tech",
     "url": "https://github.com/devantler-tech"

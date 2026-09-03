@@ -3,9 +3,9 @@ description: How a meta-engineer improves an autonomous AI engineer from the OUT
 license: Apache-2.0
 metadata:
     github-path: agent-improvement
-    github-ref: refs/tags/v1.11.7
+    github-ref: refs/tags/v1.11.8
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: d72c62a065c767fee9a8dc1c2d7a55b6f901cce3
+    github-tree-sha: 347a010a6475bfbaf92be01cbffc55ddd6d8d59f
 name: agent-improvement
 ---
 # Agent-improvement loop
@@ -444,6 +444,23 @@ Two verifications, both required:
      then revert or reshape — never layer a second guess on an unverified first;
    - metric moved in the wrong direction, or a companion safety or quality floor regressed,
      **and the intervention proven live** → **revert first, diagnose after**.
+
+   **A companion floor has three dispositions, not two.** Evidence showing
+   no regression **within a stated coverage** is **HELD**; evidence showing a regression is
+   **REGRESSED**; only the absence of admissible evidence is UNMEASURED. A fleet-wide safety or
+   coordination floor is normally evidenced by a
+   bounded sample, so "no regression across the sessions actually examined" is HELD within that
+   stated coverage, never UNMEASURED — filing gathered evidence as unknown discards it, and is what
+   makes such a hypothesis
+   unscoreable in principle rather than merely unscored.
+   State the coverage next to the disposition, exactly as the Gather step already requires of every
+   measurement.
+
+   **UNMEASURED is bounded, never a standing state.** A floor recorded UNMEASURED for the same
+   hypothesis across
+   three consecutive eligible dispatches is a measurement gap, and that gap
+   becomes tracked work in its own right rather than a reason to park the hypothesis again. An
+   unbounded NOT-YET-DUE is this step's own failure mode wearing the costume of rigour.
 
 While the hypothesis remains pending, continue only with work that cannot affect its tracked signature
 or metric; otherwise wait for evidence or choose a non-overlapping improvement.

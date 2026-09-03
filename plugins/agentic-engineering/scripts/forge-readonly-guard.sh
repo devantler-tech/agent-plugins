@@ -1205,13 +1205,22 @@ classify_git() {
 # what the filter genuinely needs — a pattern or a program, never a file.
 classify_filter() {
   local prog=$1 flags=$2 value_flags=$3 cap=$4
-  local i=1 w name operands=0 comps comp k
+  local i=1 w name operands=0 comps comp k operands_only=0
   local n=${#WORDS[@]}
 
   while [ "$i" -lt "$n" ]; do
     w=${WORDS[$i]}
+    # `--` ends option parsing for the filter as well: every later word is an
+    # operand, so `head -- -qv` names a FILE, not two flags. Counting those words
+    # as operands is what lets the cap refuse the read.
+    if [ "$operands_only" -eq 1 ]; then
+      operands=$((operands + 1))
+      i=$((i + 1))
+      continue
+    fi
     case "$w" in
       --)
+        operands_only=1
         i=$((i + 1))
         continue
         ;;

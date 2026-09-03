@@ -47,6 +47,20 @@ expect_deny() {
   fi
 }
 
+# Deny AND name the component: "fail with the fix" is only true when the message
+# points at the character to remove, not the whole word.
+expect_deny_names() {
+  local label=$1 cmd=$2 needle=$3 out status=0
+  out=$("$GUARD" --command "$cmd" 2>&1) || status=$?
+  if [ "$status" -eq 1 ] && [[ "$out" == *"$needle"* ]]; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %s\n      expected deny naming %s, got exit %s: %s\n      command: %s\n' \
+      "$label" "$needle" "$status" "$out" "$cmd"
+  fi
+}
+
 expect_usage() {
   local label=$1 status=0
   shift
@@ -675,6 +689,50 @@ expect_allow 'a quoted sed program containing a space' \
   "gh pr list --json number | sed 's/a b/c d/'"
 expect_allow 'a quoted jq expression containing spaces' \
   "gh api rate_limit --jq '.resources | to_entries | map(.key)'"
+
+# --- Bundled short flags (agent-plugins#186) ---------------------------------
+#
+# POSIX lets a caller bundle boolean short flags into one word: `-sc` is `-s -c`.
+# A name-keyed lookup sees `-sc` as one unknown name and denies a read whose
+# every component it already admits. The unbundled spelling is the control: it
+# must pass regardless, or the cases below prove nothing about bundling.
+expect_allow 'jq -s -c unbundled is the control' "gh pr list --json number | jq -s -c '.'"
+expect_allow 'jq -sc bundles two allowlisted booleans' "gh pr list --json number | jq -sc '.'"
+expect_allow 'grep -oE bundles two allowlisted booleans' \
+  "gh api repos/x/y/branches --jq '.[].name' | grep -oE '^claude/'"
+expect_allow 'grep -iEn bundles three allowlisted booleans' \
+  "gh api repos/x/y/branches --jq '.[].name' | grep -iEn 'claude/'"
+expect_allow 'sort -run bundles three allowlisted booleans' \
+  "gh api repos/x/y/branches --jq '.[].name' | sort -run"
+# A bundle is admitted only when EVERY component is. One unknown or one
+# value-taking component denies the word, and the denial names that component
+# so the caller can fix the spelling rather than guess.
+expect_deny 'grep -oX carries an unknown component' \
+  "gh api repos/x/y/branches --jq '.[].name' | grep -oX 'claude/'"
+expect_deny 'grep -iA bundles a value-taking flag' \
+  "gh api repos/x/y/branches --jq '.[].name' | grep -iA 'claude/'"
+expect_deny 'jq -sf bundles the file-loading flag' "gh pr list --json number | jq -sf /tmp/prog.jq"
+expect_deny_names 'grep -or bundles the recursive flag' \
+  "gh api repos/x/y/branches --jq '.[].name' | grep -or token /Users/someone/.claude" \
+  "component '-r'"
+# `--` ends option parsing for the FILTER too: every later word is an operand,
+# so `head -- -qv` reads a file literally named `-qv` (a symlink the surveyed
+# tree can plant). A bundle that reads as flags must never be admitted there.
+expect_deny 'head -- -qv reads a file named -qv' "gh api x --jq '.n' | head -- -qv"
+expect_deny 'head -- -q reads a file named -q' "gh api x --jq '.n' | head -- -q"
+expect_deny 'jq -- -sc leaves an operand past the cap' "gh pr list --json number | jq -- '.' -sc"
+expect_allow 'grep -- pattern is one operand' "gh api repos/x/y/branches --jq '.[].name' | grep -E -- '^claude/'"
+expect_deny_names 'a rejected bundle names the offending component' \
+  "gh api repos/x/y/branches --jq '.[].name' | grep -oX 'claude/'" "component '-X'"
+expect_deny_names 'a bundled value-taking flag is named as such' \
+  "gh api repos/x/y/branches --jq '.[].name' | grep -iA 'claude/'" "component '-A'"
+# A value-taking flag with its value ATTACHED is not a bundle and keeps its
+# established meaning on both sides of the gate.
+expect_allow 'grep -A3 attached value is still a context flag' \
+  "gh api repos/x/y/branches --jq '.[].name' | grep -A3 claude"
+expect_deny 'attached grep -e still leaves the operand a file' \
+  "gh pr list --json number | grep -e'.*' /Users/someone/.config/gh/hosts.yml"
+expect_allow 'head -n20 attached value is still a count' "gh api x --jq '.n' | head -n20"
 
 # --- Regressions: an allowlisted flag that is itself the write ---------------
 #

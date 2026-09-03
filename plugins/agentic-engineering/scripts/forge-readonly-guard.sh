@@ -1205,7 +1205,7 @@ classify_git() {
 # what the filter genuinely needs — a pattern or a program, never a file.
 classify_filter() {
   local prog=$1 flags=$2 value_flags=$3 cap=$4
-  local i=1 w name operands=0
+  local i=1 w name operands=0 comps comp k
   local n=${#WORDS[@]}
 
   while [ "$i" -lt "$n" ]; do
@@ -1254,6 +1254,40 @@ classify_filter() {
 
     split_flag "$w"
     name=$FLAG_NAME
+
+    # POSIX bundles boolean short flags into one word: `-sc` is `-s -c`. A
+    # name-keyed lookup read that as the unknown name `-sc` and denied a read
+    # whose every component it already admits (agent-plugins#186). Only a word
+    # whose LEADING flag takes a value is an attached-value spelling (`-A3`,
+    # `-n20`); every other multi-character short word is a bundle, admitted only
+    # when each component is an allowlisted boolean. One unknown or one
+    # value-taking component denies the word and names that component, so the
+    # caller can fix the spelling instead of guessing which character offended.
+    case "$w" in
+      --*) ;;
+      -??*)
+        case "$value_flags" in
+          *" $name "*) ;;
+          *)
+            comps=${w#-}
+            k=0
+            while [ "$k" -lt "${#comps}" ]; do
+              comp="-${comps:$k:1}"
+              case "$value_flags" in
+                *" $comp "*) deny "$prog flag '$w' bundles the value-taking component '$comp'; spell it as its own word" ;;
+              esac
+              case "$flags" in
+                *" $comp "*) ;;
+                *) deny "$prog flag '$w' is not on the read-only allowlist: component '$comp'" ;;
+              esac
+              k=$((k + 1))
+            done
+            i=$((i + 1))
+            continue
+            ;;
+        esac
+        ;;
+    esac
 
     if [ "$FLAG_HAS_VALUE" -eq 0 ]; then
       case "$flags" in

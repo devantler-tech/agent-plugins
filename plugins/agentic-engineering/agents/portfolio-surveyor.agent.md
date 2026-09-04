@@ -532,6 +532,23 @@ urgent security hotfix jumps under the normal breakage rule. **Exclude a timebox
 whose named measurement date is still in the FUTURE** (report it separately with its date): it is
 not-yet-actionable, and listing it as ready makes runs either re-skip it every tick or measure early.
 
+Before nominating any issue as actionable, deepen that candidate once with the exact in-scope issue's
+server-side dependency summary:
+
+```sh
+gh api graphql -F owner=<owner> -F name=<repo> -F number=<number> \
+  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy}}}}' \
+  --jq 'if ((.data.repository.issue|type)!="object" or (.data.repository.issue.number|type)!="number" or (.data.repository.issue.issueDependenciesSummary|type)!="object" or (.data.repository.issue.issueDependenciesSummary.blockedBy|type)!="number" or (.data.repository.issue.issueDependenciesSummary.totalBlockedBy|type)!="number" or .data.repository.issue.issueDependenciesSummary.blockedBy < 0 or .data.repository.issue.issueDependenciesSummary.totalBlockedBy < .data.repository.issue.issueDependenciesSummary.blockedBy) then error("QUERY-UNKNOWN: malformed issue dependency summary") else {number:.data.repository.issue.number,openBlockedBy:.data.repository.issue.issueDependenciesSummary.blockedBy,totalBlockedBy:.data.repository.issue.issueDependenciesSummary.totalBlockedBy} end'
+```
+
+`issueDependenciesSummary.blockedBy` is the count of **open** blocking issues;
+`totalBlockedBy` includes open and closed blockers. Use only the open count for actionability: a
+positive value makes the candidate not actionable until those blockers close, while a zero open
+count does not suppress it. The summary deliberately requests no blocker nodes: a native dependency
+may point at an out-of-portfolio repository, and fetching its metadata would cross the consumer's
+portfolio boundary. A missing or malformed summary makes that candidate `QUERY-UNKNOWN`, never
+unblocked.
+
 Flag **product** repos with no open roadmap/epic item at all as strategy-review candidates — product
 repos only, i.e. those the Portfolio map names; org/infra repos outside the map are never strategy
 candidates however empty their issue lists.

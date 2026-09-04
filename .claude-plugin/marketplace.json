@@ -45,7 +45,7 @@
     {
       "name": "frontend-design",
       "description": "Astro, frontend design, and web design guidelines skills",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./plugins/frontend-design"
     },
     {

@@ -23,7 +23,7 @@ grep -Fq '.blockedBy.totalCount' "$SURVEYOR" ||
   fail 'dependency reads must preserve the blockedBy connection total'
 
 GH_TELEMETRY=0 "$GUARD" --command \
-  "gh issue view 3196 --repo devantler-tech/platform --json issueType,blockedBy,assignees --jq '{issueType:.issueType,assignees:[.assignees[].login],blockedByTotal:.blockedBy.totalCount,blockedByNumbers:[.blockedBy.nodes[]?.number]}'" \
+  "gh issue view 3196 --repo devantler-tech/platform --json issueType,blockedBy,assignees --jq '{issueType:.issueType,assignees:[.assignees[].login],blockedByTotal:.blockedBy.totalCount,blockedByNumbers:[.blockedBy.nodes[]?.number],openBlockedByNumbers:[.blockedBy.nodes[]?|select(.state==\"OPEN\")|.number]}'" \
   >/dev/null || fail 'the prescribed dependency read is not admitted by the forge guard'
 
 printf 'portfolio-surveyor agent contract: PASS\n'

@@ -532,6 +532,19 @@ urgent security hotfix jumps under the normal breakage rule. **Exclude a timebox
 whose named measurement date is still in the FUTURE** (report it separately with its date): it is
 not-yet-actionable, and listing it as ready makes runs either re-skip it every tick or measure early.
 
+Before nominating any issue as actionable, deepen that candidate once with the issue view surface:
+
+```sh
+gh issue view <number> --repo <owner>/<repo> --json issueType,blockedBy,assignees \
+  --jq '{issueType:.issueType,assignees:[.assignees[].login],blockedByTotal:.blockedBy.totalCount,blockedByNumbers:[.blockedBy.nodes[]?.number],openBlockedByNumbers:[.blockedBy.nodes[]?|select(.state=="OPEN")|.number]}'
+```
+
+`blockedBy` is a **connection object** with `nodes` and `totalCount`, never an array. Use
+`openBlockedByNumbers` for actionability: one or more open blocking issues makes the candidate
+not actionable until those blockers close. Closed blockers do not suppress the candidate. Keep the
+single read above instead of retrying alternate array spellings after a shape error; a query failure
+makes that candidate `QUERY-UNKNOWN`, never unblocked.
+
 Flag **product** repos with no open roadmap/epic item at all as strategy-review candidates — product
 repos only, i.e. those the Portfolio map names; org/infra repos outside the map are never strategy
 candidates however empty their issue lists.

@@ -536,7 +536,7 @@ Before nominating any issue as actionable, deepen that candidate once with the i
 
 ```sh
 gh issue view <number> --repo <owner>/<repo> --json issueType,blockedBy,assignees \
-  --jq '{issueType:.issueType,assignees:[.assignees[].login],blockedByTotal:.blockedBy.totalCount,blockedByNumbers:[.blockedBy.nodes[]?.number],openBlockedByNumbers:[.blockedBy.nodes[]?|select(.state=="OPEN")|.number]}'
+  --jq 'if ((.blockedBy|type)!="object" or (.blockedBy.nodes|type)!="array" or (.blockedBy.totalCount|type)!="number") then error("QUERY-UNKNOWN: malformed blockedBy connection") elif ((.blockedBy.nodes|length) != .blockedBy.totalCount) then error("QUERY-UNKNOWN: incomplete blockedBy connection") else {issueType:.issueType,assignees:[.assignees[].login],blockedByTotal:.blockedBy.totalCount,blockedByNumbers:[.blockedBy.nodes[]?.number],openBlockedByNumbers:[.blockedBy.nodes[]?|select(.state=="OPEN")|.number]} end'
 ```
 
 `blockedBy` is a **connection object** with `nodes` and `totalCount`, never an array. Use

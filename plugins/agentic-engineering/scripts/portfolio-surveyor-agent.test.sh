@@ -2,9 +2,9 @@
 #
 # Contract test for the portfolio-surveyor agent definition.
 #
-# A GitHub issue's `blockedBy` field is a connection object, not an array.
-# Pin the executable read shape here because an array-shaped prescription made
-# every dependency lookup fail before the surveyor could classify a candidate.
+# GitHub's issueDependenciesSummary exposes open and total blocker counts
+# without fetching blocker nodes. Pin that boundary-safe shape and exercise its
+# fail-closed projection before the surveyor can classify a candidate.
 #
 set -euo pipefail
 
@@ -17,20 +17,21 @@ fail() {
   exit 1
 }
 
-grep -Fq '.blockedBy.nodes[]?.number' "$SURVEYOR" ||
-  fail 'dependency reads must traverse blockedBy.nodes before selecting issue numbers'
-grep -Fq '.blockedBy.totalCount' "$SURVEYOR" ||
-  fail 'dependency reads must preserve the blockedBy connection total'
+grep -Fq 'issueDependenciesSummary{blockedBy totalBlockedBy}' "$SURVEYOR" ||
+  fail 'dependency reads must request the boundary-safe open and total blocker summary'
+if grep -Fq -- '--json issueType,blockedBy,assignees' "$SURVEYOR"; then
+  fail 'dependency reads must not enumerate blocker nodes through gh issue view'
+fi
 
 JQ_FILTER=$(sed -n \
-  "/--json issueType,blockedBy,assignees/{n;s/^[[:space:]]*--jq '\\(.*\\)'$/\\1/p;}" \
+  "/issueDependenciesSummary{blockedBy totalBlockedBy}/{n;s/^[[:space:]]*--jq '\\(.*\\)'$/\\1/p;}" \
   "$SURVEYOR")
 [ -n "$JQ_FILTER" ] || fail 'could not extract the prescribed dependency jq filter'
 
 expect_output() {
   local label=$1 input=$2 expected=$3 actual
   actual=$(jq -c "$JQ_FILTER" <<<"$input") ||
-    fail "$label: complete connection was rejected"
+    fail "$label: valid dependency summary was rejected"
   [ "$actual" = "$expected" ] ||
     fail "$label: expected $expected, got $actual"
 }
@@ -38,32 +39,35 @@ expect_output() {
 expect_unknown() {
   local label=$1 input=$2 output
   if output=$(jq -c "$JQ_FILTER" <<<"$input" 2>&1); then
-    fail "$label: malformed or incomplete connection produced actionable output: $output"
+    fail "$label: malformed dependency summary produced actionable output: $output"
   fi
 }
 
-expect_output 'complete mixed-state connection' \
-  '{"issueType":null,"assignees":[],"blockedBy":{"nodes":[{"number":10,"state":"OPEN"},{"number":11,"state":"CLOSED"}],"totalCount":2}}' \
-  '{"issueType":null,"assignees":[],"blockedByTotal":2,"blockedByNumbers":[10,11],"openBlockedByNumbers":[10]}'
-expect_output 'complete empty connection' \
-  '{"issueType":null,"assignees":[],"blockedBy":{"nodes":[],"totalCount":0}}' \
-  '{"issueType":null,"assignees":[],"blockedByTotal":0,"blockedByNumbers":[],"openBlockedByNumbers":[]}'
+expect_output 'open and closed blockers' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":2,"totalBlockedBy":3}}}}}' \
+  '{"number":3196,"openBlockedBy":2,"totalBlockedBy":3}'
+expect_output 'closed blockers only' \
+  '{"data":{"repository":{"issue":{"number":3261,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":1}}}}}' \
+  '{"number":3261,"openBlockedBy":0,"totalBlockedBy":1}'
+expect_output 'no blockers' \
+  '{"data":{"repository":{"issue":{"number":5948,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0}}}}}' \
+  '{"number":5948,"openBlockedBy":0,"totalBlockedBy":0}'
 
-expect_unknown 'missing connection' \
-  '{"issueType":null,"assignees":[]}'
-expect_unknown 'null connection' \
-  '{"issueType":null,"assignees":[],"blockedBy":null}'
-expect_unknown 'array-shaped connection' \
-  '{"issueType":null,"assignees":[],"blockedBy":[]}'
-expect_unknown 'null nodes' \
-  '{"issueType":null,"assignees":[],"blockedBy":{"nodes":null,"totalCount":0}}'
-expect_unknown 'wrong-shaped total' \
-  '{"issueType":null,"assignees":[],"blockedBy":{"nodes":[],"totalCount":"0"}}'
-expect_unknown 'truncated connection' \
-  '{"issueType":null,"assignees":[],"blockedBy":{"nodes":[],"totalCount":1}}'
+expect_unknown 'missing issue' \
+  '{"data":{"repository":{"issue":null}}}'
+expect_unknown 'missing summary' \
+  '{"data":{"repository":{"issue":{"number":3196}}}}'
+expect_unknown 'null summary' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":null}}}}'
+expect_unknown 'wrong-shaped open count' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":"2","totalBlockedBy":3}}}}}'
+expect_unknown 'open count exceeds total' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":2,"totalBlockedBy":1}}}}}'
 
+# shellcheck disable=SC2016 # GraphQL variables are literal, not shell expansions.
+GRAPHQL_QUERY='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy}}}}'
 GH_TELEMETRY=0 "$GUARD" --command \
-  "gh issue view 3196 --repo devantler-tech/platform --json issueType,blockedBy,assignees --jq '$JQ_FILTER'" \
+  "gh api graphql -F owner=devantler-tech -F name=platform -F number=3196 -f query='$GRAPHQL_QUERY' --jq '$JQ_FILTER'" \
   >/dev/null || fail 'the prescribed dependency read is not admitted by the forge guard'
 
 printf 'portfolio-surveyor agent contract: PASS\n'

@@ -527,7 +527,7 @@ checkpoints — the opposite of the bounded-recovery rule, which marks only the 
 unknown. Name the repository and the operand (and the specific type sweep where that is what was
 capped), withhold that repository's residual alone, and report the rest normally.
 
-Report security work under the consuming contract's selection order; the orchestrator owns the final
+Report security work under the selection rules below; the orchestrator owns the final
 work choice. **Exclude a timeboxed measurement issue
 whose named measurement date is still in the FUTURE** (report it separately with its date): it is
 not-yet-actionable, and listing it as ready makes runs either re-skip it every tick or measure early.
@@ -554,6 +554,8 @@ unblocked.
 Rank the complete issue universe by the consuming contract's selection order, including its severity
 and age rules. Repository, PR, issue, claim, and Project census completeness alone does not prove
 that this ranking or the actionability assessment happened.
+When the consumer declares no selection order, retain the default oldest-actionable-first rule
+from the agentic-engineer role. An absent override is not a missing required contract fact.
 Include creation timestamps and every field needed to apply that order in the enumeration; missing
 ordering inputs leave the affected ordering unknown. Never substitute update time for issue age.
 
@@ -563,7 +565,11 @@ live claims, dependencies, automation ownership, specification sufficiency, and 
 An unsupported label, a bare assignment, an expired claim, or an elapsed measurement date is not
 evidence of a current skip. Use only skip reasons the consuming contract permits.
 
-Missing ranking or a missing, stale, or failed skip/control join is candidate-scoped `QUERY-UNKNOWN`.
+Verify all applicable actionability joins for the nominated candidate itself before calling it ready
+or highest-ranked, even when it is first in the ranking. Retain its current evidence references in
+the selection row alongside the preceding skips; the same evidence standard applies to both.
+
+Missing ranking or a missing, stale, or failed actionability join is candidate-scoped `QUERY-UNKNOWN`.
 Report which input or join is missing. A lower-ranked candidate may still be reported as provisional,
 but cannot be called the highest-ranked actionable issue while a preceding candidate is unknown.
 
@@ -577,8 +583,8 @@ uses those fields. Report the missing selection evidence through the existing `Q
 the orchestrator retains ownership of cursor writes and must keep its last-full-survey cursor unchanged.
 Preserve successful Operate and unrelated candidate results instead of discarding the useful checkpoint.
 
-For a complete result, report the exact highest-ranked candidate and the evidence for every preceding
-skip, or an evidenced-empty Advance row covering the complete universe. Evidence may be compact
+For a complete result, report the exact highest-ranked candidate, its verified actionability, and the
+evidence for every preceding skip, or an evidenced-empty Advance row covering the complete universe. Evidence may be compact
 references to earlier digest rows; do not create a separate ledger or duplicate the census.
 
 Flag **product** repos with no open roadmap/epic item at all as strategy-review candidates — product
@@ -668,8 +674,8 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 
 ### Advance
 - <repo>: roadmap-ready → #<n> "<title>" (<type>)
-- SELECTION-EVIDENCE — highest-ranked=<repo>#<n>; preceding skips=<issue:reason@evidence, ...>   # only after complete ranking and joins
-- QUERY-UNKNOWN — selection: <repo>#<n>|universe; missing=<ranking input|skip/control join>; lower candidates provisional; full-survey freshness cursor unchanged
+- SELECTION-EVIDENCE — highest-ranked=<repo>#<n>; candidate evidence=<current actionability references>; preceding skips=<issue:reason@evidence, ...>   # only after complete ranking and joins
+- QUERY-UNKNOWN — selection: <repo>#<n>|universe; missing=<ranking input|candidate actionability join|preceding skip join>; lower candidates provisional; full-survey freshness cursor unchanged
 - ADVANCE-EMPTY — scope=<surveyed repositories>; evidence=<complete universe and every current skip reference>   # only when no candidate remains actionable or unknown
 - <repo>: NO roadmap yet → strategy-review candidate
 - <repo> #<n> "<title>" — CLAIMED: assignee=<login>|none(<lane>), claim-branch=<name>, no open PR
@@ -681,7 +687,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 ### Digest rules
 
 - **Bind selection conclusions to step 5's Advance selection evidence.** An omitted ranking or
-  incomplete skip/control join cannot produce an evidenced-empty row or a full-survey completion
+  incomplete candidate or preceding-skip join cannot produce an evidenced-empty row or a full-survey completion
   claim. Keep useful Operate rows and provisional candidates alongside the scoped unknown.
 
 - **Always emit the `budget:` line.** It is additive — never remove or reshape another field to make

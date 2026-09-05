@@ -31,6 +31,14 @@
     {
       "id": "elapsed-measurement-date",
       "evidence": "The complete universe contains only A. Its declared measurement date was yesterday. No blocker or open PR exists; all applicable joins completed and are clear."
+    },
+    {
+      "id": "consumer-without-selection-override",
+      "evidence": "For this case, the consumer declares no selection order. The complete universe contains A and B; all their applicable joins completed and are clear. A is older, while B is a Security issue."
+    },
+    {
+      "id": "nominated-candidate-join-failed",
+      "evidence": "The complete universe contains only A, so there are no preceding skips. A's linked-open-PR query failed; all other applicable joins completed and are clear."
     }
   ],
   "expected": {
@@ -39,6 +47,8 @@
     "live-claim-before-ready-candidate": {"result": "B selected with A's current claim as preceding skip evidence", "freshnessEligible": true, "retainOperate": true},
     "evidenced-empty": {"result": "ADVANCE-EMPTY with complete universe and both current skip references", "freshnessEligible": true, "retainOperate": true},
     "expired-claim-and-unsupported-label": {"result": "A selected", "freshnessEligible": true, "retainOperate": true},
-    "elapsed-measurement-date": {"result": "A selected", "freshnessEligible": true, "retainOperate": true}
+    "elapsed-measurement-date": {"result": "A selected", "freshnessEligible": true, "retainOperate": true},
+    "consumer-without-selection-override": {"result": "A selected by default oldest-actionable-first order", "freshnessEligible": true, "retainOperate": true},
+    "nominated-candidate-join-failed": {"result": "QUERY-UNKNOWN: A linked-open-PR query", "freshnessEligible": false, "retainOperate": true}
   }
 }

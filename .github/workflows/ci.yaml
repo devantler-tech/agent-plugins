@@ -70,6 +70,9 @@ jobs:
         # change, which an early-exit refactor would silently hide.
         run: ./scripts/check-plugin-version-bump.test.sh
 
+      - name: 🧪 Self-test validator installation recovery
+        run: bash scripts/install-skills-ref.test.sh
+
       - name: 🧪 Self-test the version-bump helper
         # Proves bump-plugin-version.sh moves the version in ALL FOUR manifests that must
         # agree, that --changed-since bumps exactly what moved and is idempotent on a
@@ -282,9 +285,7 @@ jobs:
       - name: 📦 Install skills-ref
         env:
           AGENTSKILLS_REF: 8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3
-        run: |
-          python -m pip install --disable-pip-version-check \
-            "skills-ref @ git+https://github.com/agentskills/agentskills.git@${AGENTSKILLS_REF}#subdirectory=skills-ref"
+        run: bash scripts/install-skills-ref.sh
 
       - name: ✅ Validate ${{ matrix.skill }} against agentskills.io spec
         env:

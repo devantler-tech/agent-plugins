@@ -202,6 +202,11 @@ plugin membership) is authored here.
 Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:
 
+CI installs the pinned spec validator through `scripts/install-skills-ref.sh`, with at most three
+attempts and 5/10-second backoff. A persistent installation failure blocks the job; skill validation
+runs once after installation and remains required. `scripts/install-skills-ref.test.sh` exercises
+recovery and failure offline in `lint-scripts`.
+
 ```bash
 # 1. Marketplace parity, portable ↔ strict-Claude plugin.json parity, README table,
 #    desired-state resources, and skill provenance — the exact checks CI's
@@ -220,7 +225,7 @@ does not currently enforce but that keeps workflow changes clean:
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
-python -m pip install "skills-ref @ git+https://github.com/agentskills/agentskills.git@8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3#subdirectory=skills-ref"
+AGENTSKILLS_REF=8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3 bash scripts/install-skills-ref.sh
 find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -printf '%h\n' | while read -r d; do skills-ref validate "$d"; done
 
 # 3. (local only) Lint changed workflows.

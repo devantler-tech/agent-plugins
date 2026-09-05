@@ -19,21 +19,24 @@ check_contract() {
   ' "$source")
   [ -n "$section" ] || { echo 'missing operative selection section'; return 1; }
 
-  local requirement
+  local requirement missing=0
   # shellcheck disable=SC2016 # Markdown backticks are literal contract text.
   for requirement in \
     'Rank the complete issue universe by the consuming contract' \
+    'When the consumer declares no selection order, retain the default oldest-actionable-first rule' \
     'Include creation timestamps and every field needed to apply that order' \
     'For every candidate skipped before the nominated issue, retain a permitted skip reason' \
-    'Missing ranking or a missing, stale, or failed skip/control join is candidate-scoped `QUERY-UNKNOWN`' \
+    'Verify all applicable actionability joins for the nominated candidate itself' \
+    'Missing ranking or a missing, stale, or failed actionability join is candidate-scoped `QUERY-UNKNOWN`' \
     'Report no actionable Advance work only when every candidate has a current, evidenced non-actionable reason' \
     'Incomplete selection evidence makes the full survey ineligible for a freshness-cursor advance' \
     'Preserve successful Operate and unrelated candidate results'; do
     if ! grep -F -- "$requirement" <<< "$section" > /dev/null; then
       printf 'missing selection obligation: %s\n' "$requirement"
-      return 1
+      missing=1
     fi
   done
+  return "$missing"
 }
 
 check_contract "$SURVEYOR"
@@ -42,8 +45,10 @@ check_contract "$SURVEYOR"
 # This also proves each mutation actually changed the source before judging it.
 for prefix in \
   'Rank the complete issue universe' \
+  'When the consumer declares no selection order' \
   'Include creation timestamps' \
   'For every candidate skipped' \
+  'Verify all applicable actionability joins' \
   'Missing ranking or a missing' \
   'Report no actionable Advance work' \
   'Incomplete selection evidence' \
@@ -67,4 +72,4 @@ for prefix in \
   fi
 done
 
-echo 'surveyor selection contract: PASS (7 independently removed obligations rejected)'
+echo 'surveyor selection contract: PASS (9 independently removed obligations rejected)'

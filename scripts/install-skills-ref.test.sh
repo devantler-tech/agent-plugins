@@ -34,6 +34,8 @@ export PATH="$WORK/bin:$PATH"
 export AGENTSKILLS_REF=8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3
 
 failures=0
+# Run an isolated installer scenario and compare exit status, install attempts, and backoff.
+# Arguments: label, first successful attempt, expected exit, expected attempts, comma-separated waits.
 run_case() {
   local name=$1 success_at=$2 expected_status=$3 expected_calls=$4 expected_waits=$5
   local status=0 calls waits

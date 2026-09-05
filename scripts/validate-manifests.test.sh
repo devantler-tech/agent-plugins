@@ -961,6 +961,7 @@ check_fail "portfolio surveyor must forbid cross-subcommand JSON field reuse" \
 # from another subcommand (#190): `path` learned from the classifier's `actions/runs` payload
 # and spent on `gh run list --json`. The cross-surface clause is its own discriminator.
 d=$(fresh); make_desired_state "$d" alpha
+# shellcheck disable=SC2016  # the backticks are literal characters in the pattern
 sed 's/and never from a different API surface onto a `gh --json` subcommand/and freely from any other API surface onto a `gh --json` subcommand/' \
   "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"

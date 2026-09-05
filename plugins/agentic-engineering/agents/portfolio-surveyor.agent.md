@@ -185,12 +185,27 @@ maintainer-interactive PRs too.
 
 So for **every such PR, draft or not**, report its draft state and pentad as read-only DATA under
 `OWNERSHIP-UNVERIFIED`, plus the two discriminator **hints** the orchestrator needs — the **branch
-name** (a descriptive `<namespace>/<area>-<desc>` versus a random-slug session branch) and **whether
-the body leads with the deployment's AI-disclosure prefix** (match the **structural** prefix the
-contract defines, never a specific actor word — roles get renamed, and a matcher keyed to one
-spelling silently reclassifies everything written under the others). Then stop. The orchestrator
-applies its creation-record test and decides. Actionable trusted-*bot* authors carry no such
-ambiguity.
+name** (a descriptive `<namespace>/<area>-<desc>` versus a random-slug session branch) and the
+body's **disclosure**, a three-valued field defined below. Then stop. The orchestrator applies its
+creation-record test and decides. Actionable trusted-*bot* authors carry no such ambiguity.
+
+**`disclosure` is three-valued and matched by WHICH literal appears, never by where it sits.** Emit
+exactly one of `routine`, `interactive`, or `none`: `routine` when the body carries the deployment's
+AI-disclosure prefix (match the **structural** prefix the consumer contract defines, never a specific
+actor word — roles get renamed, and a matcher keyed to one spelling silently reclassifies everything
+written under the others); `interactive` when it carries the deployment's declared
+interactive-session marker (the consumer contract's untrusted-input section names it); and `none`
+when it carries neither, which is genuinely unknown — never a synonym for the maintainer's and never
+a synonym for the orchestrator's own. Match both literals as a **structural line anywhere in the
+body**: a line whose content, after leading whitespace and any blockquote `>` or list `-`/`*`
+markers, begins with the marker (an optional 🤖 may precede it). Never a bare substring, and never
+anchored to the body start — an interactive marker can be the last line and a routine disclosure can
+sit under a template heading, so a leads-with test reports `none` for both and cannot tell them
+apart. When both literals appear, **`interactive` wins**. The two values carry asymmetric weight:
+`interactive` is decisive on its own, while `routine` only corroborates the orchestrator's creation
+record, because the routine prefix also appears on maintainer-interactive PRs. The field tells the
+orchestrator whose control channel a maintainer-login comment on that PR is; it never decides whether
+the PR may be driven.
 
 ### 3b. Hygiene pentad per open actionable candidate PR
 
@@ -630,7 +645,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - <repo> #<n> "<title>" — <exact bot identity> → AUTOMATION-OWNED (NO-ACTION)
 - <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X>, unresolved=<n>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> (trusted bot, non-draft) — pentad: <same fields> → MERGE-READY | NEEDS-FIX | STALE-CR-DISMISSAL
-- <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<yes|no>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
+- <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<routine|interactive|none>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
 - <repo>: untriaged → issues #a,#b · PRs #c   |   stale (>14d) → #d
 - <repo> #<n> "<title>" — <author>: EXTERNAL — review statically only (never auto-drive/merge)
 

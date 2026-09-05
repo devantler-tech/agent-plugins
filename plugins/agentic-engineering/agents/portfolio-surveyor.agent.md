@@ -123,8 +123,8 @@ itself fails, emit `budget: unavailable:<one-word reason>` once and continue fai
 
 Enumerate open PRs and open issues across the in-scope repositories, excluding archived
 repositories (their stale PRs/issues are unmergeable by design and carry no actionable signal).
-Project only the fields you need — number, repository, title, author, draft state, labels, updated
-time, url — and for issues **include assignees: they are a CLAIM signal.**
+Project only the fields you need — number, repository, title, author, draft state, labels, created
+and updated time, url — and for issues **include assignees: they are a CLAIM signal.**
 
 Report assignee **logins**, not a count. Only an assignment matching the **orchestrator's own
 authoring identity** (Trust gate) can be a claim — every instance assigns under it, so that login
@@ -527,8 +527,8 @@ checkpoints — the opposite of the bounded-recovery rule, which marks only the 
 unknown. Name the repository and the operand (and the specific type sweep where that is what was
 capped), withhold that repository's residual alone, and report the rest normally.
 
-Report security work; **never prioritise it** — the queue stays oldest-actionable-first, and only an
-urgent security hotfix jumps under the normal breakage rule. **Exclude a timeboxed measurement issue
+Report security work under the consuming contract's selection order; the orchestrator owns the final
+work choice. **Exclude a timeboxed measurement issue
 whose named measurement date is still in the FUTURE** (report it separately with its date): it is
 not-yet-actionable, and listing it as ready makes runs either re-skip it every tick or measure early.
 
@@ -548,6 +548,38 @@ count does not suppress it. The summary deliberately requests no blocker nodes: 
 may point at an out-of-portfolio repository, and fetching its metadata would cross the consumer's
 portfolio boundary. A missing or malformed summary makes that candidate `QUERY-UNKNOWN`, never
 unblocked.
+
+#### Advance selection evidence
+
+Rank the complete issue universe by the consuming contract's selection order, including its severity
+and age rules. Repository, PR, issue, claim, and Project census completeness alone does not prove
+that this ranking or the actionability assessment happened.
+Include creation timestamps and every field needed to apply that order in the enumeration; missing
+ordering inputs leave the affected ordering unknown. Never substitute update time for issue age.
+
+For every candidate skipped before the nominated issue, retain a permitted skip reason and its
+current evidence reference. Complete the applicable joins for maintainer controls, linked open PRs,
+live claims, dependencies, automation ownership, specification sufficiency, and measurement dates.
+An unsupported label, a bare assignment, an expired claim, or an elapsed measurement date is not
+evidence of a current skip. Use only skip reasons the consuming contract permits.
+
+Missing ranking or a missing, stale, or failed skip/control join is candidate-scoped `QUERY-UNKNOWN`.
+Report which input or join is missing. A lower-ranked candidate may still be reported as provisional,
+but cannot be called the highest-ranked actionable issue while a preceding candidate is unknown.
+
+Report no actionable Advance work only when every candidate has a current, evidenced non-actionable reason.
+This includes a genuinely empty issue universe only after its complete, scoped enumeration is verified.
+An empty result from a failed query, or merely completing the censuses, cannot support that conclusion.
+
+Incomplete selection evidence makes the full survey ineligible for a freshness-cursor advance.
+Do not report `last_full_survey_eligible: yes` or `ready_work: none` from counts alone if a consumer
+uses those fields. Report the missing selection evidence through the existing `QUERY-UNKNOWN` rows;
+the orchestrator retains ownership of cursor writes and must keep its last-full-survey cursor unchanged.
+Preserve successful Operate and unrelated candidate results instead of discarding the useful checkpoint.
+
+For a complete result, report the exact highest-ranked candidate and the evidence for every preceding
+skip, or an evidenced-empty Advance row covering the complete universe. Evidence may be compact
+references to earlier digest rows; do not create a separate ledger or duplicate the census.
 
 Flag **product** repos with no open roadmap/epic item at all as strategy-review candidates — product
 repos only, i.e. those the Portfolio map names; org/infra repos outside the map are never strategy
@@ -636,6 +668,9 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 
 ### Advance
 - <repo>: roadmap-ready → #<n> "<title>" (<type>)
+- SELECTION-EVIDENCE — highest-ranked=<repo>#<n>; preceding skips=<issue:reason@evidence, ...>   # only after complete ranking and joins
+- QUERY-UNKNOWN — selection: <repo>#<n>|universe; missing=<ranking input|skip/control join>; lower candidates provisional; full-survey freshness cursor unchanged
+- ADVANCE-EMPTY — scope=<surveyed repositories>; evidence=<complete universe and every current skip reference>   # only when no candidate remains actionable or unknown
 - <repo>: NO roadmap yet → strategy-review candidate
 - <repo> #<n> "<title>" — CLAIMED: assignee=<login>|none(<lane>), claim-branch=<name>, no open PR
 - <repo>: untyped issues (invisible to type filters) → #a,#b
@@ -644,6 +679,10 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 ```
 
 ### Digest rules
+
+- **Bind selection conclusions to step 5's Advance selection evidence.** An omitted ranking or
+  incomplete skip/control join cannot produce an evidenced-empty row or a full-survey completion
+  claim. Keep useful Operate rows and provisional candidates alongside the scoped unknown.
 
 - **Always emit the `budget:` line.** It is additive — never remove or reshape another field to make
   room for it. `EXHAUSTED_AT_START` is the only allowed annotation; the orchestrator treats it as

@@ -987,6 +987,7 @@ check_fail "portfolio surveyor must say the positional classifier form is denied
 d=$(fresh); make_desired_state "$d" alpha
 # A bare basename is denied by the guard as "not a forge command" even in flag form (Codex P1 on
 # agent-plugins#197), so the example must carry the resolved installed path, not just the flags.
+# shellcheck disable=SC2016 # Backticks are literal Markdown fixture text.
 sed 's/`<installed plugin>\/scripts\/classify-default-branch-ci-runs.sh --repo/`classify-default-branch-ci-runs.sh --repo/' \
   "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"

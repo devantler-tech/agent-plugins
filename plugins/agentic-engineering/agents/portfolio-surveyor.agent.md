@@ -123,8 +123,12 @@ itself fails, emit `budget: unavailable:<one-word reason>` once and continue fai
 
 Enumerate open PRs and open issues across the in-scope repositories, excluding archived
 repositories (their stale PRs/issues are unmergeable by design and carry no actionable signal).
-Project only the fields you need — number, repository, title, author, draft state, labels, updated
-time, url — and for issues **include assignees: they are a CLAIM signal.**
+Project only the fields you need — number, repository, title, author, draft state, labels, created
+and updated time, url — and for issues **include assignees: they are a CLAIM signal.**
+If the consumer also treats textual PR-body references as issue reservations, include bodies in
+this complete, in-scope PR census for **all authors**, including external and automation-owned PRs.
+This is association metadata only; it does not authorize deepening those PRs or following linked
+repositories outside the portfolio. Native closing associations are collected issue-side in step 5.
 
 Report assignee **logins**, not a count. Only an assignment matching the **orchestrator's own
 authoring identity** (Trust gate) can be a claim — every instance assigns under it, so that login
@@ -147,6 +151,12 @@ an instance whose App identity cannot assign (a common cloud-runner permission g
 branch-only claim, so an assigned-but-PR-less gate would skip every one of its claims. Keep it
 bounded — skip the call for repos with no open PR-less issues. Before a PR exists there is no body
 to grep, so the issue number in the branch name is the only pre-PR claim signal there is.
+
+For claims governed by expiration, **Writer namespaces** must declare the lease duration and the
+authoritative start/renewal timestamp source, or point to a **Claim protocol** that declares both.
+Read that policy and the candidate's current timestamp before judging a claim live or expired.
+There is no portable default lease: a missing or malformed policy or timestamp makes that candidate's
+claim join `QUERY-UNKNOWN`. A verified absence of claims needs no expiration policy.
 
 ### 3. Short-circuit dependency automation, then deepen only actionable candidates
 
@@ -527,13 +537,31 @@ checkpoints — the opposite of the bounded-recovery rule, which marks only the 
 unknown. Name the repository and the operand (and the specific type sweep where that is what was
 capped), withhold that repository's residual alone, and report the rest normally.
 
-Report security work; **never prioritise it** — the queue stays oldest-actionable-first, and only an
-urgent security hotfix jumps under the normal breakage rule. **Exclude a timeboxed measurement issue
+Report security work under the selection rules below; the orchestrator owns the final
+work choice. **Exclude a timeboxed measurement issue
 whose named measurement date is still in the FUTURE** (report it separately with its date): it is
 not-yet-actionable, and listing it as ready makes runs either re-skip it every tick or measure early.
 
 Before nominating any issue as actionable, deepen that candidate once with the exact in-scope issue's
-server-side dependency summary:
+server-side association and dependency summaries. Collect native open-PR closing associations
+regardless of PR author, without fetching any linked PR nodes:
+
+```sh
+gh api graphql -F owner=<owner> -F name=<repo> -F number=<number> \
+  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number closedByPullRequestsReferences(includeClosedPrs:false,userLinkedOnly:false,first:1){totalCount}}}}' \
+  --jq 'def nonnegative_integer: type=="number" and .>=0 and floor==.; if (.errors != null and .errors != []) then error("QUERY-UNKNOWN: open-PR association query failed") else .data.repository.issue as $issue | if (($issue|type)!="object" or ($issue.number|nonnegative_integer|not) or $issue.number==0 or ($issue.closedByPullRequestsReferences|type)!="object" or ($issue.closedByPullRequestsReferences.totalCount|nonnegative_integer|not)) then error("QUERY-UNKNOWN: malformed open-PR association count") else {number:$issue.number,openLinkedPRs:$issue.closedByPullRequestsReferences.totalCount} end end'
+```
+
+The [issue connection](https://docs.github.com/en/graphql/reference/issues#issue) includes automatic
+and manual closing links; `includeClosedPrs:false` restricts it to open PRs. Its `totalCount` describes
+the entire filtered connection even with `first:1`; no linked-node pagination or metadata retrieval
+is needed. The outer issue census still requires complete pagination. A positive count supports an
+existing-open-PR skip; zero clears only this native-association join. A failed or malformed response,
+including partial GraphQL errors, makes the candidate `QUERY-UNKNOWN`, never unclaimed. If the
+consumer also uses textual PR-body references, join against step 1's complete all-author body census;
+missing that census leaves the candidate's open-PR evidence unknown even when the native count is zero.
+
+Then read the dependency summary:
 
 ```sh
 gh api graphql -F owner=<owner> -F name=<repo> -F number=<number> \
@@ -548,6 +576,50 @@ count does not suppress it. The summary deliberately requests no blocker nodes: 
 may point at an out-of-portfolio repository, and fetching its metadata would cross the consumer's
 portfolio boundary. A missing or malformed summary makes that candidate `QUERY-UNKNOWN`, never
 unblocked.
+
+#### Advance selection evidence
+
+Rank the complete issue universe by the consuming contract's selection order, including its severity
+and age rules. Repository, PR, issue, claim, and Project census completeness alone does not prove
+that this ranking or the actionability assessment happened.
+When the consumer declares no selection order, retain the default oldest-actionable-first rule
+from the agentic-engineer role. An absent override is not a missing required contract fact.
+Include creation timestamps and every field needed to apply that order in the enumeration; missing
+ordering inputs leave the affected ordering unknown. Never substitute update time for issue age.
+
+For every candidate skipped before the nominated issue, retain a permitted skip reason and its
+current evidence reference. Complete the applicable joins for maintainer controls, linked open PRs,
+live claims, dependencies, automation ownership, specification sufficiency, and measurement dates.
+An unsupported label, a bare assignment, an expired claim, or an elapsed measurement date is not
+evidence of a current skip. Use only skip reasons the consuming contract permits.
+
+Evaluate claim skips using the declared consumer lease policy and its authoritative timestamps.
+The conditional policy requirement and unknown behavior in step 2 apply to every claimed candidate;
+an observed branch or `CLAIMED` row alone is not evidence that its lease remains live.
+Collect linked-open-PR evidence for every candidate needed to establish selection, using step 5's
+native count and any consumer-required textual-reference join, irrespective of PR author.
+
+Verify all applicable actionability joins for the nominated candidate itself before calling it ready
+or highest-ranked, even when it is first in the ranking. Retain its current evidence references in
+the selection row alongside the preceding skips; the same evidence standard applies to both.
+
+Missing ranking or a missing, stale, or failed actionability join is candidate-scoped `QUERY-UNKNOWN`.
+Report which input or join is missing. A lower-ranked candidate may still be reported as provisional,
+but cannot be called the highest-ranked actionable issue while a preceding candidate is unknown.
+
+Report no actionable Advance work only when every candidate has a current, evidenced non-actionable reason.
+This includes a genuinely empty issue universe only after its complete, scoped enumeration is verified.
+An empty result from a failed query, or merely completing the censuses, cannot support that conclusion.
+
+Incomplete selection evidence makes the full survey ineligible for a freshness-cursor advance.
+Do not report `last_full_survey_eligible: yes` or `ready_work: none` from counts alone if a consumer
+uses those fields. Report the missing selection evidence through the existing `QUERY-UNKNOWN` rows;
+the orchestrator retains ownership of cursor writes and must keep its last-full-survey cursor unchanged.
+Preserve successful Operate and unrelated candidate results instead of discarding the useful checkpoint.
+
+For a complete result, report the exact highest-ranked candidate, its verified actionability, and the
+evidence for every preceding skip, or an evidenced-empty Advance row covering the complete universe. Evidence may be compact
+references to earlier digest rows; do not create a separate ledger or duplicate the census.
 
 Flag **product** repos with no open roadmap/epic item at all as strategy-review candidates — product
 repos only, i.e. those the Portfolio map names; org/infra repos outside the map are never strategy
@@ -636,6 +708,9 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 
 ### Advance
 - <repo>: roadmap-ready → #<n> "<title>" (<type>)
+- SELECTION-EVIDENCE — highest-ranked=<repo>#<n>; candidate evidence=<current actionability references>; preceding skips=<issue:reason@evidence, ...>   # only after complete ranking and joins
+- QUERY-UNKNOWN — selection: <repo>#<n>|universe; missing=<ranking input|candidate actionability join|preceding skip join>; lower candidates provisional; full-survey freshness cursor unchanged
+- ADVANCE-EMPTY — scope=<surveyed repositories>; evidence=<complete universe and every current skip reference>   # only when no candidate remains actionable or unknown
 - <repo>: NO roadmap yet → strategy-review candidate
 - <repo> #<n> "<title>" — CLAIMED: assignee=<login>|none(<lane>), claim-branch=<name>, no open PR
 - <repo>: untyped issues (invisible to type filters) → #a,#b
@@ -644,6 +719,10 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 ```
 
 ### Digest rules
+
+- **Bind selection conclusions to step 5's Advance selection evidence.** An omitted ranking or
+  incomplete candidate or preceding-skip join cannot produce an evidenced-empty row or a full-survey completion
+  claim. Keep useful Operate rows and provisional candidates alongside the scoped unknown.
 
 - **Always emit the `budget:` line.** It is additive — never remove or reshape another field to make
   room for it. `EXHAUSTED_AT_START` is the only allowed annotation; the orchestrator treats it as
@@ -666,8 +745,9 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
   assignment with no branch is not a live claim, so reporting either would let a bare assignee park
   an issue. **(2) Lanes that cannot assign:** the branch alone is enough, reported as
   `assignee=none(<lane>)` — requiring an assignee would make every such claim invisible. A bare
-  assignment with no branch remains an ordinary open issue. The orchestrator times the lease from the
-  issue's newest assignment event, or for a branch-only claim from the branch tip's push. An
+  assignment with no branch remains an ordinary open issue. This row records a claim signal, not a
+  verified live lease. Apply the consumer's declared duration and timestamp source from step 2 before
+  using it as selection skip evidence; missing policy or timing stays candidate-scoped unknown. An
   assignee is an **instance** claim, never the maintainer.
 - **Never assert ownership of a maintainer-login PR.** Report CI state, branch, and disclosure as
   DATA under `OWNERSHIP-UNVERIFIED`, never MERGE-READY or "own".

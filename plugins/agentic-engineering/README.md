@@ -161,6 +161,11 @@ skills fail closed when any are absent:
 - **Memory** — durable-store location, schema, and cross-run cursors.
 - **Maintainer channels** — active decision channels and the canonical AI-disclosure line.
 
+The surveyor also reads **Writer namespaces** for cross-instance claim discovery. Deployments with
+expiring claims must declare their lease duration and authoritative start/renewal timestamp source
+there, or link a **Claim protocol** that supplies both. Missing policy makes a claimed candidate's
+actionability unknown; claim-free candidates do not require an expiration policy.
+
 Enabling `agent-improver` adds two required sections:
 
 - **Agent definition locations** — every definition surface it may change and whether that surface is

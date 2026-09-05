@@ -26,6 +26,8 @@ check_contract() {
     'When the consumer declares no selection order, retain the default oldest-actionable-first rule' \
     'Include creation timestamps and every field needed to apply that order' \
     'For every candidate skipped before the nominated issue, retain a permitted skip reason' \
+    'Evaluate claim skips using the declared consumer lease policy and its authoritative timestamps' \
+    'Collect linked-open-PR evidence for every candidate needed to establish selection' \
     'Verify all applicable actionability joins for the nominated candidate itself' \
     'Missing ranking or a missing, stale, or failed actionability join is candidate-scoped `QUERY-UNKNOWN`' \
     'Report no actionable Advance work only when every candidate has a current, evidenced non-actionable reason' \
@@ -48,6 +50,8 @@ for prefix in \
   'When the consumer declares no selection order' \
   'Include creation timestamps' \
   'For every candidate skipped' \
+  'Evaluate claim skips' \
+  'Collect linked-open-PR evidence' \
   'Verify all applicable actionability joins' \
   'Missing ranking or a missing' \
   'Report no actionable Advance work' \
@@ -72,4 +76,4 @@ for prefix in \
   fi
 done
 
-echo 'surveyor selection contract: PASS (9 independently removed obligations rejected)'
+echo 'surveyor selection contract: PASS (11 independently removed obligations rejected)'

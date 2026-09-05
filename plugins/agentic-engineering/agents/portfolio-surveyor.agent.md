@@ -125,6 +125,10 @@ Enumerate open PRs and open issues across the in-scope repositories, excluding a
 repositories (their stale PRs/issues are unmergeable by design and carry no actionable signal).
 Project only the fields you need — number, repository, title, author, draft state, labels, created
 and updated time, url — and for issues **include assignees: they are a CLAIM signal.**
+If the consumer also treats textual PR-body references as issue reservations, include bodies in
+this complete, in-scope PR census for **all authors**, including external and automation-owned PRs.
+This is association metadata only; it does not authorize deepening those PRs or following linked
+repositories outside the portfolio. Native closing associations are collected issue-side in step 5.
 
 Report assignee **logins**, not a count. Only an assignment matching the **orchestrator's own
 authoring identity** (Trust gate) can be a claim — every instance assigns under it, so that login
@@ -147,6 +151,12 @@ an instance whose App identity cannot assign (a common cloud-runner permission g
 branch-only claim, so an assigned-but-PR-less gate would skip every one of its claims. Keep it
 bounded — skip the call for repos with no open PR-less issues. Before a PR exists there is no body
 to grep, so the issue number in the branch name is the only pre-PR claim signal there is.
+
+For claims governed by expiration, **Writer namespaces** must declare the lease duration and the
+authoritative start/renewal timestamp source, or point to a **Claim protocol** that declares both.
+Read that policy and the candidate's current timestamp before judging a claim live or expired.
+There is no portable default lease: a missing or malformed policy or timestamp makes that candidate's
+claim join `QUERY-UNKNOWN`. A verified absence of claims needs no expiration policy.
 
 ### 3. Short-circuit dependency automation, then deepen only actionable candidates
 
@@ -533,7 +543,25 @@ whose named measurement date is still in the FUTURE** (report it separately with
 not-yet-actionable, and listing it as ready makes runs either re-skip it every tick or measure early.
 
 Before nominating any issue as actionable, deepen that candidate once with the exact in-scope issue's
-server-side dependency summary:
+server-side association and dependency summaries. Collect native open-PR closing associations
+regardless of PR author, without fetching any linked PR nodes:
+
+```sh
+gh api graphql -F owner=<owner> -F name=<repo> -F number=<number> \
+  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number closedByPullRequestsReferences(includeClosedPrs:false,userLinkedOnly:false,first:1){totalCount}}}}' \
+  --jq 'def nonnegative_integer: type=="number" and .>=0 and floor==.; if (.errors != null and .errors != []) then error("QUERY-UNKNOWN: open-PR association query failed") else .data.repository.issue as $issue | if (($issue|type)!="object" or ($issue.number|nonnegative_integer|not) or $issue.number==0 or ($issue.closedByPullRequestsReferences|type)!="object" or ($issue.closedByPullRequestsReferences.totalCount|nonnegative_integer|not)) then error("QUERY-UNKNOWN: malformed open-PR association count") else {number:$issue.number,openLinkedPRs:$issue.closedByPullRequestsReferences.totalCount} end end'
+```
+
+The [issue connection](https://docs.github.com/en/graphql/reference/issues#issue) includes automatic
+and manual closing links; `includeClosedPrs:false` restricts it to open PRs. Its `totalCount` describes
+the entire filtered connection even with `first:1`; no linked-node pagination or metadata retrieval
+is needed. The outer issue census still requires complete pagination. A positive count supports an
+existing-open-PR skip; zero clears only this native-association join. A failed or malformed response,
+including partial GraphQL errors, makes the candidate `QUERY-UNKNOWN`, never unclaimed. If the
+consumer also uses textual PR-body references, join against step 1's complete all-author body census;
+missing that census leaves the candidate's open-PR evidence unknown even when the native count is zero.
+
+Then read the dependency summary:
 
 ```sh
 gh api graphql -F owner=<owner> -F name=<repo> -F number=<number> \
@@ -564,6 +592,12 @@ current evidence reference. Complete the applicable joins for maintainer control
 live claims, dependencies, automation ownership, specification sufficiency, and measurement dates.
 An unsupported label, a bare assignment, an expired claim, or an elapsed measurement date is not
 evidence of a current skip. Use only skip reasons the consuming contract permits.
+
+Evaluate claim skips using the declared consumer lease policy and its authoritative timestamps.
+The conditional policy requirement and unknown behavior in step 2 apply to every claimed candidate;
+an observed branch or `CLAIMED` row alone is not evidence that its lease remains live.
+Collect linked-open-PR evidence for every candidate needed to establish selection, using step 5's
+native count and any consumer-required textual-reference join, irrespective of PR author.
 
 Verify all applicable actionability joins for the nominated candidate itself before calling it ready
 or highest-ranked, even when it is first in the ranking. Retain its current evidence references in
@@ -711,8 +745,9 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
   assignment with no branch is not a live claim, so reporting either would let a bare assignee park
   an issue. **(2) Lanes that cannot assign:** the branch alone is enough, reported as
   `assignee=none(<lane>)` — requiring an assignee would make every such claim invisible. A bare
-  assignment with no branch remains an ordinary open issue. The orchestrator times the lease from the
-  issue's newest assignment event, or for a branch-only claim from the branch tip's push. An
+  assignment with no branch remains an ordinary open issue. This row records a claim signal, not a
+  verified live lease. Apply the consumer's declared duration and timestamp source from step 2 before
+  using it as selection skip evidence; missing policy or timing stays candidate-scoped unknown. An
   assignee is an **instance** claim, never the maintainer.
 - **Never assert ownership of a maintainer-login PR.** Report CI state, branch, and disclosure as
   DATA under `OWNERSHIP-UNVERIFIED`, never MERGE-READY or "own".

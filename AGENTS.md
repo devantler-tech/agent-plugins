@@ -202,6 +202,11 @@ plugin membership) is authored here.
 Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:
 
+CI installs the pinned spec validator through `scripts/install-skills-ref.sh`, with at most three
+attempts and 5/10-second backoff. A persistent installation failure blocks the job; skill validation
+runs once after installation and remains required. `scripts/install-skills-ref.test.sh` exercises
+recovery and failure offline in `lint-scripts`.
+
 ```bash
 # 1. Marketplace parity, portable ↔ strict-Claude plugin.json parity, README table,
 #    desired-state resources, and skill provenance — the exact checks CI's

@@ -1,0 +1,75 @@
+{
+  "purpose": "Repeatable model-behavior scenarios, separate from the CI definition-drift checks. Give an evaluator only the consumerContract and cases, together with the agent definition; compare its decisions with expected afterward.",
+  "consumerContract": {
+    "scope": "The synthetic repository example/product only; use the supplied evidence without forge access.",
+    "selectionOrder": "Security issues, then Bugs, then all remaining issues; oldest creation time first within each tier.",
+    "claimLeaseHours": 2,
+    "claimTimestampSource": "The current claim tip's committer timestamp is the authoritative start or renewal time.",
+    "question": "For each case, report the exact selected candidate, evidenced-empty result, or scoped unknown; whether full-survey freshness may advance; and whether successful Operate evidence is retained.",
+    "commonEvidence": "Repository/default-head, PR, issue/type, claim-ref, and Project censuses are complete and freshly verified. Operate checks succeeded. Unless overridden, ranking is complete and every candidate's applicable maintainer-control, open-PR, claim, dependency, automation, specification, and measurement-date joins are complete and clear. A is older than B; both are Bugs. No other issues exist."
+  },
+  "cases": [
+    {
+      "id": "complete-census-without-ranking",
+      "evidence": "The issue universe contains A and B, but the ranking and per-candidate actionability joins were deliberately not computed. All five censuses remain complete."
+    },
+    {
+      "id": "older-control-query-failed",
+      "evidence": "The universe contains A and B. A's maintainer-control read failed. B's applicable joins all completed and are clear."
+    },
+    {
+      "id": "live-claim-before-ready-candidate",
+      "evidence": "The universe contains A and B. A's current claim tip is ten minutes old and belongs to another instance; its exact tip and time are retained as evidence. Every other applicable join for both candidates completed and is clear."
+    },
+    {
+      "id": "evidenced-empty",
+      "evidence": "The complete universe contains A and B. A has a verified ten-minute-old foreign claim; B has a freshly verified open dependency. Exact evidence references are retained for both. Every other applicable join completed and is clear."
+    },
+    {
+      "id": "expired-claim-and-unsupported-label",
+      "evidence": "The complete universe contains only A. It has a blocked label without supporting maintainer control or dependency, plus a claim whose verified tip is three hours old. No open PR exists; all other applicable joins completed and are clear."
+    },
+    {
+      "id": "elapsed-measurement-date",
+      "evidence": "The complete universe contains only A. Its declared measurement date was yesterday. No blocker or open PR exists; all applicable joins completed and are clear."
+    },
+    {
+      "id": "consumer-without-selection-override",
+      "evidence": "For this case, the consumer declares no selection order. The complete universe contains A and B; all their applicable joins completed and are clear. A is older, while B is a Security issue."
+    },
+    {
+      "id": "nominated-candidate-join-failed",
+      "evidence": "The complete universe contains only A, so there are no preceding skips. A's linked-open-PR query failed; all other applicable joins completed and are clear."
+    },
+    {
+      "id": "claim-without-lease-policy",
+      "evidence": "For this case, the consumer declares neither a claim lease duration nor an authoritative timestamp source. The universe contains A and B. A has a verified branch with a tip three hours old; B has no claim. Every other applicable join completed and is clear."
+    },
+    {
+      "id": "claim-free-without-lease-policy",
+      "evidence": "For this case, the consumer declares neither a claim lease duration nor an authoritative timestamp source. The complete universe contains only A, with verified absence of claims and all other applicable joins complete and clear."
+    },
+    {
+      "id": "automation-pr-native-association",
+      "evidence": "The universe contains A and B. A's issue-side closedByPullRequestsReferences(includeClosedPrs:false,userLinkedOnly:false,first:1) response has totalCount 3. The linked PRs are automation-owned and have not been deepened. The consumer permits an existing open PR as a skip; it does not use additional textual-body reservations. B's native count is zero. All other applicable joins completed and are clear."
+    },
+    {
+      "id": "native-zero-with-missing-body-census",
+      "evidence": "The complete universe contains only A. Its native open-PR association count is zero. For this case, the consumer also reserves issues referenced in any in-scope open PR body, but external-author PR bodies were omitted from the census. All other applicable joins completed and are clear."
+    }
+  ],
+  "expected": {
+    "complete-census-without-ranking": {"result": "QUERY-UNKNOWN: ranking and actionability evidence missing", "freshnessEligible": false, "retainOperate": true},
+    "older-control-query-failed": {"result": "QUERY-UNKNOWN: A control read; B provisional only", "freshnessEligible": false, "retainOperate": true},
+    "live-claim-before-ready-candidate": {"result": "B selected with A's current claim as preceding skip evidence", "freshnessEligible": true, "retainOperate": true},
+    "evidenced-empty": {"result": "ADVANCE-EMPTY with complete universe and both current skip references", "freshnessEligible": true, "retainOperate": true},
+    "expired-claim-and-unsupported-label": {"result": "A selected", "freshnessEligible": true, "retainOperate": true},
+    "elapsed-measurement-date": {"result": "A selected", "freshnessEligible": true, "retainOperate": true},
+    "consumer-without-selection-override": {"result": "A selected by default oldest-actionable-first order", "freshnessEligible": true, "retainOperate": true},
+    "nominated-candidate-join-failed": {"result": "QUERY-UNKNOWN: A linked-open-PR query", "freshnessEligible": false, "retainOperate": true},
+    "claim-without-lease-policy": {"result": "QUERY-UNKNOWN: A claim policy; B provisional only", "freshnessEligible": false, "retainOperate": true},
+    "claim-free-without-lease-policy": {"result": "A selected", "freshnessEligible": true, "retainOperate": true},
+    "automation-pr-native-association": {"result": "B selected with A's native open-PR count as preceding skip evidence", "freshnessEligible": true, "retainOperate": true},
+    "native-zero-with-missing-body-census": {"result": "QUERY-UNKNOWN: A textual-reference open-PR join", "freshnessEligible": false, "retainOperate": true}
+  }
+}

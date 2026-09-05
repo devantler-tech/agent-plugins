@@ -12,7 +12,9 @@ fail() {
 
 QUERY=$(sed -n "/closedByPullRequestsReferences(includeClosedPrs:false,userLinkedOnly:false,first:1){totalCount}/s/^[[:space:]]*-f query='\(.*\)' \\\\$/\1/p" "$SURVEYOR")
 FILTER=$(sed -n "/closedByPullRequestsReferences(includeClosedPrs:false,userLinkedOnly:false,first:1){totalCount}/{n;s/^[[:space:]]*--jq '\(.*\)'$/\1/p;}" "$SURVEYOR")
-[ -n "$QUERY" ] && [ -n "$FILTER" ] || fail 'missing prescribed query or projection'
+if [ -z "$QUERY" ] || [ -z "$FILTER" ]; then
+  fail 'missing prescribed query or projection'
+fi
 
 VALID='{"data":{"repository":{"issue":{"number":165,"closedByPullRequestsReferences":{"totalCount":0}}}}}'
 for count in 0 1 3; do

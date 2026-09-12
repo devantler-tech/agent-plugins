@@ -39,7 +39,7 @@ result=$(jq -sce --argjson now "$now" '
         and all(.[]; identifier) and (map(ascii_downcase) | unique | length) == length)
       and (.routes | exact(["support","workhorse","diagnosis","deepRefactor"])
         and all(.[]; exact(["model","runtime","effort"])
-          and (.model | identifier and (ascii_downcase | IN("default","inherit","latest","auto") | not))
+          and (.model | identifier and (ascii_downcase | IN("default","inherit","latest","auto","best") | not))
           and (.runtime | identifier)
           and (.effort | IN("low","medium","high","xhigh"))))
       and (.runtimes | type == "object" and length > 0

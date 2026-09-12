@@ -44,6 +44,11 @@ hostile-input authentication boundary.
 Deployment model names and runtime IDs never enter portable agent frontmatter. An exact string
 in a policy is an intended model, not proof that the runtime supports it. Denial terms cover visible
 IDs only; opaque aliases/defaults/substitutions need native verification before execution.
+The four task-class route keys are the stable logical aliases. Each route's `model` must already be
+the reviewed resolved exact model ID; it is not a provider alias such as `reasoner-stable`. A native
+adapter must resolve and verify any provider alias before this comparison, then select a policy
+revision pinning that exact ID. Do not replace the observed model with the intended value or relax
+equality to make an unresolved alias pass; a mismatch deliberately holds execution.
 
 ## Task and observation input
 

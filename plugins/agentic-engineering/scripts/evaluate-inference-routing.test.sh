@@ -61,6 +61,7 @@ run_case irreversible-write '.task.reversible=false | .snapshot.model="reasoner-
 run_case environment '.task.failureKind="environment"' 1 '.reasons | index("NON_REASONING_FAILURE") != null'
 run_case policy-off '.policy.enabled=false' 1 '.reasons | index("POLICY_DISABLED") != null'
 run_case no-model-override '.snapshot.model="other-v2"' 1 '.reasons | index("MODEL_MISMATCH") != null'
+run_case unresolved-provider-alias '.policy.routes.workhorse.model="reasoner-stable" | .snapshot.model="reasoner-2026-09"' 1 '.reasons | index("MODEL_MISMATCH") != null'
 run_case no-paid-fallback '.policy.paidFallback=true' 2 '.decision == "INVALID"'
 run_case denied-case '.policy.routes.workhorse.model="FORBIDDEN-FAMILY-v2"' 2 '.decision == "INVALID"'
 run_case denied-unused-route '.policy.routes.support.model="forbidden-family-v1"' 2 '.decision == "INVALID"'
@@ -90,5 +91,8 @@ run_case no-cross-runtime-reuse '.task.class="deepRefactor" | .snapshot.model="n
 printf '{broken' > "$TMP/broken.json"
 status=0
 bash "$HERE/evaluate-inference-routing.sh" --now 2000000000 < "$TMP/broken.json" > "$TMP/output.json" 2>/dev/null || status=$?
-[[ "$status" == 2 ]] && jq -e '.decision == "INVALID" and .executionAdmitted == false' "$TMP/output.json" > /dev/null
+if [[ "$status" != 2 ]] || ! jq -e '.decision == "INVALID" and .executionAdmitted == false' "$TMP/output.json" > /dev/null; then
+  printf 'FAIL malformed JSON\n' >&2
+  exit 1
+fi
 printf 'PASS malformed JSON\n'

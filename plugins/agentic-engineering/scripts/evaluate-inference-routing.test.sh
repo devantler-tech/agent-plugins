@@ -37,6 +37,8 @@ cat > "$TMP/request.json" <<'JSON'
     }}
 }
 JSON
+# Apply a fixture change, run the real evaluator, and assert its exit code and JSON result.
+# Arguments: case name, jq fixture transformation, expected exit status, jq assertion.
 run_case() {
   local name="$1" change="$2" expected_exit="$3" assertion="$4" status=0
   jq "$change" "$TMP/request.json" > "$TMP/input.json"

@@ -28,7 +28,7 @@
         },
         {
           "path": "scripts/evaluate-inference-routing.sh",
-          "sha256": "d8a239f7e75d2e0d1ec457f4bbc280c7918a0f5d3db7a189d99ae2491fd83fa4",
+          "sha256": "4ff266055d8b96b84448fe843f1890baff2f5e716bb428b1e3b6fb4c60b4e49c",
           "executable": true
         }
       ],

@@ -4,6 +4,7 @@
 # Observations are caller reports, not authenticated runtime or billing evidence.
 # This command never launches inference, takes a lock, or reserves allowance.
 set -euo pipefail
+# Emit a fixed, non-sensitive invalid-input result and terminate with exit status 2.
 invalid() {
   printf '%s\n' '{"decision":"INVALID","executionAdmitted":false,"reasons":["INVALID_INPUT"]}'
   exit 2

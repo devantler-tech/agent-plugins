@@ -214,6 +214,11 @@ it, the run procedure for a cost pass, the private channel a financial decision 
 cadence a cost pass runs on. Disabled or unresolved, the engineer runs normally with the **cost dimension failed
 closed** — it does no spend analysis rather than guessing a floor, a price, or a channel.
 
+An optional **Inference routing** section resolves a consumer-owned policy for task classes,
+model aliases, billing restrictions, runtime registrations, and experiments. The
+[routing contract and evaluator](resources/inference-routing.md) describe its input, output, and
+enforcement boundary. Model names belong in the consumer, never in portable agent frontmatter.
+
 The `Memory` section must also name the scorecard and open verification-hypothesis store used by the
 improvement loop. The role/configuration boundary remains the one established by
 [ADR 0002](../../docs/adr/0002-automated-ai-engineer-plugin-boundary.md): portable decision logic lives

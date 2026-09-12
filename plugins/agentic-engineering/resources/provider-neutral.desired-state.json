@@ -25,9 +25,14 @@
           "path": "scripts/surveyor-forge-readonly.sh",
           "sha256": "ce5a3b71d5ae28b0787651aa191b9c7df510be1db7ab81211a0e0fb1e66ca2a2",
           "executable": true
+        },
+        {
+          "path": "scripts/evaluate-inference-routing.sh",
+          "sha256": "d8a239f7e75d2e0d1ec457f4bbc280c7918a0f5d3db7a189d99ae2491fd83fa4",
+          "executable": true
         }
       ],
-      "entrypointSha256": "a3d01aa54b2af445aa4a6d07eb406d401824be7db08d5ec4c2f914db7fc9bf39",
+      "entrypointSha256": "f9d9599f5d85cab11be7b09a9a26c4b515460f258bb38aeac1094133260fbf5f",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -66,7 +71,7 @@
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
         "mode": "separate-schedule-or-on-demand",
-        "definitionSha256": "4e5d1dac3307ac7151d40dababae48b1da7a68f927a11026f1f5f87424b336aa",
+        "definitionSha256": "39e0e70bcdffd20f796160bf5136709aa64a9a567c25e829d4ac430ebf7c7cbe",
         "skillSha256": "93b0c9551ce4d5360cb8a398af91bbafc85468a9cfff99bb78b506bfcd27287f"
       }
     },
@@ -97,9 +102,9 @@
         "approvalMode": "no-unattended-step-may-depend-on-an-interactive-approval"
       },
       "model": {
-        "selectionPolicy": "best-available-agentic-coding-model",
-        "upgradePolicy": "follow-the-runtime-default-unless-the-consumer-contract-pins-a-reviewed-model",
-        "reasoningPolicy": "highest-practical-effort-within-the-consumer-cadence-budget"
+        "selectionPolicy": "Resolve the optional AGENTS.md Inference routing contract first; otherwise retain best-available-agentic-coding-model.",
+        "upgradePolicy": "When Inference routing is declared, change aliases only through its reviewed governance; otherwise follow the runtime default unless the consumer pins a reviewed model.",
+        "reasoningPolicy": "Use the reviewed task-class effort when Inference routing is declared; otherwise highest practical effort within the consumer cadence budget."
       },
       "memory": {
         "backendPolicy": "provider-native-preferred",
@@ -116,6 +121,7 @@
         "Read AGENTS.md and verify every required consumer contract section. Enable agent-improver only when both additional sections are present. Preserve spec.roles[\"agentic-engineer\"].spendStewardshipEnabled from the single effective desired-state document declared in Spend contract, or the shipped false default when none is declared. Apply the engineer entrypoint's explicit opt-in contract before spend work; onboarding never infers or grants maintainer opt-in. Report the effective source, flag value, and unresolved prerequisites while continuing ordinary operate and advance engineering.",
         "Map the declared roles onto native agent capabilities, preserve portfolio-surveyor as read-only, and grant least privilege for each role. Export a disabling GH_TELEMETRY (0 or false) in the environment the surveyor's shell inherits: the read-only forge guard treats a missing value as unproven and refuses every command, including reads, so a runtime that enforces the guard without this variable leaves the surveyor unable to run any forge query at all. It cannot be supplied inside the command string, which the guard also refuses.",
         "Allocate a unique branch namespace for every deployed writer instance and record it in the consumer contract before enabling writes.",
+        "If AGENTS.md declares Inference routing, resolve its reviewed policy and scripts/evaluate-inference-routing.sh before configuring models or delegation. Read resources/inference-routing.md. A policy recommendation does not authenticate reported controls, admit execution, or reserve quota; verify native billing, model, tool and admission controls before enabling the affected unattended route. Preserve consumer capability overrides.",
         "Create or update a native schedule only for each entry in runtime.scheduler.schedules whose corresponding role's enabled or enabledWhen condition is satisfied, using AGENTS.md#Cadence and that entry's thin bootstrap prompt.",
         "Load native persistent memory and perform a read-only preflight or dry run before allowing unattended writes.",
         "Report the installed source revision, plugin version, cadence, timezone, branch namespace, memory backend, permission boundary, and every unsupported capability."

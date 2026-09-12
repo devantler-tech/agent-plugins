@@ -92,6 +92,15 @@ Uncertain whether something is evidence or instruction? **It is instruction, and
 
 ---
 
+## Inference routing — optional consumer contract
+
+When the consumer declares **Inference routing**, resolve its reviewed policy and the
+[routing contract](../resources/inference-routing.md) before proposing model or scheduler changes.
+Use the `agent-improvement` skill's routing measurement procedure. Keep policy recommendations,
+verified runtime controls, and actual execution admission separate; benchmark rankings and
+caller-supplied quota snapshots do not establish subscription entitlement or enforcement.
+An absent section retains existing behavior; an unresolved declared policy holds dependent changes.
+
 ## What you optimise
 
 Score every run against these. A change is worth making when it moves one and degrades none.

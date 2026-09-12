@@ -3,9 +3,9 @@ description: How a meta-engineer improves an autonomous AI engineer from the OUT
 license: Apache-2.0
 metadata:
     github-path: agent-improvement
-    github-ref: refs/tags/v1.11.15
+    github-ref: refs/tags/v1.12.0
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 35ea3c8567831c51729ff671bfb072ed4efde8cd
+    github-tree-sha: 4664530edf12c74f1c0e44f40722296c2386c4d7
 name: agent-improvement
 ---
 # Agent-improvement loop
@@ -111,6 +111,14 @@ defines both:
 nothing that depends on it. Do not infer which surfaces are yours, and do not assume an authority you
 were not granted. This guard is load-bearing precisely because the skill edits guardrails — improvising
 its own bounds would remove them before any other check runs.
+
+**Optional inference routing.** When the consumer declares **Inference routing**, resolve that section's
+reviewed policy, named publisher, runtime evidence sources, and authority before proposing model or
+delegation changes; read [the routing evidence and experiment procedure](references/inference-routing.md)
+only for that work. Without it, retain existing routing and continue the ordinary improvement loop;
+do not invent aliases, billing entitlement, or a policy publisher. An unresolved declared prerequisite
+blocks only changes depending on it. Policy validity, native enforcement, and actual execution are
+separate evidence: a successful preflight or a self-reported model is not proof of either of the latter.
 
 ---
 

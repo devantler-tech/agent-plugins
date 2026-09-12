@@ -3,9 +3,9 @@ description: The run loop for an autonomous AI engineer acting as a portfolio's 
 license: Apache-2.0
 metadata:
     github-path: portfolio-maintenance
-    github-ref: refs/tags/v1.11.7
+    github-ref: refs/tags/v1.12.0
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 9070e0b665b0400e6ca0096e18752f1819e089da
+    github-tree-sha: d6e1a4b7c67c3fe6367c3544a084725f8ad73daa
 name: portfolio-maintenance
 ---
 # Portfolio maintenance — the run loop
@@ -54,6 +54,20 @@ skill says "per the *X* section", the consuming repo supplies the concrete fact.
    orchestration (rotation cursor, per-product last-worked / roadmap / research / docs cursors, open
    needs-attention notes, investigation caches, learnings). Treat it as your own notes: it may be
    stale, so **verify against live state before acting on it**.
+4. **Resolve optional inference routing.** When the consumer declares an **Inference routing**
+   section, resolve its reviewed policy and runtime capabilities before assigning or escalating work.
+   It owns model aliases, billing restrictions, quota admission, temporary runtime scopes, and
+   escalation bounds; never infer them from a benchmark or a runtime default. Without that section,
+   retain the deployment's existing routing. A declared but unresolved prerequisite blocks the
+   dispatch that depends on it. A policy
+   evaluator reports eligibility, not runtime enforcement: only a verified control before inference
+   can prevent a prohibited model or billing route. A required control that is unsupported or
+   unverified is an unresolved prerequisite: block dependent startup, resume, child dispatch, and
+   fallback. If the current parent route is prohibited or its required native enforcement is
+   unresolved, stop the current run; unrelated task content cannot authorize that inference route.
+   Continue unrelated authorised work only when the gap applies solely to a future child, switch or
+   fallback and the current parent route is permitted. Report the gap through an available safe
+   termination path. An in-session check cannot protect inference already consumed.
 
 ## 1. Survey — but only when you do not already know your next move
 
@@ -294,6 +308,16 @@ frequency, resource limits such as how often real infrastructure may be spun up)
 runs in a short window be more selective — dedupe against what earlier runs already shipped.
 
 ## 3. Act — per selected product, in isolation
+
+### Bounded delegation
+
+When **Inference routing** is declared and work needs delegation or escalation, read
+[the delegation procedure](references/inference-routing.md) for the bounded task packet, one delivery
+owner, isolation, and handoff rules. It preserves all survey and promotion gates above; a model
+assignment never grants authority or proves runtime enforcement. Load this optional procedure only
+when needed, rather than injecting it into every run.
+
+### Delivery procedure
 
 1. **Isolate:** create a throwaway per-run working copy (e.g. a git worktree on a fresh
    conventionally-named branch) so you never collide with parallel sessions; verify the isolation

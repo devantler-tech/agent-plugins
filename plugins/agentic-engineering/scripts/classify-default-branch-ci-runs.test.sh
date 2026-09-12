@@ -206,11 +206,14 @@ hash_file() {
 classifier_sha=$(hash_file "$CLASSIFIER")
 guard_sha=$(hash_file "$HERE/forge-readonly-guard.sh")
 wrapper_sha=$(hash_file "$HERE/surveyor-forge-readonly.sh")
+routing_sha=$(hash_file "$HERE/evaluate-inference-routing.sh")
 if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
   jq -e \
     --arg classifier_sha "$classifier_sha" \
     --arg guard_sha "$guard_sha" \
-    --arg wrapper_sha "$wrapper_sha" '
+    --arg wrapper_sha "$wrapper_sha" \
+    --arg routing_sha "$routing_sha" '
+    # The routing helper is independent of the surveyor, but shares the runtime asset pin set.
     .spec.source.requiredRuntimeAssets == [
       {
         path: "scripts/classify-default-branch-ci-runs.sh",
@@ -225,6 +228,11 @@ if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
       {
         path: "scripts/surveyor-forge-readonly.sh",
         sha256: $wrapper_sha,
+        executable: true
+      },
+      {
+        path: "scripts/evaluate-inference-routing.sh",
+        sha256: $routing_sha,
         executable: true
       }
     ]

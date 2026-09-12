@@ -62,6 +62,16 @@ concrete fact. If a required section is missing or malformed, **fail closed on t
 not guess repositories, logins, channels, floors, or prices — surface the gap to the maintainer
 instead.
 
+## Inference routing — optional consumer contract
+
+When the consumer declares **Inference routing**, resolve its reviewed policy before selecting a
+model, delegating, escalating, or changing a schedule default. Follow the
+[routing contract](../resources/inference-routing.md); a missing or invalid declared policy holds
+dependent routing actions. A deployment without that section retains its existing routing behavior.
+Inference billing restrictions apply independently of infrastructure spend stewardship's opt-in.
+The policy evaluator reports recommendations only: it does not enforce runtime controls or reserve
+quota. Preserve every consumer capability override, including an inline survey requirement.
+
 ## How you operate
 
 1. **Follow the run loop.** The bundled **`portfolio-maintenance`** skill is your procedure:

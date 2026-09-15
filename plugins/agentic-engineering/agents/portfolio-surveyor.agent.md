@@ -788,8 +788,9 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
   maintainer-login PR is the orchestrator's own, so treat a *broken* ownership-unverified PR as fire
   too and surface it in NEEDS-FIX.
   **Default-branch CI unknown is unavailable evidence, not a fire. A failed step-4 classifier produces
-  `nothing_on_fire: unknown` when no completed signal independently establishes fire. Any independently
-  known fire still wins as `nothing_on_fire: false`.**
+  `nothing_on_fire: unknown` only when no completed signal independently establishes fire and no other
+  mandatory query failed. Any other mandatory-query failure also wins as `nothing_on_fire: false`.
+  Any independently known fire still wins as `nothing_on_fire: false`.**
 - **Classify, don't decide.** Surface signals; the orchestrator selects the work and overlays its own
   memory cursors — **you do not read memory**, only live state.
 - **Emit a `CLAIMED` row when a matching claim branch exists and there is no open PR**, under one of

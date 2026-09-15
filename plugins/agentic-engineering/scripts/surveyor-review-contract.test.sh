@@ -114,6 +114,7 @@ D08|digest_rules|Apply the consumer's declared duration and timestamp source fro
 D09|digest_rules|A failed step-4 classifier produces `nothing_on_fire: unknown`
 D10|digest_rules|Any independently known fire still wins as `nothing_on_fire: false`
 D11|digest_rules|Default-branch CI unknown is unavailable evidence, not a fire
+D12|digest_rules|Any other mandatory-query failure also wins as `nothing_on_fire: false`
 CLAUSES
 }
 

@@ -237,7 +237,7 @@ cat >"$TMP/forge-bin/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 [ "$*" = 'api --paginate --slurp --method GET repos/owner/repo/actions/runs -f head_sha=1111111111111111111111111111111111111111 -f branch=main -F per_page=100' ] || exit 1
-printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}]}'
+printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"1111111111111111111111111111111111111111","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}]}'
 EOF
 chmod +x "$TMP/forge-bin/gh"
 for install_dir in "$TMP/install-v1" "$TMP/relocated plugin 'quoted' \$literal"; do

@@ -13,7 +13,7 @@
       "requiredRuntimeAssets": [
         {
           "path": "scripts/classify-default-branch-ci-runs.sh",
-          "sha256": "26d856cdb58c6eb89c6d39c7e9594eecb27513598f2f47186277cd415947cc0a",
+          "sha256": "d44070abb8a208508ee27f58f1c3c6aeaf966f6b29130a45102b66d794ab6f8f",
           "executable": true
         },
         {
@@ -66,7 +66,7 @@
       "portfolio-surveyor": {
         "enabled": true,
         "mode": "delegated-read-only",
-        "definitionSha256": "e3a88b11ceb111ffae86f250f9fd468441bad575db57c2329b191affbf756563"
+        "definitionSha256": "1a2d9891ae7e77441112d7ea777f6ae4b8c61dde49e81590cd65a7ffff6ecfda"
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",

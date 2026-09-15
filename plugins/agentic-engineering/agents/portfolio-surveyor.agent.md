@@ -525,6 +525,8 @@ All four filters are load-bearing, each against a different false positive:
 The helper preserves event, path, timestamp, and run id with each red so a deployment can route
 GitHub-managed runs without rejoining the original payload. **Always name the judged sha** so the
 claim is falsifiable, and fail closed on any helper error (report `unknown`, never a silent green).
+When the classifier exits 2, emit only `QUERY-UNKNOWN step-4-classifier`; do not issue substitute in-band forge reads,
+and do not derive `nothing_on_fire` from that unknown result.
 
 ### 5. Triage, stale, and advance signals
 

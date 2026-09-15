@@ -67,6 +67,28 @@ STUB
   fi
 }
 
+expect_remote_head_mismatch() {
+  local stub_dir="$TEST_TMP/mismatched-head-bin" out status=0
+  mkdir -p "$stub_dir"
+  cat >"$stub_dir/gh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/stale-fail","name":"CI"}]}'
+STUB
+  chmod +x "$stub_dir/gh"
+  out=$(PATH="$stub_dir:$PATH" "$CLASSIFIER" \
+    --repo devantler-tech/example \
+    --branch main \
+    --head-sha 0123456789abcdef0123456789abcdef01234567 \
+    2>"$TEST_TMP/stderr") || status=$?
+  if [ "$status" -eq 2 ] && [ -z "$out" ]; then
+    pass=$((pass + 1))
+  else
+    record_failure 'a remote run from a different head cannot be reported as current breakage'
+    printf '      expected exit 2 and empty stdout, got exit %s and output: %s\n' \
+      "$status" "$out" >&2
+  fi
+}
+
 if [ ! -x "$CLASSIFIER" ]; then
   printf 'FAIL  classifier is missing or not executable: %s\n' "$CLASSIFIER" >&2
   exit 1
@@ -174,6 +196,7 @@ expect_error \
   ]}'
 
 expect_remote_failure
+expect_remote_head_mismatch
 
 if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
   grep -Fq 'Do not reimplement the helper' "$SURVEYOR" &&
@@ -182,6 +205,14 @@ if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
   pass=$((pass + 1))
 else
   record_failure 'generic surveyor delegates fail-closed classification to the shipped helper'
+fi
+
+if grep -Fq "emit only \`QUERY-UNKNOWN step-4-classifier\`" "$SURVEYOR" &&
+  grep -Fq 'do not issue substitute in-band forge reads' "$SURVEYOR" &&
+  grep -Fq "do not derive \`nothing_on_fire\` from that unknown result" "$SURVEYOR"; then
+  pass=$((pass + 1))
+else
+  record_failure 'classifier failure yields only query-unknown and no substitute CI verdict'
 fi
 
 if grep -Fq 'event=<event>, path=<path>, created=<created_at>, run=<run_id>' "$SURVEYOR"; then

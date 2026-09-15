@@ -102,6 +102,7 @@ P01|pagination|if a result set reaches it, paginate or raise it and say so, rath
 T01|reporting|**A bare `none` is never emittable**
 T02|reporting|**Per-lane, never combined:** an aggregate count lets one lane's stale artifact mask another lane's missed one
 T03|reporting|`usage-limit` is the spend-exhausted reason — distinct from `rate-limit` because it states no window and only the maintainer can lift it
+T04|digest_budget|nothing_on_fire: <true|false|unknown>
 D01|digest_budget|budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHAUSTED_AT_START]
 D02|digest_operate|lane_signal=<lane>:<rate-limit|usage-limit|error>@<UTC time>
 D03|digest_advance|CLAIMED: assignee=<login>|none(<lane>), claim-branch=<name>, no open PR
@@ -110,6 +111,10 @@ D05|digest_rules|Any mandatory query — enumeration, pagination, or a review-su
 D06|digest_rules|An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`, `REVIEW-READY`, or "no signal"
 D07|digest_rules|**(2) Lanes that cannot assign:** the branch alone is enough
 D08|digest_rules|Apply the consumer's declared duration and timestamp source from step 2 before using it as selection skip evidence
+D09|digest_rules|A failed step-4 classifier produces `nothing_on_fire: unknown`
+D10|digest_rules|Any independently known fire still wins as `nothing_on_fire: false`
+D11|digest_rules|Default-branch CI unknown is unavailable evidence, not a fire
+D12|digest_rules|Any other mandatory-query failure also wins as `nothing_on_fire: false`
 CLAUSES
 }
 

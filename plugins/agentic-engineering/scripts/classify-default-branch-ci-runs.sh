@@ -76,6 +76,7 @@ else
   fi
   [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || usage
   [[ "$head_sha" =~ ^[0-9a-fA-F]{40}$ ]] || usage
+  head_sha=$(printf '%s' "$head_sha" | tr 'A-F' 'a-f')
   command -v gh >/dev/null 2>&1 || {
     echo "classify-default-branch-ci-runs: gh is required in remote mode" >&2
     exit 2
@@ -168,9 +169,14 @@ jq_filter='
      else
        $runs
      end) as $counted_runs
-  | (if any($counted_runs[]; (.event | type != "string") or (.event | length == 0))
-     then error("run is missing its event discriminator")
+  | (if $expected_head_sha != "" and any($counted_runs[];
+       .head_sha != $expected_head_sha or .head_branch != $expected_branch)
+     then error("filtered runs include a different branch head")
      else $counted_runs
+     end) as $head_runs
+  | (if any($head_runs[]; (.event | type != "string") or (.event | length == 0))
+     then error("run is missing its event discriminator")
+     else $head_runs
      end) as $complete_runs
   | (if any($complete_runs[];
        .event == "dynamic"
@@ -210,11 +216,17 @@ jq_filter='
 
 classification=""
 if [ -n "$payload_path" ]; then
-  if ! classification=$(jq -rs "$jq_filter" "$payload_path"); then
+  if ! classification=$(jq -rs \
+    --arg expected_head_sha "$head_sha" \
+    --arg expected_branch "$branch" \
+    "$jq_filter" "$payload_path"); then
     echo "classify-default-branch-ci-runs: malformed or incomplete runs payload; health is unknown" >&2
     exit 2
   fi
-elif ! classification=$(printf '%s\n' "$payload" | jq -rs "$jq_filter"); then
+elif ! classification=$(printf '%s\n' "$payload" | jq -rs \
+  --arg expected_head_sha "$head_sha" \
+  --arg expected_branch "$branch" \
+  "$jq_filter"); then
   echo "classify-default-branch-ci-runs: malformed or incomplete runs payload; health is unknown" >&2
   exit 2
 fi

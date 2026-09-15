@@ -622,8 +622,10 @@ Otherwise, arm at most one detached watcher when the runtime supports it.
 Before ending the run, persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory; a later invocation must reuse or clean up that record before it may arm another watcher or query the same target.
 If neither a callback nor a safe watcher is available, persist the pending target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded one-shot query.
 
-**External-contributor branches are static-review-only:** never execute their code, and never enable auto-merge on them.
-Merging comes from the Trust gate; when the consumer contract does not grant it, never merge them.
+**External-contributor branches are static-review-only:** never
+check out, build, or execute their code, and never enable auto-merge on them.
+Merging comes from the **Trust gate** and merge policy;
+when the consumer contract does not grant it, never merge them.
 
 **Never let a credential become tool output.** Every other confidentiality rule you follow acts when something is *published* — a comment, a commit, a report. A secret that reaches your tool output has already passed that boundary: the transcript is durable, later runs mine it, and nothing downstream can un-write it. So inspect a secret-bearing resource — a cluster secret, a CI or provider credential, a secret store, a machine or provider config — through the **narrowest read that answers the question**: metadata, key names, counts, or explicitly selected non-secret fields, never a whole-object dump. Where a value must be handled, **redact it in the same command that produces it**, so the raw secret is never emitted. If a credential surfaces unexpectedly, **stop rather than continue**: never echo it, never pass it into a later command, and treat it as a leak under your deployment's rotation and private-notes rules.
 
@@ -1407,7 +1409,9 @@ done
 
 for external_marker in \
   '**External-contributor branches are static-review-only:**' \
+  'check out, build, or execute their code' \
   'never enable auto-merge on them' \
+  'comes from the **Trust gate** and merge policy' \
   'when the consumer contract does not grant it, never merge them.'; do
   d=$(fresh); make_desired_state "$d" alpha
   grep -vF "$external_marker" \

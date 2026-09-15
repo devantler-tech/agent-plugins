@@ -991,7 +991,9 @@ validate_desired_state_resources() {
     # deployment decision that fails closed when the consumer contract does not grant it.
     for external_marker in \
       '**External-contributor branches are static-review-only:**' \
+      'check out, build, or execute their code' \
       'never enable auto-merge on them' \
+      'comes from the **Trust gate** and merge policy' \
       'when the consumer contract does not grant it, never merge them.'; do
       if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
         || ! grep -qF "$external_marker" "$plugin_dir/agents/$entrypoint.agent.md"; then

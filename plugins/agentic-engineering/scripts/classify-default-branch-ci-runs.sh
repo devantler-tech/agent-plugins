@@ -76,6 +76,7 @@ else
   fi
   [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || usage
   [[ "$head_sha" =~ ^[0-9a-fA-F]{40}$ ]] || usage
+  head_sha=$(printf '%s' "$head_sha" | tr 'A-F' 'a-f')
   command -v gh >/dev/null 2>&1 || {
     echo "classify-default-branch-ci-runs: gh is required in remote mode" >&2
     exit 2

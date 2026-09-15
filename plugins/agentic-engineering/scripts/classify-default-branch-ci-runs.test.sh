@@ -113,6 +113,29 @@ STUB
   fi
 }
 
+expect_remote_mixed_case_head() {
+  local stub_dir="$TEST_TMP/mixed-case-head-bin" out status=0
+  local expected=$'11\tfailure\thttps://example.test/current-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t10'
+  mkdir -p "$stub_dir"
+  cat >"$stub_dir/gh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/current-fail","name":"CI"}]}'
+STUB
+  chmod +x "$stub_dir/gh"
+  out=$(PATH="$stub_dir:$PATH" "$CLASSIFIER" \
+    --repo devantler-tech/example \
+    --branch main \
+    --head-sha ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD \
+    2>"$TEST_TMP/stderr") || status=$?
+  if [ "$status" -eq 0 ] && [ "$out" = "$expected" ]; then
+    pass=$((pass + 1))
+  else
+    record_failure 'an accepted mixed-case SHA matches GitHub canonical lowercase output'
+    printf '      expected exit 0 and output: %s; got exit %s and output: %s\n' \
+      "$expected" "$status" "$out" >&2
+  fi
+}
+
 check_surveyor_fail_closed_contract() {
   local source=$1 section requirement missing=0
   section=$(awk '
@@ -129,7 +152,7 @@ check_surveyor_fail_closed_contract() {
   done <<'REQUIREMENTS'
 emit only `QUERY-UNKNOWN step-4-classifier`
 do not issue substitute in-band forge reads
-do not derive `nothing_on_fire` from that unknown result
+do not derive `nothing_on_fire: false` from that unknown result
 REQUIREMENTS
   return "$missing"
 }
@@ -155,7 +178,7 @@ expect_surveyor_contract_ablation() {
   done <<'REQUIREMENTS'
 emit only `QUERY-UNKNOWN step-4-classifier`
 do not issue substitute in-band forge reads
-do not derive `nothing_on_fire` from that unknown result
+do not derive `nothing_on_fire: false` from that unknown result
 REQUIREMENTS
 }
 
@@ -268,6 +291,7 @@ expect_error \
 expect_remote_failure
 expect_remote_head_mismatch
 expect_remote_branch_mismatch
+expect_remote_mixed_case_head
 
 if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
   grep -Fq 'Do not reimplement the helper' "$SURVEYOR" &&

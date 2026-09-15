@@ -526,7 +526,7 @@ The helper preserves event, path, timestamp, and run id with each red so a deplo
 GitHub-managed runs without rejoining the original payload. **Always name the judged sha** so the
 claim is falsifiable, and fail closed on any helper error (report `unknown`, never a silent green).
 When the classifier exits 2, emit only `QUERY-UNKNOWN step-4-classifier`; do not issue substitute in-band forge reads,
-and do not derive `nothing_on_fire` from that unknown result.
+and do not derive `nothing_on_fire: false` from that unknown result.
 
 ### 5. Triage, stale, and advance signals
 
@@ -737,7 +737,7 @@ Markdown; **omit repositories with no signal entirely** (don't echo empty lists)
 
 ```
 ## Survey digest — <UTC date>
-nothing_on_fire: <true|false>   # true only if NO CI red on a default branch AND no actionable own/trusted OR ownership-unverified PR is broken AND no mandatory query failed
+nothing_on_fire: <true|false|unknown>   # false for a known fire or another mandatory-query failure; unknown for step-4 classifier failure without a known fire; otherwise true only after complete clean evidence
 budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHAUSTED_AT_START]
 # or, when the probe fails: budget: unavailable:<reason>
 
@@ -787,6 +787,9 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
   ownership-unverified** PR is broken — since you are memory-blind you cannot confirm a
   maintainer-login PR is the orchestrator's own, so treat a *broken* ownership-unverified PR as fire
   too and surface it in NEEDS-FIX.
+  **Default-branch CI unknown is unavailable evidence, not a fire. A failed step-4 classifier produces
+  `nothing_on_fire: unknown` when no completed signal independently establishes fire. Any independently
+  known fire still wins as `nothing_on_fire: false`.**
 - **Classify, don't decide.** Surface signals; the orchestrator selects the work and overlays its own
   memory cursors — **you do not read memory**, only live state.
 - **Emit a `CLAIMED` row when a matching claim branch exists and there is no open PR**, under one of

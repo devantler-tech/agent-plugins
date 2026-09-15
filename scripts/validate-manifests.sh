@@ -987,6 +987,22 @@ validate_desired_state_resources() {
       fi
     done
 
+    # Never executing an external branch is unconditional, while whether its PR may be merged is a
+    # deployment decision that fails closed when the consumer contract does not grant it.
+    for external_marker in \
+      '**External-contributor branches are static-review-only:**' \
+      'check out, build, or execute their code' \
+      'never enable auto-merge on them' \
+      'comes from the **Trust gate** and merge policy' \
+      'when the consumer contract does not grant it, never merge them.'; do
+      if [ ! -f "$plugin_dir/agents/$entrypoint.agent.md" ] \
+        || ! grep -qF "$external_marker" "$plugin_dir/agents/$entrypoint.agent.md"; then
+        echo "::error::$resource: agentic-engineer must resolve external-PR merging from the deployment, missing: $external_marker"
+        failed=1
+        resource_failed=1
+      fi
+    done
+
     remote_wait_contract="**Bounded one-shot remote reads or mutations are allowed. Never foreground-poll remote state, and never wait on it through a foreground retry or sleep loop.** For CI, review, merge, or deploy state that needs later collection, prefer a supported completion callback. Otherwise, arm at most one detached watcher when the runtime supports it. Before ending the run, persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory; a later invocation must reuse or clean up that record before it may arm another watcher or query the same target. If neither a callback nor a safe watcher is available, persist the pending target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded one-shot query."
     if [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
       normalized_agent="$(

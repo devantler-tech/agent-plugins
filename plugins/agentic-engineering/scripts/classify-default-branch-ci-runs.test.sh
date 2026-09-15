@@ -80,13 +80,83 @@ STUB
     --branch main \
     --head-sha 0123456789abcdef0123456789abcdef01234567 \
     2>"$TEST_TMP/stderr") || status=$?
-  if [ "$status" -eq 2 ] && [ -z "$out" ]; then
+  if [ "$status" -eq 2 ] && [ -z "$out" ] &&
+    ! grep -Fq 'CI red' <<<"$out" &&
+    ! grep -Fq 'nothing_on_fire: false' <<<"$out"; then
     pass=$((pass + 1))
   else
-    record_failure 'a remote run from a different head cannot be reported as current breakage'
+    record_failure 'a superseded-head fixture yields no CI red row or negative fire verdict'
     printf '      expected exit 2 and empty stdout, got exit %s and output: %s\n' \
       "$status" "$out" >&2
   fi
+}
+
+expect_remote_branch_mismatch() {
+  local stub_dir="$TEST_TMP/mismatched-branch-bin" out status=0
+  mkdir -p "$stub_dir"
+  cat >"$stub_dir/gh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","head_branch":"release","head_sha":"0123456789abcdef0123456789abcdef01234567","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/wrong-branch-fail","name":"CI"}]}'
+STUB
+  chmod +x "$stub_dir/gh"
+  out=$(PATH="$stub_dir:$PATH" "$CLASSIFIER" \
+    --repo devantler-tech/example \
+    --branch main \
+    --head-sha 0123456789abcdef0123456789abcdef01234567 \
+    2>"$TEST_TMP/stderr") || status=$?
+  if [ "$status" -eq 2 ] && [ -z "$out" ]; then
+    pass=$((pass + 1))
+  else
+    record_failure 'a remote run from a different branch cannot be reported as current breakage'
+    printf '      expected exit 2 and empty stdout, got exit %s and output: %s\n' \
+      "$status" "$out" >&2
+  fi
+}
+
+check_surveyor_fail_closed_contract() {
+  local source=$1 section requirement missing=0
+  section=$(awk '
+    /^### 4\. CI red on the default branch/ { inside = 1 }
+    /^### 5\./ { inside = 0 }
+    inside { print }
+  ' "$source")
+  [ -n "$section" ] || return 1
+
+  while IFS= read -r requirement; do
+    if ! grep -Fq -- "$requirement" <<<"$section"; then
+      missing=1
+    fi
+  done <<'REQUIREMENTS'
+emit only `QUERY-UNKNOWN step-4-classifier`
+do not issue substitute in-band forge reads
+do not derive `nothing_on_fire` from that unknown result
+REQUIREMENTS
+  return "$missing"
+}
+
+expect_surveyor_contract_ablation() {
+  local requirement mutant="$TEST_TMP/pre-fix-agent.md"
+  if check_surveyor_fail_closed_contract "$SURVEYOR"; then
+    pass=$((pass + 1))
+  else
+    record_failure 'classifier failure yields only query-unknown and no substitute CI verdict'
+  fi
+
+  while IFS= read -r requirement; do
+    awk -v requirement="$requirement" '
+      { line = $0; sub(requirement, "", line); print line }
+      END { print "\n## Non-operative example\n" requirement }
+    ' "$SURVEYOR" >"$mutant"
+    if check_surveyor_fail_closed_contract "$mutant"; then
+      record_failure "pre-fix agent text without contract was accepted: $requirement"
+    else
+      pass=$((pass + 1))
+    fi
+  done <<'REQUIREMENTS'
+emit only `QUERY-UNKNOWN step-4-classifier`
+do not issue substitute in-band forge reads
+do not derive `nothing_on_fire` from that unknown result
+REQUIREMENTS
 }
 
 if [ ! -x "$CLASSIFIER" ]; then
@@ -197,6 +267,7 @@ expect_error \
 
 expect_remote_failure
 expect_remote_head_mismatch
+expect_remote_branch_mismatch
 
 if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
   grep -Fq 'Do not reimplement the helper' "$SURVEYOR" &&
@@ -207,13 +278,7 @@ else
   record_failure 'generic surveyor delegates fail-closed classification to the shipped helper'
 fi
 
-if grep -Fq "emit only \`QUERY-UNKNOWN step-4-classifier\`" "$SURVEYOR" &&
-  grep -Fq 'do not issue substitute in-band forge reads' "$SURVEYOR" &&
-  grep -Fq "do not derive \`nothing_on_fire\` from that unknown result" "$SURVEYOR"; then
-  pass=$((pass + 1))
-else
-  record_failure 'classifier failure yields only query-unknown and no substitute CI verdict'
-fi
+expect_surveyor_contract_ablation
 
 if grep -Fq 'event=<event>, path=<path>, created=<created_at>, run=<run_id>' "$SURVEYOR"; then
   pass=$((pass + 1))

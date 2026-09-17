@@ -22,6 +22,7 @@ scope() {
     claims) START='### 2. Claim branches'; END='### 3. Short-circuit' ;;
     automation) START='### 3. Short-circuit'; END='### 3a. Maintainer-login' ;;
     hygiene) START='### 3b. Hygiene pentad'; END='### 3c. (e) Green-review' ;;
+    green_review) START='### 3c. (e) Green-review'; END='**Connector lane.**' ;;
     connector) START='**Connector lane.**'; END='**Check-run lane.**' ;;
     check_run) START='**Check-run lane.**'; END=$'**`self@<sha>`**' ;;
     exemption) START='### 3d. Programmed-bot'; END='### 3e. Review coordination' ;;
@@ -79,6 +80,7 @@ H06|hygiene|A red check-run whose workflow run has `event: dynamic` **and** a `p
 H07|hygiene|A managed run that cannot be joined to its run record counts as an ordinary `failing:X` (fail closed)
 H08|hygiene|When a PR carries both classes, report `failing:X+managed-failing:Y`
 H09|hygiene|there is no ordinary failing check (a `managed-failing` check alone does not count)
+G01|green_review|at the current head** on top of no ordinary failing check
 R01|connector|require its API author to exactly match the reviewer App/login that the **Trust gate** assigns to this lane
 R02|connector|test whether the **head starts with** the extracted sha — never full-length string equality
 R03|connector|Require at least a 10-character prefix

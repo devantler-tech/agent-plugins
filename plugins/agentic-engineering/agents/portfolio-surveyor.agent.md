@@ -236,7 +236,15 @@ the PR may be driven.
 For every open actionable maintainer-login/trusted-bot PR — **drafts and gated/parked PRs
 included**, automation-owned dependency PRs excluded — report:
 
-- **(a) failing checks**
+- **(a) failing checks.** A red check-run whose workflow run has `event: dynamic` **and** a `path` under `dynamic/` is GitHub-managed: report it as `managed-failing:X`, never as `failing:X`.
+  No workflow file exists in the repository to fix, and GitHub refuses to re-run it, so counting it
+  as an ordinary red sends the orchestrator to repair something it cannot touch. Identify the class
+  by that property, never by a path list: default-setup code scanning and dependency-update jobs are
+  today's examples, not the whole set. Join each red check-run to its run through the run id in its
+  details URL (`repos/<owner>/<repo>/actions/runs/<id>`) and read `event` and `path` there.
+  A managed run that cannot be joined to its run record counts as an ordinary `failing:X` (fail closed).
+  `managed-failing` alone never makes a PR `NEEDS-FIX`, but it is not green either: keep reporting
+  `mergeState`, so a managed check that a ruleset requires still visibly blocks the merge.
 - **(b) unresolved review threads.** Count all unresolved threads across **all pages**, regardless of
   author; paginate until exhausted.
 - **(c) non-thread review findings.** Some reviewers emit findings that never become resolvable
@@ -750,7 +758,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - REPO-SET-DRIFT — live set vs Portfolio map: new=<repos> · missing/renamed=<repos> · map-drift=<product rows missing/renamed live> → orchestrator reconciles (archived-marked rows exempt)
 - <repo>: CI red on <default-branch> @<sha> — <check name> <conclusion> (<run url>), event=<event>, path=<path>, created=<created_at>, run=<run_id>   # judged at that branch's current head; routing fields come directly from the classifier; omit the repo when green
 - <repo> #<n> "<title>" — <exact bot identity> → AUTOMATION-OWNED (NO-ACTION)
-- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X>, unresolved=<n>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
+- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X>, unresolved=<n>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> (trusted bot, non-draft) — pentad: <same fields> → MERGE-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<routine|interactive|none>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
 - <repo>: untriaged → issues #a,#b · PRs #c   |   stale (>14d) → #d

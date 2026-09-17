@@ -75,6 +75,8 @@ H02|hygiene|**Count ONLY the newest actual review** from that reviewer
 H03|hygiene|Select the newest by the reviews endpoint's **submission timestamp** — not an `updated_at` field
 H04|hygiene|a newest review with none means findings are cleared (`body_findings=0`); never fall back to an older review that still had sections
 H05|hygiene|report `body_findings=<n>-stale@<sha>` so the orchestrator re-verifies at head rather than treating it as open
+H06|hygiene|A red check-run whose workflow run has `event: dynamic` **and** a `path` under `dynamic/` is GitHub-managed: report it as `managed-failing:X`, never as `failing:X`
+H07|hygiene|A managed run that cannot be joined to its run record counts as an ordinary `failing:X` (fail closed)
 R01|connector|require its API author to exactly match the reviewer App/login that the **Trust gate** assigns to this lane
 R02|connector|test whether the **head starts with** the extracted sha — never full-length string equality
 R03|connector|Require at least a 10-character prefix

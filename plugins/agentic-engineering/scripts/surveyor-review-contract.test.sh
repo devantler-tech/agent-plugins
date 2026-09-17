@@ -22,6 +22,7 @@ scope() {
     claims) START='### 2. Claim branches'; END='### 3. Short-circuit' ;;
     automation) START='### 3. Short-circuit'; END='### 3a. Maintainer-login' ;;
     hygiene) START='### 3b. Hygiene pentad'; END='### 3c. (e) Green-review' ;;
+    green_review) START='### 3c. (e) Green-review'; END='**Connector lane.**' ;;
     connector) START='**Connector lane.**'; END='**Check-run lane.**' ;;
     check_run) START='**Check-run lane.**'; END=$'**`self@<sha>`**' ;;
     exemption) START='### 3d. Programmed-bot'; END='### 3e. Review coordination' ;;
@@ -75,6 +76,14 @@ H02|hygiene|**Count ONLY the newest actual review** from that reviewer
 H03|hygiene|Select the newest by the reviews endpoint's **submission timestamp** — not an `updated_at` field
 H04|hygiene|a newest review with none means findings are cleared (`body_findings=0`); never fall back to an older review that still had sections
 H05|hygiene|report `body_findings=<n>-stale@<sha>` so the orchestrator re-verifies at head rather than treating it as open
+H06|hygiene|A red check-run whose workflow run has `event: dynamic` **and** a `path` under `dynamic/` is GitHub-managed: report it as `managed-failing:X`, never as `failing:X`
+H07|hygiene|A managed run that cannot be joined to its run record counts as an ordinary `failing:X` (fail closed)
+H08|hygiene|When a PR carries both classes, report `failing:X+managed-failing:Y`
+H09|hygiene|there is no ordinary failing check (a `managed-failing` check alone does not count)
+H10|hygiene|`managed-failing` alone never makes a PR `NEEDS-FIX`
+H11|hygiene|keep reporting `mergeState`, so a managed check that a ruleset requires still visibly blocks the merge
+H12|hygiene|it is `NEEDS-FIX` because of its ordinary failures
+G01|green_review|**≥1 green review at the current head** on top of no ordinary failing check
 R01|connector|require its API author to exactly match the reviewer App/login that the **Trust gate** assigns to this lane
 R02|connector|test whether the **head starts with** the extracted sha — never full-length string equality
 R03|connector|Require at least a 10-character prefix
@@ -105,6 +114,7 @@ T03|reporting|`usage-limit` is the spend-exhausted reason — distinct from `rat
 T04|digest_budget|nothing_on_fire: <true|false|unknown>
 D01|digest_budget|budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHAUSTED_AT_START]
 D02|digest_operate|lane_signal=<lane>:<rate-limit|usage-limit|error>@<UTC time>
+D13|digest_operate|checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>
 D03|digest_advance|CLAIMED: assignee=<login>|none(<lane>), claim-branch=<name>, no open PR
 D04|digest_rules|**Always emit the `budget:` line.**
 D05|digest_rules|Any mandatory query — enumeration, pagination, or a review-surface query — that remains failed after the bounded split recovery contract makes its affected candidates incomplete

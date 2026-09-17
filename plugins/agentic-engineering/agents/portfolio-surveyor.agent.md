@@ -245,6 +245,8 @@ included**, automation-owned dependency PRs excluded — report:
   A managed run that cannot be joined to its run record counts as an ordinary `failing:X` (fail closed).
   `managed-failing` alone never makes a PR `NEEDS-FIX`, but it is not green either: keep reporting
   `mergeState`, so a managed check that a ruleset requires still visibly blocks the merge.
+  When a PR carries both classes, report `failing:X+managed-failing:Y`; it is `NEEDS-FIX` because of
+  its ordinary failures.
 - **(b) unresolved review threads.** Count all unresolved threads across **all pages**, regardless of
   author; paginate until exhausted.
 - **(c) non-thread review findings.** Some reviewers emit findings that never become resolvable
@@ -276,13 +278,14 @@ included**, automation-owned dependency PRs excluded — report:
 - **(d) merge conflicts / behind-base state.**
 - **(e) green-review state** — see below.
 
-A PR is review-ready only when current-head body findings **and** unresolved threads are 0, checks
-are green, it is not conflicting, and it carries ≥1 green review.
+A PR is review-ready only when current-head body findings **and** unresolved threads are 0,
+there is no ordinary failing check (a `managed-failing` check alone does not count), it is not
+conflicting, and it carries ≥1 green review. `mergeState` stays an independent merge gate.
 
 ### 3c. (e) Green-review state — three lanes, three different surfaces
 
 No actionable PR is promotion- or merge-ready without **≥1 green review at the current head** on top
-of green CI; **one successful current-head review from any single provider completes the gate.**
+of no ordinary failing check; **one successful current-head review from any single provider completes the gate.**
 
 **Each lane publishes its green on a DIFFERENT surface — check the right one per lane, or a
 perfectly good green reads as "no review".**
@@ -758,7 +761,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - REPO-SET-DRIFT — live set vs Portfolio map: new=<repos> · missing/renamed=<repos> · map-drift=<product rows missing/renamed live> → orchestrator reconciles (archived-marked rows exempt)
 - <repo>: CI red on <default-branch> @<sha> — <check name> <conclusion> (<run url>), event=<event>, path=<path>, created=<created_at>, run=<run_id>   # judged at that branch's current head; routing fields come directly from the classifier; omit the repo when green
 - <repo> #<n> "<title>" — <exact bot identity> → AUTOMATION-OWNED (NO-ACTION)
-- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X>, unresolved=<n>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
+- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>, unresolved=<n>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> (trusted bot, non-draft) — pentad: <same fields> → MERGE-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<routine|interactive|none>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
 - <repo>: untriaged → issues #a,#b · PRs #c   |   stale (>14d) → #d

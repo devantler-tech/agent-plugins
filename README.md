@@ -15,7 +15,7 @@ Using another tool? Follow the [VS Code](docs/installation.md#vs-code), [Copilot
 
 ## Choose a bundle
 
-Browse the [full plugin catalogue](docs/plugins.md) for GitHub workflows, Kubernetes operations, Go development, frontend design, engineering practices, autonomous engineering, and building by conversation.
+Browse the [full plugin catalogue](docs/plugins.md) for GitHub workflows, Kubernetes operations, KSail cluster tooling, Go development, frontend design, engineering practices, autonomous engineering, and building by conversation.
 
 The [autonomous engineering setup](plugins/agentic-engineering/README.md) explains how to configure the engineer, surveyor, and improver for your repositories. The [server and agent guide](docs/resources.md) covers bundled connections, prerequisites, and specialist roles.
 

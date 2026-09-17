@@ -1,0 +1,26 @@
+{
+  "name": "ksail",
+  "description": "KSail CLI expertise and MCP server — create and operate Kubernetes clusters (Kind, K3d, Talos, vCluster, KWOK, EKS) and GitOps workloads declaratively",
+  "version": "1.0.0",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "license": "PolyForm-Shield-1.0.0",
+  "homepage": "https://ksail.devantler.tech",
+  "repository": "https://github.com/devantler-tech/ksail",
+  "keywords": [
+    "kubernetes",
+    "k8s",
+    "gitops",
+    "ksail",
+    "kind",
+    "k3d",
+    "talos",
+    "vcluster",
+    "eks",
+    "flux",
+    "argocd",
+    "mcp"
+  ]
+}

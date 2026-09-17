@@ -80,6 +80,9 @@ H06|hygiene|A red check-run whose workflow run has `event: dynamic` **and** a `p
 H07|hygiene|A managed run that cannot be joined to its run record counts as an ordinary `failing:X` (fail closed)
 H08|hygiene|When a PR carries both classes, report `failing:X+managed-failing:Y`
 H09|hygiene|there is no ordinary failing check (a `managed-failing` check alone does not count)
+H10|hygiene|`managed-failing` alone never makes a PR `NEEDS-FIX`
+H11|hygiene|keep reporting `mergeState`, so a managed check that a ruleset requires still visibly blocks the merge
+H12|hygiene|it is `NEEDS-FIX` because of its ordinary failures
 G01|green_review|at the current head** on top of no ordinary failing check
 R01|connector|require its API author to exactly match the reviewer App/login that the **Trust gate** assigns to this lane
 R02|connector|test whether the **head starts with** the extracted sha — never full-length string equality

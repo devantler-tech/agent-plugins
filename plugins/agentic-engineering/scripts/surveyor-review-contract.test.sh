@@ -114,6 +114,7 @@ T03|reporting|`usage-limit` is the spend-exhausted reason — distinct from `rat
 T04|digest_budget|nothing_on_fire: <true|false|unknown>
 D01|digest_budget|budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHAUSTED_AT_START]
 D02|digest_operate|lane_signal=<lane>:<rate-limit|usage-limit|error>@<UTC time>
+D13|digest_operate|checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>
 D03|digest_advance|CLAIMED: assignee=<login>|none(<lane>), claim-branch=<name>, no open PR
 D04|digest_rules|**Always emit the `budget:` line.**
 D05|digest_rules|Any mandatory query — enumeration, pagination, or a review-surface query — that remains failed after the bounded split recovery contract makes its affected candidates incomplete

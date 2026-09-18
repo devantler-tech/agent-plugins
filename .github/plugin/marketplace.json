@@ -53,6 +53,12 @@
       "description": "Build a product by conversation alone — a plain-language build companion agent plus skills for needs-to-stack translation, an allowed-stack guardrail, and a jargon-free voice; for people with no technical background",
       "version": "1.0.0",
       "source": "./plugins/vibe-coding"
+    },
+    {
+      "name": "ksail",
+      "description": "KSail CLI expertise and MCP server — create and operate Kubernetes clusters (Kind, K3d, Talos, vCluster, KWOK, EKS) and GitOps workloads declaratively",
+      "version": "1.0.0",
+      "source": "./plugins/ksail"
     }
   ]
 }

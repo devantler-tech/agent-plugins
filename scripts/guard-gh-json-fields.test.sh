@@ -97,7 +97,26 @@ mkdir -p "${dir}/plugins/p/skills/s/references"
 printf '%s\n' '`gh pr view <n> --json state,merged`' > "${dir}/plugins/p/skills/s/references/r.md"
 expect 1 "a nested skill reference file" "${dir}"
 
-# Fail closed: an unparseable JSON surface, no plugins directory, no surfaces, no lists.
+# A file name containing a newline is still ONE surface: split in two, neither half exists and the
+# bad request inside would go unread.
+dir="$(fixture bad-newline-name)"
+printf '%s\n' '`gh pr view <n> --json state,merged`' > "${dir}/plugins/p/agents/odd"$'\n'"name.md"
+expect 1 "a bad request in a file whose name contains a newline" "${dir}"
+
+dir="$(fixture good-newline-name)"
+printf '%s\n' '`gh pr view <n> --json state,mergedAt`' > "${dir}/plugins/p/agents/odd"$'\n'"name.md"
+expect 0 "a valid request in a file whose name contains a newline" "${dir}"
+
+# Fail closed: an unreadable surface, an unparseable JSON surface, no plugins directory, no
+# surfaces, no lists. (The unreadable case is skipped when running as root, which can read anything.)
+if [ "$(id -u)" -ne 0 ]; then
+  dir="$(fixture unknown-unreadable)"
+  printf '%s\n' '`gh pr view <n> --json state,merged`' > "${dir}/plugins/p/agents/locked.md"
+  chmod 000 "${dir}/plugins/p/agents/locked.md"
+  expect 2 "an unreadable surface is UNKNOWN, not clean" "${dir}"
+  chmod 600 "${dir}/plugins/p/agents/locked.md"
+fi
+
 dir="$(fixture unknown-bad-json)"
 printf '%s\n' '{"prompt": "gh pr view --json state,merged"' > "${dir}/plugins/p/plugin.json"
 expect 2 "unparseable JSON is UNKNOWN, not clean" "${dir}"

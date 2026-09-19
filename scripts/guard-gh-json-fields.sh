@@ -70,13 +70,20 @@ bad_lists_in() {
 
 [ -d "${root}/plugins" ] || unknown "no plugins/ directory under ${root}"
 
-surfaces="$(find "${root}/plugins" -type f \( -name '*.md' -o -name '*.json' \) | LC_ALL=C sort)"
-[ -n "${surfaces}" ] || unknown "found no *.md or *.json under ${root}/plugins"
+# NUL-delimited, so a file name containing a newline stays one surface instead of two that do not
+# exist (and so would be skipped as empty).
+surfaces=()
+while IFS= read -r -d '' f; do surfaces+=("$f"); done < <(
+  find "${root}/plugins" -type f \( -name '*.md' -o -name '*.json' \) -print0 | LC_ALL=C sort -z
+)
+[ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md or *.json under ${root}/plugins"
 
 scanned=0
 lists=0
 offenders=""
-while IFS= read -r surface; do
+for surface in "${surfaces[@]}"; do
+  # An unreadable surface would decode to nothing and read as clean, so it is UNKNOWN instead.
+  [ -r "${surface}" ] || unknown "${surface#"${root}/"} cannot be read, so any field it prescribes would go unseen"
   case "${surface}" in
     *.json) jq empty "${surface}" >/dev/null 2>&1 ||
               unknown "${surface#"${root}/"} does not parse, so any field it prescribes would go unseen" ;;
@@ -86,9 +93,7 @@ while IFS= read -r surface; do
   while IFS= read -r bad; do
     [ -n "${bad}" ] && offenders="${offenders}  ${surface#"${root}/"}: ${bad}"$'\n'
   done < <(bad_lists_in "${surface}")
-done <<EOF
-${surfaces}
-EOF
+done
 
 [ "${lists}" -gt 0 ] ||
   unknown "extracted no \`--json\` list from ${scanned} surfaces — the extractor is probably broken"

@@ -97,6 +97,28 @@ mkdir -p "${dir}/plugins/p/skills/s/references"
 printf '%s\n' '`gh pr view <n> --json state,merged`' > "${dir}/plugins/p/skills/s/references/r.md"
 expect 1 "a nested skill reference file" "${dir}"
 
+# A closing backtick hugging the flag ends the span: wrapped prose that mentions `--json` and then
+# starts the next line with "merged" names no field.
+dir="$(fixture good-closing-backtick)"
+printf '%s\n' 'The flag is `--json`' 'merged pull requests need no polling.' > "${dir}/plugins/p/agents/case.md"
+expect 0 "a closing backtick after --json, then 'merged' on the next line" "${dir}"
+
+# Plain-text references and assets ship with skills and are read by agents, so they are scanned.
+dir="$(fixture bad-txt-reference)"
+mkdir -p "${dir}/plugins/p/skills/s/references"
+printf '%s\n' 'gh pr view 42 --json state,merged' > "${dir}/plugins/p/skills/s/references/r.txt"
+expect 1 "a bad request in a .txt reference" "${dir}"
+
+# A file type the guard does not scan is UNKNOWN, never silently skipped. Scripts are exempt.
+dir="$(fixture unknown-unscanned-type)"
+printf '%s\n' 'cmd: gh pr view 42 --json state,merged' > "${dir}/plugins/p/agents/case.yaml"
+expect 2 "an unscanned file type is UNKNOWN" "${dir}"
+
+dir="$(fixture good-script-skipped)"
+mkdir -p "${dir}/plugins/p/scripts"
+printf '%s\n' 'gh pr view 42 --json state,merged' > "${dir}/plugins/p/scripts/helper.sh"
+expect 0 "a script is not a scanned surface" "${dir}"
+
 # A file name containing a newline is still ONE surface: split in two, neither half exists and the
 # bad request inside would go unread.
 dir="$(fixture bad-newline-name)"

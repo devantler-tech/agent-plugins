@@ -12,11 +12,13 @@
 # the definitions are authored (and where synced skills arrive), stops it before it ships.
 #
 # Usage: guard-gh-json-fields.sh [ROOT]      (ROOT defaults to this repository)
-# Scans every *.md and *.json under ROOT/plugins. Shell scripts are not scanned: a script with a bad
-# field fails loudly the first time it runs, whereas prose silently misleads every agent that reads it.
+# Scans every *.md, *.txt and *.json under ROOT/plugins; any other non-script file is UNKNOWN. Shell
+# scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
+# silently misleads every agent that reads it.
 #
-# Exit: 0 clean · 1 an invalid field is prescribed · 2 UNKNOWN (nothing scanned, a JSON surface does
-# not parse, or no `--json` list was found — any of which would make a 0 meaningless).
+# Exit: 0 clean · 1 an invalid field is prescribed · 2 UNKNOWN (nothing scanned, a surface cannot be
+# read, a JSON surface does not parse, a file type is not scanned, or no `--json` list was found — any of
+# which would make a 0 meaningless).
 
 set -euo pipefail
 
@@ -41,7 +43,8 @@ decode_surface() {
 # wrapped after a comma, backslash continuation, an ellipsis elision, wrapped straight after the flag,
 # or a JSON `\n` escape. A comma joins what follows it only across a line break — a comma and a space
 # on the same line is prose, which `gh` could never receive as one argument. A backtick or quote ends
-# a list, so Markdown prose after an inline command is never read as more fields.
+# a list, so Markdown prose after an inline command is never read as more fields — including a quote
+# hugging the flag (`--json` then a line break), which CLOSES the span rather than opening an argument.
 extract_lists() {
   decode_surface "$1" \
     | sed -E -e 's/\\[nrt]/ /g' -e 's/\\/ /g' \
@@ -51,7 +54,8 @@ extract_lists() {
         else { if (NR > 1) print buf; buf = line }
       } END { if (NR > 0) print buf }' \
     | tr '\n' ' ' \
-    | sed -E -e 's/…/,/g' -e 's/\.\.\./,/g' \
+    | sed -E -e "s/--json[\`\"']/--json%/g" \
+             -e 's/…/,/g' -e 's/\.\.\./,/g' \
              -e 's/[[:space:]]+/ /g' \
              -e 's/--json[[:space:]]*[=,]*[[:space:]]*[`"'"'"']?[[:space:]]*/--json /g' \
     | grep -o -- '--json [A-Za-z,]*' | sort -u || true
@@ -70,13 +74,19 @@ bad_lists_in() {
 
 [ -d "${root}/plugins" ] || unknown "no plugins/ directory under ${root}"
 
-# NUL-delimited, so a file name containing a newline stays one surface instead of two that do not
-# exist (and so would be skipped as empty).
+# Every file an agent may read is a surface: Markdown, plain-text references and assets, and JSON.
+# Scripts are skipped (see the header). Any OTHER file type is UNKNOWN rather than skipped, so a new
+# kind of definition cannot ship unscanned while this check stays green — extend the list instead.
+# NUL-delimited, so a file name containing a newline stays one surface instead of two that do not exist.
 surfaces=()
-while IFS= read -r -d '' f; do surfaces+=("$f"); done < <(
-  find "${root}/plugins" -type f \( -name '*.md' -o -name '*.json' \) -print0 | LC_ALL=C sort -z
-)
-[ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md or *.json under ${root}/plugins"
+while IFS= read -r -d '' f; do
+  case "$f" in
+    *.md|*.txt|*.json) surfaces+=("$f") ;;
+    *.sh) ;;
+    *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
+  esac
+done < <(find "${root}/plugins" -type f -print0 | LC_ALL=C sort -z)
+[ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md, *.txt or *.json under ${root}/plugins"
 
 scanned=0
 lists=0

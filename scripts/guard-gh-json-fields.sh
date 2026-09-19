@@ -17,7 +17,8 @@
 # silently misleads every agent that reads it.
 #
 # A surface that legitimately contains the request (a skill warning against it) is exempted by a
-# reviewed line in scripts/gh-json-fields-allowlist.tsv — path, TAB, reason.
+# reviewed line in scripts/gh-json-fields-allowlist.tsv — path, TAB, the exact `--json …` text, TAB,
+# the reason. An exemption that stops matching is UNKNOWN, so it cannot cover a later sync.
 #
 # Exit: 0 clean · 1 an invalid field is prescribed · 2 UNKNOWN (nothing scanned, a surface cannot be
 # read, a JSON surface does not parse, a file type is not scanned, or no `--json` list was found — any of
@@ -91,36 +92,41 @@ bad_lists_in() {
 
 # A surface may legitimately CONTAIN the bad request — a skill that WARNS against it, for instance.
 # A synced skill cannot be corrected here, so the escape hatch is a reviewed list in this repository
-# rather than a marker inside the file the upstream owns. Each line is a path relative to this
-# repository, a TAB, and the reason; `#` starts a comment. An allowed surface is named in the output
-# and does not fail the check. A malformed line is UNKNOWN, never a silent pass.
+# rather than a marker inside the file the upstream owns.
+#
+# An exemption names the EXACT request it covers, not just the file: a later sync replaces the file
+# while this list stays, so a path-wide exemption would quietly cover a genuinely bad request that
+# arrived afterwards. Each line is: path, TAB, the exact `--json <fields>` text, TAB, the reason.
+# `#` starts a comment. An exemption that no longer matches anything is UNKNOWN — a stale line must
+# be removed deliberately rather than sitting there covering whatever appears next.
 allowlist="${root}/scripts/gh-json-fields-allowlist.tsv"
-allowed_paths=""
+tab="$(printf '\t')"
+allowed_entries=""
 if [ -e "${allowlist}" ]; then
   if ! { [ -f "${allowlist}" ] && [ -r "${allowlist}" ]; }; then
     unknown "${allowlist#"${root}/"} exists but cannot be read, so its exemptions are unknown"
   fi
   while IFS= read -r line || [ -n "${line}" ]; do
     case "${line}" in ''|'#'*) continue ;; esac
-    case "${line}" in
-      *"$(printf '\t')"*) ;;
-      *) unknown "${allowlist#"${root}/"} has a line with no tab-separated reason: ${line}" ;;
-    esac
-    entry_path="${line%%"$(printf '\t')"*}"
-    entry_reason="${line#*"$(printf '\t')"}"
-    { [ -n "${entry_path}" ] && [ -n "${entry_reason}" ]; } ||
-      unknown "${allowlist#"${root}/"} has a line missing a path or a reason: ${line}"
-    allowed_paths="${allowed_paths}${entry_path}"$'\n'
+    entry_path="${line%%"${tab}"*}"
+    entry_rest="${line#*"${tab}"}"
+    entry_list="${entry_rest%%"${tab}"*}"
+    entry_reason="${entry_rest#*"${tab}"}"
+    { [ -n "${entry_path}" ] && [ -n "${entry_list}" ] && [ -n "${entry_reason}" ] &&
+      [ "${entry_rest}" != "${line}" ] && [ "${entry_reason}" != "${entry_rest}" ]; } ||
+      unknown "${allowlist#"${root}/"} needs a path, the exact \`--json …\` text and a reason, tab-separated: ${line}"
+    allowed_entries="${allowed_entries}${entry_path}${tab}${entry_list}"$'\n'
   done < "${allowlist}"
 fi
 
-is_allowed() {                      # $1 = path relative to the repository root
-  case $'\n'"${allowed_paths}" in
-    *$'\n'"$1"$'\n'*) return 0 ;;
+is_allowed() {                      # $1 = path relative to the root, $2 = the extracted list
+  case $'\n'"${allowed_entries}" in
+    *$'\n'"$1${tab}$2"$'\n'*) return 0 ;;
   esac
   return 1
 }
 allowed_seen=""
+allowed_used=""
 
 [ -d "${root}/plugins" ] || unknown "no plugins/ directory under ${root}"
 
@@ -165,12 +171,14 @@ for surface in "${surfaces[@]}"; do
   scanned=$((scanned + 1))
   lists=$((lists + $(extract_lists "${surface}" | grep -c . || true)))
   rel="${surface#"${root}/"}"
-  if is_allowed "${rel}"; then
-    allowed_seen="${allowed_seen}${rel}"$'\n'
-    continue
-  fi
   while IFS= read -r bad; do
-    [ -n "${bad}" ] && offenders="${offenders}  ${rel}: ${bad}"$'\n'
+    [ -n "${bad}" ] || continue
+    if is_allowed "${rel}" "${bad}"; then
+      allowed_seen="${allowed_seen}  ${rel}: ${bad}"$'\n'
+      allowed_used="${allowed_used}${rel}${tab}${bad}"$'\n'
+      continue
+    fi
+    offenders="${offenders}  ${rel}: ${bad}"$'\n'
   done < <(bad_lists_in "${surface}")
 done
 
@@ -178,8 +186,7 @@ done
   unknown "extracted no \`--json\` list from ${scanned} surfaces — the extractor is probably broken"
 
 if [ -n "${allowed_seen}" ]; then
-  printf 'guard-gh-json-fields: allowed by %s:\n' "${allowlist#"${root}/"}" >&2
-  printf '%s' "${allowed_seen}" | sed 's/^/  /' >&2
+  printf 'guard-gh-json-fields: allowed by %s:\n%s' "${allowlist#"${root}/"}" "${allowed_seen}" >&2
 fi
 
 if [ -n "${offenders}" ]; then
@@ -187,5 +194,21 @@ if [ -n "${offenders}" ]; then
   echo "  One unknown field voids the whole gh request. Use state, mergedAt or mergeCommit instead." >&2
   exit 1
 fi
+
+# An exemption that matched nothing is STALE: the file it covered has changed, so the line is now
+# standing guard over whatever the next sync brings. Say so rather than carrying it silently.
+stale=""
+while IFS= read -r entry; do
+  [ -n "${entry}" ] || continue
+  case $'\n'"${allowed_used}" in
+    *$'\n'"${entry}"$'\n'*) ;;
+    *) stale="${stale}  ${entry}"$'\n' ;;
+  esac
+done <<EOF
+${allowed_entries}
+EOF
+[ -z "${stale}" ] ||
+  unknown "these exemptions in ${allowlist#"${root}/"} no longer match anything and must be removed:
+${stale}"
 
 echo "guard-gh-json-fields: OK — no invalid \`merged\` field in ${lists} --json list(s) across ${scanned} surfaces"

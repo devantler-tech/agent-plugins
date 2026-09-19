@@ -166,22 +166,38 @@ mkfifo "${dir}/plugins/p/agents/pipe.md"
 expect 2 "a named pipe is UNKNOWN, not a hang" "${dir}"
 
 # A surface may legitimately contain the request — a skill that warns against it. A reviewed
-# allow-list line exempts it; the check still names it.
+# allow-list line exempts that exact request; the check still names it.
 dir="$(fixture good-allowlisted)"
 mkdir -p "${dir}/scripts"
 printf '%s\n' 'Never run `gh pr view <n> --json state,merged`; use mergedAt instead.' > "${dir}/plugins/p/agents/warn.md"
-printf 'plugins/p/agents/warn.md\tteaches the mistake on purpose\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
-expect 0 "an allow-listed surface does not fail" "${dir}"
+printf 'plugins/p/agents/warn.md\t--json state,merged\tteaches the mistake on purpose\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+expect 0 "an allow-listed request does not fail" "${dir}"
 
 dir="$(fixture bad-not-allowlisted)"
 mkdir -p "${dir}/scripts"
 printf '%s\n' 'Never run `gh pr view <n> --json state,merged`; use mergedAt instead.' > "${dir}/plugins/p/agents/warn.md"
-printf 'plugins/p/agents/other.md\tsome other file\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
-expect 1 "an allow-list entry exempts only its own path" "${dir}"
+cp "${dir}/plugins/p/agents/warn.md" "${dir}/plugins/p/agents/other.md"
+printf 'plugins/p/agents/other.md\t--json state,merged\tonly this copy is exempt\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+expect 1 "an exemption covers only its own path" "${dir}"
+
+# The exemption is bound to the exact request, so a DIFFERENT one in the same file still fails —
+# an upstream sync can replace the file while this list stays.
+dir="$(fixture bad-other-request-same-file)"
+mkdir -p "${dir}/scripts"
+printf '%s\n' 'Never run `gh pr view <n> --json state,merged`.' 'But do run `gh pr view <n> --json merged,title`.' > "${dir}/plugins/p/agents/warn.md"
+printf 'plugins/p/agents/warn.md\t--json state,merged\tteaches the mistake on purpose\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+expect 1 "a different request in an allow-listed file still fails" "${dir}"
+
+# An exemption that matches nothing any more is UNKNOWN, so it cannot sit there covering the future.
+dir="$(fixture unknown-stale-exemption)"
+mkdir -p "${dir}/scripts"
+printf '%s\n' 'This file no longer mentions the field.' > "${dir}/plugins/p/agents/warn.md"
+printf 'plugins/p/agents/warn.md\t--json state,merged\tthe warning was removed upstream\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+expect 2 "a stale exemption is UNKNOWN" "${dir}"
 
 dir="$(fixture unknown-allowlist-no-reason)"
 mkdir -p "${dir}/scripts"
-printf '%s\n' 'plugins/p/agents/warn.md' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+printf 'plugins/p/agents/warn.md\t--json state,merged\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
 expect 2 "an allow-list line with no reason is UNKNOWN" "${dir}"
 
 dir="$(fixture unknown-dangling-symlink)"

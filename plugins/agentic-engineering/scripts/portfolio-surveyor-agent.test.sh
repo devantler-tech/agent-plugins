@@ -28,20 +28,20 @@ CI_STEP=$(sed -n \
   "$SURVEYOR" | tr '\n' ' ' | tr -s '[:space:]' ' ')
 [ -n "$CI_STEP" ] || fail 'could not extract the default-branch CI step'
 # shellcheck disable=SC2016 # The asserted agent text contains a literal shell idiom.
-grep -Fq 'Read the verdict from the helper output, never by appending the guard-denied `; echo "EXIT=$?"` idiom.' \
+grep -Fq 'Read the verdict from the helper'"'"'s native tool result, never by appending the guard-denied `; echo "EXIT=$?"` idiom.' \
   <<<"$CI_STEP" ||
-  fail 'default-branch CI must prescribe output reading instead of denied exit capture'
-grep -Fq '| completely empty | exit 0 with no red runs → that branch is **green** |' \
+  fail 'default-branch CI must prescribe the native tool result instead of denied shell exit capture'
+grep -Fq '| observed native process status 0 and completely empty output | no red runs → that branch is **green** |' \
   <<<"$CI_STEP" ||
-  fail 'completely empty classifier output must be the explicit green case'
+  fail 'green must require both observed native process status 0 and completely empty classifier output'
 # shellcheck disable=SC2016 # Backticks belong to the asserted Markdown contract.
-grep -Fq '| **well-formed TSV rows** — exactly eight tab-separated fields in helper order: numeric `workflow_id`, red `conclusion` (`failure`, `timed_out`, or `startup_failure`), `html_url`, `name`, supported `event`, `path`, valid `created_at`, numeric `run_id` | those are the **red runs** |' \
+grep -Fq '| observed native process status 0 and **well-formed TSV rows** — exactly eight tab-separated fields in helper order: numeric `workflow_id`, red `conclusion` (`failure`, `timed_out`, or `startup_failure`), `html_url`, `name`, supported `event`, `path`, valid `created_at`, numeric `run_id` | those are the **red runs** |' \
   <<<"$CI_STEP" ||
   fail 'the complete eight-field TSV predicate must map to the red verdict as one table row'
 # shellcheck disable=SC2016 # Backticks belong to the asserted Markdown contract.
-grep -Fq '| anything else, including mixed valid and malformed rows | the helper FAILED → **`QUERY-UNKNOWN`**; never `nothing_on_fire: true` |' \
+grep -Fq '| any nonzero or unavailable native process status; or any other output, including mixed valid and malformed rows | the helper FAILED → **`QUERY-UNKNOWN`**; never `nothing_on_fire: true` |' \
   <<<"$CI_STEP" ||
-  fail 'malformed or mixed classifier output must fail closed as QUERY-UNKNOWN'
+  fail 'nonzero or unavailable status and malformed or mixed output must fail closed as QUERY-UNKNOWN'
 
 JQ_FILTER=$(sed -n \
   "/issueDependenciesSummary{blockedBy totalBlockedBy}/{n;s/^[[:space:]]*--jq '\\(.*\\)'$/\\1/p;}" \

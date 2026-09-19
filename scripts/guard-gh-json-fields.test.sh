@@ -96,6 +96,11 @@ dir="$(fixture good-json-argv)"
 printf '%s\n' '{"command":"gh","args":["pr","view","--json","state,mergedAt"]}' > "${dir}/plugins/p/.mcp.json"
 expect 0 "JSON argv array with valid fields" "${dir}"
 
+# Any OTHER array keeps its elements apart: two notes do not form a command.
+dir="$(fixture good-json-notes-array)"
+printf '%s\n' '{"notes":["The option is --json","merged is unavailable"]}' > "${dir}/plugins/p/plugin.json"
+expect 0 "a non-argv string array is not joined" "${dir}"
+
 # A decoded NUL anywhere in the file must not make grep treat it as binary and print nothing.
 dir="$(fixture bad-json-nul)"
 printf '{"note":"a\x5cu0000b","prompt":"gh pr view <n> --json state,merged"}\n' > "${dir}/plugins/p/plugin.json"

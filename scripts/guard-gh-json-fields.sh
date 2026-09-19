@@ -34,12 +34,14 @@ unknown() {
 # list, so two unrelated values cannot join into `--json merged`.
 decode_surface() {
   case "$1" in
-    # Object KEYS are scanned as well as values, and an all-string array (an argv list such as
-    # ["pr","view","--json","state,merged"]) is ALSO emitted joined, as the one command it is.
-    *.json) jq -r '.. | if type == "object" then keys_unsorted[]
-                        elif type == "array" and length > 0 and all(type == "string") then join(" ")
-                        elif type == "string" then .
-                        else empty end | ., "%"' "$1" 2>/dev/null || true ;;
+    # Object KEYS are scanned as well as values. An argv list (an all-string array under an `args`,
+    # `argv`, `cmd` or `command` key, e.g. ["pr","view","--json","state,merged"]) is ALSO emitted
+    # joined, as the one command it is; any other array keeps its elements apart.
+    *.json) jq -r '( .. | if type == "object" then keys_unsorted[] elif type == "string" then . else empty end ),
+                     ( .. | objects | to_entries[] | select(.key | test("^(args|argv|cmd|command)$"; "i"))
+                          | .value | select(type == "array" and length > 0 and all(type == "string"))
+                          | join(" ") )
+                   | ., "%"' "$1" 2>/dev/null || true ;;
     *)      cat "$1" ;;
   esac
 }

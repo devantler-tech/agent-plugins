@@ -23,6 +23,23 @@ if grep -Fq -- '--json issueType,blockedBy,assignees' "$SURVEYOR"; then
   fail 'dependency reads must not enumerate blocker nodes through gh issue view'
 fi
 
+CI_STEP=$(sed -n \
+  '/^### 4\. CI red on the default branch/,/^### 5\. Triage, stale, and advance signals/p' \
+  "$SURVEYOR" | tr '\n' ' ' | tr -s '[:space:]' ' ')
+[ -n "$CI_STEP" ] || fail 'could not extract the default-branch CI step'
+# shellcheck disable=SC2016 # The asserted agent text contains a literal shell idiom.
+grep -Fq 'Read the verdict from the helper output, never by appending the guard-denied `; echo "EXIT=$?"` idiom.' \
+  <<<"$CI_STEP" ||
+  fail 'default-branch CI must prescribe output reading instead of denied exit capture'
+# shellcheck disable=SC2016 # Backticks belong to the asserted Markdown contract.
+grep -Fq '| **well-formed TSV rows** — exactly eight tab-separated fields in helper order: numeric `workflow_id`, red `conclusion` (`failure`, `timed_out`, or `startup_failure`), `html_url`, `name`, supported `event`, `path`, valid `created_at`, numeric `run_id` | those are the **red runs** |' \
+  <<<"$CI_STEP" ||
+  fail 'the complete eight-field TSV predicate must map to the red verdict as one table row'
+# shellcheck disable=SC2016 # Backticks belong to the asserted Markdown contract.
+grep -Fq '| anything else, including mixed valid and malformed rows | the helper FAILED → **`QUERY-UNKNOWN`**; never `nothing_on_fire: true` |' \
+  <<<"$CI_STEP" ||
+  fail 'malformed or mixed classifier output must fail closed as QUERY-UNKNOWN'
+
 JQ_FILTER=$(sed -n \
   "/issueDependenciesSummary{blockedBy totalBlockedBy}/{n;s/^[[:space:]]*--jq '\\(.*\\)'$/\\1/p;}" \
   "$SURVEYOR")

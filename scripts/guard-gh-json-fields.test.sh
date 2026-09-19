@@ -138,6 +138,34 @@ printf '%s\n' '`gh pr view <n> --json state,merged`' > "${dir}/target.md"
 ln -s "${dir}/target.md" "${dir}/plugins/p/agents/linked.md"
 expect 1 "a symlinked surface is scanned through to its target" "${dir}"
 
+# A link to a device or a pipe can never be read to the end, so it is UNKNOWN rather than a hang.
+dir="$(fixture unknown-device-symlink)"
+ln -s /dev/zero "${dir}/plugins/p/agents/device.md"
+expect 2 "a symlink to a device is UNKNOWN, not a hang" "${dir}"
+
+dir="$(fixture unknown-fifo)"
+mkfifo "${dir}/plugins/p/agents/pipe.md"
+expect 2 "a named pipe is UNKNOWN, not a hang" "${dir}"
+
+# A surface may legitimately contain the request — a skill that warns against it. A reviewed
+# allow-list line exempts it; the check still names it.
+dir="$(fixture good-allowlisted)"
+mkdir -p "${dir}/scripts"
+printf '%s\n' 'Never run `gh pr view <n> --json state,merged`; use mergedAt instead.' > "${dir}/plugins/p/agents/warn.md"
+printf 'plugins/p/agents/warn.md\tteaches the mistake on purpose\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+expect 0 "an allow-listed surface does not fail" "${dir}"
+
+dir="$(fixture bad-not-allowlisted)"
+mkdir -p "${dir}/scripts"
+printf '%s\n' 'Never run `gh pr view <n> --json state,merged`; use mergedAt instead.' > "${dir}/plugins/p/agents/warn.md"
+printf 'plugins/p/agents/other.md\tsome other file\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+expect 1 "an allow-list entry exempts only its own path" "${dir}"
+
+dir="$(fixture unknown-allowlist-no-reason)"
+mkdir -p "${dir}/scripts"
+printf '%s\n' 'plugins/p/agents/warn.md' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+expect 2 "an allow-list line with no reason is UNKNOWN" "${dir}"
+
 dir="$(fixture unknown-dangling-symlink)"
 ln -s "${dir}/missing.md" "${dir}/plugins/p/agents/dangling.md"
 expect 2 "a dangling symlinked surface is UNKNOWN" "${dir}"

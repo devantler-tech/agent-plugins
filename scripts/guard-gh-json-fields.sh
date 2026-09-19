@@ -16,6 +16,9 @@
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
 # silently misleads every agent that reads it.
 #
+# A surface that legitimately contains the request (a skill warning against it) is exempted by a
+# reviewed line in scripts/gh-json-fields-allowlist.tsv — path, TAB, reason.
+#
 # Exit: 0 clean · 1 an invalid field is prescribed · 2 UNKNOWN (nothing scanned, a surface cannot be
 # read, a JSON surface does not parse, a file type is not scanned, or no `--json` list was found — any of
 # which would make a 0 meaningless).
@@ -83,13 +86,46 @@ bad_lists_in() {
   done < <(extract_lists "$1")
 }
 
+# A surface may legitimately CONTAIN the bad request — a skill that WARNS against it, for instance.
+# A synced skill cannot be corrected here, so the escape hatch is a reviewed list in this repository
+# rather than a marker inside the file the upstream owns. Each line is a path relative to this
+# repository, a TAB, and the reason; `#` starts a comment. An allowed surface is named in the output
+# and does not fail the check. A malformed line is UNKNOWN, never a silent pass.
+allowlist="${root}/scripts/gh-json-fields-allowlist.tsv"
+allowed_paths=""
+if [ -e "${allowlist}" ]; then
+  [ -f "${allowlist}" ] && [ -r "${allowlist}" ] ||
+    unknown "${allowlist#"${root}/"} exists but cannot be read, so its exemptions are unknown"
+  while IFS= read -r line || [ -n "${line}" ]; do
+    case "${line}" in ''|'#'*) continue ;; esac
+    case "${line}" in
+      *"$(printf '\t')"*) ;;
+      *) unknown "${allowlist#"${root}/"} has a line with no tab-separated reason: ${line}" ;;
+    esac
+    entry_path="${line%%"$(printf '\t')"*}"
+    entry_reason="${line#*"$(printf '\t')"}"
+    { [ -n "${entry_path}" ] && [ -n "${entry_reason}" ]; } ||
+      unknown "${allowlist#"${root}/"} has a line missing a path or a reason: ${line}"
+    allowed_paths="${allowed_paths}${entry_path}"$'\n'
+  done < "${allowlist}"
+fi
+
+is_allowed() {                      # $1 = path relative to the repository root
+  case $'\n'"${allowed_paths}" in
+    *$'\n'"$1"$'\n'*) return 0 ;;
+  esac
+  return 1
+}
+allowed_seen=""
+
 [ -d "${root}/plugins" ] || unknown "no plugins/ directory under ${root}"
 
 # Every file an agent may read is a surface: Markdown, plain-text references and assets, and JSON.
 # Scripts are skipped (see the header). Any OTHER file type is UNKNOWN rather than skipped, so a new
 # kind of definition cannot ship unscanned while this check stays green — extend the list instead.
 # NUL-delimited, so a file name containing a newline stays one surface instead of two that do not exist.
-# Symbolic links are surfaces too (read through to their target); a dangling one fails the -r check.
+# Everything that is not a directory is discovered — symlinks included, and anything unusual too, so
+# the regular-file check below reports it rather than the scan silently missing it.
 surfaces=()
 while IFS= read -r -d '' f; do
   case "$f" in
@@ -97,14 +133,17 @@ while IFS= read -r -d '' f; do
     *.sh) ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
-done < <(find "${root}/plugins" \( -type f -o -type l \) -print0 | LC_ALL=C sort -z)
+done < <(find "${root}/plugins" ! -type d -print0 | LC_ALL=C sort -z)
 [ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md, *.txt or *.json under ${root}/plugins"
 
 scanned=0
 lists=0
 offenders=""
 for surface in "${surfaces[@]}"; do
-  # An unreadable surface would decode to nothing and read as clean, so it is UNKNOWN instead.
+  # An unreadable surface would decode to nothing and read as clean, so it is UNKNOWN instead. A
+  # surface that is not a REGULAR file after resolution — a device, a named pipe, a dangling link —
+  # is UNKNOWN too: reading one can never finish, and a check that hangs is worse than one that fails.
+  [ -f "${surface}" ] || unknown "${surface#"${root}/"} is not a regular file (a device, a pipe, or a dangling link), so it cannot be scanned"
   [ -r "${surface}" ] || unknown "${surface#"${root}/"} cannot be read, so any field it prescribes would go unseen"
   case "${surface}" in
     *.json) jq empty "${surface}" >/dev/null 2>&1 ||
@@ -112,13 +151,23 @@ for surface in "${surfaces[@]}"; do
   esac
   scanned=$((scanned + 1))
   lists=$((lists + $(extract_lists "${surface}" | grep -c . || true)))
+  rel="${surface#"${root}/"}"
+  if is_allowed "${rel}"; then
+    allowed_seen="${allowed_seen}${rel}"$'\n'
+    continue
+  fi
   while IFS= read -r bad; do
-    [ -n "${bad}" ] && offenders="${offenders}  ${surface#"${root}/"}: ${bad}"$'\n'
+    [ -n "${bad}" ] && offenders="${offenders}  ${rel}: ${bad}"$'\n'
   done < <(bad_lists_in "${surface}")
 done
 
 [ "${lists}" -gt 0 ] ||
   unknown "extracted no \`--json\` list from ${scanned} surfaces — the extractor is probably broken"
+
+if [ -n "${allowed_seen}" ]; then
+  printf 'guard-gh-json-fields: allowed by %s:\n' "${allowlist#"${root}/"}" >&2
+  printf '%s' "${allowed_seen}" | sed 's/^/  /' >&2
+fi
 
 if [ -n "${offenders}" ]; then
   printf '%s\n%s' 'guard-gh-json-fields: FAIL — a bundled definition requests the nonexistent "merged" field:' "${offenders}" >&2

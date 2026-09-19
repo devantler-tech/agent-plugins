@@ -127,6 +127,24 @@ dir="$(fixture good-closing-backtick)"
 printf '%s\n' 'The flag is `--json`' 'merged pull requests need no polling.' > "${dir}/plugins/p/agents/case.md"
 expect 0 "a closing backtick after --json, then 'merged' on the next line" "${dir}"
 
+# A flag wrapped in shell quotes is still the flag: `gh pr view 42 '--json' state,merged`.
+dir="$(fixture bad-quoted-flag)"
+printf '%s\n' "gh pr view 42 '--json' state,merged" > "${dir}/plugins/p/agents/case.md"
+expect 1 "a shell-quoted --json flag" "${dir}"
+
+dir="$(fixture bad-dquoted-flag)"
+printf '%s\n' 'gh pr view 42 "--json" state,merged' > "${dir}/plugins/p/agents/case.md"
+expect 1 "a double-quoted --json flag" "${dir}"
+
+# Discovery that fails part way through must not read as a short, clean list.
+if [ "$(id -u)" -ne 0 ]; then
+  dir="$(fixture unknown-unlistable-dir)"
+  mkdir -p "${dir}/plugins/p/skills/locked"
+  chmod 000 "${dir}/plugins/p/skills/locked"
+  expect 2 "an unlistable directory is UNKNOWN" "${dir}"
+  chmod 700 "${dir}/plugins/p/skills/locked"
+fi
+
 # A backslash-newline INSIDE a field name is removed by the shell, so it must not split the name.
 dir="$(fixture bad-continuation-mid-word)"
 printf '%s\n%s\n' "gh pr view 42 --json state,mer\\" 'ged,mergedAt' > "${dir}/plugins/p/agents/case.md"

@@ -56,7 +56,9 @@ decode_surface() {
 # A comma joins what follows it only across a line break — a comma and a space on the same line is
 # prose, which `gh` could never receive as one argument. A backtick or quote ends a list, so Markdown
 # prose after an inline command is never read as more fields — including a quote hugging the flag
-# (`--json` then a line break), which CLOSES the span rather than opening an argument.
+# (`--json` then a line break), which CLOSES the span rather than opening an argument. A flag wrapped
+# in SHELL quotes ('--json') is unwrapped first — that is one argument to the shell — while a
+# backtick-wrapped one stays a Markdown code span.
 extract_lists() {
   decode_surface "$1" \
     | tr -d '\000' \
@@ -68,7 +70,8 @@ extract_lists() {
         else { if (NR > 1) print buf; buf = line }
       } END { if (NR > 0) print buf }' \
     | tr '\n' ' ' \
-    | sed -E -e "s/--json[\`\"']/--json%/g" \
+    | sed -E -e "s/[\"']--json[\"']/--json/g" \
+             -e "s/--json[\`\"']/--json%/g" \
              -e 's/…/,/g' -e 's/\.\.\./,/g' \
              -e 's/[[:space:]]+/ /g' \
              -e 's/--json[[:space:]]*[=,]*[[:space:]]*[`"'"'"']?[[:space:]]*/--json /g' \
@@ -127,6 +130,15 @@ allowed_seen=""
 # NUL-delimited, so a file name containing a newline stays one surface instead of two that do not exist.
 # Everything that is not a directory is discovered — symlinks included, and anything unusual too, so
 # the regular-file check below reports it rather than the scan silently missing it.
+#
+# Discovery is MATERIALISED first and its exit status checked. Read straight from the pipeline, a
+# `find` that dies part way through would deliver a short list and the scan would report OK over
+# whatever it happened to see.
+discovered="$(mktemp)"
+trap 'rm -f "${discovered}"' EXIT
+find "${root}/plugins" ! -type d -print0 2>/dev/null | LC_ALL=C sort -z > "${discovered}" ||
+  unknown "could not list the files under ${root}/plugins, so the scan would cover an unknown subset"
+
 surfaces=()
 while IFS= read -r -d '' f; do
   case "$f" in
@@ -134,7 +146,7 @@ while IFS= read -r -d '' f; do
     *.sh) ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
-done < <(find "${root}/plugins" ! -type d -print0 | LC_ALL=C sort -z)
+done < <(cat "${discovered}")
 [ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md, *.txt or *.json under ${root}/plugins"
 
 scanned=0

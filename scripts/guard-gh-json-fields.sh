@@ -46,13 +46,16 @@ decode_surface() {
 
 # Emit one `--json <fields>` per line, whatever formatting the prescription used: plain, `=`, quoted,
 # wrapped after a comma, backslash continuation, an ellipsis elision, wrapped straight after the flag,
-# or a JSON `\n` escape. A comma joins what follows it only across a line break — a comma and a space
-# on the same line is prose, which `gh` could never receive as one argument. A backtick or quote ends
-# a list, so Markdown prose after an inline command is never read as more fields — including a quote
-# hugging the flag (`--json` then a line break), which CLOSES the span rather than opening an argument.
+# or a JSON `\n` escape. A backslash at the end of a line is removed and the next line joined with no
+# space, exactly as the shell does, so `state,mer\` + `ged` still reads as `merged`.
+# A comma joins what follows it only across a line break — a comma and a space on the same line is
+# prose, which `gh` could never receive as one argument. A backtick or quote ends a list, so Markdown
+# prose after an inline command is never read as more fields — including a quote hugging the flag
+# (`--json` then a line break), which CLOSES the span rather than opening an argument.
 extract_lists() {
   decode_surface "$1" \
     | tr -d '\000' \
+    | awk '{ if (sub(/\\$/, "")) { printf "%s", $0 } else { print } }' \
     | sed -E -e 's/\\[nrt]/ /g' -e 's/\\/ /g' \
     | awk '{
         line = $0; sub(/[[:space:]]+$/, "", line)
@@ -84,6 +87,7 @@ bad_lists_in() {
 # Scripts are skipped (see the header). Any OTHER file type is UNKNOWN rather than skipped, so a new
 # kind of definition cannot ship unscanned while this check stays green — extend the list instead.
 # NUL-delimited, so a file name containing a newline stays one surface instead of two that do not exist.
+# Symbolic links are surfaces too (read through to their target); a dangling one fails the -r check.
 surfaces=()
 while IFS= read -r -d '' f; do
   case "$f" in
@@ -91,7 +95,7 @@ while IFS= read -r -d '' f; do
     *.sh) ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
-done < <(find "${root}/plugins" -type f -print0 | LC_ALL=C sort -z)
+done < <(find "${root}/plugins" \( -type f -o -type l \) -print0 | LC_ALL=C sort -z)
 [ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md, *.txt or *.json under ${root}/plugins"
 
 scanned=0

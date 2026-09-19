@@ -122,6 +122,21 @@ dir="$(fixture good-closing-backtick)"
 printf '%s\n' 'The flag is `--json`' 'merged pull requests need no polling.' > "${dir}/plugins/p/agents/case.md"
 expect 0 "a closing backtick after --json, then 'merged' on the next line" "${dir}"
 
+# A backslash-newline INSIDE a field name is removed by the shell, so it must not split the name.
+dir="$(fixture bad-continuation-mid-word)"
+printf '%s\n%s\n' "gh pr view 42 --json state,mer\\" 'ged,mergedAt' > "${dir}/plugins/p/agents/case.md"
+expect 1 "a backslash-newline splitting 'merged'" "${dir}"
+
+# A symbolic link is a surface: skipping it would ship whatever its target says.
+dir="$(fixture bad-symlink)"
+printf '%s\n' '`gh pr view <n> --json state,merged`' > "${dir}/target.md"
+ln -s "${dir}/target.md" "${dir}/plugins/p/agents/linked.md"
+expect 1 "a symlinked surface is scanned through to its target" "${dir}"
+
+dir="$(fixture unknown-dangling-symlink)"
+ln -s "${dir}/missing.md" "${dir}/plugins/p/agents/dangling.md"
+expect 2 "a dangling symlinked surface is UNKNOWN" "${dir}"
+
 # Plain-text references and assets ship with skills and are read by agents, so they are scanned.
 dir="$(fixture bad-txt-reference)"
 mkdir -p "${dir}/plugins/p/skills/s/references"

@@ -34,7 +34,12 @@ unknown() {
 # list, so two unrelated values cannot join into `--json merged`.
 decode_surface() {
   case "$1" in
-    *.json) jq -r '.. | strings | ., "%"' "$1" 2>/dev/null || true ;;
+    # Object KEYS are scanned as well as values, and an all-string array (an argv list such as
+    # ["pr","view","--json","state,merged"]) is ALSO emitted joined, as the one command it is.
+    *.json) jq -r '.. | if type == "object" then keys_unsorted[]
+                        elif type == "array" and length > 0 and all(type == "string") then join(" ")
+                        elif type == "string" then .
+                        else empty end | ., "%"' "$1" 2>/dev/null || true ;;
     *)      cat "$1" ;;
   esac
 }
@@ -47,6 +52,7 @@ decode_surface() {
 # hugging the flag (`--json` then a line break), which CLOSES the span rather than opening an argument.
 extract_lists() {
   decode_surface "$1" \
+    | tr -d '\000' \
     | sed -E -e 's/\\[nrt]/ /g' -e 's/\\/ /g' \
     | awk '{
         line = $0; sub(/[[:space:]]+$/, "", line)
@@ -58,7 +64,7 @@ extract_lists() {
              -e 's/…/,/g' -e 's/\.\.\./,/g' \
              -e 's/[[:space:]]+/ /g' \
              -e 's/--json[[:space:]]*[=,]*[[:space:]]*[`"'"'"']?[[:space:]]*/--json /g' \
-    | grep -o -- '--json [A-Za-z,]*' | sort -u || true
+    | grep -a -o -- '--json [A-Za-z,]*' | sort -u || true   # NULs are deleted above and -a keeps text mode anyway: GNU grep would otherwise print "binary file matches" and no list
 }
 
 # Every list in $1 that names a bare `merged`, one per line.

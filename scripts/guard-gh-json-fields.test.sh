@@ -82,6 +82,25 @@ dir="$(fixture bad-json-escaped-space)"
 printf '{"prompt":"gh pr view <n> --json\x5cu0020state,merged,closed"}\n' > "${dir}/plugins/p/plugin.json"
 expect 1 "JSON with an escaped separator" "${dir}"
 
+# A command stored as an object KEY is scanned too.
+dir="$(fixture bad-json-key)"
+printf '%s\n' '{"gh pr view --json state,merged":"example to run"}' > "${dir}/plugins/p/plugin.json"
+expect 1 "JSON with the request as an object key" "${dir}"
+
+# An argv array is one command, so `--json` and its next element are read together.
+dir="$(fixture bad-json-argv)"
+printf '%s\n' '{"command":"gh","args":["pr","view","--json","state,merged"]}' > "${dir}/plugins/p/.mcp.json"
+expect 1 "JSON argv array naming merged" "${dir}"
+
+dir="$(fixture good-json-argv)"
+printf '%s\n' '{"command":"gh","args":["pr","view","--json","state,mergedAt"]}' > "${dir}/plugins/p/.mcp.json"
+expect 0 "JSON argv array with valid fields" "${dir}"
+
+# A decoded NUL anywhere in the file must not make grep treat it as binary and print nothing.
+dir="$(fixture bad-json-nul)"
+printf '{"note":"a\x5cu0000b","prompt":"gh pr view <n> --json state,merged"}\n' > "${dir}/plugins/p/plugin.json"
+expect 1 "JSON containing a NUL still has its request scanned" "${dir}"
+
 # Two unrelated values must not join into `--json merged`.
 dir="$(fixture good-json-boundary)"
 printf '%s\n' '{"label":"CLI option --json","description":"merged is not a valid field"}' > "${dir}/plugins/p/plugin.json"

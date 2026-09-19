@@ -502,6 +502,21 @@ by a successful consumer of partial output and the read-only role never writes a
 The bundled `forge-readonly-guard.sh` recognises only this exact installed sibling; offline `--input`
 remains denied. Exit 0 is a complete classification; exit 2 means `unknown`, never green.
 
+**Read the verdict from the helper's native tool result, never by appending the guard-denied `; echo
+"EXIT=$?"` idiom.** The guard rejects shell chaining before the helper runs, while the tool result
+already surfaces stdout, stderr, and the process status. Classify that complete result with this closed
+set:
+
+| Native process status and output | Meaning |
+|---|---|
+| observed native process status 0 and completely empty output | no red runs → that branch is **green** |
+| observed native process status 0 and **well-formed TSV rows** — exactly eight tab-separated fields in helper order: numeric `workflow_id`, red `conclusion` (`failure`, `timed_out`, or `startup_failure`), `html_url`, `name`, supported `event`, `path`, valid `created_at`, numeric `run_id` | those are the **red runs** |
+| any nonzero or unavailable native process status; or any other output, including mixed valid and malformed rows | the helper FAILED → **`QUERY-UNKNOWN`**; never `nothing_on_fire: true` |
+
+Every nonempty line must match the complete eight-field row shape. Do not accept a numeric first
+field, a diagnostic prefix, or any other partial predicate as sufficient, and never treat merely
+nonempty output as red runs. Status 0 plus empty output is the only green case.
+
 Invoke it from a process that already has `GH_TELEMETRY=0` (or `false`) in the environment,
 or rely on the helper's own export of `GH_TELEMETRY=0` before its remote `gh api` GET — GitHub CLI
 2.96.0 otherwise writes `gh/device-id` on a certified read. Do not prefix the helper with

@@ -31,6 +31,9 @@ CI_STEP=$(sed -n \
 grep -Fq 'Read the verdict from the helper output, never by appending the guard-denied `; echo "EXIT=$?"` idiom.' \
   <<<"$CI_STEP" ||
   fail 'default-branch CI must prescribe output reading instead of denied exit capture'
+grep -Fq '| completely empty | exit 0 with no red runs → that branch is **green** |' \
+  <<<"$CI_STEP" ||
+  fail 'completely empty classifier output must be the explicit green case'
 # shellcheck disable=SC2016 # Backticks belong to the asserted Markdown contract.
 grep -Fq '| **well-formed TSV rows** — exactly eight tab-separated fields in helper order: numeric `workflow_id`, red `conclusion` (`failure`, `timed_out`, or `startup_failure`), `html_url`, `name`, supported `event`, `path`, valid `created_at`, numeric `run_id` | those are the **red runs** |' \
   <<<"$CI_STEP" ||

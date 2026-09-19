@@ -39,7 +39,7 @@
     {
       "name": "engineering-practices",
       "description": "Git commits, conventional releases, refactoring, test-driven development, and engineering ways of working skills",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./plugins/engineering-practices"
     },
     {

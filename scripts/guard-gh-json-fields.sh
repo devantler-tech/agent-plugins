@@ -94,8 +94,9 @@ bad_lists_in() {
 allowlist="${root}/scripts/gh-json-fields-allowlist.tsv"
 allowed_paths=""
 if [ -e "${allowlist}" ]; then
-  [ -f "${allowlist}" ] && [ -r "${allowlist}" ] ||
+  if ! { [ -f "${allowlist}" ] && [ -r "${allowlist}" ]; }; then
     unknown "${allowlist#"${root}/"} exists but cannot be read, so its exemptions are unknown"
+  fi
   while IFS= read -r line || [ -n "${line}" ]; do
     case "${line}" in ''|'#'*) continue ;; esac
     case "${line}" in

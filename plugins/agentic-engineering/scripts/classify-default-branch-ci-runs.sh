@@ -9,7 +9,7 @@
 #   classify-default-branch-ci-runs.sh --input PATH
 #
 # Stdout: one TSV line per current red identity —
-#   workflow_id conclusion html_url name event path created_at run_id
+#   workflow_id conclusion html_url name event path created_at run_id run_attempt
 # Exit 0 after a complete, valid classification; exit 2 on usage, producer, or payload failure.
 set -euo pipefail
 
@@ -196,13 +196,15 @@ jq_filter='
       or ((.created_at | valid_github_timestamp) | not)
       or ((.run_started_at // null) != null
           and ((.run_started_at | valid_github_timestamp) | not))
-      or ((.run_attempt // null) != null and (.run_attempt | type != "number")))
-    then error("branch run is missing workflow_id, id, or execution time")
+      or (.run_attempt | type != "number")
+      or (.run_attempt < 1)
+      or (.run_attempt | floor != .))
+    then error("branch run is missing workflow_id, id, run_attempt, or execution time")
     else $branch_runs
     end
   | group_by(run_identity)
   | map(
-      sort_by([(.run_started_at // .created_at), .id, (.run_attempt // 1)])
+      sort_by([(.run_started_at // .created_at), .id, .run_attempt])
       | map(select(.conclusion == "success" or red))
       | last
     )
@@ -210,7 +212,7 @@ jq_filter='
   | sort_by([.workflow_id, (.name // "")])
   | .[]
   | [.workflow_id, .conclusion, (.html_url // ""), (.name // ""),
-     (.event // ""), (.path // ""), .created_at, .id]
+     (.event // ""), (.path // ""), .created_at, .id, .run_attempt]
   | @tsv
 ' 
 

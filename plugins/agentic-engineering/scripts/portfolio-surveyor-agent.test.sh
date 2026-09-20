@@ -27,6 +27,21 @@ CI_STEP=$(sed -n \
   '/^### 4\. CI red on the default branch/,/^### 5\. Triage, stale, and advance signals/p' \
   "$SURVEYOR" | tr '\n' ' ' | tr -s '[:space:]' ' ')
 [ -n "$CI_STEP" ] || fail 'could not extract the default-branch CI step'
+# shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+for log_scope_fragment in \
+  'Never read a workflow log body from this survey.' \
+  '`--log-failed`, `--log` and `--job`' \
+  '`repos/<owner>/<repo>/actions/runs/<run_id>/attempts/<run_attempt>/jobs`' \
+  '["failure","timed_out","startup_failure"]' \
+  '[.id,.check_run_url]' \
+  '`repos/<owner>/<repo>/actions/jobs/<job_id>`' \
+  '`repos/<owner>/<repo>/check-runs/<check_run_id>/annotations`' \
+  'select(.annotation_level=="failure")' \
+  '**with `--paginate`**' \
+  'the orchestrator reads the log itself'; do
+  grep -Fq "$log_scope_fragment" <<<"$CI_STEP" ||
+    fail "default-branch CI must preserve the workflow-log scope contract: $log_scope_fragment"
+done
 # shellcheck disable=SC2016 # The asserted agent text contains a literal shell idiom.
 grep -Fq 'Read the verdict from the helper'"'"'s native tool result, never by appending the guard-denied `; echo "EXIT=$?"` idiom.' \
   <<<"$CI_STEP" ||
@@ -35,9 +50,9 @@ grep -Fq '| observed native process status 0 and completely empty output | no re
   <<<"$CI_STEP" ||
   fail 'green must require both observed native process status 0 and completely empty classifier output'
 # shellcheck disable=SC2016 # Backticks belong to the asserted Markdown contract.
-grep -Fq '| observed native process status 0 and **well-formed TSV rows** — exactly eight tab-separated fields in helper order: numeric `workflow_id`, red `conclusion` (`failure`, `timed_out`, or `startup_failure`), `html_url`, `name`, supported `event`, `path`, valid `created_at`, numeric `run_id` | those are the **red runs** |' \
+grep -Fq '| observed native process status 0 and **well-formed TSV rows** — exactly nine tab-separated fields in helper order: numeric `workflow_id`, red `conclusion` (`failure`, `timed_out`, or `startup_failure`), `html_url`, `name`, supported `event`, `path`, valid `created_at`, numeric `run_id`, positive numeric `run_attempt` | those are the **red runs** |' \
   <<<"$CI_STEP" ||
-  fail 'the complete eight-field TSV predicate must map to the red verdict as one table row'
+  fail 'the complete nine-field TSV predicate must map to the red verdict as one table row'
 # shellcheck disable=SC2016 # Backticks belong to the asserted Markdown contract.
 grep -Fq '| any nonzero or unavailable native process status; or any other output, including mixed valid and malformed rows | the helper FAILED → **`QUERY-UNKNOWN`**; never `nothing_on_fire: true` |' \
   <<<"$CI_STEP" ||
@@ -89,5 +104,15 @@ GRAPHQL_QUERY='query($owner:String!,$name:String!,$number:Int!){repository(owner
 GH_TELEMETRY=0 "$GUARD" --command \
   "gh api graphql -F owner=devantler-tech -F name=platform -F number=3196 -f query='$GRAPHQL_QUERY' --jq '$JQ_FILTER'" \
   >/dev/null || fail 'the prescribed dependency read is not admitted by the forge guard'
+
+GH_TELEMETRY=0 "$GUARD" --command \
+  "gh api repos/example/product/actions/runs/789/attempts/2/jobs --paginate --jq '.jobs[]|select(.conclusion as \$c|[\"failure\",\"timed_out\",\"startup_failure\"]|index(\$c))|[.id,.check_run_url]|@tsv'" \
+  >/dev/null || fail 'the prescribed paginated attempt-to-job correlation read is not admitted by the forge guard'
+GH_TELEMETRY=0 "$GUARD" --command \
+  "gh api repos/example/product/actions/jobs/123 --jq '[.steps[]|select(.conclusion as \$c|[\"failure\",\"timed_out\",\"startup_failure\"]|index(\$c))|.name]'" \
+  >/dev/null || fail 'the prescribed workflow-job read is not admitted by the forge guard'
+GH_TELEMETRY=0 "$GUARD" --command \
+  "gh api repos/example/product/check-runs/456/annotations --paginate --jq '.[]|select(.annotation_level==\"failure\")|[.annotation_level,.path,.message]|@tsv'" \
+  >/dev/null || fail 'the prescribed paginated annotation read is not admitted by the forge guard'
 
 printf 'portfolio-surveyor agent contract: PASS\n'

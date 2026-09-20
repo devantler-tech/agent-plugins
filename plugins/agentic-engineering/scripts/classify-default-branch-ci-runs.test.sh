@@ -49,7 +49,7 @@ expect_remote_failure() {
   mkdir -p "$stub_dir"
   cat >"$stub_dir/gh" <<'STUB'
 #!/usr/bin/env bash
-printf '%s\n' '{"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"CI"}]}'
+printf '%s\n' '{"workflow_runs":[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"CI"}]}'
 exit 1
 STUB
   chmod +x "$stub_dir/gh"
@@ -72,7 +72,7 @@ expect_remote_head_mismatch() {
   mkdir -p "$stub_dir"
   cat >"$stub_dir/gh" <<'STUB'
 #!/usr/bin/env bash
-printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/stale-fail","name":"CI"}]}'
+printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/stale-fail","name":"CI"}]}'
 STUB
   chmod +x "$stub_dir/gh"
   out=$(PATH="$stub_dir:$PATH" "$CLASSIFIER" \
@@ -96,7 +96,7 @@ expect_remote_branch_mismatch() {
   mkdir -p "$stub_dir"
   cat >"$stub_dir/gh" <<'STUB'
 #!/usr/bin/env bash
-printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","head_branch":"release","head_sha":"0123456789abcdef0123456789abcdef01234567","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/wrong-branch-fail","name":"CI"}]}'
+printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","head_branch":"release","head_sha":"0123456789abcdef0123456789abcdef01234567","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/wrong-branch-fail","name":"CI"}]}'
 STUB
   chmod +x "$stub_dir/gh"
   out=$(PATH="$stub_dir:$PATH" "$CLASSIFIER" \
@@ -115,11 +115,11 @@ STUB
 
 expect_remote_mixed_case_head() {
   local stub_dir="$TEST_TMP/mixed-case-head-bin" out status=0
-  local expected=$'11\tfailure\thttps://example.test/current-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t10'
+  local expected=$'11\tfailure\thttps://example.test/current-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t10\t1'
   mkdir -p "$stub_dir"
   cat >"$stub_dir/gh" <<'STUB'
 #!/usr/bin/env bash
-printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/current-fail","name":"CI"}]}'
+printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/current-fail","name":"CI"}]}'
 STUB
   chmod +x "$stub_dir/gh"
   out=$(PATH="$stub_dir:$PATH" "$CLASSIFIER" \
@@ -190,35 +190,35 @@ fi
 expect_output \
   'a later success clears an earlier failure for the same workflow' \
   '[
-    {"id":10,"workflow_id":11,"event":"schedule","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"},
-    {"id":11,"workflow_id":11,"event":"workflow_dispatch","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"Template Sync"}
+    {"id":10,"run_attempt":1,"workflow_id":11,"event":"schedule","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"},
+    {"id":11,"run_attempt":1,"workflow_id":11,"event":"workflow_dispatch","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"Template Sync"}
   ]' \
   ''
 
 expect_output \
   'pending and cancelled retries do not clear a known failure' \
   '[
-    {"id":10,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"},
-    {"id":11,"workflow_id":11,"event":"workflow_dispatch","conclusion":"cancelled","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/cancelled","name":"Template Sync"},
-    {"id":12,"workflow_id":11,"event":"workflow_dispatch","conclusion":null,"status":"in_progress","created_at":"2026-07-14T10:00:00Z","html_url":"https://example.test/pending","name":"Template Sync"}
+    {"id":10,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"},
+    {"id":11,"run_attempt":1,"workflow_id":11,"event":"workflow_dispatch","conclusion":"cancelled","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/cancelled","name":"Template Sync"},
+    {"id":12,"run_attempt":1,"workflow_id":11,"event":"workflow_dispatch","conclusion":null,"status":"in_progress","created_at":"2026-07-14T10:00:00Z","html_url":"https://example.test/pending","name":"Template Sync"}
   ]' \
-  $'11\tfailure\thttps://example.test/fail\tTemplate Sync\tpush\t\t2026-07-13T10:00:00Z\t10'
+  $'11\tfailure\thttps://example.test/fail\tTemplate Sync\tpush\t\t2026-07-13T10:00:00Z\t10\t1'
 
 expect_output \
   'managed jobs sharing one workflow id retain independent state' \
   '[
-    {"id":20,"workflow_id":107623015,"event":"dynamic","path":"dynamic/dependabot/dependabot-updates","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/helm-fail","name":"helm in /pkg/svc/installer/kyverno - Update #1510869626"},
-    {"id":21,"workflow_id":107623015,"event":"dynamic","path":"dynamic/dependabot/dependabot-updates","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/docker-ok","name":"docker in /pkg/svc/installer/kyverno - Update #1510869627"}
+    {"id":20,"run_attempt":1,"workflow_id":107623015,"event":"dynamic","path":"dynamic/dependabot/dependabot-updates","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/helm-fail","name":"helm in /pkg/svc/installer/kyverno - Update #1510869626"},
+    {"id":21,"run_attempt":1,"workflow_id":107623015,"event":"dynamic","path":"dynamic/dependabot/dependabot-updates","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/docker-ok","name":"docker in /pkg/svc/installer/kyverno - Update #1510869627"}
   ]' \
-  $'107623015\tfailure\thttps://example.test/helm-fail\thelm in /pkg/svc/installer/kyverno - Update #1510869626\tdynamic\tdynamic/dependabot/dependabot-updates\t2026-07-13T10:00:00Z\t20'
+  $'107623015\tfailure\thttps://example.test/helm-fail\thelm in /pkg/svc/installer/kyverno - Update #1510869626\tdynamic\tdynamic/dependabot/dependabot-updates\t2026-07-13T10:00:00Z\t20\t1'
 
 expect_output \
   'raw pagination documents are flattened before latest-state selection' \
   '{"total_count":2,"workflow_runs":[
-    {"id":11,"workflow_id":11,"event":"workflow_dispatch","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"Template Sync"}
+    {"id":11,"run_attempt":1,"workflow_id":11,"event":"workflow_dispatch","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"Template Sync"}
   ]}
   {"total_count":2,"workflow_runs":[
-    {"id":10,"workflow_id":11,"event":"schedule","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"}
+    {"id":10,"run_attempt":1,"workflow_id":11,"event":"schedule","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"}
   ]}' \
   ''
 
@@ -226,21 +226,21 @@ expect_output \
   'slurped pagination envelopes are flattened before classification' \
   '[
     {"total_count":2,"workflow_runs":[
-      {"id":11,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"}
+      {"id":11,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"Template Sync"}
     ]},
     {"total_count":2,"workflow_runs":[
-      {"id":10,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/ok","name":"Template Sync"}
+      {"id":10,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/ok","name":"Template Sync"}
     ]}
   ]' \
-  $'11\tfailure\thttps://example.test/fail\tTemplate Sync\tpush\t\t2026-07-14T09:00:00Z\t11'
+  $'11\tfailure\thttps://example.test/fail\tTemplate Sync\tpush\t\t2026-07-14T09:00:00Z\t11\t1'
 
 expect_output \
   'run id deterministically breaks equal created-at timestamps' \
   '[
-    {"id":102,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/new-fail","name":"CI"},
-    {"id":101,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/old-ok","name":"CI"}
+    {"id":102,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/new-fail","name":"CI"},
+    {"id":101,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/old-ok","name":"CI"}
   ]' \
-  $'11\tfailure\thttps://example.test/new-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t102'
+  $'11\tfailure\thttps://example.test/new-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t102\t1'
 
 expect_output \
   'a later rerun attempt is ordered by its execution time' \
@@ -248,30 +248,42 @@ expect_output \
     {"id":10,"run_attempt":2,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","run_started_at":"2026-07-14T11:00:00Z","html_url":"https://example.test/rerun-fail","name":"CI"},
     {"id":11,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T10:00:00Z","run_started_at":"2026-07-14T10:00:00Z","html_url":"https://example.test/ok","name":"CI"}
   ]' \
-  $'11\tfailure\thttps://example.test/rerun-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t10'
+  $'11\tfailure\thttps://example.test/rerun-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t10\t2'
+
+expect_error \
+  'a non-positive run attempt makes the classification unknown' \
+  '[
+    {"id":10,"run_attempt":0,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}
+  ]'
+
+expect_error \
+  'a missing run attempt makes the classification unknown' \
+  '[
+    {"id":10,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}
+  ]'
 
 expect_error \
   'a run without an event discriminator makes the classification unknown' \
   '[
-    {"id":10,"workflow_id":11,"conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}
+    {"id":10,"run_attempt":1,"workflow_id":11,"conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}
   ]'
 
 expect_error \
   'an invalid execution timestamp makes the classification unknown' \
   '[
-    {"id":10,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"not-a-timestamp","html_url":"https://example.test/fail","name":"CI"}
+    {"id":10,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"not-a-timestamp","html_url":"https://example.test/fail","name":"CI"}
   ]'
 
 expect_error \
   'a calendar-normalized timestamp makes the classification unknown' \
   '[
-    {"id":10,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-02-31T10:00:00Z","html_url":"https://example.test/fail","name":"CI"}
+    {"id":10,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-02-31T10:00:00Z","html_url":"https://example.test/fail","name":"CI"}
   ]'
 
 expect_error \
   'a dynamic run without a complete managed identity makes health unknown' \
   '[
-    {"id":20,"workflow_id":107623015,"event":"dynamic","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/managed-fail","name":"helm in /pkg/svc"}
+    {"id":20,"run_attempt":1,"workflow_id":107623015,"event":"dynamic","conclusion":"failure","created_at":"2026-07-13T10:00:00Z","html_url":"https://example.test/managed-fail","name":"helm in /pkg/svc"}
   ]'
 
 expect_output \
@@ -280,12 +292,12 @@ expect_output \
     {"id":101,"run_attempt":2,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T08:00:00Z","run_started_at":"2026-07-14T10:00:00Z","html_url":"https://example.test/old-rerun-ok","name":"CI"},
     {"id":102,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","run_started_at":"2026-07-14T10:00:00Z","html_url":"https://example.test/new-fail","name":"CI"}
   ]' \
-  $'11\tfailure\thttps://example.test/new-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t102'
+  $'11\tfailure\thttps://example.test/new-fail\tCI\tpush\t\t2026-07-14T09:00:00Z\t102\t1'
 
 expect_error \
   'a filtered result cap makes the classification unknown' \
   '{"total_count":1001,"workflow_runs":[
-    {"id":10,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"CI"}
+    {"id":10,"run_attempt":1,"workflow_id":11,"event":"push","conclusion":"success","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/ok","name":"CI"}
   ]}'
 
 expect_remote_failure
@@ -304,7 +316,7 @@ fi
 
 expect_surveyor_contract_ablation
 
-if grep -Fq 'event=<event>, path=<path>, created=<created_at>, run=<run_id>' "$SURVEYOR"; then
+if grep -Fq 'event=<event>, path=<path>, created=<created_at>, run=<run_id>, attempt=<run_attempt>' "$SURVEYOR"; then
   pass=$((pass + 1))
 else
   record_failure 'generic survey digest preserves managed-run routing fields'

@@ -112,6 +112,19 @@ jobs:
         # context as UNKNOWN rather than a pass.
         run: ./scripts/guard-bundled-skill-edits.test.sh
 
+      - name: 🧪 Self-test the gh JSON field guard
+        # Proves every known formatting of an invalid `--json …merged…` request is caught
+        # (including a JSON \u escape and a nested skill file), that mergedAt/mergedBy/
+        # mergeCommit and adjacent prose are never reported, and that an unparseable
+        # surface or an empty scan reads as UNKNOWN rather than clean.
+        run: ./scripts/guard-gh-json-fields.test.sh
+
+      - name: 🔍 Refuse a nonexistent gh JSON field in bundled definitions
+        # `merged` exists on no gh PR command, and one unknown field voids the whole
+        # request, so an agent told to read it cannot confirm its own merge. Checked here,
+        # where definitions are authored and synced skills arrive, before any consumer pins it.
+        run: ./scripts/guard-gh-json-fields.sh
+
       - name: 🧪 Self-test bundled helper scripts
         # Runs every hermetic *.test.sh bundled with a plugin — beside a skill
         # (plugins/*/skills/*/scripts/) or serving the plugin's agents

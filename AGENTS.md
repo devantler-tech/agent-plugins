@@ -44,6 +44,8 @@ scripts/
 ├── check-plugin-version-bump.test.sh # Self-test for the gate above
 ├── guard-bundled-skill-edits.sh      # Gate: refuse a hand-edit to a synced skill tree, naming its upstream
 ├── guard-bundled-skill-edits.test.sh # Self-test for the gate above
+├── guard-gh-json-fields.sh     # Gate: refuse a bundled definition that requests the nonexistent gh `merged` field
+├── guard-gh-json-fields.test.sh # Self-test for the gate above
 ├── recheck-open-prs.sh         # Re-trigger every open PR's checks after a CI gate changes on main
 ├── recheck-open-prs.test.sh    # Self-test for the recheck above (stubs `gh`; no network)
 ├── bump-plugin-version.sh      # Move a plugin's version across all four manifests (the fix the gate points at)

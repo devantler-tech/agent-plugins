@@ -117,10 +117,8 @@ if [ -e "${allowlist}" ]; then
     { [ -n "${entry_path}" ] && [ -n "${entry_digest}" ] && [ -n "${entry_reason}" ] &&
       [ "${entry_rest}" != "${line}" ] && [ "${entry_reason}" != "${entry_rest}" ]; } ||
       unknown "${allowlist#"${root}/"} needs a path, the file's sha256 and a reason, tab-separated: ${line}"
-    case "${entry_digest}" in
-      [0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
-      *) unknown "${allowlist#"${root}/"} has an entry whose second field is not a sha256: ${line}" ;;
-    esac
+    [[ "${entry_digest}" =~ ^[0-9a-f]{64}$ ]] ||
+      unknown "${allowlist#"${root}/"} has an entry whose second field is not a sha256: ${line}"
     allowed_entries="${allowed_entries}${entry_path}${tab}${entry_digest}"$'\n'
   done < "${allowlist}"
 fi

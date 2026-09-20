@@ -208,6 +208,12 @@ mkdir -p "${dir}/scripts"
 printf 'plugins/p/agents/warn.md\t--json state,merged\tthe old path-and-list form\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
 expect 2 "an allow-list second field that is not a digest is UNKNOWN" "${dir}"
 
+dir="$(fixture unknown-allowlist-short-digest)"
+mkdir -p "${dir}/scripts"
+printf '%s\n' 'Never run `gh pr view <n> --json state,merged`; use mergedAt instead.' > "${dir}/plugins/p/agents/warn.md"
+printf 'plugins/p/agents/warn.md\tdeadbeef\tan abbreviated digest is not a sha256\n' > "${dir}/scripts/gh-json-fields-allowlist.tsv"
+expect 2 "an abbreviated allow-list digest is UNKNOWN" "${dir}"
+
 dir="$(fixture unknown-dangling-symlink)"
 ln -s "${dir}/missing.md" "${dir}/plugins/p/agents/dangling.md"
 expect 2 "a dangling symlinked surface is UNKNOWN" "${dir}"

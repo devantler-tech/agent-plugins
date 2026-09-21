@@ -116,14 +116,14 @@ GH_TELEMETRY=0 "$GUARD" --command \
   >/dev/null || fail 'the prescribed paginated annotation read is not admitted by the forge guard'
 
 ISSUE_AGGREGATION_COMMAND=$(grep -F \
-  'gh api graphql --paginate --slurp -F owner=<owner> -F name=<repo>' \
+  'gh api graphql --paginate --slurp -f owner=<owner> -f name=<repo>' \
   "$SURVEYOR" || true)
 [ -n "$ISSUE_AGGREGATION_COMMAND" ] ||
   fail 'could not extract the prescribed issue aggregation command'
-grep -Fq " | jq -c '" <<<"$ISSUE_AGGREGATION_COMMAND" ||
-  fail 'the paginated slurp must be reduced by the allowlisted jq filter, not unsupported gh --jq'
+grep -Fq " | jq -ce '" <<<"$ISSUE_AGGREGATION_COMMAND" ||
+  fail 'the paginated slurp must be reduced by exit-status-enforcing jq, not unsupported gh --jq'
 ISSUE_AGGREGATION_FILTER=$(printf '%s\n' "$ISSUE_AGGREGATION_COMMAND" |
-  sed "s/^.* | jq -c '\(.*\)'$/\1/")
+  sed "s/^.* | jq -ce '\(.*\)'$/\1/")
 [ -n "$ISSUE_AGGREGATION_FILTER" ] ||
   fail 'could not extract the prescribed issue aggregation jq filter'
 
@@ -132,6 +132,9 @@ ISSUE_SUMMARY=$(jq -c "$ISSUE_AGGREGATION_FILTER" <<<"$ISSUE_PAGES") ||
   fail 'the prescribed issue aggregation rejected valid issue rows'
 [ "$ISSUE_SUMMARY" = '{"total":4,"types":[{"type":null,"count":1},{"type":"Bug","count":1},{"type":"Task","count":1},{"type":"untyped","count":1}]}' ] ||
   fail "the prescribed issue aggregation returned the wrong summary: $ISSUE_SUMMARY"
+if (set +o pipefail; { false; } | jq -ce "$ISSUE_AGGREGATION_FILTER" >/dev/null 2>&1); then
+  fail 'an upstream failure with no response pages was masked as a successful empty summary'
+fi
 if jq -c "$ISSUE_AGGREGATION_FILTER" \
   <<<'[{"data":{"repository":{"issues":{"totalCount":1,"nodes":[{"number":0,"issueType":{"name":"Bug"}}]}}}}]' >/dev/null 2>&1; then
   fail 'the prescribed issue aggregation accepted a malformed issue row'

@@ -115,4 +115,43 @@ GH_TELEMETRY=0 "$GUARD" --command \
   "gh api repos/example/product/check-runs/456/annotations --paginate --jq '.[]|select(.annotation_level==\"failure\")|[.annotation_level,.path,.message]|@tsv'" \
   >/dev/null || fail 'the prescribed paginated annotation read is not admitted by the forge guard'
 
+ISSUE_AGGREGATION_COMMAND=$(grep -F \
+  'gh api graphql --paginate --slurp -f owner=<owner> -f name=<repo>' \
+  "$SURVEYOR" || true)
+[ -n "$ISSUE_AGGREGATION_COMMAND" ] ||
+  fail 'could not extract the prescribed issue aggregation command'
+grep -Fq " | jq -ce '" <<<"$ISSUE_AGGREGATION_COMMAND" ||
+  fail 'the paginated slurp must be reduced by exit-status-enforcing jq, not unsupported gh --jq'
+ISSUE_AGGREGATION_FILTER=$(printf '%s\n' "$ISSUE_AGGREGATION_COMMAND" |
+  sed "s/^.* | jq -ce '\(.*\)'$/\1/")
+[ -n "$ISSUE_AGGREGATION_FILTER" ] ||
+  fail 'could not extract the prescribed issue aggregation jq filter'
+
+ISSUE_PAGES='[{"data":{"repository":{"issues":{"totalCount":4,"nodes":[{"number":1,"issueType":{"name":"Bug"}},{"number":2,"issueType":null}]}}}},{"data":{"repository":{"issues":{"totalCount":4,"nodes":[{"number":3,"issueType":{"name":"Task"}},{"number":4,"issueType":{"name":"untyped"}}]}}}}]'
+ISSUE_SUMMARY=$(jq -c "$ISSUE_AGGREGATION_FILTER" <<<"$ISSUE_PAGES") ||
+  fail 'the prescribed issue aggregation rejected valid issue rows'
+[ "$ISSUE_SUMMARY" = '{"total":4,"types":[{"type":null,"count":1},{"type":"Bug","count":1},{"type":"Task","count":1},{"type":"untyped","count":1}]}' ] ||
+  fail "the prescribed issue aggregation returned the wrong summary: $ISSUE_SUMMARY"
+if (set +o pipefail; { false; } | jq -ce "$ISSUE_AGGREGATION_FILTER" >/dev/null 2>&1); then
+  fail 'an upstream failure with no response pages was masked as a successful empty summary'
+fi
+if jq -c "$ISSUE_AGGREGATION_FILTER" \
+  <<<'[{"data":{"repository":{"issues":{"totalCount":1,"nodes":[{"number":0,"issueType":{"name":"Bug"}}]}}}}]' >/dev/null 2>&1; then
+  fail 'the prescribed issue aggregation accepted a malformed issue row'
+fi
+if jq -c "$ISSUE_AGGREGATION_FILTER" \
+  <<<'[{"data":{"repository":{"issues":{"totalCount":2,"nodes":[{"number":1,"issueType":{"name":"Bug"}}]}}}}]' >/dev/null 2>&1; then
+  fail 'the prescribed issue aggregation accepted a capped or partial issue census'
+fi
+
+GUARDED_ISSUE_AGGREGATION=${ISSUE_AGGREGATION_COMMAND/'<owner>'/example}
+GUARDED_ISSUE_AGGREGATION=${GUARDED_ISSUE_AGGREGATION/'<repo>'/product}
+GH_TELEMETRY=0 "$GUARD" --command "$GUARDED_ISSUE_AGGREGATION" >/dev/null ||
+  fail 'the prescribed issue aggregation is not admitted by the forge guard'
+
+AWK_DENIAL=$(GH_TELEMETRY=0 "$GUARD" --command \
+  "gh issue list --repo example/product --state open --limit 1000 --json number,issueType --jq '.[]|[.number,(.issueType.name // \"untyped\")]|@tsv' | awk -F'\\t' '{count[\$2]++} END{for(type in count) print type,count[type]}'" || true)
+[ "$AWK_DENIAL" = "deny: 'awk' is not on the read-only allowlist" ] ||
+  fail "the observed awk aggregation did not fail for the intended guard reason: $AWK_DENIAL"
+
 printf 'portfolio-surveyor agent contract: PASS\n'

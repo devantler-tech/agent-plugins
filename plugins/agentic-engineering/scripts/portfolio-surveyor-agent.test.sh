@@ -143,6 +143,20 @@ if jq -c "$ISSUE_AGGREGATION_FILTER" \
   <<<'[{"data":{"repository":{"issues":{"totalCount":2,"nodes":[{"number":1,"issueType":{"name":"Bug"}}]}}}}]' >/dev/null 2>&1; then
   fail 'the prescribed issue aggregation accepted a capped or partial issue census'
 fi
+# An absent issueType key reads as null in jq, so without a has() check a malformed row would be
+# counted as untyped instead of failing closed.
+if jq -c "$ISSUE_AGGREGATION_FILTER" \
+  <<<'[{"data":{"repository":{"issues":{"totalCount":1,"nodes":[{"number":1}]}}}}]' >/dev/null 2>&1; then
+  fail 'the prescribed issue aggregation counted a row with no issueType key as untyped'
+fi
+if jq -c "$ISSUE_AGGREGATION_FILTER" \
+  <<<'[{"data":{"repository":{"issues":{"totalCount":1,"nodes":[{"number":1,"issueType":"Bug"}]}}}}]' >/dev/null 2>&1; then
+  fail 'the prescribed issue aggregation accepted an issueType that is not an object'
+fi
+if jq -c "$ISSUE_AGGREGATION_FILTER" \
+  <<<'[{"data":{"repository":{"issues":{"totalCount":1,"nodes":[7]}}}}]' >/dev/null 2>&1; then
+  fail 'the prescribed issue aggregation accepted an issue row that is not an object'
+fi
 
 GUARDED_ISSUE_AGGREGATION=${ISSUE_AGGREGATION_COMMAND/'<owner>'/example}
 GUARDED_ISSUE_AGGREGATION=${GUARDED_ISSUE_AGGREGATION/'<repo>'/product}

@@ -120,8 +120,10 @@ ISSUE_AGGREGATION_COMMAND=$(grep -F \
   "$SURVEYOR" || true)
 [ -n "$ISSUE_AGGREGATION_COMMAND" ] ||
   fail 'could not extract the prescribed issue aggregation command'
+grep -Fq " | jq -c '" <<<"$ISSUE_AGGREGATION_COMMAND" ||
+  fail 'the paginated slurp must be reduced by the allowlisted jq filter, not unsupported gh --jq'
 ISSUE_AGGREGATION_FILTER=$(printf '%s\n' "$ISSUE_AGGREGATION_COMMAND" |
-  sed "s/^.* --jq '\(.*\)'$/\1/")
+  sed "s/^.* | jq -c '\(.*\)'$/\1/")
 [ -n "$ISSUE_AGGREGATION_FILTER" ] ||
   fail 'could not extract the prescribed issue aggregation jq filter'
 

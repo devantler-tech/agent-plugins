@@ -116,7 +116,7 @@ GH_TELEMETRY=0 "$GUARD" --command \
   >/dev/null || fail 'the prescribed paginated annotation read is not admitted by the forge guard'
 
 ISSUE_AGGREGATION_COMMAND=$(grep -F \
-  'gh issue list --repo <owner>/<repo> --state open --limit 1000 --json number,issueType --jq' \
+  'gh api graphql --paginate --slurp -F owner=<owner> -F name=<repo>' \
   "$SURVEYOR" || true)
 [ -n "$ISSUE_AGGREGATION_COMMAND" ] ||
   fail 'could not extract the prescribed issue aggregation command'
@@ -125,14 +125,18 @@ ISSUE_AGGREGATION_FILTER=$(printf '%s\n' "$ISSUE_AGGREGATION_COMMAND" |
 [ -n "$ISSUE_AGGREGATION_FILTER" ] ||
   fail 'could not extract the prescribed issue aggregation jq filter'
 
-ISSUE_ROWS='[{"number":1,"issueType":{"name":"Bug"}},{"number":2,"issueType":null},{"number":3,"issueType":{"name":"Task"}}]'
-ISSUE_SUMMARY=$(jq -c "$ISSUE_AGGREGATION_FILTER" <<<"$ISSUE_ROWS") ||
+ISSUE_PAGES='[{"data":{"repository":{"issues":{"totalCount":4,"nodes":[{"number":1,"issueType":{"name":"Bug"}},{"number":2,"issueType":null}]}}}},{"data":{"repository":{"issues":{"totalCount":4,"nodes":[{"number":3,"issueType":{"name":"Task"}},{"number":4,"issueType":{"name":"untyped"}}]}}}}]'
+ISSUE_SUMMARY=$(jq -c "$ISSUE_AGGREGATION_FILTER" <<<"$ISSUE_PAGES") ||
   fail 'the prescribed issue aggregation rejected valid issue rows'
-[ "$ISSUE_SUMMARY" = '{"total":3,"types":[{"type":"Bug","count":1},{"type":"Task","count":1},{"type":"untyped","count":1}]}' ] ||
+[ "$ISSUE_SUMMARY" = '{"total":4,"types":[{"type":null,"count":1},{"type":"Bug","count":1},{"type":"Task","count":1},{"type":"untyped","count":1}]}' ] ||
   fail "the prescribed issue aggregation returned the wrong summary: $ISSUE_SUMMARY"
 if jq -c "$ISSUE_AGGREGATION_FILTER" \
-  <<<'[{"number":0,"issueType":{"name":"Bug"}}]' >/dev/null 2>&1; then
+  <<<'[{"data":{"repository":{"issues":{"totalCount":1,"nodes":[{"number":0,"issueType":{"name":"Bug"}}]}}}}]' >/dev/null 2>&1; then
   fail 'the prescribed issue aggregation accepted a malformed issue row'
+fi
+if jq -c "$ISSUE_AGGREGATION_FILTER" \
+  <<<'[{"data":{"repository":{"issues":{"totalCount":2,"nodes":[{"number":1,"issueType":{"name":"Bug"}}]}}}}]' >/dev/null 2>&1; then
+  fail 'the prescribed issue aggregation accepted a capped or partial issue census'
 fi
 
 GUARDED_ISSUE_AGGREGATION=${ISSUE_AGGREGATION_COMMAND/'<owner>'/example}

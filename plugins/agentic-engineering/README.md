@@ -234,8 +234,8 @@ Because the guard denies by default, run your own deployment's survey vocabulary
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is
 better discovered deliberately than mid-run.
 
-The bundled compound reads are two helpers in remote mode, and nothing else local runs under the
-guard:
+The bundled compound reads are two helpers in remote mode, and no other bundled local program runs
+under the guard:
 
 - `scripts/classify-default-branch-ci-runs.sh` judges default-branch CI. The guard accepts only
   `--repo`, `--branch`, and a full `--head-sha`, and refuses the helper's offline `--input` mode.

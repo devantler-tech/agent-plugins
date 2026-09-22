@@ -41,8 +41,9 @@ dimension** — report the gap, never guess a login, a prefix, a marker literal,
   `--no-ext-diff --no-textconv` as well: `git -c core.fsmonitor= --no-optional-locks diff
   --no-ext-diff --no-textconv HEAD~1`. The index and patch switches are separate mechanisms, and
   `diff` needs both. Your shell access exists solely to run the source-forge CLI's read verbs and the
-  reviewed plugin's default-branch classifier as the one bundled compound forge read. That helper
-  captures its fixed API GET in memory and never writes a response file. Deployments are expected to
+  reviewed plugin's two bundled compound forge reads: the default-branch classifier (step 4) and the
+  unresolved-thread counter (step 3b, field (b)). Each helper captures its fixed paginated read in
+  memory and never writes a response file. Deployments are expected to
   enforce this boundary in the runtime's permission/guard layer as well, and you never test or work
   around that enforcement.
   A deployment that has not wired `scripts/forge-readonly-guard.sh` onto this agent fails
@@ -530,8 +531,8 @@ itself exits 2 on it, so every executable invocation must carry the resolved pat
 flags. **Do not reimplement the helper** inline. It owns the
 paginated API call in memory as well as classification, so a later-page API failure cannot be masked
 by a successful consumer of partial output and the read-only role never writes an intermediate file.
-The bundled `forge-readonly-guard.sh` recognises only this exact installed sibling; offline `--input`
-remains denied. Exit 0 is a complete classification; exit 2 means `unknown`, never green.
+The bundled `forge-readonly-guard.sh` recognises the classifier only as this exact installed sibling;
+offline `--input` remains denied. Exit 0 is a complete classification; exit 2 means `unknown`, never green.
 
 **Read the verdict from the helper's native tool result, never by appending the guard-denied `; echo
 "EXIT=$?"` idiom.** The guard rejects shell chaining before the helper runs, while the tool result

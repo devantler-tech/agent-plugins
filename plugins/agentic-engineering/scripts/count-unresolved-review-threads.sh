@@ -43,12 +43,12 @@ pr=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo)
-      [ "$#" -ge 2 ] && [ -z "$repo" ] || usage
+      if [ "$#" -lt 2 ] || [ -n "$repo" ]; then usage; fi
       repo=$2
       shift 2
       ;;
     --pr)
-      [ "$#" -ge 2 ] && [ -z "$pr" ] || usage
+      if [ "$#" -lt 2 ] || [ -n "$pr" ]; then usage; fi
       pr=$2
       shift 2
       ;;

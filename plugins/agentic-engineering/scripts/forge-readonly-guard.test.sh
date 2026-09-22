@@ -185,6 +185,11 @@ expect_allow 'api with an attached GET method before the subcommand' \
   "gh --method=GET api repos/devantler-tech/platform/rulesets"
 expect_allow 'bundled default-branch classifier is a guarded compound forge read' \
   "$HERE/classify-default-branch-ci-runs.sh --repo devantler-tech/platform --branch main --head-sha 0123456789abcdef0123456789abcdef01234567"
+# The unresolved-thread count is the surveyor's pentad field (b). Counted inline, a failed or
+# first-page-only read printed the same zero as a clean PR, so the count comes from the
+# bundled helper, and the helper's verdict is its own exit status.
+expect_allow 'bundled unresolved-thread counter is a guarded compound forge read' \
+  "$HERE/count-unresolved-review-threads.sh --repo devantler-tech/monorepo --pr 2436"
 expect_allow 'api rate_limit with a jq object expression' \
   "gh api rate_limit --jq '{graphql:.resources.graphql,core:.resources.core}'"
 
@@ -234,7 +239,7 @@ expect_allow 'anonymous graphql document is a query by spec' \
 expect_allow 'graphql reviewThreads pagination' \
   "gh api graphql -F n=2786 -f query='query{repository{pullRequest{reviewThreads(first:100){nodes{isResolved}}}}}'"
 
-# The surveyor's real paginated thread sweep, verbatim, and the mutation that is
+# A real paginated thread read, and the mutation that is
 # structurally identical to it. The pair is the sharpest test in the suite: both
 # are `gh api graphql` POSTs carrying multiple -F variables and a --jq filter, so
 # nothing but the operation type separates the read the survey depends on from
@@ -266,6 +271,44 @@ expect_deny 'classifier cannot read an arbitrary local fixture under the survey 
   "$HERE/classify-default-branch-ci-runs.sh --input /tmp/runs.json"
 expect_deny 'classifier rejects an unscoped repository value' \
   "$HERE/classify-default-branch-ci-runs.sh --repo example.com/devantler-tech/platform --branch main --head-sha 0123456789abcdef0123456789abcdef01234567"
+# The thread counter is admitted in exactly one shape: its installed sibling path, both flags,
+# and nothing piped before or after it. A pipe would replace the helper's exit status — the
+# only place its UNKNOWN verdict is unambiguous — with a filter's.
+expect_deny_names 'thread counter cannot be piped into a filter' \
+  "$HERE/count-unresolved-review-threads.sh --repo devantler-tech/monorepo --pr 2436 | cat" \
+  'run it alone'
+expect_deny_names 'thread counter cannot consume a pipeline' \
+  "gh pr list --repo devantler-tech/monorepo --json number | $HERE/count-unresolved-review-threads.sh --repo devantler-tech/monorepo --pr 2436" \
+  'run it alone'
+expect_deny_names 'thread counter rejects the positional form' \
+  "$HERE/count-unresolved-review-threads.sh devantler-tech/monorepo 2436" \
+  'not the guarded remote-mode shape'
+expect_deny_names 'thread counter has no stdin or file mode under the survey guard' \
+  "$HERE/count-unresolved-review-threads.sh --repo devantler-tech/monorepo --pr 2436 --input -" \
+  'not the guarded remote-mode shape'
+expect_deny_names 'thread counter rejects an unscoped repository value' \
+  "$HERE/count-unresolved-review-threads.sh --repo example.com/devantler-tech/monorepo --pr 2436" \
+  'is not OWNER/REPO'
+expect_deny_names 'thread counter rejects a non-numeric pull request' \
+  "$HERE/count-unresolved-review-threads.sh --repo devantler-tech/monorepo --pr 2436x" \
+  'is not a pull request number'
+expect_deny_names 'thread counter rejects pull request zero' \
+  "$HERE/count-unresolved-review-threads.sh --repo devantler-tech/monorepo --pr 0" \
+  'is not a pull request number'
+expect_deny_names 'thread counter needs --pr' \
+  "$HERE/count-unresolved-review-threads.sh --repo devantler-tech/monorepo" \
+  'is not a pull request number'
+expect_deny_names 'thread counter rejects a repeated flag' \
+  "$HERE/count-unresolved-review-threads.sh --repo devantler-tech/monorepo --pr 2436 --pr 1" \
+  'repeats --pr'
+expect_deny_names 'a same-named counter elsewhere is not the bundled one' \
+  "/tmp/count-unresolved-review-threads.sh --repo devantler-tech/monorepo --pr 2436" \
+  'requires its installed absolute path'
+# The widening admits exactly the bundled helper: any other local script, including a
+# consumer's own thread counter, still fails the leading-position check.
+expect_deny_names 'a consumer thread counter is still not a forge read' \
+  ".claude/scripts/pr-unresolved-threads.sh devantler-tech/monorepo 2436" \
+  'a read must begin with a forge command'
 expect_deny 'run cancel' "gh run cancel 31544900207"
 expect_deny 'workflow run' "gh workflow run cd.yaml"
 expect_deny 'release create' "gh release create v1.0.0"

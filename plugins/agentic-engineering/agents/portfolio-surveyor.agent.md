@@ -186,7 +186,8 @@ branch pattern as the classifier.
 
 For the remaining open PRs by the maintainer's login or an actionable trusted-bot author — **drafts
 and non-drafts** — pull the heavy fields with **per-PR semantics**: state, merge state, review
-decision, status-check rollup, review threads, head ref name, head ref oid, author, body, files. A
+decision, status-check rollup, review threads (for the review lanes — the unresolved count is step
+3b's helper), head ref name, head ref oid, author, body, files. A
 transport request may carry at most eight independently keyed PRs under the mandatory-query recovery
 contract above; never pull a status-check rollup for every PR in every repo or make one generated
 query the fate of the whole worklist.
@@ -257,8 +258,28 @@ included**, automation-owned dependency PRs excluded — report:
   `mergeState`, so a managed check that a ruleset requires still visibly blocks the merge.
   When a PR carries both classes, report `failing:X+managed-failing:Y`; it is `NEEDS-FIX` because of
   its ordinary failures.
-- **(b) unresolved review threads.** Count all unresolved threads across **all pages**, regardless of
-  author; paginate until exhausted.
+- **(b) unresolved review threads.** **Never count unresolved threads inline** — a failed read, a
+  first-page-only read and a genuine zero all print the same `0`, and this field gates promotion and
+  merge. Take the count only from the shipped
+  [`../scripts/count-unresolved-review-threads.sh`](../scripts/count-unresolved-review-threads.sh),
+  which reads every page in memory, counts every thread regardless of author or outdated state, and
+  checks the fetched count against the reported total. Resolve its installed path exactly as step 4
+  resolves the default-branch classifier: the literal absolute path supplied by preflight, else one
+  bare `count-unresolved-review-threads.sh` probe whose denial carries a `classifier-path-json:`
+  record naming the guard's own sibling. Run it once per PR, **alone** — never piped, because its
+  verdict is its exit status and the guard denies it inside a pipeline:
+  `<installed plugin>/scripts/count-unresolved-review-threads.sh --repo OWNER/REPO --pr NUMBER`.
+
+  Read that verdict from the native tool result with this closed set:
+
+  | Native process status and output | Report |
+  |---|---|
+  | observed status 0 and exactly one line `unresolved=0 total=<t>` | `unresolved=0` |
+  | observed status 1 and exactly one line `unresolved=<n> total=<t>` with `<n>` of at least 1 | `unresolved=<n>` |
+  | any other status or output, including status 2 with `UNKNOWN <reason>`, a guard denial, or an unresolvable path | `unresolved=unknown` — **never `0`** |
+
+  `unresolved=unknown` is a failed review-surface query: the PR is incomplete under the digest rules
+  and is never `REVIEW-READY` or `MERGE-READY` on that read.
 - **(c) non-thread review findings.** Some reviewers emit findings that never become resolvable
   threads. For the review-body surface, match the **shape** of a collapsed finding section —
   `<emoji> <Category> comments (N)` inside a summary tag — rather than a hard-coded title list, so a
@@ -812,7 +833,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - REPO-SET-DRIFT — live set vs Portfolio map: new=<repos> · missing/renamed=<repos> · map-drift=<product rows missing/renamed live> → orchestrator reconciles (archived-marked rows exempt)
 - <repo>: CI red on <default-branch> @<sha> — <check name> <conclusion> (<run url>), event=<event>, path=<path>, created=<created_at>, run=<run_id>, attempt=<run_attempt>   # judged at that branch's current head; routing fields come directly from the classifier; omit the repo when green
 - <repo> #<n> "<title>" — <exact bot identity> → AUTOMATION-OWNED (NO-ACTION)
-- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>, unresolved=<n>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
+- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>, unresolved=<n|unknown>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> (trusted bot, non-draft) — pentad: <same fields> → MERGE-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<routine|interactive|none>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
 - <repo>: untriaged → issues #a,#b · PRs #c   |   stale (>14d) → #d

@@ -21,6 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.2.1 — 2026-09-22
+
+**Fixed** — the surveyor takes its unresolved-review-thread count from a bundled helper that reports
+unknown, never zero, when a read fails or stops short of every page; the read-only guard admits that
+helper only when it runs alone. Deployments that load runtime assets individually must also install
+`scripts/count-unresolved-review-threads.sh`. ([#231](https://github.com/devantler-tech/agent-plugins/issues/231))
+
 ## 5.2.0 — 2026-09-22
 
 **Changed** — the plugin README describes the plugin as it is; released versions and the upgrade

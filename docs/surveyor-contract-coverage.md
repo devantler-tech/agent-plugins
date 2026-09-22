@@ -75,17 +75,20 @@ consumer overlay or test is removed by this suite.
 | O31 | 192 | Maintenance skill must not forbid overlay loading | Consumer loading contract; retained until consumer parity is proven. |
 
 Additional generic coverage addresses the invariants explicitly named in #95 and their current
-semantics: H01 pins complete thread pagination; H02–H05 pin newest-review selection by submission
-time, empty newest findings, and stale body findings; R01 pins connector authentication; K01/K05/K06
-pin the check-run versus login split; K03 pins neutral findings; P01/D05/D06 pin complete queries and
-incomplete-candidate handling; T01/T02 pin evidence-bearing, per-lane `none` output.
+semantics: H01 and H13–H17 pin that the unresolved-thread count comes only from the bundled helper,
+run alone, and that every outcome other than a complete read is `unknown`, never zero; H02–H05 pin
+newest-review selection by submission time, empty newest findings, and stale body findings; R01
+pins connector authentication; K01/K05/K06 pin the check-run versus login split; K03 pins neutral
+findings; P01/D05/D06 pin complete queries and incomplete-candidate handling; T01/T02 pin
+evidence-bearing, per-lane `none` output.
 
 The separate existing suites retain their own responsibilities:
 
 - `portfolio-surveyor-agent.test.sh`: the prescribed dependency-summary projection and guard admission.
 - `surveyor-open-pr-links.test.sh`: the prescribed linked-PR count projection and malformed responses.
 - `surveyor-selection-contract.test.sh`: section-scoped ranking and actionability obligations.
-- The forge-guard, adapter, and classifier suites: executable command-boundary behavior.
+- The forge-guard, adapter, classifier, and thread-counter suites: executable command-boundary
+  behavior and the counter's complete-read contract.
 
 Passing these checks does not authorize deleting the consumer overlay. The consumer must still
 verify its current overlay/procedure parity and preserve deployment-specific coverage before

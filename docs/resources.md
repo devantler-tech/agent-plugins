@@ -14,18 +14,17 @@ separate thin schedule prompts for the Agentic Engineer and the Agent Improver; 
 cadence and deployment facts from the canonical consumer instructions. Spend stewardship has no
 schedule of its own. It runs inside the engineer's loop only after explicit maintainer opt-in through
 `spec.roles["agentic-engineer"].spendStewardshipEnabled` and a resolving `Spend contract`.
-Existing installations must complete **all four** migrations, in order, before their next scheduled
-run — the
-[version 2 checklist](../plugins/agentic-engineering/README.md#migrating-from-automated-ai-engineer)
-(plugin identity), **then** the
-[version 3 checklist](../plugins/agentic-engineering/README.md#migrating-to-version-3) (retire the
-`finops-engineer` schedule and adopt the `Spend contract` section), **then** the
-[version 4 checklist](../plugins/agentic-engineering/README.md#migrating-to-version-4)
-(the `automated-ai-engineer` → `agentic-engineer` entrypoint rename), **then** the
-[version 5 checklist](../plugins/agentic-engineering/README.md#migrating-to-version-5)
-(explicit default-off spend enablement). Stopping early would resume
-unattended writes with the retired FinOps schedule still armed, or with a schedule pointing at an
-entrypoint that no longer resolves.
+Existing installations must complete every upgrade step that lies between their installed version and
+the current one before their next scheduled run, in ascending order —
+[2.0.0](../plugins/agentic-engineering/CHANGELOG.md#upgrading-to-200) (plugin identity),
+[3.0.0](../plugins/agentic-engineering/CHANGELOG.md#upgrading-to-300) (retire the `finops-engineer`
+schedule and adopt the `Spend contract` section),
+[4.0.0](../plugins/agentic-engineering/CHANGELOG.md#upgrading-to-400) (the `automated-ai-engineer` →
+`agentic-engineer` entrypoint rename), then
+[5.0.0](../plugins/agentic-engineering/CHANGELOG.md#upgrading-to-500) (explicit default-off spend
+enablement). Stopping early would resume unattended writes with the retired FinOps schedule still
+armed, or with a schedule pointing at an entrypoint that no longer resolves. The
+[changelog](../plugins/agentic-engineering/CHANGELOG.md) carries every released version.
 
 ## MCP servers
 

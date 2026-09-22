@@ -24,7 +24,7 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 ## 5.2.0 — 2026-09-22
 
 **Changed** — the plugin README describes the plugin as it is; released versions and the upgrade
-steps each breaking release needs moved into this changelog.
+steps for each breaking release moved into this changelog.
 ([#234](https://github.com/devantler-tech/agent-plugins/pull/234))
 
 **Added** — both write-capable roles route a generic improvement to the upstream that authors the

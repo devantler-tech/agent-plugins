@@ -26,7 +26,7 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 **Fixed** — the surveyor takes its unresolved-review-thread count from a bundled helper that reports
 unknown, never zero, when a read fails or stops short of every page; the read-only guard admits that
 helper only when it runs alone. Deployments that load runtime assets individually must also install
-`scripts/count-unresolved-review-threads.sh`. ([#231](https://github.com/devantler-tech/agent-plugins/issues/231))
+`scripts/count-unresolved-review-threads.sh`. ([#235](https://github.com/devantler-tech/agent-plugins/pull/235))
 
 ## 5.2.0 — 2026-09-22
 

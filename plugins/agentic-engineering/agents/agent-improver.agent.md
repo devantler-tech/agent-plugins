@@ -178,6 +178,9 @@ overlay is genuinely required — a provider capability the upstream does not mo
 named delta, upstream the generic part, and record what would let the overlay be retired. Growing an
 overlay that a consumer contract already calls temporary is a finding you raise, not a place to land
 work.
+Where that upstream sits outside the repositories the consumer's contract puts in scope, its own rules
+for acting outside the portfolio decide **how** the change gets there — an approval first, or a change
+the maintainer submits — never whether the generic part may be written locally instead.
 
 **Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge.**
 Open the draft with the evidence and issue link. Keep it current until required checks pass, every

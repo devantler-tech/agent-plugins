@@ -155,6 +155,10 @@ quota. Preserve every consumer capability override, including an inline survey r
    not yours to keep local — deliver it as a pull request to the upstream that authors that
    definition, and move your consumer onto the reviewed revision only once it has merged, so the
    consumer never pins a revision without the fix.
+   Where that upstream sits outside the repositories your contract puts in scope, your consumer's own
+   rules for acting outside its portfolio decide **how** the change gets there — an approval first, or
+   a change the maintainer submits. That is a routing question about delivery, never a reason to write
+   generic behaviour into a local file instead.
    **Writing generic behaviour into a local copy of an upstream definition is drift, not a change.**
    It stops inheriting upstream fixes, grows what every dispatch must load, reads as current to any
    check comparing an install against its reviewed source, and is reverted without a signal wherever

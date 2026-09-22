@@ -36,7 +36,9 @@ plugins/
     ├── scripts/                # Optional helpers the plugin's agents call, each with a *.test.sh
     ├── skills/
     │   └── <skill>/SKILL.md    # An installed skill copied from upstream, with metadata.github-* provenance
-    └── resources/              # Optional ancillary, explicitly linked human-consumed assets
+    ├── resources/              # Optional ancillary, explicitly linked human-consumed assets
+    ├── README.md               # What the plugin is today, and its consumer contract
+    └── CHANGELOG.md            # Released versions, newest first, incl. per-release upgrade steps
 scripts/
 ├── validate-manifests.sh       # Manifest + parity + plugin.json + catalogue-table + skill-provenance guard (single source of truth; run locally before pushing)
 ├── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
@@ -203,6 +205,23 @@ plugin membership) is authored here.
    `skills/` directories, any `.mcp.json` server keys, and any `agents/` entries (the **Description**
    column stays editorial). Ancillary `resources/` assets are documented in the owning plugin README,
    not listed as auto-discovered resources in this table.
+10. **A plugin README describes the plugin as it is; its `CHANGELOG.md` carries the history.** Version
+    narration ("version 4 renames the entrypoint…") and upgrade checklists belong in
+    `plugins/<name>/CHANGELOG.md`, newest version first, with each breaking release's steps under an
+    `### Upgrading to <version>` heading that other documents link by anchor. A README that
+    accumulates migration sections buries what the plugin does today behind transitions most readers
+    have already completed — and a reader arriving to evaluate the plugin meets its past first. Keep
+    an upgrade section for as long as that path is supported; the changelog is the one place a
+    dated, historical account is wanted.
+11. **Improvements to a generic role belong upstream of the consumer that found them.** This
+    marketplace ships role behaviour that many deployments install, so a fix written into one
+    consumer's own copy or overlay of a bundled agent is drift: it stops inheriting upstream fixes and
+    grows what every dispatch loads. Route by asking whether the change would have to be rewritten to
+    install the role on a different portfolio — if not, it belongs in the definition's own upstream
+    (this repository for `plugins/*/agents/*.agent.md`, the repository named in a skill's
+    `metadata.github-repo` for a bundled `SKILL.md`). The `agentic-engineering`
+    [plugin README](plugins/agentic-engineering/README.md) states this for its consumers, and both of
+    its write-capable roles carry it.
 
 ## Validation
 

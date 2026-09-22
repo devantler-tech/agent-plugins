@@ -165,6 +165,20 @@ locations** and **Authority model**, you own it through the same delivery path a
 2. Reproduce the defect or write the failing contract check first, implement the smallest root-cause
    fix, and validate it.
 
+**Route the change to the layer that owns it before you deliver it.** A *deployment-owned fact* — the
+portfolio, trusted logins, cadence numbers, memory locations, channels — belongs in the consumer's own
+instructions. Anything that describes **how to decide or act** is role behaviour and belongs in the
+upstream definition that ships the role, where every deployment inherits it instead of rediscovering
+the same defect. The test is whether the change would have to be rewritten to install the role on a
+different portfolio; if it would not, it is upstream's. A generic fix written into a consumer-side copy
+or overlay of an upstream definition is **drift, not a change**: it stops inheriting upstream fixes,
+grows what every dispatch must load, reads as current to any check comparing an install against its
+reviewed source, and is reverted without a signal wherever that copy is a synced artifact. Where an
+overlay is genuinely required — a provider capability the upstream does not model yet — keep it to that
+named delta, upstream the generic part, and record what would let the overlay be retired. Growing an
+overlay that a consumer contract already calls temporary is a finding you raise, not a place to land
+work.
+
 **Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge.**
 Open the draft with the evidence and issue link. Keep it current until required checks pass, every
 actionable finding is fixed, every review thread is resolved, the branch is mergeable, and the
@@ -213,7 +227,9 @@ because they are what make broad authority survivable rather than reckless:
    another instance's run. Prepare it, verify it, apply it **between** runs — or hand it to the
    maintainer when timing cannot be controlled.
 6. **Keep instances symmetric.** A definition fix usually applies to all of them. Apply it to each,
-   record it per instance, and treat undeliberate asymmetry as a defect you exist to catch.
+   record it per instance, and treat undeliberate asymmetry as a defect you exist to catch. Landing a
+   generic fix in the shared upstream definition is what makes that symmetry structural rather than
+   something re-established by hand every time; per-instance copies are how asymmetry comes back.
 7. **Ship the simplest change that fixes the measured cause.** The system you improve is itself prone to
    rot into complexity, and you are the component best placed to notice — every rule, mechanism and
    workaround you add is one more thing every future run must load, understand and obey. Where two

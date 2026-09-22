@@ -124,6 +124,56 @@ configuration pull request to merge itself, and routes only the purchase, cancel
 other money-moving step to the maintainer — that single step is missing authority, never a reason to
 leave the surrounding engineering work undone.
 
+## Improving the plugin
+
+**A generic improvement belongs here, not in your own copy of the role.** Every deployment runs the
+same three roles, so a sharpened rule, a repaired procedure, or a blind spot one portfolio closes is
+worth the same to every other portfolio — and an improvement kept local is one every other consumer
+has to rediscover for itself. Contributions are welcome on that basis.
+
+Route a change by asking what it is a fact about:
+
+| The change describes… | It belongs… |
+|---|---|
+| **How to decide or act** — the run loop, a guardrail, a review or merge rule, a surveyor field, a bundled script, a decision threshold | **upstream, in this plugin** |
+| **A deployment-owned fact** — which repositories are in scope, which logins are trusted, cadence numbers, memory locations, channels, product cards | **in the consumer's own `AGENTS.md`** |
+
+The test is whether the change would have to be rewritten to install the role on a different
+portfolio. If it would, it is configuration and stays with the consumer; if it would not, it is role
+behaviour and every consumer benefits from it landing here. That is the boundary
+[ADR 0002](../../docs/adr/0002-automated-ai-engineer-plugin-boundary.md) already sets, stated as a
+contribution rule.
+
+**A local copy of a plugin-authored definition is drift, not customisation.** A consumer-side fork or
+overlay of an agent shipped here stops inheriting upstream fixes, grows the definition every dispatch
+loads, and reads as current to any check that compares an install against its reviewed source. Where
+an overlay is genuinely needed — a provider capability this plugin does not model yet — keep it to
+that named delta and upstream the generic part, so the overlay can be retired rather than accumulate.
+
+To send one:
+
+1. Open an issue or pull request on
+   [`devantler-tech/agent-plugins`](https://github.com/devantler-tech/agent-plugins) with the
+   behaviour you changed and the evidence behind it — what a role did, what it should have done, and
+   how often. Measured behaviour is what this repository reviews against; a preference is not
+   evidence.
+2. **Check where the file is authored before editing it.** The three `agents/*.agent.md` definitions,
+   the desired-state resource, the bundled scripts, and this README are authored in this repository.
+   A bundled skill is not: each `SKILL.md` names its upstream in `metadata.github-repo` and is
+   re-synced automatically, so an edit made here is reverted with no conflict and no signal. Send a
+   skill change to the repository that field names.
+3. Where a fix spans this plugin and a deployment, land the upstream change first, then move the
+   consumer to the reviewed revision that carries it. Bumping the consumer first pins a revision that
+   does not have the fix.
+4. Keep guardrail changes one-directional. A tightening ships on evidence; a loosening ships alone,
+   naming the protection removed and what now covers that risk.
+5. Move the plugin version in the same pull request — a content change that leaves the version alone
+   never reaches consumers that already installed it.
+
+The bundled roles carry this routing themselves: the engineer sends a generic improvement upstream
+instead of growing its own deployment's files, and the Agent Improver delivers the upstream change
+before the consumer that points at it.
+
 ## Runtime guard note
 
 The surveyor's read-only discipline is declared in its definition, but deployments should enforce the

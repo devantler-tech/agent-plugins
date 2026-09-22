@@ -5,125 +5,10 @@ operates and advances the portfolio, the read-only surveyor that gathers current
 meta-engineer that improves the system from measured evidence. The generic role lives here; each
 consumer supplies its organization-specific configuration through its canonical `AGENTS.md`.
 
-Version 2 consolidates the former `automated-ai-engineer` plugin into `agentic-engineering`. The
-autonomous engineering system is now the center of this plugin. From the earlier
-`agentic-engineering` bundle it retains only the tool-neutral `agent-instructions` and `find-skills`
-skills; the provider-specific SDK and instruction-blueprint skills were removed. See
-[ADR 0004](../../docs/adr/0004-consolidate-agentic-engineering.md).
-
-Version 3 merges spend stewardship into the primary engineer entrypoint and removes the
-separate FinOps role and schedule. See
-[ADR 0005](../../docs/adr/0005-merge-spend-stewardship-into-the-engineer.md).
-
-Version 4 renames that entrypoint from `automated-ai-engineer` to `agentic-engineer`. See
-[ADR 0006](../../docs/adr/0006-rename-agentic-engineer-entrypoint.md).
-
-Version 5 requires explicit, default-off spend enablement. See
-[ADR 0007](../../docs/adr/0007-explicit-spend-enablement.md).
-
-## Migrating to version 5
-
-The desired-state schema now requires the boolean
-`spec.roles["agentic-engineer"].spendStewardshipEnabled`. Start with `false`; the presence of a
-complete Spend contract does not opt a deployment in. Older documents fail validation, and the
-engineer treats missing or malformed enablement as disabled while continuing ordinary engineering.
-
-1. Refresh the complete desired-state document from the reviewed plugin revision, including its
-   entrypoint digest and scheduler pointers. Keep the shipped flag `false` unless the maintainer
-   explicitly enables spend stewardship.
-2. Declare the path to one full effective desired-state JSON document in the consumer's
-   `AGENTS.md` **Spend contract**. That document supplies the flag for every lane. If the consumer
-   keeps a byte-identical upstream mirror, retain it and declare a separate full effective document
-   through its native configuration; do not edit the mirror or invent a partial-override merge.
-3. Reconcile the native scheduler from the updated pointers and verify preflight reports the
-   effective document, boolean value, and any unresolved Spend contract prerequisites. Keep a
-   disabled deployment disabled during reconciliation.
-
-Without a declared document, preflight uses the shipped `false` default. A declared document that
-cannot be read or validated also disables spend and reports the gap. Resolve the document and flag
-once per run; never search unrelated settings for an enabling value or switch sources mid-run.
-
-Only the maintainer may set the flag to literal `true`. This permits spend analysis and decisions
-only when the Spend contract also resolves; it does not bypass the private decision channel,
-protected-outcomes floor, or authority boundaries. Setting it back to `false` disables the cost
-dimension on the next preflight. There is no additional spend schedule.
-
-## Migrating to version 4
-
-Version 4 renames the primary engineer's agent entrypoint from `automated-ai-engineer` to
-`agentic-engineer`, so the role's identifier finally matches the name it is called by. There is no
-marketplace-level migration for agent names the way there is for plugin names, so a deployment that
-persists the old entrypoint keeps pointing at an agent that no longer resolves. Update three places
-before the next scheduled run:
-
-1. **Scheduler pointers** — every plugin-backed schedule that names
-   `plugin:agentic-engineering/automated-ai-engineer` becomes
-   `plugin:agentic-engineering/agentic-engineer`, and any bootstrap prompt that names the entrypoint
-   in prose changes with it.
-2. **Qualified agent references** — persisted selections such as
-   `agentic-engineering:automated-ai-engineer` become `agentic-engineering:agentic-engineer`.
-3. **The consumer's desired state** — `spec.source.entrypoint`, the `spec.roles` key, and the
-   `spec.runtime.scheduler.schedules` key all move to `agentic-engineer`.
-
-Sequence this **after** the version 3 migration below: retiring the `finops-engineer` schedule and
-renaming the engineer's entrypoint are independent changes, and doing them one at a time keeps a
-failed reconcile attributable to one cause. Nothing about the role's behaviour, contract sections, or
-guardrails changes in version 4; this is a rename only.
-
-## Migrating to version 3
-
-The plugin name, entrypoint names, and agent set are unchanged. Two consumer-side changes are
-required before the next scheduled run:
-
-1. **Retire the `finops-engineer` schedule FIRST — before installing or reconciling v3.** Its work now
-   happens inside the engineer's loop, so a surviving schedule would run a role this plugin no longer
-   defines. Quiesce or atomically replace it with the runtime's native scheduler control **ahead of**
-   the v3 engineer schedule: installing v3 first opens exactly the concurrent-stewardship window this
-   migration exists to close, and **a briefly missed cost pass is much cheaper than two writers
-   proposing against the same spend.** The cost pass is cadence-gated, not continuous, so the gap
-   costs at most one pass.
-2. **Rename the consumer contract section to `Spend contract`** and the desired-state key
-   `spec.consumer.requiredWhenFinOpsEnabled` to
-   `spec.consumer.requiredWhenSpendStewardshipEnabled` (value `["Spend contract"]`). Also delete
-   `spec.roles["finops-engineer"]` and `spec.runtime.scheduler.schedules["finops-engineer"]`, and add
-   the never-move-money guardrail. The validator rejects the old shape, so a stale copy fails closed
-   rather than silently deploying two writers over one concern.
-
-A consumer that keeps its FinOps definition as a separate agent is not broken by this release — but it
-is no longer the shape this plugin describes. Current spend enablement follows the explicit flag and
-resolving `Spend contract` described in [*Migrating to version 5*](#migrating-to-version-5).
-
-## Migrating from `automated-ai-engineer`
-
-Version 2 deliberately replaces the old marketplace identity instead of keeping a second alias
-bundle. The marketplace's append-only rename history maps `automated-ai-engineer` to
-`agentic-engineering`. Claude Code 2.1.193 and later automatically migrates the persisted installed
-plugin key when the marketplace refreshes; restart Claude Code or run `/reload-plugins`, then continue
-with step 2 below.
-
-For older Claude Code versions and runtimes that do not implement marketplace rename migration,
-complete the plugin-name change manually before the next scheduled run:
-
-1. Remove the installed `automated-ai-engineer` plugin with the runtime's native plugin control, then
-   install `agentic-engineering@devantler-plugins` from `devantler-tech/agent-plugins`.
-2. Change persisted qualified agent references from the `automated-ai-engineer` plugin namespace to
-   `agentic-engineering`. The entrypoint is renamed separately in
-   [*Migrating to version 4*](#migrating-to-version-4).
-3. Copy the [provider-neutral desired state](resources/provider-neutral.desired-state.json) into the
-   consumer workspace and reconcile its native agents and schedules. Preserve the consumer's
-   canonical `AGENTS.md`; do not copy its organization-specific facts into this plugin.
-4. Before re-enabling unattended writes, verify that the installed plugin reports version `5.0.0` or
-   later, so **[*Migrating to version 3*](#migrating-to-version-3),
-   [*Migrating to version 4*](#migrating-to-version-4), and
-   [*Migrating to version 5*](#migrating-to-version-5) must all be complete too**; a stop at `2.0.0`
-   would resume writes with the retired FinOps schedule still armed, and a stop at `3.0.0` with a
-   schedule pointing at an entrypoint that no longer resolves — and that it
-   exposes `agentic-engineer`, `portfolio-surveyor`, and `agent-improver`, and that every
-   plugin-backed schedule points to `plugin:agentic-engineering/<entrypoint>`. Run the required
-   read-only preflight and record the installed source revision and any unsupported capability.
-
-The migration is complete only after the old plugin identity no longer resolves in the runtime and
-the read-only preflight loads the new namespace successfully.
+Released versions and the upgrade steps each breaking release needs are in the
+[changelog](CHANGELOG.md). A plugin's version is its cache key, so an install that never moves off an
+old version keeps serving that version's definitions — check what a deployment actually loaded before
+assuming it has a change the changelog lists.
 
 ## What it includes
 
@@ -238,6 +123,56 @@ genuinely withholds. A cost finding is no exception: the engineer drives the mea
 configuration pull request to merge itself, and routes only the purchase, cancellation, commitment, or
 other money-moving step to the maintainer — that single step is missing authority, never a reason to
 leave the surrounding engineering work undone.
+
+## Improving the plugin
+
+**A generic improvement belongs here, not in your own copy of the role.** Every deployment installs
+the same role definitions, so a sharpened rule, a repaired procedure, or a blind spot one portfolio
+closes is worth the same to every other portfolio — and an improvement kept local is one every other
+consumer has to rediscover for itself. Contributions are welcome on that basis.
+
+Route a change by asking what it is a fact about:
+
+| The change describes… | It belongs… |
+|---|---|
+| **How to decide or act** — the run loop, a guardrail, a review or merge rule, a surveyor field, a bundled script, a decision threshold | **upstream, in this plugin** |
+| **A deployment-owned fact** — which repositories are in scope, which logins are trusted, cadence numbers, memory locations, channels, product cards | **in the consumer's own `AGENTS.md`** |
+
+The test is whether the change would have to be rewritten to install the role on a different
+portfolio. If it would, it is configuration and stays with the consumer; if it would not, it is role
+behaviour and every consumer benefits from it landing here. That is the boundary
+[ADR 0002](../../docs/adr/0002-automated-ai-engineer-plugin-boundary.md) already sets, stated as a
+contribution rule.
+
+**A local copy of a plugin-authored definition is drift, not customisation.** A consumer-side fork or
+overlay of an agent shipped here stops inheriting upstream fixes, grows the definition every dispatch
+loads, and reads as current to any check that compares an install against its reviewed source. Where
+an overlay is genuinely needed — a provider capability this plugin does not model yet — keep it to
+that named delta and upstream the generic part, so the overlay can be retired rather than accumulate.
+
+To send one:
+
+1. Open an issue or pull request on
+   [`devantler-tech/agent-plugins`](https://github.com/devantler-tech/agent-plugins) with the
+   behaviour you changed and the evidence behind it — what a role did, what it should have done, and
+   how often. Measured behaviour is what this repository reviews against; a preference is not
+   evidence.
+2. **Check where the file is authored before editing it.** The three `agents/*.agent.md` definitions,
+   the desired-state resource, the bundled scripts, and this README are authored in this repository.
+   A bundled skill is not: each `SKILL.md` names its upstream in `metadata.github-repo` and is
+   re-synced automatically, so an edit made here is reverted with no conflict and no signal. Send a
+   skill change to the repository that field names.
+3. Where a fix spans this plugin and a deployment, land the upstream change first, then move the
+   consumer to the reviewed revision that carries it. Bumping the consumer first pins a revision that
+   does not have the fix.
+4. Keep guardrail changes one-directional. A tightening ships on evidence; a loosening ships alone,
+   naming the protection removed and what now covers that risk.
+5. Move the plugin version in the same pull request — a content change that leaves the version alone
+   never reaches consumers that already installed it.
+
+The bundled roles carry this routing themselves: the engineer sends a generic improvement upstream
+instead of growing its own deployment's files, and the Agent Improver delivers the upstream change
+before the consumer that points at it.
 
 ## Runtime guard note
 

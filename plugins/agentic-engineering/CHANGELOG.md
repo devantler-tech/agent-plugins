@@ -21,6 +21,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.2.0 — 2026-09-22
+
+**Changed** — the plugin README describes the plugin as it is; released versions and the upgrade
+steps each breaking release needs moved into this changelog.
+([#234](https://github.com/devantler-tech/agent-plugins/pull/234))
+
+**Added** — both write-capable roles route a generic improvement to the upstream that authors the
+definition rather than into a consumer's own copy of it, and the README states the same routing for
+people, with how to send one.
+([#234](https://github.com/devantler-tech/agent-plugins/pull/234))
+
 ## 5.1.8 — 2026-09-21
 
 **Fixed** — fail closed when an issue row has no issueType key. ([#230](https://github.com/devantler-tech/agent-plugins/pull/230))

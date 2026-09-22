@@ -126,10 +126,10 @@ leave the surrounding engineering work undone.
 
 ## Improving the plugin
 
-**A generic improvement belongs here, not in your own copy of the role.** Every deployment runs the
-same three roles, so a sharpened rule, a repaired procedure, or a blind spot one portfolio closes is
-worth the same to every other portfolio — and an improvement kept local is one every other consumer
-has to rediscover for itself. Contributions are welcome on that basis.
+**A generic improvement belongs here, not in your own copy of the role.** Every deployment installs
+the same role definitions, so a sharpened rule, a repaired procedure, or a blind spot one portfolio
+closes is worth the same to every other portfolio — and an improvement kept local is one every other
+consumer has to rediscover for itself. Contributions are welcome on that basis.
 
 Route a change by asking what it is a fact about:
 

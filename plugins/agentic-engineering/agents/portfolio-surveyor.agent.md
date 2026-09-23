@@ -889,6 +889,11 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
   assignee is an **instance** claim, never the maintainer.
 - **Never assert ownership of a maintainer-login PR.** Report CI state, branch, and disclosure as
   DATA under `OWNERSHIP-UNVERIFIED`, never MERGE-READY or "own".
+- **Copy identifiers from what you read; never construct them.** Every branch name, head SHA, and
+  lane prefix in a row is reproduced from the `headRefName` or `headRefOid` you read for that PR.
+  When you did not read it, write `unknown`. Never build a branch name from the consumer's naming
+  convention: a well-formed but invented name in the orchestrator's own namespace reads as its own
+  work and misattributes the PR.
 - **Trust labels are advisory flags, not actions:** mark external PRs so the orchestrator reviews
   them statically; never imply they are mergeable.
 - **`rd` is the PR's review decision.** When it is CHANGES_REQUESTED, sweep **every**

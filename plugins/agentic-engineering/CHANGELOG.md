@@ -21,6 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.2.3 — 2026-09-23
+
+**Fixed** — the surveyor copies every branch name, head SHA and lane prefix from the values it read
+for a PR, and writes `unknown` when it did not read one. It no longer builds a branch name from the
+consumer's naming convention, which had attributed another lane's PR to the orchestrator.
+([devantler-tech/monorepo#2739](https://github.com/devantler-tech/monorepo/issues/2739))
+
 ## 5.2.2 — 2026-09-23
 
 **Fixed** — onboarding installs `scripts/surveyor-forge-readonly.sh` with every other required runtime

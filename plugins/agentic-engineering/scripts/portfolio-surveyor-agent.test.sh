@@ -121,7 +121,9 @@ GH_TELEMETRY=0 "$GUARD" --command \
 THREAD_COUNTER_FORM='<installed plugin>/scripts/count-unresolved-review-threads.sh --repo OWNER/REPO --pr NUMBER'
 grep -Fq "\`$THREAD_COUNTER_FORM\`" "$SURVEYOR" ||
   fail 'pentad field (b) must prescribe the bundled unresolved-thread counter in its flag form'
-THREAD_COUNTER_COMMAND=${THREAD_COUNTER_FORM/'<installed plugin>/scripts'/$HERE}
+# A quoted pattern containing `/` is mis-split by bash 3.2 (macOS), so hold it in a variable.
+INSTALLED_SCRIPTS='<installed plugin>/scripts'
+THREAD_COUNTER_COMMAND=${THREAD_COUNTER_FORM/"$INSTALLED_SCRIPTS"/$HERE}
 THREAD_COUNTER_COMMAND=${THREAD_COUNTER_COMMAND/OWNER\/REPO/example/product}
 THREAD_COUNTER_COMMAND=${THREAD_COUNTER_COMMAND/NUMBER/7}
 GH_TELEMETRY=0 "$GUARD" --command "$THREAD_COUNTER_COMMAND" >/dev/null ||
@@ -182,5 +184,17 @@ AWK_DENIAL=$(GH_TELEMETRY=0 "$GUARD" --command \
   "gh issue list --repo example/product --state open --limit 1000 --json number,issueType --jq '.[]|[.number,(.issueType.name // \"untyped\")]|@tsv' | awk -F'\\t' '{count[\$2]++} END{for(type in count) print type,count[type]}'" || true)
 [ "$AWK_DENIAL" = "deny: 'awk' is not on the read-only allowlist" ] ||
   fail "the observed awk aggregation did not fail for the intended guard reason: $AWK_DENIAL"
+
+DIGEST_RULES=$(sed -n '/^### Digest rules$/,$p' "$SURVEYOR" | tr '\n' ' ' | tr -s '[:space:]' ' ')
+[ -n "$DIGEST_RULES" ] || fail 'could not extract the digest rules section'
+# shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+for identifier_fragment in \
+  '**Copy identifiers from what you read; never construct them.**' \
+  'reproduced from the `headRefName` or `headRefOid` you read for that PR' \
+  'When you did not read it, write `unknown`.' \
+  'Never build a branch name from the consumer'"'"'s naming convention'; do
+  grep -Fq "$identifier_fragment" <<<"$DIGEST_RULES" ||
+    fail "digest rules must forbid constructed identifiers: $identifier_fragment"
+done
 
 printf 'portfolio-surveyor agent contract: PASS\n'

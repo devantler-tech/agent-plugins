@@ -199,8 +199,8 @@ interface hands you the candidate command calls the guard directly and needs not
 The wrapper [`scripts/surveyor-forge-readonly.sh`](scripts/surveyor-forge-readonly.sh) exists only for
 runtimes that present the candidate command as structured JSON on stdin rather than as an argument. It
 is not a second classifier and not a second policy: it reads `tool_input.command` and asks
-`forge-readonly-guard.sh --command`. Use it where that shape matches; call the guard directly where it
-does not. A deployment that has installed neither, or has not wired one of them onto the surveyor
+`forge-readonly-guard.sh --command`. It is installed everywhere, like every other required runtime
+asset; wire it in where that shape matches, and call the guard directly where it does not. A deployment that has installed neither, or has not wired one of them onto the surveyor
 agent, fails closed: forge reads are `QUERY-UNKNOWN`.
 
 #### The wiring is the consumer's, and it cannot be shipped from here

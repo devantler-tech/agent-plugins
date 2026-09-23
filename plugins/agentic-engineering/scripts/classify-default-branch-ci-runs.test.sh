@@ -381,6 +381,15 @@ else
   record_failure 'agent-only onboarding pins the surveyor classifier runtime asset bytes'
 fi
 
+# Every required runtime asset is installed unconditionally. Onboarding may make the WIRING of
+# the stdin adapter conditional, never its installation: a consumer that omits a required
+# asset can never report its definitions current (#161).
+if jq -r '.spec.onboarding.steps[]' "$DESIRED_STATE" | grep -Fq 'surveyor-forge-readonly.sh only where'; then
+  record_failure 'onboarding makes a required runtime asset optional'
+else
+  pass=$((pass + 1))
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf '%s passed, %s failed\n' "$pass" "$fail" >&2
   exit 1

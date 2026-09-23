@@ -21,6 +21,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.2.2 — 2026-09-23
+
+**Fixed** — onboarding installs `scripts/surveyor-forge-readonly.sh` with every other required runtime
+asset and makes only its wiring conditional, so a runtime that passes commands as arguments no longer
+omits a file the desired state requires. ([#161](https://github.com/devantler-tech/agent-plugins/issues/161))
+
 ## 5.2.1 — 2026-09-22
 
 **Fixed** — the surveyor takes its unresolved-review-thread count from a bundled helper that reports

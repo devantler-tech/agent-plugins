@@ -44,6 +44,11 @@ to install or load this plugin, validate the consumer contract, map the roles an
 native capabilities, reconcile two thin scheduled dispatches from `AGENTS.md`, and report any
 capability it cannot safely implement.
 
+For the improver, follow the [worked consumer setup](resources/agent-improver-onboarding.md).
+It includes an illustrative contract, conservative approval boundaries, evidence-store bindings,
+and the first-run and later-verification checks. Application discovery and native permission
+enforcement must be observed on the chosen runtime before scheduling it.
+
 The manifest exposes one provider-neutral bootstrap prompt for each scheduled role under
 `spec.runtime.scheduler.schedules`:
 

@@ -383,7 +383,24 @@ fi
 
 # Every required runtime asset is installed unconditionally. Onboarding may make the WIRING of
 # the stdin adapter conditional, never its installation: a consumer that omits a required
-# asset can never report its definitions current (#161).
+# asset can never report its definitions current (#161). Both halves are asserted: the install
+# step names every surveyor asset, and no step makes one of them optional.
+install_step=$(jq -r '.spec.onboarding.steps[] | select(contains("referenced runtime assets"))' "$DESIRED_STATE")
+missing=''
+for asset in scripts/classify-default-branch-ci-runs.sh scripts/count-unresolved-review-threads.sh \
+  scripts/forge-readonly-guard.sh scripts/surveyor-forge-readonly.sh; do
+  case "$install_step" in
+  *"$asset"*) ;;
+  *) missing="$missing $asset" ;;
+  esac
+done
+if [ -z "$install_step" ]; then
+  record_failure 'onboarding has no step that installs the referenced runtime assets'
+elif [ -n "$missing" ]; then
+  record_failure "onboarding does not install every surveyor runtime asset; missing:$missing"
+else
+  pass=$((pass + 1))
+fi
 if jq -r '.spec.onboarding.steps[]' "$DESIRED_STATE" | grep -Fq 'surveyor-forge-readonly.sh only where'; then
   record_failure 'onboarding makes a required runtime asset optional'
 else

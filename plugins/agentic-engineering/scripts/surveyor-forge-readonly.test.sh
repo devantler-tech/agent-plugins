@@ -294,6 +294,70 @@ for install_dir in "$TMP/install-v1" "$TMP/relocated plugin 'quoted' \$literal";
   done
 done
 
+# The unresolved-thread counter is discovered the same way, and its verdict is its own exit
+# status: status 1 with a count, never a zero from a read that saw only part of the threads.
+# Only the forge response is stubbed; neither guard, adapter nor counter is.
+mkdir -p "$TMP/thread-bin"
+cat >"$TMP/thread-bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "${GH_TELEMETRY:-}" = 0 ] || exit 1
+[ "$1 $2 $3" = 'api graphql --paginate' ] || exit 1
+printf '%s\n' '{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":2,"nodes":[{"isResolved":true},{"isResolved":false}],"pageInfo":{"hasNextPage":false,"endCursor":"c1"}}}}}}'
+EOF
+chmod +x "$TMP/thread-bin/gh"
+for install_dir in "$TMP/threads-v1" "$TMP/relocated threads 'quoted' \$literal"; do
+  mkdir -p "$install_dir"
+  install_dir=$(CDPATH='' cd -- "$install_dir" && pwd -P)
+  cp "$GUARD" "$WRAPPER" "$HERE/count-unresolved-review-threads.sh" "$install_dir/"
+  for probe in 'count-unresolved-review-threads.sh' '/incorrect/install/count-unresolved-review-threads.sh'; do
+    st=0
+    out=$(run_wrapper "$(hook_stdin "$probe --repo owner/repo --pr 7")" "$install_dir/surveyor-forge-readonly.sh" 2>"$TMP/discovery.err") || st=$?
+    reason=$(printf '%s' "$out" | jq -r '.hookSpecificOutput.permissionDecisionReason')
+    resolved=$(printf '%s' "$reason" | jq -Rse '
+      split("\n") | map(select(startswith("classifier-path-json: ")))
+      | if length == 1 then .[0] | ltrimstr("classifier-path-json: ") | fromjson
+        else error("missing or ambiguous helper path") end' -r 2>/dev/null) || resolved=''
+    if [ "$st" -eq 2 ] && [ "$resolved" = "$install_dir/count-unresolved-review-threads.sh" ] &&
+      [ "$(cat "$TMP/discovery.err")" = "$reason" ]; then
+      pass
+    else
+      fail "counter discovery must deny and carry the exact relocated path in JSON and stderr (st=$st)"
+      continue
+    fi
+    quoted=$(printf '%s' "$resolved" | jq -Rs '@sh' -r)
+    cmd="$quoted --repo owner/repo --pr 7"
+    if run_wrapper "$(hook_stdin "$cmd")" "$install_dir/surveyor-forge-readonly.sh" >/dev/null 2>&1; then
+      st=0
+      result=$(PATH="$TMP/thread-bin:$PATH" bash -c "$cmd" 2>"$TMP/counter.err") || st=$?
+      if [ "$st" -eq 1 ] && [ "$result" = 'unresolved=1 total=2' ]; then
+        pass
+      else
+        fail "discovered guarded counter must report the open thread through status 1 (st=$st out=$result)"
+      fi
+    else
+      fail "the discovered literal counter command must be admitted"
+    fi
+    st=0
+    run_wrapper "$(hook_stdin "$cmd | cat")" "$install_dir/surveyor-forge-readonly.sh" >/dev/null 2>&1 || st=$?
+    if [ "$st" -eq 2 ]; then pass; else fail 'the counter must not be admitted inside a pipeline'; fi
+  done
+  for availability in nonexecutable missing; do
+    if [ "$availability" = nonexecutable ]; then
+      chmod -x "$install_dir/count-unresolved-review-threads.sh"
+    else
+      rm "$install_dir/count-unresolved-review-threads.sh"
+    fi
+    st=0
+    out=$(run_wrapper "$(hook_stdin 'count-unresolved-review-threads.sh')" "$install_dir/surveyor-forge-readonly.sh" 2>/dev/null) || st=$?
+    if [ "$st" -eq 2 ] && ! printf '%s' "$out" | grep -q 'classifier-path-json:'; then
+      pass
+    else
+      fail "a $availability counter must deny without a usable path hint"
+    fi
+  done
+done
+
 # --- agent scoping (opt-in): SURVEYOR_FORGE_READONLY_SCOPE ---
 #
 # A PreToolUse `matcher` filters on tool name only, so a Bash matcher fires for

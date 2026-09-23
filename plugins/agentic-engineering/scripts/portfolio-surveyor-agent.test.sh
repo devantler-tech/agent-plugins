@@ -115,6 +115,21 @@ GH_TELEMETRY=0 "$GUARD" --command \
   "gh api repos/example/product/check-runs/456/annotations --paginate --jq '.[]|select(.annotation_level==\"failure\")|[.annotation_level,.path,.message]|@tsv'" \
   >/dev/null || fail 'the prescribed paginated annotation read is not admitted by the forge guard'
 
+# Pentad field (b) is the bundled counter's verdict, never an inline count. Pin the prescribed
+# invocation and prove the guard admits exactly it — resolved to the installed sibling — while a
+# piped form, which would replace the helper's exit status with a filter's, stays denied.
+THREAD_COUNTER_FORM='<installed plugin>/scripts/count-unresolved-review-threads.sh --repo OWNER/REPO --pr NUMBER'
+grep -Fq "\`$THREAD_COUNTER_FORM\`" "$SURVEYOR" ||
+  fail 'pentad field (b) must prescribe the bundled unresolved-thread counter in its flag form'
+THREAD_COUNTER_COMMAND=${THREAD_COUNTER_FORM/'<installed plugin>/scripts'/$HERE}
+THREAD_COUNTER_COMMAND=${THREAD_COUNTER_COMMAND/OWNER\/REPO/example/product}
+THREAD_COUNTER_COMMAND=${THREAD_COUNTER_COMMAND/NUMBER/7}
+GH_TELEMETRY=0 "$GUARD" --command "$THREAD_COUNTER_COMMAND" >/dev/null ||
+  fail 'the prescribed unresolved-thread counter is not admitted by the forge guard'
+if GH_TELEMETRY=0 "$GUARD" --command "$THREAD_COUNTER_COMMAND | cat" >/dev/null; then
+  fail 'the unresolved-thread counter was admitted inside a pipeline'
+fi
+
 ISSUE_AGGREGATION_COMMAND=$(grep -F \
   'gh api graphql --paginate --slurp -f owner=<owner> -f name=<repo>' \
   "$SURVEYOR" || true)

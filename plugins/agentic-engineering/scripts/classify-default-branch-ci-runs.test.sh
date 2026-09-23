@@ -336,12 +336,14 @@ hash_file() {
   fi
 }
 classifier_sha=$(hash_file "$CLASSIFIER")
+counter_sha=$(hash_file "$HERE/count-unresolved-review-threads.sh")
 guard_sha=$(hash_file "$HERE/forge-readonly-guard.sh")
 wrapper_sha=$(hash_file "$HERE/surveyor-forge-readonly.sh")
 routing_sha=$(hash_file "$HERE/evaluate-inference-routing.sh")
 if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
   jq -e \
     --arg classifier_sha "$classifier_sha" \
+    --arg counter_sha "$counter_sha" \
     --arg guard_sha "$guard_sha" \
     --arg wrapper_sha "$wrapper_sha" \
     --arg routing_sha "$routing_sha" '
@@ -350,6 +352,11 @@ if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
       {
         path: "scripts/classify-default-branch-ci-runs.sh",
         sha256: $classifier_sha,
+        executable: true
+      },
+      {
+        path: "scripts/count-unresolved-review-threads.sh",
+        sha256: $counter_sha,
         executable: true
       },
       {

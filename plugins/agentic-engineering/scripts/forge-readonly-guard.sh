@@ -78,10 +78,11 @@ set -euo pipefail
 
 GUARD_DIR=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 DEFAULT_BRANCH_CLASSIFIER="${GUARD_DIR}/classify-default-branch-ci-runs.sh"
+UNRESOLVED_THREADS_COUNTER="${GUARD_DIR}/count-unresolved-review-threads.sh"
 
 # Consumer-declared, stdin-only classifiers (default: none).
 #
-# The guard bundles exactly one local helper, its own BASH_SOURCE sibling. A
+# The guard bundles exactly two local helpers, both its own BASH_SOURCE siblings. A
 # CONSUMING deployment also ships reviewed classifiers the surveyor is told to
 # call — the PR-ownership disclosure classifier is the measured case — and those
 # had no allowed shape at all: denied leading (not a forge command) and denied as
@@ -272,6 +273,7 @@ GIT_FSMONITOR_SUPPRESSION="core.fsmonitor="
 GIT_OK_VALUE_FLAGS=" -C --git-dir -n --max-count --max-parents --min-parents --since --until --after --before --author --committer --grep --pretty --format --date --unified -U --diff-filter -L -S -G --abbrev --contains --no-contains --merged --no-merged --sort --points-at --glob --exclude "
 
 SEGMENTS=()
+SEGMENT_COUNT=0
 WORDS=()
 
 # Walk the command one character at a time, tracking quote state, splitting on
@@ -1425,6 +1427,47 @@ classify_default_branch_ci() {
   return 0
 }
 
+# The second reviewed helper counts one pull request's unresolved review threads
+# with a fixed paginated GraphQL read held in memory. Same matching rule as the
+# classifier: the exact sibling, only its remote-mode flags. It is also admitted
+# only ALONE: its verdict is its exit status (0 none, 1 some, 2 UNKNOWN), and a
+# pipe replaces that status with a filter's — which is how an inline count once
+# reported a failed read as zero. Checked first, because a pipeline around a
+# well-formed invocation is still the wrong shape.
+classify_unresolved_threads_counter() {
+  local i=1 w repo='' pr=''
+  local n=${#WORDS[@]}
+
+  [ "$SEGMENT_COUNT" -eq 1 ] ||
+    deny 'unresolved-thread counter reports through its exit status; run it alone, never in a pipeline'
+
+  while [ "$i" -lt "$n" ]; do
+    w=${WORDS[$i]}
+    case "$w" in
+      --repo)
+        [ -z "$repo" ] || deny 'unresolved-thread counter repeats --repo'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'unresolved-thread counter --repo needs a value'
+        repo=${WORDS[$i]}
+        ;;
+      --pr)
+        [ -z "$pr" ] || deny 'unresolved-thread counter repeats --pr'
+        i=$((i + 1))
+        [ "$i" -lt "$n" ] || deny 'unresolved-thread counter --pr needs a value'
+        pr=${WORDS[$i]}
+        ;;
+      *) deny "unresolved-thread counter argument '$w' is not the guarded remote-mode shape" ;;
+    esac
+    i=$((i + 1))
+  done
+
+  [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] ||
+    deny 'unresolved-thread counter repository is not OWNER/REPO'
+  [[ "$pr" =~ ^[1-9][0-9]*$ ]] ||
+    deny "unresolved-thread counter --pr '$pr' is not a pull request number"
+  return 0
+}
+
 # sed is allowed by shape, not by exclusion: a plain substitution or a line
 # print/delete, and nothing else. `w` writes a file and `e` executes a command,
 # and both hide in a flag position that a blacklist keeps missing — including
@@ -1579,9 +1622,25 @@ classify_consumer_classifier() {
   return 0
 }
 
+# Deny a bundled helper named by anything but its installed sibling path. The
+# denial doubles as discovery: only the guard's own executable sibling supplies
+# the hint, and caller text is never reflected into the record. JSON keeps path
+# characters as data. Missing jq or an encoding failure leaves discovery unknown
+# without changing command admission. $1 labels the helper, $2 is its sibling.
+deny_helper_discovery() {
+  local label=$1 path=$2 path_json=''
+  if [ -x "$path" ]; then
+    path_json=$(jq -cn --arg path "$path" '$path' 2>/dev/null) || path_json=''
+  fi
+  if [ -n "$path_json" ]; then
+    deny "$(printf '%s requires its installed absolute path\nclassifier-path-json: %s' "$label" "$path_json")"
+  fi
+  deny "$label path is unavailable; report QUERY-UNKNOWN"
+}
+
 # Classify one parsed pipeline segment. $1 is its command text and $2 its
 # zero-based position. Return only for an admitted read; deny exits the guard.
-# A classifier discovery hint supplies path data while keeping the probe denied.
+# A helper discovery hint supplies path data while keeping the probe denied.
 classify_segment() {
   local seg=$1
   local index=$2
@@ -1597,20 +1656,12 @@ classify_segment() {
   # `cat ~/.config/gh/hosts.yml` would otherwise pass as a "safe filter".
   if [ "$index" -eq 0 ]; then
     case "$prog" in
-      gh | git | "$DEFAULT_BRANCH_CLASSIFIER") ;;
+      gh | git | "$DEFAULT_BRANCH_CLASSIFIER" | "$UNRESOLVED_THREADS_COUNTER") ;;
       classify-default-branch-ci-runs.sh | */classify-default-branch-ci-runs.sh)
-        # Discovery remains a denial. Only the guard's own executable sibling
-        # supplies the hint; caller text is never reflected into this record.
-        # JSON keeps path characters as data. Missing jq or encoding failure
-        # leaves discovery unknown without changing command admission.
-        local path_json=''
-        if [ -x "$DEFAULT_BRANCH_CLASSIFIER" ]; then
-          path_json=$(jq -cn --arg path "$DEFAULT_BRANCH_CLASSIFIER" '$path' 2>/dev/null) || path_json=''
-        fi
-        if [ -n "$path_json" ]; then
-          deny "$(printf 'default-branch classifier requires its installed absolute path\nclassifier-path-json: %s' "$path_json")"
-        fi
-        deny 'default-branch classifier path is unavailable; report QUERY-UNKNOWN'
+        deny_helper_discovery 'default-branch classifier' "$DEFAULT_BRANCH_CLASSIFIER"
+        ;;
+      count-unresolved-review-threads.sh | */count-unresolved-review-threads.sh)
+        deny_helper_discovery 'unresolved-thread counter' "$UNRESOLVED_THREADS_COUNTER"
         ;;
       *) deny "a read must begin with a forge command, not '$prog'" ;;
     esac
@@ -1620,6 +1671,7 @@ classify_segment() {
     gh) classify_gh ;;
     git) classify_git ;;
     "$DEFAULT_BRANCH_CLASSIFIER") classify_default_branch_ci ;;
+    "$UNRESOLVED_THREADS_COUNTER") classify_unresolved_threads_counter ;;
     sed) classify_sed ;;
     jq) classify_filter jq "$FILTER_FLAGS_JQ" "$FILTER_VALUE_FLAGS_JQ" 1 ;;
     grep) classify_filter grep "$FILTER_FLAGS_GREP" "$FILTER_VALUE_FLAGS_GREP" 1 ;;
@@ -1639,7 +1691,7 @@ classify_segment() {
       # even though ablation shows it currently separates no input: the
       # leading-position check above already denies a declared classifier at
       # index 0, because that allowlist holds only `gh`, `git` and this guard's
-      # own sibling. Unlike the empty-value guard removed from
+      # own two siblings. Unlike the empty-value guard removed from
       # is_consumer_classifier, this one is not merely redundant arithmetic —
       # it holds a security invariant (a declared classifier never OPENS a
       # pipeline, so it never reads local state) that would otherwise rest
@@ -1687,6 +1739,7 @@ main() {
   if [[ ! "$command" =~ [^[:space:]] ]]; then die 'the command is empty'; fi
 
   scan_segments "$command"
+  SEGMENT_COUNT=${#SEGMENTS[@]}
   local idx=0
   for seg in "${SEGMENTS[@]}"; do
     classify_segment "$seg" "$idx"

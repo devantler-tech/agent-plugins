@@ -71,7 +71,12 @@ A01|automation|When the consumer's contract designates dependency-update bots as
 A02|automation|Emit only `AUTOMATION-OWNED (NO-ACTION)` from the cheap search row; do **not** deepen it, inspect its pentad or reviews
 A03|automation|or count it against `nothing_on_fire`
 A04|automation|Match every trusted identity by **exact login, never a substring**
-H01|hygiene|Count all unresolved threads across **all pages**, regardless of author; paginate until exhausted
+H01|hygiene|**Never count unresolved threads inline**
+H13|hygiene|Run it once per PR, **alone** — never piped, because its verdict is its exit status
+H14|hygiene|| observed status 0 and exactly one line `unresolved=0 total=<t>` | `unresolved=0` |
+H15|hygiene|| observed status 1 and exactly one line `unresolved=<n> total=<t>` with `<n>` of at least 1 | `unresolved=<n>` |
+H16|hygiene|`unresolved=unknown` — **never `0`** |
+H17|hygiene|is never `REVIEW-READY` or `MERGE-READY` on that read
 H02|hygiene|**Count ONLY the newest actual review** from that reviewer
 H03|hygiene|Select the newest by the reviews endpoint's **submission timestamp** — not an `updated_at` field
 H04|hygiene|a newest review with none means findings are cleared (`body_findings=0`); never fall back to an older review that still had sections

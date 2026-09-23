@@ -228,27 +228,34 @@ surveyor-scoped read-only path. The wiring being consumer-side is a statement ab
 owns the mechanism* — it is not permission to run the surveyor unguarded, and the guard is not
 optional defence in depth.
 
-A consumer runtime that wires `gh` through the guard must also `export GH_TELEMETRY=0` (or `false`) in the process environment before any `gh` read. GitHub CLI 2.96.0 otherwise writes `gh/device-id` on a certified `gh api` GET. The guard denies every `gh` segment unless that export is already in the environment; putting `GH_TELEMETRY=0` on the command line is itself denied as an env-prefixed `gh`. The bundled `classify-default-branch-ci-runs.sh` helper exports `GH_TELEMETRY=0` before its remote `gh api` GET so that one compound read stays allowed.
+A consumer runtime that wires `gh` through the guard must also `export GH_TELEMETRY=0` (or `false`) in the process environment before any `gh` read. GitHub CLI 2.96.0 otherwise writes `gh/device-id` on a certified `gh api` GET. The guard denies every `gh` segment unless that export is already in the environment; putting `GH_TELEMETRY=0` on the command line is itself denied as an env-prefixed `gh`. The bundled `classify-default-branch-ci-runs.sh` and `count-unresolved-review-threads.sh` helpers export `GH_TELEMETRY=0` before their remote `gh api` reads so those compound reads stay allowed.
 
 Because the guard denies by default, run your own deployment's survey vocabulary through it before
 turning it on: a read it does not yet recognise fails closed, which is the intended direction but is
 better discovered deliberately than mid-run.
 
-The sole bundled compound read is `scripts/classify-default-branch-ci-runs.sh` in remote mode. Its
-provider-neutral desired-state entry pins the plugin-relative path, reviewed SHA-256, and executable
-requirement. The
-guard accepts only the exact classifier beside itself and only `--repo`, `--branch`, and a full
-`--head-sha`; it refuses the helper's offline `--input` mode. Resolve both scripts from the same
-installed, reviewed plugin directory. Preflight may supply the literal absolute classifier path.
-Otherwise, one bare `classify-default-branch-ci-runs.sh` probe through the active guard is a denied
-discovery request: it executes nothing and returns `classifier-path-json:` with a JSON string naming
-the guard's own executable sibling. The adapter preserves this record in its denial reason and
-stderr. Decode it as data, quote the decoded path as one literal shell argument, and submit the
-remote-mode command through the same guard. Never evaluate the record or use JSON double quotes as
-shell quoting. Missing JSON tooling, a missing executable, or an absent, malformed, ambiguous, or
-unusable hint leaves classification `QUERY-UNKNOWN`; directory searches and fallback roots are not
-part of discovery. The classifier captures its fixed paginated API GET in memory,
-so this exception neither writes an intermediate file nor permits an arbitrary local executable.
+The bundled compound reads are two helpers in remote mode, and no other bundled local program runs
+under the guard:
+
+- `scripts/classify-default-branch-ci-runs.sh` judges default-branch CI. The guard accepts only
+  `--repo`, `--branch`, and a full `--head-sha`, and refuses the helper's offline `--input` mode.
+- `scripts/count-unresolved-review-threads.sh` supplies the surveyor's unresolved-thread count. The
+  guard accepts only `--repo` and a positive `--pr`, and only when the helper runs alone: its
+  verdict is its exit status (0 none, 1 some, 2 unknown), so a pipeline around it is denied.
+
+Each has a provider-neutral desired-state entry pinning its plugin-relative path, reviewed SHA-256,
+and executable requirement, and the guard accepts only the exact helper beside itself. Resolve the
+guard and both helpers from the same installed, reviewed plugin directory. Preflight may supply a
+helper's literal absolute path. Otherwise, one bare probe of the helper's file name through the
+active guard is a denied discovery request: it executes nothing and returns `classifier-path-json:`
+with a JSON string naming the guard's own executable sibling of that name. The adapter preserves
+this record in its denial reason and stderr. Decode it as data, quote the decoded path as one
+literal shell argument, and submit the remote-mode command through the same guard. Never evaluate
+the record or use JSON double quotes as shell quoting. Missing JSON tooling, a missing executable,
+or an absent, malformed, ambiguous, or unusable hint leaves that evidence `QUERY-UNKNOWN`; directory
+searches and fallback roots are not part of discovery. Each helper captures its fixed paginated
+read in memory, so these exceptions neither write an intermediate file nor permit an arbitrary local
+executable.
 
 **Three residues the guard cannot close from argv alone — the calling runtime must.** They are stated
 here rather than left implicit, because a guard whose limits are undocumented gets trusted for things

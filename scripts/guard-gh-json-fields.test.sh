@@ -234,6 +234,18 @@ mkdir -p "${dir}/plugins/p/scripts"
 printf '%s\n' 'gh pr view 42 --json state,merged' > "${dir}/plugins/p/scripts/helper.sh"
 expect 0 "a script is not a scanned surface" "${dir}"
 
+# A jq program is scanned as text: a filter expecting a nonexistent field yields null instead of
+# failing, so it cannot be left to fail loudly the way a shell script would.
+dir="$(fixture bad-jq-program)"
+mkdir -p "${dir}/plugins/p/scripts"
+printf '%s\n' '# feed: gh pr list --json number,merged' '.[] | select(.merged)' > "${dir}/plugins/p/scripts/flow.jq"
+expect 1 "a jq program requesting merged fails" "${dir}"
+
+dir="$(fixture good-jq-program)"
+mkdir -p "${dir}/plugins/p/scripts"
+printf '%s\n' '.[] | select(.state == "MERGED") | .number' > "${dir}/plugins/p/scripts/flow.jq"
+expect 0 "a clean jq program is a scanned, passing surface" "${dir}"
+
 # A file name containing a newline is still ONE surface: split in two, neither half exists and the
 # bad request inside would go unread.
 dir="$(fixture bad-newline-name)"

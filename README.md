@@ -23,4 +23,6 @@ The [autonomous engineering setup](plugins/agentic-engineering/README.md) explai
 
 Skills come from their original authors, including [Agent Skills](https://github.com/devantler-tech/agent-skills). To suggest a bundle or report a problem, [open an issue](https://github.com/devantler-tech/agent-plugins/issues). For repository changes, read the [contributor instructions](AGENTS.md).
 
+Maintainers can [prepare a marketplace release](docs/marketplace-releases.md) to review a version proposal, release notes, and matching manifests before publication.
+
 [Apache 2.0 license](LICENSE)

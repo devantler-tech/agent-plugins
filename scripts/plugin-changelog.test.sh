@@ -146,7 +146,7 @@ commit
 passed=$((passed + 1))
 
 # Hidden templates cannot satisfy the gate or suppress generation of a visible release entry.
-for kind in comment comment-fence comment-indented-close inline-comment inline-backticks-comment; do
+for kind in comment comment-fence comment-indented-close; do
   fixture; bump
   case "$kind" in
     comment) printf '<!--\n## 1.2.4 — YYYY-MM-DD\n-->\n' > "$work/template" ;;
@@ -154,10 +154,6 @@ for kind in comment comment-fence comment-indented-close inline-comment inline-b
       # shellcheck disable=SC2016 # A Markdown fence inside an HTML comment is hidden text.
       printf '<!--\n```markdown\n## 1.2.4 — YYYY-MM-DD\n-->\n' > "$work/template" ;;
     comment-indented-close) printf '<!--\n## 1.2.4 — YYYY-MM-DD\n    -->\n' > "$work/template" ;;
-    inline-comment) printf 'Template <!--\n## 1.2.4 — YYYY-MM-DD\n-->\n' > "$work/template" ;;
-    inline-backticks-comment)
-      # shellcheck disable=SC2016 # This is inline code followed by a real comment opener.
-      printf '```code``` <!--\n## 1.2.4 — YYYY-MM-DD\n-->\n' > "$work/template" ;;
   esac
   cat "$work/template" "$dir/plugins/alpha/CHANGELOG.md" > "$work/log"
   cp "$work/log" "$dir/plugins/alpha/CHANGELOG.md"
@@ -167,6 +163,25 @@ for kind in comment comment-fence comment-indented-close inline-comment inline-b
   cmp "$work/log" "$work/preserved"
   commit
   (cd "$dir" && bash "$script" check "$base" HEAD)
+  passed=$((passed + 1))
+done
+
+# GitHub renders these headings: a heading interrupts a paragraph, so its preceding inline
+# comment opener is unmatched literal text. Only a block opener can hide subsequent headings.
+for kind in inline-comment inline-backticks-comment; do
+  fixture; bump
+  case "$kind" in
+    inline-comment) printf 'Template <!--\n## 1.2.4 — 2026-09-24\n-->\n\n' > "$work/template" ;;
+    inline-backticks-comment)
+      # shellcheck disable=SC2016 # Literal inline code before an unmatched comment opener.
+      printf '```code``` <!--\n## 1.2.4 — 2026-09-24\n-->\n\n' > "$work/template" ;;
+  esac
+  cat "$work/template" "$dir/plugins/alpha/CHANGELOG.md" > "$work/log"
+  cp "$work/log" "$dir/plugins/alpha/CHANGELOG.md"
+  commit
+  (cd "$dir" && bash "$script" check "$base" HEAD)
+  (cd "$dir" && bash "$script" write "$base" 2026-09-24)
+  cmp "$work/log" "$dir/plugins/alpha/CHANGELOG.md"
   passed=$((passed + 1))
 done
 

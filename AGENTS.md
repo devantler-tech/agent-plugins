@@ -198,7 +198,10 @@ plugin membership) is authored here.
    [`scripts/bump-plugin-version.sh`](scripts/bump-plugin-version.sh), which moves all four places the
    version must agree (the portable and strict manifests plus both marketplace entries) — a hand-edit
    easily half-lands. The `Check version bump` CI job enforces it on every PR, and the daily skill-sync
-   workflow bumps itself via `--changed-since` so the automated update PR satisfies the gate unaided.
+   workflow bumps itself via `--changed-since` and writes dated skill/source/ref release notes with
+   `bash scripts/plugin-changelog.sh write origin/main`. Existing hand-written entries stay intact.
+   The same CI job rejects a new or changed plugin version without exactly one matching changelog
+   heading; unchanged legacy versions do not need retroactive history invented for them.
 9. **Catalogue and manifests stay in lockstep.** The [plugin catalogue table](docs/plugins.md) mirrors the manifests; update it
    in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
    vice versa, and each row's **Resources** column matches that plugin's bundled resources on disk — its
@@ -243,6 +246,8 @@ recovery and failure offline in `lint-scripts`.
 #     never reaches consumers that cache by version (CI's "Check version bump" job).
 #     Fix a failure with: ./scripts/bump-plugin-version.sh <plugin> [patch|minor|major]
 ./scripts/check-plugin-version-bump.sh origin/main HEAD
+bash scripts/plugin-changelog.sh check origin/main HEAD
+bash scripts/plugin-changelog.test.sh
 
 # 1c. Every content digest a desired-state resource pins must match the file it pins.
 #     Those digests have a writer: refresh them rather than hand-editing, or the next

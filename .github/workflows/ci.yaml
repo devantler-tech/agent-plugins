@@ -87,6 +87,9 @@ jobs:
         # re-run, and that it fails closed on a bad plugin/level/non-semver version.
         run: ./scripts/bump-plugin-version.test.sh
 
+      - name: 🧪 Self-test changelog generation and publication checks
+        run: bash scripts/plugin-changelog.test.sh
+
       - name: 🧪 Self-test the manifest guard
         # Proves validate-manifests.sh PASSES a consistent fixture and FAILS each
         # drift scenario it exists to catch (malformed/desynced manifests, every
@@ -190,6 +193,7 @@ jobs:
             exit 0
           fi
           ./scripts/check-plugin-version-bump.sh "$BASE_SHA" HEAD
+          bash scripts/plugin-changelog.sh check "$BASE_SHA" HEAD
 
   check-bundled-skill-edits:
     name: Check bundled skill edits

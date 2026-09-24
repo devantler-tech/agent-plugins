@@ -12,7 +12,7 @@
 # the definitions are authored (and where synced skills arrive), stops it before it ships.
 #
 # Usage: guard-gh-json-fields.sh [ROOT]      (ROOT defaults to this repository)
-# Scans every *.md, *.txt and *.json under ROOT/plugins; any other non-script file is UNKNOWN. Shell
+# Scans every *.md, *.txt, *.json and *.jq under ROOT/plugins; any other non-script file is UNKNOWN. Shell
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
 # silently misleads every agent that reads it.
 #
@@ -144,7 +144,8 @@ allowed_used=""
 
 [ -d "${root}/plugins" ] || unknown "no plugins/ directory under ${root}"
 
-# Every file an agent may read is a surface: Markdown, plain-text references and assets, and JSON.
+# Every file an agent may read is a surface: Markdown, plain-text references and assets, JSON, and jq
+# programs (read as text: a jq filter that expects a nonexistent field yields null rather than failing).
 # Scripts are skipped (see the header). Any OTHER file type is UNKNOWN rather than skipped, so a new
 # kind of definition cannot ship unscanned while this check stays green — extend the list instead.
 # NUL-delimited, so a file name containing a newline stays one surface instead of two that do not exist.
@@ -162,7 +163,7 @@ find "${root}/plugins" ! -type d -print0 2>/dev/null | LC_ALL=C sort -z > "${dis
 surfaces=()
 while IFS= read -r -d '' f; do
   case "$f" in
-    *.md|*.txt|*.json) surfaces+=("$f") ;;
+    *.md|*.txt|*.json|*.jq) surfaces+=("$f") ;;
     *.sh) ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac

@@ -21,13 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
-## 5.2.5 — 2026-09-24
+## 5.3.0 — 2026-09-24
 
-**Changed** — the bundled `agent-improvement` skill moves to upstream `v1.13.0`. The Agent Improver now
-scores prioritization and flow on every run, separately from throughput. It counts easy, substantive
-and unclassified work, and records how old the oldest actionable issue was whenever easier work was
-chosen instead. A reference and an optional offline calculator (`measure-flow.jq`) describe the
-measurement.
+**Added** — the bundled `agent-improvement` skill moves to upstream `v1.13.0`, and the Agent Improver now
+scores prioritization and flow on every run, separately from throughput. It counts easy,
+substantive and unclassified work, and records how old the oldest actionable issue was whenever easier
+work was chosen instead. The entrypoint's scorecard lists the new parameter, and a reference and an
+optional offline calculator (`measure-flow.jq`) describe the measurement.
 
 ## 5.2.4 — 2026-09-24
 

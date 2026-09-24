@@ -76,7 +76,7 @@
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
         "mode": "separate-schedule-or-on-demand",
-        "definitionSha256": "807c67513dd1bc5bca958e7ae542b2b07b69b3cfd8614b4f807809574cc8e6be",
+        "definitionSha256": "5bf3fb5e6e99e82900f23b5f42d41bc26a4ea764862a1ca155557162196c26b9",
         "skillSha256": "0f4487e9ecf21533598db677c61f19c611ddf2125e4fdae2f6c13e1c4e1e02db"
       }
     },

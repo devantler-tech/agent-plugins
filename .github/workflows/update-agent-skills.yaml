@@ -11,9 +11,14 @@ permissions:
 
 jobs:
   update:
-    uses: devantler-tech/actions/.github/workflows/update-agent-skills.yaml@061b345a7351b0caf23055caea63ccd08b75e20e # v8.0.0
+    uses: devantler-tech/actions/.github/workflows/update-agent-skills.yaml@da153eb43b8333f13094abb151a48dc11e431988 # v13.7.4
     with:
       dir: plugins
+      # One PR per changed skill, from `deps/agent-skills-update-<slug>`, so a skill whose
+      # update is blocked (a review finding, a failing check) holds back only itself instead
+      # of every other skill's update (#175). The bundled-skill edit guard exempts each such
+      # branch for its own skill only.
+      pr-per-skill: true
       # Create the update PR with a GitHub App token so it triggers this
       # repo's required CI (a PR opened with GITHUB_TOKEN does not), instead
       # of landing permanently blocked on missing required checks.
@@ -30,10 +35,19 @@ jobs:
   # edit, which the next sync force-pushes away with no signal that it happened. The sync
   # workflow that opens the PR has no post-update hook, so both land here as follow-up
   # commits on the same branch.
+  #
+  # Each per-skill PR gets its own follow-up. Two PRs that change skills in the same plugin
+  # both bump that plugin from main's version, so whichever merges second conflicts on the
+  # version; the next daily run rebuilds its branch from the new main and bumps it again.
   bump-versions:
-    name: Refresh digests and bump versions of changed plugins
+    name: Refresh digests and bump versions for ${{ matrix.skill.path }}
     needs: update
+    if: ${{ needs.update.outputs.skills != '' && needs.update.outputs.skills != '[]' }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        skill: ${{ fromJSON(needs.update.outputs.skills) }}
     permissions:
       contents: read
     steps:
@@ -48,7 +62,7 @@ jobs:
       - name: 📄 Checkout the update branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: deps/agent-skills-update
+          ref: deps/agent-skills-update-${{ matrix.skill.slug }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
           # This job must push, so credentials stay on the checkout.
@@ -60,6 +74,8 @@ jobs:
 
       - name: 🔐 Refresh the desired-state digests the sync moved
         if: steps.checkout.outcome == 'success'
+        env:
+          SKILL_SLUG: ${{ matrix.skill.slug }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -72,10 +88,12 @@ jobs:
           # change could never ride along in this commit.
           git add -- '*.desired-state.json'
           git commit -m "chore(deps): refresh desired-state digests for synced content"
-          git push origin HEAD:deps/agent-skills-update
+          git push origin "HEAD:deps/agent-skills-update-${SKILL_SLUG}"
 
       - name: 🔢 Bump every plugin whose content changed
         if: steps.checkout.outcome == 'success'
+        env:
+          SKILL_SLUG: ${{ matrix.skill.slug }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -88,4 +106,4 @@ jobs:
             exit 0
           fi
           git commit -am "chore(deps): bump versions of changed plugins"
-          git push origin HEAD:deps/agent-skills-update
+          git push origin "HEAD:deps/agent-skills-update-${SKILL_SLUG}"

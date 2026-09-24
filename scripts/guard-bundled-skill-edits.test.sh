@@ -121,6 +121,19 @@ expect 1 'silently revert' 'the sync actor on another branch is NOT exempt'
 ACTOR='someone' BRANCH='deps/agent-skills-update' run "$REF"
 expect 1 'silently revert' 'the sync branch under another actor is NOT exempt'
 
+# Per-skill sync PRs (#175): `<SYNC_BRANCH>-<slug>` owns exactly the skill whose slug that is.
+ACTOR='botantler-1[bot]' BRANCH='deps/agent-skills-update-github-skills-github-issues' run "$REF"
+expect 0 'per-skill programmed sync' 'a per-skill sync PR may write its own skill'
+
+ACTOR='botantler-1[bot]' BRANCH='deps/agent-skills-update-github-skills-other' run "$REF"
+expect 1 'silently revert' 'a per-skill sync PR may NOT write a different skill'
+
+ACTOR='botantler-1[bot]' BRANCH='deps/agent-skills-update-' run "$REF"
+expect 1 'silently revert' 'an empty per-skill suffix owns no skill'
+
+ACTOR='someone' BRANCH='deps/agent-skills-update-github-skills-github-issues' run "$REF"
+expect 1 'silently revert' 'a per-skill sync branch under another actor is NOT exempt'
+
 run 'plugins/github/skills/brand-new/SKILL.md
 plugins/github/skills/brand-new/references/a.md'
 expect 0 'new or locally-authored' 'adding a wholly new skill directory is allowed'

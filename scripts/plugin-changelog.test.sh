@@ -74,7 +74,7 @@ fixture
 (cd "$dir" && bash "$script" check "$base" HEAD)
 passed=$((passed + 1))
 
-for kind in missing prefix fenced nested-fence indented duplicate; do
+for kind in missing prefix fenced nested-fence tilde-info indented duplicate; do
   fixture; bump
   case "$kind" in
     missing) rm "$dir/plugins/alpha/CHANGELOG.md" ;;
@@ -85,6 +85,9 @@ for kind in missing prefix fenced nested-fence indented duplicate; do
     nested-fence)
       # shellcheck disable=SC2016 # The shorter fence is example content, not a closing fence.
       printf '````markdown\n```\n## 1.2.4 — 2026-09-24\n````\n' > "$dir/plugins/alpha/CHANGELOG.md" ;;
+    tilde-info)
+      # shellcheck disable=SC2016 # Tilde-fence info strings may contain literal backticks.
+      printf '~~~language`name\n## 1.2.4 — 2026-09-24\n~~~\n' > "$dir/plugins/alpha/CHANGELOG.md" ;;
     indented) printf '    ## 1.2.4 — 2026-09-24\n' > "$dir/plugins/alpha/CHANGELOG.md" ;;
     duplicate) printf '## 1.2.4 — 2026-09-24\n\n## 1.2.4 — 2026-09-24\n' > "$dir/plugins/alpha/CHANGELOG.md" ;;
   esac
@@ -116,6 +119,22 @@ Example:
 ```markdown
 ## 0.0.0 — YYYY-MM-DD
 ```
+
+## 1.2.3 — 2026-01-01
+
+Human history.
+MD
+(cd "$dir" && bash "$script" write "$base" 2026-09-24)
+commit
+(cd "$dir" && bash "$script" check "$base" HEAD)
+passed=$((passed + 1))
+
+# Backticks inside the opener's info string make it ordinary inline content, not a fence.
+fixture; bump
+cat > "$dir/plugins/alpha/CHANGELOG.md" <<'MD'
+# Alpha history
+
+```code``` is inline
 
 ## 1.2.3 — 2026-01-01
 

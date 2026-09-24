@@ -36,7 +36,11 @@ markdown='
       mark=substr(line,1,1); run=line
       if (mark=="`") sub(/[^`].*$/, "", run); else sub(/[^~].*$/, "", run)
       size=length(run); rest=substr(line,size+1)
-      if (fence=="") { fence=mark; width=size }
+      if (fence=="") {
+        # CommonMark 4.5: backticks in the info string make this an ordinary content line.
+        if (mark=="`" && rest ~ /`/) return 0
+        fence=mark; width=size
+      }
       else if (mark==fence && size>=width && rest ~ /^[[:space:]]*$/) fence=""
       return 0
     }

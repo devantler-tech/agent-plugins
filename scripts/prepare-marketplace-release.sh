@@ -8,14 +8,20 @@ usage() { printf 'usage: prepare-marketplace-release.sh --base-tag <initial|vX.Y
 base_tag='' output='' head=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --base-tag) [ "$#" -ge 2 ] && [ -z "$base_tag" ] || fail 'one base tag is required'; base_tag=$2; shift 2 ;;
-    --output) [ "$#" -ge 2 ] && [ -z "$output" ] || fail 'one output directory is required'; output=$2; shift 2 ;;
-    --head) [ "$#" -ge 2 ] && [ -z "$head" ] || fail 'one full head commit is required'; head=$2; shift 2 ;;
+    --base-tag)
+      if [ "$#" -lt 2 ] || [ -n "$base_tag" ]; then fail 'one base tag is required'; fi
+      base_tag=$2; shift 2 ;;
+    --output)
+      if [ "$#" -lt 2 ] || [ -n "$output" ]; then fail 'one output directory is required'; fi
+      output=$2; shift 2 ;;
+    --head)
+      if [ "$#" -lt 2 ] || [ -n "$head" ]; then fail 'one full head commit is required'; fi
+      head=$2; shift 2 ;;
     --help) usage; exit 0 ;;
     *) fail "unknown argument: $1" ;;
   esac
 done
-[ -n "$base_tag" ] && [ -n "$output" ] || fail 'base tag and output are required'
+if [ -z "$base_tag" ] || [ -z "$output" ]; then fail 'base tag and output are required'; fi
 if [ "$base_tag" != initial ]; then
   if [[ "$base_tag" != v* ]] || ! jq -en -L "$here" --arg v "${base_tag#v}" 'include "marketplace-release"; $v | stable_version' >/dev/null; then
     fail 'base must be initial or a stable vX.Y.Z tag'
@@ -31,7 +37,7 @@ parent=$(cd "$(dirname "$output")" && pwd -P) || fail 'output parent must exist'
 name=$(basename "$output")
 [[ "$name" != . && "$name" != .. && "$name" != / ]] || fail 'output must name a new directory'
 output="$parent/$name"
-[ ! -e "$output" ] && [ ! -L "$output" ] || fail 'output already exists'
+if [ -e "$output" ] || [ -L "$output" ]; then fail 'output already exists'; fi
 temp=$(mktemp -d "$parent/.marketplace-release.XXXXXX")
 owned_output=false
 cleanup() {

@@ -203,7 +203,8 @@ plugin membership) is authored here.
    workflow bumps itself via `--changed-since` and writes dated skill/source/ref release notes with
    `bash scripts/plugin-changelog.sh write origin/main`. Existing hand-written entries stay intact.
    The same CI job rejects a new or changed plugin version without exactly one matching changelog
-   heading; unchanged legacy versions do not need retroactive history invented for them.
+   heading outside code examples and HTML comments; unchanged legacy versions do not need
+   retroactive history invented for them. Hidden templates are preserved without suppressing a real entry.
 9. **Catalogue and manifests stay in lockstep.** The [plugin catalogue table](docs/plugins.md) mirrors the manifests; update it
    in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
    vice versa, and each row's **Resources** column matches that plugin's bundled resources on disk — its

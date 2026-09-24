@@ -26,10 +26,37 @@ plugins=$(git ls-tree -d --name-only "$head" plugins/)
 
 # Shared Markdown state for the gate and insertion point: fences close with the same character
 # and at least the opener's length. Four-space indented examples are not release headings either.
+# HTML comments retain their state across lines, but comment tokens inside code are literal.
 # shellcheck disable=SC2016 # Static awk program; $0 and code fences are literal.
 markdown='
+  # Return the last position of a matching inline backtick run, or zero for literal unmatched ticks.
+  function code_end(line, size,    offset, tail) {
+    offset=size+1; tail=substr(line,offset)
+    while (match(tail,/`+/)) {
+      if (RLENGTH==size) return offset+RSTART+RLENGTH-2
+      offset+=RSTART+RLENGTH-1; tail=substr(line,offset)
+    }
+    return 0
+  }
+  # Update comment state without interpreting escaped openers or inline code as HTML.
+  function comments(line,    stop, size) {
+    while (length(line)) {
+      if (comment) {
+        stop=index(line,"-->")
+        if (!stop) return
+        comment=0; line=substr(line,stop+3)
+      } else if (substr(line,1,1)=="\\") line=substr(line,3)
+      else if (substr(line,1,4)=="<!--") { comment=1; line=substr(line,5) }
+      else if (match(line,/^`+/)) {
+        size=RLENGTH; stop=code_end(line,size)
+        line=substr(line,(stop ? stop : size)+1)
+      } else line=substr(line,2)
+    }
+  }
   function release_heading(    line, run, mark, size, rest) {
     line=$0
+    # A comment continuation cannot contain a heading, including the line that closes it.
+    if (comment) { comments(line); return 0 }
     if (line ~ /^    / || line ~ /^\t/) return 0
     sub(/^ */, "", line)
     if (line ~ /^```/ || line ~ /^~~~/) {
@@ -38,18 +65,20 @@ markdown='
       size=length(run); rest=substr(line,size+1)
       if (fence=="") {
         # CommonMark 4.5: backticks in the info string make this an ordinary content line.
-        if (mark=="`" && rest ~ /`/) return 0
+        if (mark=="`" && rest ~ /`/) { comments(line); return 0 }
         fence=mark; width=size
       }
       else if (mark==fence && size>=width && rest ~ /^[[:space:]]*$/) fence=""
       return 0
     }
-    return fence=="" && line ~ /^##[[:space:]]/
+    if (fence!="") return 0
+    comments(line)
+    return line ~ /^##[[:space:]]/
   }
 '
 # Count exact version headings outside code examples. Prefix matches and duplicates fail the gate.
 headings() {
-  awk -v version="$2" "$markdown"'
+  LC_ALL=C awk -v version="$2" "$markdown"'
     release_heading() && $2==version { count++ }
     END { print count+0 }
   ' "$1"
@@ -121,7 +150,7 @@ while IFS= read -r dir; do
     printf '**Changed** — sync `%s` from `%s` at `%s`.\n\n' "${skill##*/}" "$source" "$ref" >> "$entry"
   done <<< "$skills"
   # Preserve the introduction and old entries, inserting immediately before the first release.
-  awk -v entry="$entry" "$markdown"'
+  LC_ALL=C awk -v entry="$entry" "$markdown"'
     release_heading() && !inserted { while ((getline line < entry)>0) print line; close(entry); inserted=1 }
     { print }
     END { if (!inserted) { while ((getline line < entry)>0) print line; close(entry) } }

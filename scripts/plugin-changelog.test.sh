@@ -144,4 +144,59 @@ MD
 commit
 (cd "$dir" && bash "$script" check "$base" HEAD)
 passed=$((passed + 1))
+
+# Hidden templates cannot satisfy the gate or suppress generation of a visible release entry.
+for kind in comment comment-fence comment-indented-close inline-comment inline-backticks-comment; do
+  fixture; bump
+  case "$kind" in
+    comment) printf '<!--\n## 1.2.4 — YYYY-MM-DD\n-->\n' > "$work/template" ;;
+    comment-fence)
+      # shellcheck disable=SC2016 # A Markdown fence inside an HTML comment is hidden text.
+      printf '<!--\n```markdown\n## 1.2.4 — YYYY-MM-DD\n-->\n' > "$work/template" ;;
+    comment-indented-close) printf '<!--\n## 1.2.4 — YYYY-MM-DD\n    -->\n' > "$work/template" ;;
+    inline-comment) printf 'Template <!--\n## 1.2.4 — YYYY-MM-DD\n-->\n' > "$work/template" ;;
+    inline-backticks-comment)
+      # shellcheck disable=SC2016 # This is inline code followed by a real comment opener.
+      printf '```code``` <!--\n## 1.2.4 — YYYY-MM-DD\n-->\n' > "$work/template" ;;
+  esac
+  cat "$work/template" "$dir/plugins/alpha/CHANGELOG.md" > "$work/log"
+  cp "$work/log" "$dir/plugins/alpha/CHANGELOG.md"
+  commit; refuse check "$base" HEAD
+  (cd "$dir" && bash "$script" write "$base" 2026-09-24)
+  sed '/^## 1.2.4 — 2026-09-24/,/^## 1.2.3/{ /^## 1.2.3/!d; }' "$dir/plugins/alpha/CHANGELOG.md" > "$work/preserved"
+  cmp "$work/log" "$work/preserved"
+  commit
+  (cd "$dir" && bash "$script" check "$base" HEAD)
+  passed=$((passed + 1))
+done
+
+# A literal comment opener in a code example must not hide subsequent real headings.
+for kind in fenced-comment inline-code-comment longer-inline-code-comment escaped-comment; do
+  fixture; bump
+  case "$kind" in
+    fenced-comment)
+      # shellcheck disable=SC2016 # Literal fenced Markdown example.
+      printf '```html\n<!--\n```\n\n' > "$work/template" ;;
+    inline-code-comment)
+      # shellcheck disable=SC2016 # A comment opener inside inline code is literal content.
+      printf 'Use `<!--` for comments.\n\n' > "$work/template" ;;
+    longer-inline-code-comment)
+      # shellcheck disable=SC2016 # A single backtick cannot close a two-backtick code span.
+      printf 'Use ``a`<!--`` for examples.\n\n' > "$work/template" ;;
+    escaped-comment) printf 'Use \\<!-- for comments.\n\n' > "$work/template" ;;
+  esac
+  cat "$work/template" "$dir/plugins/alpha/CHANGELOG.md" > "$work/log"
+  cp "$work/log" "$dir/plugins/alpha/CHANGELOG.md"
+  (cd "$dir" && bash "$script" write "$base" 2026-09-24)
+  commit
+  (cd "$dir" && bash "$script" check "$base" HEAD)
+  passed=$((passed + 1))
+done
+
+# An unterminated hidden template must fail before the writer changes any history.
+fixture; bump
+printf '<!--\n## 1.2.4 — YYYY-MM-DD\n' > "$dir/plugins/alpha/CHANGELOG.md"
+cp "$dir/plugins/alpha/CHANGELOG.md" "$work/before"
+refuse write "$base" 2026-09-24
+cmp "$work/before" "$dir/plugins/alpha/CHANGELOG.md"
 printf 'plugin changelog: PASS (%s cases)\n' "$passed"

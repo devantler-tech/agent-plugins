@@ -214,4 +214,65 @@ printf '<!--\n## 1.2.4 — YYYY-MM-DD\n' > "$dir/plugins/alpha/CHANGELOG.md"
 cp "$dir/plugins/alpha/CHANGELOG.md" "$work/before"
 refuse write "$base" 2026-09-24
 cmp "$work/before" "$dir/plugins/alpha/CHANGELOG.md"
+
+# Advancing main must not turn another plugin's unchanged legacy version into a new release.
+fixture
+git -C "$dir" checkout -qb feature
+git -C "$dir" checkout -qb advanced "$base"
+printf '{"version":"1.2.4"}\n' > "$dir/plugins/beta/plugin.json"
+commit
+advanced=$(git -C "$dir" rev-parse HEAD)
+git -C "$dir" checkout -q feature
+(cd "$dir" && bash "$script" check "$advanced" HEAD)
+passed=$((passed + 1))
+# A release made on the feature branch still requires its own entry after that divergence.
+bump; commit
+refuse check "$advanced" HEAD
+(cd "$dir" && bash "$script" write "$advanced" 2026-09-24)
+[ ! -e "$dir/plugins/beta/CHANGELOG.md" ]
+commit
+(cd "$dir" && bash "$script" check "$advanced" HEAD)
+passed=$((passed + 1))
+
+# Both modes refuse histories with no common ancestor, even when their trees happen to match.
+fixture
+unrelated=$(printf 'Unrelated history\n' | git -C "$dir" commit-tree "$(git -C "$dir" rev-parse 'HEAD^{tree}')")
+refuse check "$unrelated" HEAD
+refuse write "$unrelated" 2026-09-24
+
+# Retiring a complete skill records its previous provenance and is not described as a sync.
+fixture; bump
+git -C "$dir" rm -qr -- plugins/alpha/skills/example
+commit
+(cd "$dir" && bash "$script" write "$base" 2026-09-24)
+# shellcheck disable=SC2016 # Literal Markdown code spans.
+grep -Fq '**Removed** — `example`, previously from `https://github.com/example/skills` at `refs/tags/v1.0.0`.' "$dir/plugins/alpha/CHANGELOG.md"
+if grep -Fq '**Changed**' "$dir/plugins/alpha/CHANGELOG.md"; then exit 1; fi
+commit
+(cd "$dir" && bash "$script" check "$base" HEAD)
+passed=$((passed + 1))
+
+# Removing only SKILL.md leaves a malformed skill, not a complete retirement.
+fixture; bump
+git -C "$dir" rm -q -- plugins/alpha/skills/example/SKILL.md
+mkdir -p "$dir/plugins/alpha/skills/example"
+printf 'Remaining resource\n' > "$dir/plugins/alpha/skills/example/resource.txt"
+commit
+cp "$dir/plugins/alpha/CHANGELOG.md" "$work/before"
+refuse write "$base" 2026-09-24
+cmp "$work/before" "$dir/plugins/alpha/CHANGELOG.md"
+
+# Removing a support file while retaining SKILL.md is still an ordinary skill update.
+fixture
+printf 'Old resource\n' > "$dir/plugins/alpha/skills/example/resource.txt"
+commit
+base=$(git -C "$dir" rev-parse HEAD)
+git -C "$dir" rm -q -- plugins/alpha/skills/example/resource.txt
+bump; commit
+(cd "$dir" && bash "$script" write "$base" 2026-09-24)
+# shellcheck disable=SC2016 # Literal Markdown code spans.
+grep -Fq '**Changed** — sync `example` from `https://github.com/example/skills` at `refs/tags/v2.0.0`.' "$dir/plugins/alpha/CHANGELOG.md"
+commit
+(cd "$dir" && bash "$script" check "$base" HEAD)
+passed=$((passed + 1))
 printf 'plugin changelog: PASS (%s cases)\n' "$passed"

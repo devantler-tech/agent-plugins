@@ -14,11 +14,11 @@ if [ "$mode" = check ]; then
   head=$(git rev-parse --verify --end-of-options "${3:-HEAD}^{commit}") || fail 'unreadable head'
 else
   head=$(git rev-parse --verify HEAD)
-  # Match the version helper when main advances while the sync branch is being prepared.
-  base=$(git merge-base "$base" "$head") || fail 'no merge base'
   release_date=${3:-$(date -u +%F)}
   [[ "$release_date" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[0-1])$ ]] || fail 'invalid date'
 fi
+# Compare only this branch's changes, including when main advances during preparation.
+base=$(git merge-base "$base" "$head") || fail 'no merge base'
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 plugins=$(git ls-tree -d --name-only "$head" plugins/)
@@ -119,12 +119,25 @@ while IFS= read -r dir; do
   printf '## %s — %s\n\n' "$version" "$release_date" > "$entry"
   while IFS= read -r skill; do
     [[ "$skill" =~ ^plugins/[a-z0-9-]+/skills/[a-z0-9-]+$ ]] || fail "unsupported skill path: $skill"
-    source=$(provenance "$skill/SKILL.md" github-repo) || fail "missing source for $skill"
-    ref=$(provenance "$skill/SKILL.md" github-ref) || fail "missing upstream ref for $skill"
+    metadata="$skill/SKILL.md"
+    removed=false
+    if ! git cat-file -e "$head:$metadata" 2>/dev/null; then
+      [ -z "$(git ls-tree -r --name-only "$head" -- "$skill/")" ] || fail "incomplete skill removal: $skill"
+      removed=true
+      metadata="$work/removed-skill.md"
+      git show "$base:$skill/SKILL.md" > "$metadata" 2>/dev/null || fail "missing previous skill: $skill"
+    fi
+    source=$(provenance "$metadata" github-repo) || fail "missing source for $skill"
+    ref=$(provenance "$metadata" github-ref) || fail "missing upstream ref for $skill"
     [[ "$source" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail "unsupported source for $skill"
     [[ "$ref" =~ ^[A-Za-z0-9][A-Za-z0-9._/@:+-]*$ ]] || fail "unsupported upstream ref for $skill"
-    # shellcheck disable=SC2016 # Literal Markdown code spans, not shell expansion.
-    printf '**Changed** — sync `%s` from `%s` at `%s`.\n\n' "${skill##*/}" "$source" "$ref" >> "$entry"
+    if [ "$removed" = true ]; then
+      # shellcheck disable=SC2016 # Literal Markdown code spans, not shell expansion.
+      printf '**Removed** — `%s`, previously from `%s` at `%s`.\n\n' "${skill##*/}" "$source" "$ref" >> "$entry"
+    else
+      # shellcheck disable=SC2016 # Literal Markdown code spans, not shell expansion.
+      printf '**Changed** — sync `%s` from `%s` at `%s`.\n\n' "${skill##*/}" "$source" "$ref" >> "$entry"
+    fi
   done <<< "$skills"
   # Preserve the introduction and old entries, inserting immediately before the first release.
   LC_ALL=C awk -v entry="$entry" "$markdown"'

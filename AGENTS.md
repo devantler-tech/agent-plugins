@@ -202,6 +202,9 @@ plugin membership) is authored here.
    easily half-lands. The `Check version bump` CI job enforces it on every PR, and the daily skill-sync
    workflow bumps itself via `--changed-since` and writes dated skill/source/ref release notes with
    `bash scripts/plugin-changelog.sh write origin/main`. Existing hand-written entries stay intact.
+   Both the writer and checker compare against the merge base, so unrelated releases on an advanced
+   main branch do not need entries here. Fully retired skills get removal notes with provenance from
+   that base; removing `SKILL.md` while leaving resources behind is rejected as an incomplete removal.
    The same CI job rejects a new or changed plugin version without exactly one matching changelog
    heading outside code examples and HTML comments; unchanged legacy versions do not need
    retroactive history invented for them. Hidden templates are preserved without suppressing a real entry.

@@ -44,6 +44,8 @@ scripts/
 ├── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
 ├── check-plugin-version-bump.sh      # Gate: a plugin whose shipped content changed must move its version
 ├── check-plugin-version-bump.test.sh # Self-test for the gate above
+├── plugin-changelog.sh             # Write skill-sync release notes and check changed-version entries
+├── plugin-changelog.test.sh        # Offline Git fixtures for release-note generation and checks
 ├── guard-bundled-skill-edits.sh      # Gate: refuse a hand-edit to a synced skill tree, naming its upstream
 ├── guard-bundled-skill-edits.test.sh # Self-test for the gate above
 ├── guard-gh-json-fields.sh     # Gate: refuse a bundled definition that requests the nonexistent gh `merged` field

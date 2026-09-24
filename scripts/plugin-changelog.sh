@@ -24,12 +24,29 @@ trap 'rm -rf "$work"' EXIT
 plugins=$(git ls-tree -d --name-only "$head" plugins/)
 [ -n "$plugins" ] || fail 'no plugins found'
 
-# Count exact version headings outside fenced examples. Prefix matches and duplicates fail the gate.
+# Shared Markdown state for the gate and insertion point: fences close with the same character
+# and at least the opener's length. Four-space indented examples are not release headings either.
+# shellcheck disable=SC2016 # Static awk program; $0 and code fences are literal.
+markdown='
+  function release_heading(    line, run, mark, size, rest) {
+    line=$0
+    if (line ~ /^    / || line ~ /^\t/) return 0
+    sub(/^ */, "", line)
+    if (line ~ /^```/ || line ~ /^~~~/) {
+      mark=substr(line,1,1); run=line
+      if (mark=="`") sub(/[^`].*$/, "", run); else sub(/[^~].*$/, "", run)
+      size=length(run); rest=substr(line,size+1)
+      if (fence=="") { fence=mark; width=size }
+      else if (mark==fence && size>=width && rest ~ /^[[:space:]]*$/) fence=""
+      return 0
+    }
+    return fence=="" && line ~ /^##[[:space:]]/
+  }
+'
+# Count exact version headings outside code examples. Prefix matches and duplicates fail the gate.
 headings() {
-  awk -v version="$2" '
-    /^ *```/ { if (fence=="`") fence=""; else if (fence=="") fence="`"; next }
-    /^ *~~~/ { if (fence=="~") fence=""; else if (fence=="") fence="~"; next }
-    fence=="" && $1=="##" && $2==version { count++ }
+  awk -v version="$2" "$markdown"'
+    release_heading() && $2==version { count++ }
     END { print count+0 }
   ' "$1"
 }
@@ -100,10 +117,8 @@ while IFS= read -r dir; do
     printf '**Changed** — sync `%s` from `%s` at `%s`.\n\n' "${skill##*/}" "$source" "$ref" >> "$entry"
   done <<< "$skills"
   # Preserve the introduction and old entries, inserting immediately before the first release.
-  awk -v entry="$entry" '
-    /^ *```/ { if (fence=="`") fence=""; else if (fence=="") fence="`"; print; next }
-    /^ *~~~/ { if (fence=="~") fence=""; else if (fence=="") fence="~"; print; next }
-    !inserted && fence=="" && /^## / { while ((getline line < entry)>0) print line; close(entry); inserted=1 }
+  awk -v entry="$entry" "$markdown"'
+    release_heading() && !inserted { while ((getline line < entry)>0) print line; close(entry); inserted=1 }
     { print }
     END { if (!inserted) { while ((getline line < entry)>0) print line; close(entry) } }
   ' "$snapshot" > "$work/$name.new"

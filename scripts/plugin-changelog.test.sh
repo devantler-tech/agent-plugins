@@ -74,7 +74,7 @@ fixture
 (cd "$dir" && bash "$script" check "$base" HEAD)
 passed=$((passed + 1))
 
-for kind in missing prefix fenced duplicate; do
+for kind in missing prefix fenced nested-fence indented duplicate; do
   fixture; bump
   case "$kind" in
     missing) rm "$dir/plugins/alpha/CHANGELOG.md" ;;
@@ -82,6 +82,10 @@ for kind in missing prefix fenced duplicate; do
     fenced)
       # shellcheck disable=SC2016 # Literal Markdown fence, not shell expansion.
       printf '```markdown\n## 1.2.4 — 2026-09-24\n```\n' > "$dir/plugins/alpha/CHANGELOG.md" ;;
+    nested-fence)
+      # shellcheck disable=SC2016 # The shorter fence is example content, not a closing fence.
+      printf '````markdown\n```\n## 1.2.4 — 2026-09-24\n````\n' > "$dir/plugins/alpha/CHANGELOG.md" ;;
+    indented) printf '    ## 1.2.4 — 2026-09-24\n' > "$dir/plugins/alpha/CHANGELOG.md" ;;
     duplicate) printf '## 1.2.4 — 2026-09-24\n\n## 1.2.4 — 2026-09-24\n' > "$dir/plugins/alpha/CHANGELOG.md" ;;
   esac
   commit; refuse check "$base" HEAD

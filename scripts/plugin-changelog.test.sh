@@ -275,4 +275,33 @@ grep -Fq '**Changed** — sync `example` from `https://github.com/example/skills
 commit
 (cd "$dir" && bash "$script" check "$base" HEAD)
 passed=$((passed + 1))
+# Container-attached fences and raw HTML are parsed as examples, never release headings.
+for kind in bullet ordered nested quote html; do
+  fixture; bump
+  case "$kind" in
+    bullet)
+      # shellcheck disable=SC2016 # Literal Markdown example.
+      printf '%s\n' '- ```markdown' '  ## 1.2.4 — template' '  ```' > "$work/template" ;;
+    ordered)
+      printf '%s\n' '1. ~~~markdown' '   ## 1.2.4 — template' '   ~~~' > "$work/template" ;;
+    nested)
+      # shellcheck disable=SC2016 # Literal Markdown example.
+      printf '%s\n' '- outer' '  - ```markdown' '    ## 1.2.4 — template' '    ```' > "$work/template" ;;
+    quote)
+      # shellcheck disable=SC2016 # Literal Markdown example.
+      printf '%s\n' '> ```markdown' '> ## 1.2.4 — template' '> ```' > "$work/template" ;;
+    html)
+      printf '%s\n' '<div>' '## 1.2.4 — template' '</div>' > "$work/template" ;;
+  esac
+  printf '\n' >> "$work/template"
+  cat "$work/template" "$dir/plugins/alpha/CHANGELOG.md" > "$work/log"
+  cp "$work/log" "$dir/plugins/alpha/CHANGELOG.md"
+  commit; refuse check "$base" HEAD
+  (cd "$dir" && bash "$script" write "$base" 2026-09-24)
+  sed '/^## 1.2.4 — 2026-09-24/,/^## 1.2.3/{ /^## 1.2.3/!d; }' "$dir/plugins/alpha/CHANGELOG.md" > "$work/preserved"
+  cmp "$work/log" "$work/preserved"
+  commit
+  (cd "$dir" && bash "$script" check "$base" HEAD)
+  passed=$((passed + 1))
+done
 printf 'plugin changelog: PASS (%s cases)\n' "$passed"

@@ -4,6 +4,7 @@
 #        bash scripts/plugin-changelog.sh check <base-ref> <head-ref>
 # The writer reads working-tree versions after bump-plugin-version.sh. The gate reads commits.
 set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 mode=${1:-}
 base_ref=${2:-}
 fail() { printf 'plugin-changelog: %s\n' "$*" >&2; exit 1; }
@@ -24,41 +25,9 @@ trap 'rm -rf "$work"' EXIT
 plugins=$(git ls-tree -d --name-only "$head" plugins/)
 [ -n "$plugins" ] || fail 'no plugins found'
 
-# Shared Markdown state for the gate and insertion point: fences close with the same character
-# and at least the opener's length. Four-space indented examples are not release headings either.
-# HTML comment blocks retain state across lines; inline openers cannot cross a heading boundary.
-# shellcheck disable=SC2016 # Static awk program; $0 and code fences are literal.
-markdown='
-  function release_heading(    line, run, mark, size, rest) {
-    line=$0
-    # A comment continuation cannot contain a heading, including the line that closes it.
-    if (comment) { if (index(line,"-->")) comment=0; return 0 }
-    if (line ~ /^    / || line ~ /^\t/) return 0
-    sub(/^ */, "", line)
-    if (line ~ /^```/ || line ~ /^~~~/) {
-      mark=substr(line,1,1); run=line
-      if (mark=="`") sub(/[^`].*$/, "", run); else sub(/[^~].*$/, "", run)
-      size=length(run); rest=substr(line,size+1)
-      if (fence=="") {
-        # CommonMark 4.5: backticks in the info string make this an ordinary content line.
-        if (mark=="`" && rest ~ /`/) return 0
-        fence=mark; width=size
-      }
-      else if (mark==fence && size>=width && rest ~ /^[[:space:]]*$/) fence=""
-      return 0
-    }
-    if (fence!="") return 0
-    # CommonMark 4.6 type-2 blocks start at the beginning of a line (up to three spaces).
-    if (line ~ /^<!--/) { comment=(index(line,"-->")==0); return 0 }
-    return line ~ /^##[[:space:]]/
-  }
-'
-# Count exact version headings outside code examples. Prefix matches and duplicates fail the gate.
+# The gate and insertion point use the same CommonMark heading inventory.
 headings() {
-  LC_ALL=C awk -v version="$2" "$markdown"'
-    release_heading() && $2==version { count++ }
-    END { print count+0 }
-  ' "$1"
+  node "$here/changelog-headings.cjs" "$1" | jq -r --arg version "$2" '[.[] | select(.version == $version)] | length'
 }
 
 # Read the scalar provenance emitted by gh skill, scoped to frontmatter metadata.
@@ -140,8 +109,9 @@ while IFS= read -r dir; do
     fi
   done <<< "$skills"
   # Preserve the introduction and old entries, inserting immediately before the first release.
-  LC_ALL=C awk -v entry="$entry" "$markdown"'
-    release_heading() && !inserted { while ((getline line < entry)>0) print line; close(entry); inserted=1 }
+  first=$(node "$here/changelog-headings.cjs" "$snapshot" | jq -r '.[0].line // 0')
+  LC_ALL=C awk -v entry="$entry" -v first="$first" '
+    NR==first { while ((getline line < entry)>0) print line; close(entry); inserted=1 }
     { print }
     END { if (!inserted) { while ((getline line < entry)>0) print line; close(entry) } }
   ' "$snapshot" > "$work/$name.new"

@@ -46,6 +46,7 @@ scripts/
 ├── check-plugin-version-bump.test.sh # Self-test for the gate above
 ├── plugin-changelog.sh             # Write skill-sync release notes and check changed-version entries
 ├── plugin-changelog.test.sh        # Offline Git fixtures for release-note generation and checks
+├── changelog-headings.cjs          # CommonMark release-heading inventory used by writer and gate
 ├── guard-bundled-skill-edits.sh      # Gate: refuse a hand-edit to a synced skill tree, naming its upstream
 ├── guard-bundled-skill-edits.test.sh # Self-test for the gate above
 ├── guard-gh-json-fields.sh     # Gate: refuse a bundled definition that requests the nonexistent gh `merged` field
@@ -206,8 +207,10 @@ plugin membership) is authored here.
    main branch do not need entries here. Fully retired skills get removal notes with provenance from
    that base; removing `SKILL.md` while leaving resources behind is rejected as an incomplete removal.
    The same CI job rejects a new or changed plugin version without exactly one matching changelog
-   heading outside code examples and HTML comments; unchanged legacy versions do not need
+   top-level `## X.Y.Z` heading outside code examples and raw HTML; unchanged legacy versions do not need
    retroactive history invented for them. Hidden templates are preserved without suppressing a real entry.
+   The gate uses the locked CommonMark parser with Node.js 22+ (`npm ci --ignore-scripts` at the
+   repository root). These are repository maintenance dependencies, not bundled plugin resources.
 9. **Catalogue and manifests stay in lockstep.** The [plugin catalogue table](docs/plugins.md) mirrors the manifests; update it
    in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
    vice versa, and each row's **Resources** column matches that plugin's bundled resources on disk — its
@@ -243,6 +246,9 @@ runs once after installation and remains required. `scripts/install-skills-ref.t
 recovery and failure offline in `lint-scripts`.
 
 ```bash
+# Install the pinned parser for changelog checks and the offline regression suite (Node.js 22+).
+npm ci --ignore-scripts --no-audit --no-fund
+
 # 1. Marketplace parity, portable ↔ strict-Claude plugin.json parity, catalogue table,
 #    desired-state resources, and skill provenance — the exact checks CI's
 #    "Validate manifests" job runs.

@@ -8,7 +8,7 @@ mode=${1:-}
 base_ref=${2:-}
 fail() { printf 'plugin-changelog: %s\n' "$*" >&2; exit 1; }
 [ "$mode" = write ] || [ "$mode" = check ] || fail 'expected write or check'
-[ "$#" -ge 2 ] && [ "$#" -le 3 ] || fail 'expected base and optional date/head'
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then fail 'expected base and optional date/head'; fi
 base=$(git rev-parse --verify --end-of-options "$base_ref^{commit}") || fail 'unreadable base'
 if [ "$mode" = check ]; then
   head=$(git rev-parse --verify --end-of-options "${3:-HEAD}^{commit}") || fail 'unreadable head'

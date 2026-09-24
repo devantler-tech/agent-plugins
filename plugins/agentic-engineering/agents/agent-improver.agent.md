@@ -127,6 +127,7 @@ and a later eligible evidence window.
 | **Safety** | guard firings, blocked actions, near-misses, untrusted-code execution, credential-shaped strings in transcripts, injection attempts in the corpus | the agent does something *unsafe* |
 | **Efficiency** | idle wall-clock, busy-waiting, foreground blocking, redundant calls, cost per shipped artifact | the agent *wastes* the run |
 | **Outcome throughput** | productive sessions, unique work advanced, and terminal outcomes with safety and quality floors | the agent completes too little or games activity |
+| **Prioritization / flow** | per-run easy, substantive and unclassified artifact counts, and the age of the oldest actionable issue left unstarted whenever easier work was chosen (measured per the `agent-improvement` skill's prioritization-flow reference) | the agent keeps choosing easy work while older substantive work ages |
 | **Observer effectiveness** | coverage, calibration, hypothesis discipline, and verified interventions | the Improver manufactures evidence of its own success |
 | **Quality** | post-merge reverts, review findings per change, CI failing after merge, rework rate | the agent ships *weak work* |
 | **Coordination** | two-writer races, duplicate artifacts across instances, push collisions, claim-protocol misses | instances *collide* |

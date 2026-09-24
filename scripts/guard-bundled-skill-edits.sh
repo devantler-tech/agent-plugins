@@ -19,7 +19,8 @@
 #
 # WHAT IT DELIBERATELY ALLOWS
 #   - The programmed sync PR (actor + branch must BOTH match) — that is the one
-#     writer these trees are supposed to have.
+#     writer these trees are supposed to have. In per-skill mode the sync opens one
+#     PR per skill from `<SYNC_BRANCH>-<slug>`, and each is exempt for its own skill only.
 #   - Adding a wholly NEW skill directory. It does not exist at the base ref, so
 #     there is no upstream copy to diverge from yet; `gh skill install` followed by
 #     a commit stays a one-step operation.
@@ -65,6 +66,7 @@ Environment:
   PR_HEAD_BRANCH   the head branch name              (required, same condition)
   SYNC_ACTOR       override the exempt actor         (default: botantler-1[bot])
   SYNC_BRANCH      override the exempt branch        (default: deps/agent-skills-update)
+                   `<SYNC_BRANCH>-<slug>` is exempt for the one skill with that slug
   GUARD_REPO_DIR   run git against this repo instead of the script's own
 
 exit 0  no synced skill tree was touched, the change is the programmed sync, or the
@@ -94,6 +96,14 @@ skill_dir_of() {
   [ "$c" = skills ] || return 0
   [ -n "$b" ] && [ -n "$d" ] && [ -n "$rest" ] || return 0
   printf '%s/%s/%s/%s\n' "$a" "$b" "$c" "$d"
+}
+
+# sync_slug_of SKILL_DIR -> the branch suffix the updater's per-skill mode gives this skill:
+# its path below `plugins/` with `/` and every other non-branch-safe byte turned into `-`
+# (devantler-tech/actions `split-skill-updates.sh`, which the updater runs with dir=plugins).
+# Kept byte-for-byte equal to that derivation so the exemption matches exactly one skill.
+sync_slug_of() {
+  printf '%s' "${1#plugins/}" | tr '/' '-' | tr -c 'A-Za-z0-9._-' '-'
 }
 
 # exists_at REV PATH -> true when the blob is present at that revision.
@@ -207,9 +217,17 @@ main() {
     exit 0
   fi
 
+  # A PER-SKILL sync PR (the updater's pr-per-skill mode, #175) comes from
+  # `<SYNC_BRANCH>-<slug>` and owns exactly ONE skill: the one whose slug that is. It is
+  # exempt for that skill only, so a sync PR cannot be used to hand-edit a different skill.
+  local sync_slug=""
+  if [ "$PR_ACTOR" = "$SYNC_ACTOR" ] && [ "${PR_HEAD_BRANCH#"${SYNC_BRANCH}-"}" != "$PR_HEAD_BRANCH" ]; then
+    sync_slug="${PR_HEAD_BRANCH#"${SYNC_BRANCH}-"}"
+  fi
+
   # Deduplicate while preserving first-seen order, so one edited skill is reported
   # once however many of its files changed.
-  local -a seen=() offenders=() retired=()
+  local -a seen=() offenders=() retired=() synced=()
   local d s upstream rc
   for d in "${touched[@]}"; do
     for s in ${seen[@]+"${seen[@]}"}; do [ "$s" = "$d" ] && continue 2; done
@@ -231,14 +249,22 @@ main() {
       retired+=("$d")
       continue
     fi
+    if [ -n "$sync_slug" ] && [ "$(sync_slug_of "$d")" = "$sync_slug" ]; then
+      synced+=("$d")
+      continue
+    fi
     offenders+=("$d	$upstream")
   done
 
   if [ "${#offenders[@]}" -eq 0 ]; then
+    if [ "${#synced[@]}" -gt 0 ]; then
+      echo "✓ per-skill programmed sync (${SYNC_ACTOR} on ${PR_HEAD_BRANCH}) — its own skill is its to write:"
+      for d in "${synced[@]}"; do printf '  %s\n' "$d"; done
+    fi
     if [ "${#retired[@]}" -gt 0 ]; then
       echo "✓ bundled skill(s) retired outright, which is plugin membership and authored here:"
       for d in "${retired[@]}"; do printf '  %s\n' "$d"; done
-    else
+    elif [ "${#synced[@]}" -eq 0 ]; then
       echo "✓ only new or locally-authored skill directories touched"
     fi
     exit 0

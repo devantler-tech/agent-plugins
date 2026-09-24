@@ -26,7 +26,7 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 │   └── marketplace.json        # Copilot / VS Code marketplace manifest (kept in parity with the Claude one)
 └── workflows/
     ├── ci.yaml                 # Runs scripts/validate-manifests.sh + lint-scripts (shellcheck + self-test) + agentskills.io spec per skill
-    └── update-agent-skills.yaml  # Daily gh skill update --all; opens a PR when upstream skills drift
+    └── update-agent-skills.yaml  # Daily gh skill update --all; one PR per drifted skill
 plugins/
 └── <plugin>/
     ├── plugin.json             # Portable Copilot / CLI plugin manifest
@@ -132,8 +132,8 @@ which records the true upstream in the skill's `metadata.github-*` frontmatter (
 [`update-agent-skills.yaml`](.github/workflows/update-agent-skills.yaml) workflow runs
 [`gh skill update --all`](https://github.com/devantler-tech/actions/tree/main/update-agent-skills) via
 the [`update-agent-skills`](https://github.com/devantler-tech/actions/blob/main/.github/workflows/update-agent-skills.yaml)
-reusable workflow and opens a PR when any upstream's content drifts — **no lockfile, no sync bot, no
-custom metadata.** Never hand-edit anything inside a bundled skill — not the `SKILL.md`, and not the
+reusable workflow and opens one PR per drifted skill, from `deps/agent-skills-update-<slug>`, so a
+blocked update holds back only its own skill — **no lockfile, no sync bot, no custom metadata.** Never hand-edit anything inside a bundled skill — not the `SKILL.md`, and not the
 `references/`, `scripts/` and `assets/` files beside it, which are equally the upstream's and equally
 re-pulled. Fix it in the skill's **own** upstream (the repo named in its `metadata.github-repo`) and
 let the update workflow pull it through. `validate-manifests.sh` enforces this mechanically: every
@@ -141,7 +141,7 @@ bundled `SKILL.md` must carry a non-empty `metadata.github-repo` provenance line
 or provenance-stripped skill fails CI rather than reaching consumers.
 `guard-bundled-skill-edits.sh` covers the rest of the tree: a PR that changes any file inside a
 synced skill fails and names the upstream to fix it in, so the edit is refused at review instead of
-being silently reverted by the next sync. The programmed sync PR is exempt, a wholly new skill
+being silently reverted by the next sync. The programmed sync PR is exempt for its own skill, a wholly new skill
 directory is not blocked (there is no upstream copy to diverge from yet), and retiring a skill
 outright is allowed because plugin membership is authored here. **The exemption is scoped to the
 PR, not to the commit author**: it keys on who opened the sync PR and what its head branch is

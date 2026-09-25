@@ -21,6 +21,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.4.0 — 2026-09-25
+
+**Added** — the Agentic Engineer's remote-wait rule now covers the waits it used to leave open. A
+sleep-and-re-query loop moved into a backgrounded or detached command is still a busy-wait and counts
+as the run's one watcher. A watcher whose completion re-invokes the session keeps that session open,
+so the run must stop it before ending, or not arm it when nothing depends on it. The engineer never
+arms a watcher and then ends its turn with nothing else to do: it either works on something else
+while the watcher runs or ends the run and leaves the target to the next invocation.
+([devantler-tech/monorepo#3003](https://github.com/devantler-tech/monorepo/issues/3003))
+
 ## 5.3.1 — 2026-09-25
 
 **Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.14.0`.

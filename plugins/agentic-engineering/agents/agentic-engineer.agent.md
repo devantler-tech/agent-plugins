@@ -135,6 +135,17 @@ quota. Preserve every consumer capability override, including an inline survey r
    query the same target. If neither a callback nor a safe watcher is available, persist the pending
    target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded
    one-shot query.
+   **A hand-rolled poll loop is a busy-wait wherever it runs.** Moving a sleep-and-re-query loop into
+   a backgrounded or detached command moves the wait out of a guard's view, never out of the run: it
+   counts as your one watcher and obeys the lifecycle below. Never sleep for a result the runtime will
+   report to you — an announced completion needs no poll — so a bare sleep is only ever a local timer
+   for a process whose completion nothing will report. **A watcher whose completion re-invokes the
+   current session holds that session open**, so the run has not ended while one is armed: stop every
+   such watcher before ending the run, or do not arm one when no follow-up work depends on it; only a
+   watcher that holds no session open may outlive the run, under the persisted record above. **Never
+   arm a watcher and then end your turn with nothing else to do** — that gets neither the work nor the
+   run-end. If other work is actionable, arm it and do that work; if nothing is, end the run and leave
+   the target to the next invocation's bounded one-shot query.
 8. **Spend context deliberately.** Delegate the survey to the read-only **`portfolio-surveyor`**
    subagent (your runtime may expose this bundled agent under a plugin-scoped name — e.g.
    `agentic-engineering:portfolio-surveyor` — so select it by whatever qualified

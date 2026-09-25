@@ -26,6 +26,7 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 │   └── marketplace.json        # Copilot / VS Code marketplace manifest (kept in parity with the Claude one)
 └── workflows/
     ├── ci.yaml                 # Runs scripts/validate-manifests.sh + lint-scripts (shellcheck + self-test) + agentskills.io spec per skill
+    ├── prepare-marketplace-release.yaml # Manual, read-only release-candidate artifact
     └── update-agent-skills.yaml  # Daily gh skill update --all; one PR per drifted skill
 plugins/
 └── <plugin>/
@@ -55,6 +56,9 @@ scripts/
 ├── recheck-open-prs.test.sh    # Self-test for the recheck above (stubs `gh`; no network)
 ├── bump-plugin-version.sh      # Move a plugin's version across all four manifests (the fix the gate points at)
 ├── bump-plugin-version.test.sh # Self-test for the bump helper
+├── prepare-marketplace-release.sh # Offline version proposal, manifests and release notes from Git objects
+├── marketplace-release.jq      # Candidate validation, version calculation and notes rendering
+├── prepare-marketplace-release.test.sh # Real-history release and refusal cases
 ├── refresh-desired-state-digests.sh      # Writer: recompute every digest a *.desired-state.json pins (the fix "digest must match" points at)
 ├── refresh-desired-state-digests.test.sh # Self-test for the generator, incl. its coupling to the validator
 └── sha256.lib.sh               # The two hashing rules, sourced by BOTH the validator and the generator so they cannot drift
@@ -62,6 +66,7 @@ README.md                       # Short introduction and getting started
 docs/plugins.md                 # Validated plugin catalogue and resource inventory
 docs/installation.md            # Per-tool installation instructions
 docs/resources.md               # Bundled servers, agents, and onboarding
+docs/marketplace-releases.md     # Opt-in candidate preparation and publication boundary
 ```
 
 See the [plugin catalogue](docs/plugins.md) and the per-tool
@@ -192,8 +197,9 @@ plugin membership) is authored here.
    it needs at the workflow or job level. Set `persist-credentials: false` on `actions/checkout` unless
    a job must push.
 7. **Conventional-commit messages** (`feat:`/`fix:`/`chore:`/`ci:`/`docs:`/`refactor:`). The repo is
-   consumed directly as a marketplace (no release pipeline), so the type drives the changelog and PR
-   intent; the version is moved explicitly, per the next convention.
+   consumed directly as a marketplace. The opt-in [release-preparation command](docs/marketplace-releases.md)
+   calculates a repository version proposal from commit history; publication is not automated.
+   Per-plugin versions are moved explicitly, per the next convention.
 8. **A plugin's version is its cache key — move it whenever its content changes.** Runtimes cache
    plugins by `<marketplace>/<plugin>/<version>`, so a content change that leaves the version alone is
    unreachable for every consumer that already installed it: the update command reports "already at the
@@ -265,6 +271,9 @@ bash scripts/plugin-changelog.test.sh
 #     Those digests have a writer: refresh them rather than hand-editing, or the next
 #     agent-skills sync force-pushes the hand edit away. --check reports without writing.
 ./scripts/refresh-desired-state-digests.sh --check
+
+# 1d. Offline marketplace candidate preparation: real Git histories, no publication.
+bash scripts/prepare-marketplace-release.test.sh
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.

@@ -35,8 +35,10 @@ marketplace or proof of remote tag freshness. A no-bump history emits an explici
 
 An offline verifier binds a candidate to an explicitly selected source commit and proposed release
 commit. It regenerates all four artifacts, rejects any extra or non-regular artifact, and compares
-the committed manifests with the proposal. JSON formatting may differ; values and array order may
-not. All other tracked contents and every file mode must remain unchanged. A version-update commit
+the committed manifests byte-for-byte with the proposal. An initial snapshot may instead retain the
+original source manifest bytes, since its version is already present. Parsed JSON equality is not
+sufficient: duplicate keys can hide an unreviewed value. All other tracked contents and every file
+mode must remain unchanged. A version-update commit
 must have the selected source as its only parent; an initial snapshot may use the source itself.
 This catches stale parentage without assuming that local refs establish the current remote head.
 The assessment remains prepublication-only and refuses an already occupied candidate tag.

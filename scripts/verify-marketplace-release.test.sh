@@ -99,4 +99,12 @@ git -C "$repo" commit -qm 'chore(release): unapproved linked resource change'
 release=$(git -C "$repo" rev-parse HEAD)
 git -C "$repo" config diff.ignoreSubmodules all
 reject 'local diff configuration cannot hide a changed gitlink'
+incremental
+# Duplicate keys can be interpreted differently by consumers; parsed equality is insufficient.
+sed 's/"metadata": {/"metadata": {"version":"99.0.0"}, "metadata": {/' "$repo/.github/plugin/marketplace.json" > "$work/ambiguous"
+cp "$work/ambiguous" "$repo/.github/plugin/marketplace.json"
+git -C "$repo" add .github/plugin/marketplace.json
+git -C "$repo" commit --amend --no-edit -q
+release=$(git -C "$repo" rev-parse HEAD)
+reject 'ambiguous JSON cannot masquerade as the generated manifest'
 printf 'PASS %s release verification cases\n' "$passed"

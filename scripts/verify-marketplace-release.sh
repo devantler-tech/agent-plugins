@@ -68,7 +68,12 @@ for path in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
   release_entry=$(git ls-tree "$release" -- "$path")
   [ "${source_entry%% *}" = "${release_entry%% *}" ] || fail "manifest mode changed: $path"
   git cat-file blob "$release:$path" > "$temp/release-manifest.json"
-  # Formatting is immaterial, but every JSON field and array order must agree.
-  jq -en --slurpfile actual "$temp/release-manifest.json" --slurpfile expected "$temp/regenerated/$path" '$actual==$expected' >/dev/null || fail "release manifest differs from proposal: $path"
+  # Byte comparison also catches duplicate keys hidden by JSON parsing. The first release
+  # may retain its original manifest bytes because its version was already present.
+  if ! cmp -s "$temp/release-manifest.json" "$temp/regenerated/$path"; then
+    [ "$base_tag" = initial ] || fail "release manifest differs from proposal: $path"
+    git cat-file blob "$source:$path" > "$temp/source-manifest.json"
+    cmp -s "$temp/release-manifest.json" "$temp/source-manifest.json" || fail "release manifest differs from proposal: $path"
+  fi
 done
 jq --arg release "$release" '{schemaVersion:1,status:"VERIFIED",authority:"assessment-only",publication:"NOT_AUTHORIZED",sourceCommit,releaseCommit:$release,baseline,version,tag,scope:"local-prepublication"}' "$temp/regenerated/release.json"

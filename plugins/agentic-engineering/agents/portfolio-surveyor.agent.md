@@ -497,8 +497,10 @@ under that login, so a bare login match is not enough:
   token, so the inline comment never carries a disclosure of its own. Each element of the PR's
   review-comment list names its parent in `pull_request_review_id`: when that review is by the same
   login and its body carries the structural disclosure prefix, the comment is the agent's **own
-  prior output**. An absent or undisclosed parent review leaves the comment to the other checks in
-  this list — this can only move a comment from maintainer to agent, never the reverse.
+  prior output**. Only a top-level comment inherits it: a reply (`in_reply_to_id` set) is judged by
+  its own body, because the maintainer replies inside threads the agent opened. An absent or
+  undisclosed parent review leaves the comment to the other checks in this list — this can only move
+  a comment from maintainer to agent, never the reverse.
 - Otherwise ⇒ **`CANDIDATE-MAINTAINER-COMMENT`** (or `CANDIDATE-MAINTAINER-ISSUE-COMMENT`) with the
   PR/issue number and a **one-line gist**.
 

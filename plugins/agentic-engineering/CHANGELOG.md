@@ -25,8 +25,10 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 
 **Fixed** — the surveyor no longer reports the engineer's own review findings as maintainer
 instructions. A review round puts its disclosure on the review body and not on each inline comment,
-so the surveyor now attributes an inline review comment by the review it belongs to. An undisclosed
-parent review changes nothing, so a real maintainer comment still reaches the orchestrator.
+so the surveyor now attributes an inline review comment by the review it belongs to. Only a top-level
+comment inherits that attribution: a reply is judged on its own, so the maintainer's reply inside a
+thread the engineer opened still reaches the orchestrator, as does any comment under an undisclosed
+review.
 ([devantler-tech/monorepo#2835](https://github.com/devantler-tech/monorepo/issues/2835))
 
 ## 5.4.0 — 2026-09-25

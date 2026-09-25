@@ -210,6 +210,7 @@ for parent_review_fragment in \
   '**An inline review comment is attributed by its parent review, not by its own body.**' \
   'names its parent in `pull_request_review_id`' \
   'when that review is by the same login and its body carries the structural disclosure prefix' \
+  'Only a top-level comment inherits it: a reply (`in_reply_to_id` set) is judged by its own body' \
   'An absent or undisclosed parent review leaves the comment to the other checks in this list' \
   'this can only move a comment from maintainer to agent, never the reverse.'; do
   grep -Fq "$parent_review_fragment" <<<"$MAINTAINER_COMMENTS" ||

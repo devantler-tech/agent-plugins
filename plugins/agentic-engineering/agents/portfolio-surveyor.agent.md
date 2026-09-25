@@ -687,8 +687,13 @@ whose named measurement date is still in the FUTURE** (report it separately with
 not-yet-actionable, and listing it as ready makes runs either re-skip it every tick or measure early.
 Read that date **only from the measurement condition the issue body states**, never from `createdAt`:
 such an issue is filed before its window by construction, so a creation date makes every one read as
-overdue the moment it exists. A relative or unparseable condition ("48 hours after deployment") is
-`measurement=unresolved`, never past due, and an issue whose delivery work is still open is not
+overdue the moment it exists. The issue census projects no bodies, so **fetch the body of each
+issue you are about to nominate** while deepening it (`gh issue view <n> --repo <owner>/<repo> --json
+body`, one bounded read per candidate); a candidate whose body read fails is a candidate-scoped
+`QUERY-UNKNOWN`, never a nomination. A relative or unparseable condition ("48 hours after
+deployment") is `measurement=unresolved`, never past due: emit the digest's unresolved-measurement
+row, do not nominate the issue, treat it as a candidate-scoped unknown for selection, and leave the
+full-survey freshness cursor unchanged. An issue whose delivery work is still open is not
 awaiting measurement at all.
 
 Before nominating any issue as actionable, deepen that candidate once with the exact in-scope issue's
@@ -865,6 +870,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - <repo>: untyped issues (invisible to type filters) → #a,#b
 - UNTYPED-RESIDUAL-UNAVAILABLE — <repo>: operand=<primary|typed:<Type>> truncated at <cap> of <total> → THAT repo's residual withheld (others unaffected); mandatory-query failure ⇒ nothing_on_fire: false
 - <repo> #<n> "<title>" — future-dated measurement, date=<UTC date> (not yet actionable)
+- <repo> #<n> "<title>" — measurement=unresolved, condition="<body condition, ≤80 chars>" → candidate-scoped unknown; not nominated; full-survey freshness cursor unchanged
 ```
 
 ### Digest rules

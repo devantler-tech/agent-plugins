@@ -25,7 +25,8 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 
 **Fixed** — `portfolio-surveyor` reads a measurement issue's due date only from the measurement
 condition in its body, never from `createdAt`, and reports a relative or unparseable condition as
-unresolved rather than past due.
+unresolved rather than past due. It fetches the body of each issue it is about to nominate, and
+reports an unresolved measurement on its own digest row as a candidate-scoped unknown.
 
 ## 5.5.4 — 2026-09-25
 

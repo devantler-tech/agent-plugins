@@ -227,9 +227,19 @@ ADVANCE_SIGNALS=$(sed -n \
 for measurement_fragment in \
   'Read that date **only from the measurement condition the issue body states**, never from `createdAt`' \
   'is `measurement=unresolved`, never past due' \
-  'an issue whose delivery work is still open is not awaiting measurement at all.'; do
+  'An issue whose delivery work is still open is not awaiting measurement at all.' \
+  '**fetch the body of each issue you are about to nominate**' \
+  'a candidate whose body read fails is a candidate-scoped `QUERY-UNKNOWN`, never a nomination' \
+  'unresolved-measurement row, do not nominate the issue'; do
   grep -Fq "$measurement_fragment" <<<"$ADVANCE_SIGNALS" ||
     fail "measurement issues must be dated from their body, never createdAt: $measurement_fragment"
 done
+
+# The unresolved state needs an exact digest row, or each surveyor invents its own shape.
+grep -Fq -- '— measurement=unresolved, condition="<body condition, ≤80 chars>" → candidate-scoped unknown; not nominated; full-survey freshness cursor unchanged' "$SURVEYOR" ||
+  fail 'the digest must define an exact row for an unresolved measurement'
+
+GH_TELEMETRY=0 "$GUARD" --command 'gh issue view 3196 --repo devantler-tech/platform --json body' >/dev/null ||
+  fail 'the prescribed measurement-body read is not admitted by the forge guard'
 
 printf 'portfolio-surveyor agent contract: PASS\n'

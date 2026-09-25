@@ -11,7 +11,7 @@ def valid_marketplace:
       and (.version | stable_version) and .source == ("./plugins/" + .name)));
 def commit_level:
   . as $commit | (.message | split("\n")[0]) as $subject
-  | ((try ($subject | capture("^(?<type>[a-z][a-z0-9-]*)(\\([^()\\r\\n]+\\))?(?<breaking>!)?: .+"; "i")) catch null) // null) as $header
+  | ((try ($subject | capture("^(?<type>[a-z][a-z0-9-]*)(\\([^()\\r\\n]+\\))?(?<breaking>!)?: +\\S"; "i")) catch null) // null) as $header
   | if $header == null then error("unclassified commit requires review: " + .sha)
     elif ($header.type | ascii_downcase) == "revert" then error("revert requires review: " + .sha)
     elif $header.breaking == "!" or (.message | test("(^|\n)BREAKING( CHANGE|-CHANGE): [^\\s]")) then 3

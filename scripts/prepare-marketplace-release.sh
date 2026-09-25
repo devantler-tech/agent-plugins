@@ -42,8 +42,14 @@ parent=$(cd "$(dirname "$output")" && pwd -P) || fail 'output parent must exist'
 name=$(basename "$output")
 [[ "$name" != . && "$name" != .. && "$name" != / ]] || fail 'output must name a new directory'
 output="$parent/$name"
-worktree=$(cd "$(git rev-parse --show-toplevel)" && pwd -P) || fail 'must run inside a Git worktree'
-case "$output/" in "$worktree"/*) fail 'output must be outside the Git worktree' ;; esac
+git rev-parse --show-toplevel >/dev/null || fail 'must run inside a Git worktree'
+# Every worktree of the repository is a checkout, linked ones included.
+git worktree list --porcelain -z >/dev/null || fail 'cannot list Git worktrees'
+while IFS= read -r -d '' record; do
+  [[ "$record" == 'worktree '* ]] || continue
+  tree=$(cd "${record#worktree }" 2>/dev/null && pwd -P) || tree=${record#worktree }
+  case "$output/" in "$tree"/*) fail 'output must be outside every Git worktree' ;; esac
+done < <(git worktree list --porcelain -z)
 if [ -e "$output" ] || [ -L "$output" ]; then fail 'output already exists'; fi
 temp=$(mktemp -d "$parent/.marketplace-release.XXXXXX")
 owned_output=false

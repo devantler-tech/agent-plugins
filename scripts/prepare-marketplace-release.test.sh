@@ -62,7 +62,9 @@ passed=$((passed + 1))
 new_repo; git -C "$repo" tag v1.2.3; reject 'initial would reset published history' initial
 commit 'Make it better'; reject 'ambiguous commit'
 new_repo; git -C "$repo" tag v1.2.3; commit 'revert: undo feature'; reject 'revert requires assessment'
-new_repo; git -C "$repo" tag v1.2.3; commit 'fix:  '; reject 'blank change description'
+new_repo; git -C "$repo" tag v1.2.3
+# Verbatim keeps the trailing spaces that git's default cleanup would strip.
+git -C "$repo" commit --allow-empty --cleanup=verbatim -qm 'fix:  '; reject 'blank change description'
 new_repo; git -C "$repo" tag v1000000000.0.0; reject 'unsupported stable tag cannot disappear' initial
 new_repo; git -C "$repo" tag v1.2.3; commit 'fix: change'; git -C "$repo" tag v1.2.4; reject 'stale baseline'
 new_repo; git -C "$repo" tag v1.2.3; reject 'missing tag' v9.9.9
@@ -117,6 +119,12 @@ for inside in candidate "$repo/.github/candidate"; do
   test ! -s "$work/stdout" || fail "output inside worktree emitted success output: $inside"
   passed=$((passed + 1))
 done
+# A linked worktree is a checkout of the same repository too.
+git -C "$repo" worktree add -q --detach "$work/linked"
+if run initial "$work/linked/candidate" > "$work/stdout" 2> "$work/stderr"; then fail "output inside a linked worktree accepted"; fi
+test ! -e "$work/linked/candidate" || fail "output inside a linked worktree was written"
+test ! -s "$work/stdout" || fail "output inside a linked worktree emitted success output"
+passed=$((passed + 1))
 new_repo; first=$(git -C "$repo" rev-parse HEAD)
 commit 'feat: branch-only'; git -C "$repo" tag v1.2.3
 git -C "$repo" checkout -q --detach "$first"; commit 'fix: independent'

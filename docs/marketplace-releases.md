@@ -23,11 +23,11 @@ bash scripts/prepare-marketplace-release.sh \
   --base-tag initial --output /tmp/marketplace-candidate
 ```
 
-The output directory must not exist, its parent must exist, and it must be outside the
-repository's working tree, so preparation never leaves files in the checkout. Initial preparation
-uses the current marketplace manifest version and refuses to run if any stable marketplace tag is
-present locally. It records the legacy first-parent history without inferring a new version from
-that history.
+The output directory must not exist, its parent must exist, and it must be outside every working
+tree of the repository, linked worktrees included, so preparation never leaves files in a checkout.
+Initial preparation uses the current marketplace manifest version and refuses to run if any stable
+marketplace tag is present locally. It records the legacy first-parent history without inferring a
+new version from that history.
 
 For a later release, name the latest reachable stable tag:
 
@@ -50,7 +50,7 @@ repository's squash-merge convention:
 | `feat:` or a scoped feature | Minor |
 | `fix:` or `perf:` | Patch |
 | Other conventional types, or no new commits | No release |
-| Reverts or nonconventional subjects | Stop for human assessment |
+| Reverts, blank descriptions, or nonconventional subjects | Stop for human assessment |
 
 The largest change wins. Type names are case-insensitive. Stable versions have three numeric
 components, each from 0 to 999999999, with no leading zeroes. Prerelease and build-metadata versions

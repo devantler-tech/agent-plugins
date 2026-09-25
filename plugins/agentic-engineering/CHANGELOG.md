@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.3.1 — 2026-09-25
+
+**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.14.0`.
+
 ## 5.3.0 — 2026-09-24
 
 **Added** — the bundled `agent-improvement` skill moves to upstream `v1.13.0`, and the Agent Improver now

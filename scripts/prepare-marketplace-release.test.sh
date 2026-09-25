@@ -52,6 +52,17 @@ for footer in 'BREAKING CHANGE: remove old option' 'BREAKING-CHANGE: remove old 
   new_repo; git -C "$repo" tag v1.2.3
   commit "$(printf 'chore: adjust\n\n%s' "$footer")"; expect_version "$footer" 2.0.0
 done
+# A signature is not part of the message, so log.showSignature must not change what is classified.
+# The commit carries a gpgsig header and a stub verifier prints the line git would prepend.
+new_repo; git -C "$repo" tag v1.2.3
+printf '#!/usr/bin/env bash\necho "Good signature from stub" >&2\n' > "$work/stub-gpg"; chmod +x "$work/stub-gpg"
+signed=$(printf 'tree %s\nparent %s\nauthor Test <test@example.invalid> 1700000000 +0000\ncommitter Test <test@example.invalid> 1700000000 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n \n stub\n -----END PGP SIGNATURE-----\n\nfix: signed\n' \
+  "$(git -C "$repo" rev-parse 'HEAD^{tree}')" "$(git -C "$repo" rev-parse HEAD)" | git -C "$repo" hash-object -t commit -w --stdin)
+git -C "$repo" update-ref HEAD "$signed"
+git -C "$repo" config log.showSignature true; git -C "$repo" config gpg.program "$work/stub-gpg"
+out="$work/signed"; run v1.2.3 "$out" > "$work/stdout" 2> "$work/stderr" || { cat "$work/stderr"; fail 'signed commit did not prepare'; }
+jq -e '.version=="1.2.4" and .commits[0].subject=="fix: signed"' "$out/release.json" >/dev/null || fail 'signature output was read as the commit message'
+passed=$((passed + 1))
 new_repo; git -C "$repo" tag -a v1.2.3 -m baseline
 commit 'fix: repair'; commit 'feat: add'; expect_version 'largest bump and annotated tag' 1.3.0
 new_repo; git -C "$repo" tag v1.2.3; commit 'docs: explain'

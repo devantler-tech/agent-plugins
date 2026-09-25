@@ -95,7 +95,7 @@ else
 fi
 : > "$temp/data/messages.jsonl"
 while IFS= read -r sha; do
-  git show -s --format=%B "$sha" > "$temp/data/message"
+  git show -s --no-show-signature --format=%B "$sha" > "$temp/data/message"
   jq -n --arg sha "$sha" --rawfile message "$temp/data/message" '{sha:$sha,message:$message}' >> "$temp/data/messages.jsonl"
 done < "$temp/data/commits"
 jq -e -L "$here" --arg source "$head" --arg base "$base" --arg baseTag "$base_tag" --arg current "$current" --slurpfile commits "$temp/data/messages.jsonl" \

@@ -1527,6 +1527,8 @@ check_fail "Agentic Engineer watcher-lifecycle contract must be contiguous" \
 # its two values, the takeover case, the named-blocker guard under attribution-only, and the
 # fail-closed default. Every marker sits on one fixture line, so a removal that finds nothing leaves
 # the fixture valid and the case fails instead of passing.
+# Literal Markdown code spans, never shell expansions.
+# shellcheck disable=SC2016
 for driving_marker in \
   'maintainer-PR driving fact,' \
   '`hands-off` or `attribution-only`.**' \

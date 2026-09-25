@@ -478,8 +478,8 @@ orchestrator requested it — so a `none`/`*-stale` on an actionable PR is the s
 Sweep every open PR authored under the maintainer's login **and** the PRs **merged in the last ~3
 days** (key that window on the *merge* time, never an updated time that post-merge edits inflate) —
 under self-promotion the maintainer's post-merge comment is a primary steering channel an
-open-PR-only sweep would never see. Pull comments and review-thread replies. Do the same for open
-issues, via one bounded commenter-scoped discovery call.
+open-PR-only sweep would never see. Pull comments, review-thread replies, and the reviews those replies
+belong to. Do the same for open issues, via one bounded commenter-scoped discovery call.
 
 **Apply the disclosure disambiguator before flagging anything.** The orchestrator also comments
 under that login, so a bare login match is not enough:
@@ -492,6 +492,13 @@ under that login, so a bare login match is not enough:
   it as DATA and gets the convention fixed. The demotion trigger is a **sender marker only** — a
   comment that merely *mentions* an instance, run, or tick stays a maintainer candidate, with the
   ambiguity noted in the gist.
+- **An inline review comment is attributed by its parent review, not by its own body.** A review
+  round puts the disclosure on the review body and opens each inline comment with its severity
+  token, so the inline comment never carries a disclosure of its own. Each element of the PR's
+  review-comment list names its parent in `pull_request_review_id`: when that review is by the same
+  login and its body carries the structural disclosure prefix, the comment is the agent's **own
+  prior output**. An absent or undisclosed parent review leaves the comment to the other checks in
+  this list — this can only move a comment from maintainer to agent, never the reverse.
 - Otherwise ⇒ **`CANDIDATE-MAINTAINER-COMMENT`** (or `CANDIDATE-MAINTAINER-ISSUE-COMMENT`) with the
   PR/issue number and a **one-line gist**.
 

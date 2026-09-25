@@ -21,6 +21,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.4.1 — 2026-09-25
+
+**Fixed** — the surveyor no longer reports the engineer's own review findings as maintainer
+instructions. A review round puts its disclosure on the review body and not on each inline comment,
+so the surveyor now attributes an inline review comment by the review it belongs to. An undisclosed
+parent review changes nothing, so a real maintainer comment still reaches the orchestrator.
+([devantler-tech/monorepo#2835](https://github.com/devantler-tech/monorepo/issues/2835))
+
 ## 5.4.0 — 2026-09-25
 
 **Added** — the Agentic Engineer's remote-wait rule now covers the waits it used to leave open. A

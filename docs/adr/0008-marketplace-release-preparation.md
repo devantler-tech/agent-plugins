@@ -33,6 +33,14 @@ marketplace or proof of remote tag freshness. A no-bump history emits an explici
 
 ## Publication boundary
 
+An offline verifier binds a candidate to an explicitly selected source commit and proposed release
+commit. It regenerates all four artifacts, rejects any extra or non-regular artifact, and compares
+the committed manifests with the proposal. JSON formatting may differ; values and array order may
+not. All other tracked contents and every file mode must remain unchanged. A version-update commit
+must have the selected source as its only parent; an initial snapshot may use the source itself.
+This catches stale parentage without assuming that local refs establish the current remote head.
+The assessment remains prepublication-only and refuses an already occupied candidate tag.
+
 Publication remains separate work under #101. Its implementation must refresh remote refs, review
 and merge the version update, validate the exact resulting tree, reserve the tag without overwriting
 an existing ref, publish at that commit, and verify the remote tag, release, manifests, and consumer

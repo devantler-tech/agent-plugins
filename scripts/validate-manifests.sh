@@ -1020,6 +1020,25 @@ validate_desired_state_resources() {
       esac
     fi
 
+    # The remote-wait rule above forbids a FOREGROUND wait. Each narrower reading of it has been worked
+    # around in turn: a backgrounded sleep-and-re-query loop is not a foreground wait, yet a runtime
+    # that re-invokes the session on its completion keeps the run open until it fires, so an agent
+    # that arms one and ends its turn idles through the whole window and delays the invocation behind
+    # it (devantler-tech/monorepo#3003). Pin the class, the session-holding mechanism, the stop
+    # requirement, and both alternatives as one contiguous contract so no half can be dropped alone.
+    busy_wait_contract="**A hand-rolled poll loop is a busy-wait wherever it runs.** Moving a sleep-and-re-query loop into a backgrounded or detached command moves the wait out of a guard's view, never out of the run: it counts as your one watcher and obeys the lifecycle below. Never sleep for a result the runtime will report to you — an announced completion needs no poll — so a bare sleep is only ever a local timer for a process whose completion nothing will report. **A watcher whose completion re-invokes the current session holds that session open**, so the run has not ended while one is armed: stop every such watcher before ending the run, or do not arm one when no follow-up work depends on it; only a watcher that holds no session open may outlive the run, under the persisted record above. **Never arm a watcher and then end your turn with nothing else to do** — that gets neither the work nor the run-end. If other work is actionable, arm it and do that work; if nothing is, end the run and leave the target to the next invocation's bounded one-shot query."
+    if [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
+      case "$normalized_agent" in
+        *"$busy_wait_contract"*)
+          ;;
+        *)
+          echo "::error::$resource: agentic-engineer must treat a backgrounded poll loop as a busy-wait with the canonical contiguous watcher-lifecycle contract"
+          failed=1
+          resource_failed=1
+          ;;
+      esac
+    fi
+
     secret_inspection_contract="**Never let a credential become tool output.** Every other confidentiality rule you follow acts when something is *published* — a comment, a commit, a report. A secret that reaches your tool output has already passed that boundary: the transcript is durable, later runs mine it, and nothing downstream can un-write it. So inspect a secret-bearing resource — a cluster secret, a CI or provider credential, a secret store, a machine or provider config — through the **narrowest read that answers the question**: metadata, key names, counts, or explicitly selected non-secret fields, never a whole-object dump. Where a value must be handled, **redact it in the same command that produces it**, so the raw secret is never emitted. If a credential surfaces unexpectedly, **stop rather than continue**: never echo it, never pass it into a later command, and treat it as a leak under your deployment's rotation and private-notes rules."
     if [ -f "$plugin_dir/agents/$entrypoint.agent.md" ]; then
       normalized_agent_secret="$(

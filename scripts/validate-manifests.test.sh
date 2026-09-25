@@ -621,6 +621,17 @@ For CI, review, merge, or deploy state that needs later collection, prefer a sup
 Otherwise, arm at most one detached watcher when the runtime supports it.
 Before ending the run, persist the watcher's handle, target, owner, start time, deadline, and teardown or collection state in durable memory; a later invocation must reuse or clean up that record before it may arm another watcher or query the same target.
 If neither a callback nor a safe watcher is available, persist the pending target, end the run, and let the next invocation—scheduled or on demand—collect it with a bounded one-shot query.
+**A hand-rolled poll loop is a busy-wait wherever it runs.** Moving a sleep-and-re-query loop into
+a backgrounded or detached command moves the wait out of a guard's view, never out of the run: it
+counts as your one watcher and obeys the lifecycle below. Never sleep for a result the runtime will
+report to you — an announced completion needs no poll — so a bare sleep is only ever a local timer
+for a process whose completion nothing will report. **A watcher whose completion re-invokes the
+current session holds that session open**, so the run has not ended while one is armed: stop every
+such watcher before ending the run, or do not arm one when no follow-up work depends on it; only a
+watcher that holds no session open may outlive the run, under the persisted record above. **Never
+arm a watcher and then end your turn with nothing else to do** — that gets neither the work nor the
+run-end. If other work is actionable, arm it and do that work; if nothing is, end the run and leave
+the target to the next invocation's bounded one-shot query.
 
 **External-contributor branches are static-review-only:** never
 check out, build, or execute their code, and never enable auto-merge on them.
@@ -1443,6 +1454,59 @@ for remote_wait_marker in \
   check_fail "Agentic Engineer requires remote wait marker: $remote_wait_marker" \
     "canonical contiguous contract" "$d"
 done
+
+# Each marker is one load-bearing half of the watcher-lifecycle contract, and each must sit on a
+# single fixture line so the removal below actually removes it. A removal that finds nothing leaves
+# the fixture valid, which this loop reports as a failure rather than as a pass.
+for busy_wait_marker in \
+  'A hand-rolled poll loop is a busy-wait wherever it runs.' \
+  'never out of the run' \
+  'counts as your one watcher' \
+  'Never sleep for a result the runtime will' \
+  'an announced completion needs no poll' \
+  'for a process whose completion nothing will report' \
+  'holds that session open' \
+  'such watcher before ending the run' \
+  'do not arm one when no follow-up work depends on it' \
+  'watcher that holds no session open may outlive the run' \
+  'arm a watcher and then end your turn with nothing else to do' \
+  'If other work is actionable, arm it and do that work' \
+  'if nothing is, end the run and leave' \
+  "the target to the next invocation's bounded one-shot query."; do
+  d=$(fresh); make_desired_state "$d" alpha
+  awk -v marker="$busy_wait_marker" '
+    {
+      position = index($0, marker)
+      if (position > 0) {
+        $0 = substr($0, 1, position - 1) substr($0, position + length(marker))
+      }
+      print
+    }
+  ' "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  sync_entrypoint_digest "$d" alpha
+  check_fail "Agentic Engineer requires watcher-lifecycle marker: $busy_wait_marker" \
+    "canonical contiguous watcher-lifecycle contract" "$d"
+done
+
+# The contract must stay CONTIGUOUS: text inserted between two of its sentences can qualify the
+# rule it precedes ("…holds that session open. Except for CI watchers."), so a split contract fails
+# even when every marker above is still present.
+d=$(fresh); make_desired_state "$d" alpha
+awk '
+  {
+    marker = "**A watcher whose completion re-invokes the"
+    position = index($0, marker)
+    if (position > 0) {
+      $0 = substr($0, 1, position - 1) "CI watchers are exempt. " substr($0, position)
+    }
+    print
+  }
+' "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+sync_entrypoint_digest "$d" alpha
+check_fail "Agentic Engineer watcher-lifecycle contract must be contiguous" \
+  "canonical contiguous watcher-lifecycle contract" "$d"
 
 for secret_inspection_marker in \
   'Never let a credential become tool output.' \

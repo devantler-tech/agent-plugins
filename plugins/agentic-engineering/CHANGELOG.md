@@ -21,6 +21,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.5.1 — 2026-09-25
+
+**Fixed** — the surveyor no longer reports the engineer's own review findings as maintainer
+instructions. A review round puts its disclosure on the review body and not on each inline comment,
+so the surveyor now attributes an inline review comment by the review it belongs to. Only a top-level
+comment inherits that attribution: a reply is judged on its own, so the maintainer's reply inside a
+thread the engineer opened still reaches the orchestrator, as does any comment under an undisclosed
+review.
+([devantler-tech/monorepo#2835](https://github.com/devantler-tech/monorepo/issues/2835))
+
 ## 5.5.0 — 2026-09-25
 
 **Added** — the **Trust gate** can declare a **maintainer-PR driving** fact, `hands-off` or

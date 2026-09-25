@@ -197,4 +197,24 @@ for identifier_fragment in \
     fail "digest rules must forbid constructed identifiers: $identifier_fragment"
 done
 
+# An inline review comment carries no disclosure of its own — a review round puts it on the review
+# body — so classifying it by its own body reads the engineer's self-review as maintainer direction
+# (devantler-tech/monorepo#2835). Pin parent-review attribution and its one-way asymmetry inside 3f.
+MAINTAINER_COMMENTS=$(sed -n \
+  '/^### 3f\. Candidate maintainer comments/,/^### 4\. CI red on the default branch/p' \
+  "$SURVEYOR" | tr '\n' ' ' | tr -s '[:space:]' ' ')
+[ -n "$MAINTAINER_COMMENTS" ] || fail 'could not extract the candidate maintainer comments step'
+# shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+for parent_review_fragment in \
+  'Pull comments, review-thread replies, and the reviews those replies belong to.' \
+  '**An inline review comment is attributed by its parent review, not by its own body.**' \
+  'names its parent in `pull_request_review_id`' \
+  'when that review is by the same login and its body carries the structural disclosure prefix' \
+  'Only a top-level comment inherits it: a reply (`in_reply_to_id` set) is judged by its own body' \
+  'An absent or undisclosed parent review leaves the comment to the other checks in this list' \
+  'this can only move a comment from maintainer to agent, never the reverse.'; do
+  grep -Fq "$parent_review_fragment" <<<"$MAINTAINER_COMMENTS" ||
+    fail "candidate maintainer comments must attribute inline comments by their parent review: $parent_review_fragment"
+done
+
 printf 'portfolio-surveyor agent contract: PASS\n'

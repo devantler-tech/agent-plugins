@@ -217,4 +217,19 @@ for parent_review_fragment in \
     fail "candidate maintainer comments must attribute inline comments by their parent review: $parent_review_fragment"
 done
 
+# A measurement issue is filed before its window opens, so a createdAt-sourced date reports every
+# one as overdue (devantler-tech/agent-plugins#260). Pin the body as the only source inside step 5.
+ADVANCE_SIGNALS=$(sed -n \
+  '/^### 5\. Triage, stale, and advance signals/,/^### 6\. Reconcile the repo set/p' \
+  "$SURVEYOR" | tr '\n' ' ' | tr -s '[:space:]' ' ')
+[ -n "$ADVANCE_SIGNALS" ] || fail 'could not extract the triage and advance signals step'
+# shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+for measurement_fragment in \
+  'Read that date **only from the measurement condition the issue body states**, never from `createdAt`' \
+  'is `measurement=unresolved`, never past due' \
+  'an issue whose delivery work is still open is not awaiting measurement at all.'; do
+  grep -Fq "$measurement_fragment" <<<"$ADVANCE_SIGNALS" ||
+    fail "measurement issues must be dated from their body, never createdAt: $measurement_fragment"
+done
+
 printf 'portfolio-surveyor agent contract: PASS\n'

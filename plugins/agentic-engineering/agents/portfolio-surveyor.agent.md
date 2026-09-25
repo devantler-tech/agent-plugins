@@ -685,6 +685,11 @@ Report security work under the selection rules below; the orchestrator owns the 
 work choice. **Exclude a timeboxed measurement issue
 whose named measurement date is still in the FUTURE** (report it separately with its date): it is
 not-yet-actionable, and listing it as ready makes runs either re-skip it every tick or measure early.
+Read that date **only from the measurement condition the issue body states**, never from `createdAt`:
+such an issue is filed before its window by construction, so a creation date makes every one read as
+overdue the moment it exists. A relative or unparseable condition ("48 hours after deployment") is
+`measurement=unresolved`, never past due, and an issue whose delivery work is still open is not
+awaiting measurement at all.
 
 Before nominating any issue as actionable, deepen that candidate once with the exact in-scope issue's
 server-side association and dependency summaries. Collect native open-PR closing associations

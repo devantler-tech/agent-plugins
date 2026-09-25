@@ -21,6 +21,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.5.3 — 2026-09-25
+
+**Fixed** — `portfolio-surveyor` reads a measurement issue's due date only from the measurement
+condition in its body, never from `createdAt`, and reports a relative or unparseable condition as
+unresolved rather than past due.
+
 ## 5.5.2 — 2026-09-25
 
 **Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.17.0`.

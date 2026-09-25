@@ -30,6 +30,11 @@ fi
 [ "$(git rev-parse --is-shallow-repository)" = false ] || fail 'complete Git history is required'
 grafts=$(git rev-parse --git-path info/grafts)
 [ ! -s "$grafts" ] || fail 'grafted history is unsupported'
+# A partial clone fetches missing objects on demand, which would break the offline guarantee.
+[ -z "$(git config --get extensions.partialClone || true)" ] || fail 'partial clones are unsupported: every object must be local'
+while IFS= read -r promisor; do
+  [ "${promisor##* }" != true ] || fail 'partial clones are unsupported: every object must be local'
+done < <(git config --type=bool --get-regexp '^remote\..*\.promisor$' || true)
 if [ -z "$head" ]; then head=$(git rev-parse --verify HEAD); fi
 [[ "$head" =~ ^[0-9a-f]{40}$ ]] || fail 'head must be a full 40-character commit'
 [ "$(git cat-file -t "$head")" = commit ] || fail 'head must identify a commit'
@@ -37,6 +42,8 @@ parent=$(cd "$(dirname "$output")" && pwd -P) || fail 'output parent must exist'
 name=$(basename "$output")
 [[ "$name" != . && "$name" != .. && "$name" != / ]] || fail 'output must name a new directory'
 output="$parent/$name"
+worktree=$(cd "$(git rev-parse --show-toplevel)" && pwd -P) || fail 'must run inside a Git worktree'
+case "$output/" in "$worktree"/*) fail 'output must be outside the Git worktree' ;; esac
 if [ -e "$output" ] || [ -L "$output" ]; then fail 'output already exists'; fi
 temp=$(mktemp -d "$parent/.marketplace-release.XXXXXX")
 owned_output=false

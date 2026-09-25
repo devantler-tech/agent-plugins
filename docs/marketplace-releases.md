@@ -10,8 +10,10 @@ proposals and identifies the source commit containing the plugins.
 
 ## Prepare locally
 
-Use Bash, Git, and jq 1.6 or later from a complete repository clone. Refresh tags from the trusted
-remote before choosing a baseline; the offline command cannot establish remote freshness.
+Use Bash, Git, and jq 1.6 or later from a complete repository clone. Shallow and partial
+(`--filter`) clones are refused, because reading their history would need the network. Refresh
+tags from the trusted remote before choosing a baseline; the offline command cannot establish
+remote freshness.
 
 For the first marketplace release, explicitly select `initial`:
 
@@ -21,9 +23,11 @@ bash scripts/prepare-marketplace-release.sh \
   --base-tag initial --output /tmp/marketplace-candidate
 ```
 
-The output directory must not exist and its parent must exist. Initial preparation uses the current
-marketplace manifest version and refuses to run if any stable marketplace tag is present locally.
-It records the legacy first-parent history without inferring a new version from that history.
+The output directory must not exist, its parent must exist, and it must be outside the
+repository's working tree, so preparation never leaves files in the checkout. Initial preparation
+uses the current marketplace manifest version and refuses to run if any stable marketplace tag is
+present locally. It records the legacy first-parent history without inferring a new version from
+that history.
 
 For a later release, name the latest reachable stable tag:
 

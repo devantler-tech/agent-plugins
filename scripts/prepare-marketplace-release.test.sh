@@ -104,6 +104,19 @@ test ! -e "$work/non-sha"; passed=$((passed + 1))
 shallow="$work/shallow"
 git clone -q --depth 1 "file://$repo" "$shallow"
 repo=$shallow; reject 'shallow history' initial
+# A filtered clone would lazily fetch missing objects, so the offline preparation must refuse it.
+new_repo; git -C "$repo" config uploadpack.allowFilter true
+partial="$work/partial"
+git clone -q --filter=blob:none --no-checkout "file://$repo" "$partial"
+repo=$partial; reject 'partial clone' initial
+# The candidate must never land in the checkout it describes, relative or absolute.
+new_repo
+for inside in candidate "$repo/.github/candidate"; do
+  if run initial "$inside" > "$work/stdout" 2> "$work/stderr"; then fail "output inside worktree accepted: $inside"; fi
+  test "$(git -C "$repo" status --porcelain --ignored | wc -l | tr -d ' ')" = 0 || fail "output inside worktree changed checkout: $inside"
+  test ! -s "$work/stdout" || fail "output inside worktree emitted success output: $inside"
+  passed=$((passed + 1))
+done
 new_repo; first=$(git -C "$repo" rev-parse HEAD)
 commit 'feat: branch-only'; git -C "$repo" tag v1.2.3
 git -C "$repo" checkout -q --detach "$first"; commit 'fix: independent'

@@ -21,6 +21,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.5.0 — 2026-09-25
+
+**Added** — the **Trust gate** can declare a **maintainer-PR driving** fact, `hands-off` or
+`attribution-only`, and the engineer reads it before updating, rebasing, pushing to, promoting,
+merging or closing a PR under the maintainer's own login.
+
+- `hands-off` is the default when the fact is absent or unreadable. The engineer drives such a PR
+  only when it created that PR **and** the body carries no interactive-session marker, so a PR the
+  maintainer took over interactively is no longer driven just because the engineer opened it.
+- `attribution-only` gives the engineer every such PR under the deployment's own active-work rules.
+  The creation record and the marker then only decide whose comments are whose, and an actionable
+  maintainer comment on a PR the engineer did not create stays a named blocker until it is resolved.
+
+The surveyor's `disclosure` rule now names the same fact, so neither definition reads as settling
+the question alone. **A deployment that already lets the engineer drive every PR in its portfolio
+should declare `attribution-only`**; without it, the engineer leaves interactive PRs alone.
+([#201](https://github.com/devantler-tech/agent-plugins/issues/201))
+
 ## 5.4.0 — 2026-09-25
 
 **Added** — the Agentic Engineer's remote-wait rule now covers the waits it used to leave open. A

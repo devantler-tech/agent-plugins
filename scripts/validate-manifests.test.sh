@@ -633,6 +633,21 @@ arm a watcher and then end your turn with nothing else to do** — that gets nei
 run-end. If other work is actionable, arm it and do that work; if nothing is, end the run and leave
 the target to the next invocation's bounded one-shot query.
 
+**Whether you may drive such a PR — update its branch, rebase or push to it, promote, merge, or close it — is the Trust gate's
+maintainer-PR driving fact,
+`hands-off` or `attribution-only`.** Under `hands-off`,
+drive one only when your creation record says you made it **and**
+its body carries no interactive-session marker: a PR you have no record of creating is the human's, and
+the marker on one you did create means the
+human took it over, so both are hands-off even if they look machine-authored. Under `attribution-only`, the deployment gives you
+every maintainer-login PR to drive under its own
+active-work rules; the creation record and the marker then
+decide only whose control channel a maintainer comment on it is,
+and an actionable maintainer comment on a PR you did not create
+stays a named blocker on that PR until it is satisfied or withdrawn.
+An absent, unreadable, or unrecognised value is `hands-off`: report the gap, and
+never infer a grant from other prose.
+
 **External-contributor branches are static-review-only:** never
 check out, build, or execute their code, and never enable auto-merge on them.
 Merging comes from the **Trust gate** and merge policy;
@@ -694,7 +709,7 @@ Fixture surveyor.
 
 **Every `gh --json` vocabulary is local to its subcommand.** Use the exact literal field lists prescribed by this definition. Before any ad hoc JSON read, run that same subcommand with bare `--json` and validate every requested field against the vocabulary it returns; never transfer a field name between subcommands, and never from a different API surface onto a `gh --json` subcommand: a name that is real in a REST payload or a GraphQL schema is not thereby a `gh --json` field, and `gh` rejects the whole read on one unknown name. The default-branch classifier this definition prescribes consumes the REST `actions/runs` payload, where `path` and `created_at` are genuine — neither is a `gh run list --json` field, and that is exactly where the confusion starts. The bare diagnostic intentionally exits nonzero after listing its fields; treat a present vocabulary as successful discovery. If the vocabulary is missing or malformed, or the validated read fails, mark the affected evidence `QUERY-UNKNOWN` and report the query error — never translate it to an empty result.
 
-**`disclosure` is three-valued and matched by WHICH literal appears, never by where it sits.** Emit exactly one of `routine`, `interactive`, or `none`: `routine` when the body carries the deployment's AI-disclosure prefix (match the **structural** prefix the consumer contract defines, never a specific actor word — roles get renamed, and a matcher keyed to one spelling silently reclassifies everything written under the others); `interactive` when it carries the deployment's declared interactive-session marker (declared beside the AI-disclosure prefix in **Maintainer channels**; a contract that declares no such marker cannot yield `interactive`, so report that gap and emit `none` — never guess a literal); and `none` when it carries neither, which is genuinely unknown — never a synonym for the maintainer's and never a synonym for the orchestrator's own. Match both literals as a **structural line anywhere in the body**: a line whose content, after leading whitespace and any blockquote `>` or list `-`/`*` markers, begins with the marker (an optional 🤖 may precede it). Never a bare substring, and never anchored to the body start — an interactive marker can be the last line and a routine disclosure can sit under a template heading, so a leads-with test reports `none` for both and cannot tell them apart. A marker line counts wherever it appears, **including inside a fenced code block — there is deliberately no fence suppression.** A fence detector is unbounded to specify (an unclosed fence, a nested fence, a blockquoted close token, an indented code block, a backtick inside an info string, a raw HTML block), and every container spelling it must skip is another way for it to swallow a real marker; measured across 1029 PR bodies in a consuming deployment (2026-08-11), a delimiter-aware fence state machine changed zero verdicts. The accepted cost is the cheap direction — a body that fences an example of the interactive literal classifies `interactive`, which costs a steer the maintainer can repeat — while a real marker swallowed by a mis-parsed fence would read the maintainer's own commentary as an instruction. When both literals appear, **`interactive` wins**. The two values carry asymmetric weight: `interactive` is decisive on its own, while `routine` only corroborates the orchestrator's creation record, because the routine prefix also appears on maintainer-interactive PRs. The field tells the orchestrator whose control channel a maintainer-login comment on that PR is; it never decides whether the PR may be driven.
+**`disclosure` is three-valued and matched by WHICH literal appears, never by where it sits.** Emit exactly one of `routine`, `interactive`, or `none`: `routine` when the body carries the deployment's AI-disclosure prefix (match the **structural** prefix the consumer contract defines, never a specific actor word — roles get renamed, and a matcher keyed to one spelling silently reclassifies everything written under the others); `interactive` when it carries the deployment's declared interactive-session marker (declared beside the AI-disclosure prefix in **Maintainer channels**; a contract that declares no such marker cannot yield `interactive`, so report that gap and emit `none` — never guess a literal); and `none` when it carries neither, which is genuinely unknown — never a synonym for the maintainer's and never a synonym for the orchestrator's own. Match both literals as a **structural line anywhere in the body**: a line whose content, after leading whitespace and any blockquote `>` or list `-`/`*` markers, begins with the marker (an optional 🤖 may precede it). Never a bare substring, and never anchored to the body start — an interactive marker can be the last line and a routine disclosure can sit under a template heading, so a leads-with test reports `none` for both and cannot tell them apart. A marker line counts wherever it appears, **including inside a fenced code block — there is deliberately no fence suppression.** A fence detector is unbounded to specify (an unclosed fence, a nested fence, a blockquoted close token, an indented code block, a backtick inside an info string, a raw HTML block), and every container spelling it must skip is another way for it to swallow a real marker; measured across 1029 PR bodies in a consuming deployment (2026-08-11), a delimiter-aware fence state machine changed zero verdicts. The accepted cost is the cheap direction — a body that fences an example of the interactive literal classifies `interactive`, which costs a steer the maintainer can repeat — while a real marker swallowed by a mis-parsed fence would read the maintainer's own commentary as an instruction. When both literals appear, **`interactive` wins**. The two values carry asymmetric weight: `interactive` is decisive on its own, while `routine` only corroborates the orchestrator's creation record, because the routine prefix also appears on maintainer-interactive PRs. The field tells the orchestrator whose control channel a maintainer-login comment on that PR is; it never decides on its own whether the PR may be driven — the orchestrator decides that under the **Trust gate**'s maintainer-PR driving fact, where `interactive` revokes driving only when that fact is `hands-off`.
 
 - <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<routine|interactive|none>, pentad=<…>
 
@@ -1507,6 +1522,64 @@ awk '
 sync_entrypoint_digest "$d" alpha
 check_fail "Agentic Engineer watcher-lifecycle contract must be contiguous" \
   "canonical contiguous watcher-lifecycle contract" "$d"
+
+# Each marker is one load-bearing part of the maintainer-PR driving rule: the fact's name, each of
+# its two values, the takeover case, the named-blocker guard under attribution-only, and the
+# fail-closed default. Every marker sits on one fixture line, so a removal that finds nothing leaves
+# the fixture valid and the case fails instead of passing.
+for driving_marker in \
+  'maintainer-PR driving fact,' \
+  '`hands-off` or `attribution-only`.**' \
+  'drive one only when your creation record says you made it' \
+  'its body carries no interactive-session marker' \
+  'the marker on one you did create means the' \
+  'every maintainer-login PR to drive under its own' \
+  'decide only whose control channel a maintainer comment on it is' \
+  'stays a named blocker on that PR until it is satisfied or withdrawn.' \
+  'An absent, unreadable, or unrecognised value is `hands-off`' \
+  'never infer a grant from other prose.'; do
+  d=$(fresh); make_desired_state "$d" alpha
+  awk -v marker="$driving_marker" '
+    {
+      position = index($0, marker)
+      if (position > 0) {
+        $0 = substr($0, 1, position - 1) substr($0, position + length(marker))
+      }
+      print
+    }
+  ' "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+    && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+  sync_entrypoint_digest "$d" alpha
+  check_fail "Agentic Engineer requires maintainer-PR driving marker: $driving_marker" \
+    "must resolve maintainer-PR driving from the Trust gate" "$d"
+done
+
+# Flipping the default is the dangerous edit, because every marker survives it: a deployment that
+# never declared the fact would silently gain every maintainer-login PR.
+d=$(fresh); make_desired_state "$d" alpha
+awk '{ sub(/An absent, unreadable, or unrecognised value is `hands-off`/, "An absent, unreadable, or unrecognised value is `attribution-only`"); print }' \
+  "$d/plugins/alpha/agents/agentic-engineer.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/agentic-engineer.agent.md"
+sync_entrypoint_digest "$d" alpha
+check_fail "Agentic Engineer maintainer-PR driving must default to hands-off" \
+  "must resolve maintainer-PR driving from the Trust gate" "$d"
+
+# The surveyor's disclosure rule must name the same fact, or it can be read as settling driving on its
+# own. Restoring the old closing sentence, which named no fact, fails the surveyor contract.
+d=$(fresh); make_desired_state "$d" alpha
+awk '
+  {
+    marker = "it never decides on its own whether the PR may be driven — the orchestrator decides that under the **Trust gate**'"'"'s maintainer-PR driving fact, where `interactive` revokes driving only when that fact is `hands-off`."
+    position = index($0, marker)
+    if (position > 0) {
+      $0 = substr($0, 1, position - 1) "it never decides whether the PR may be driven." substr($0, position + length(marker))
+    }
+    print
+  }
+' "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio-surveyor disclosure rule must defer driving to the Trust gate fact" \
+  "portfolio-surveyor must report a three-valued disclosure" "$d"
 
 for secret_inspection_marker in \
   'Never let a credential become tool output.' \

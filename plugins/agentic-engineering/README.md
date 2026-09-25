@@ -77,7 +77,11 @@ skills fail closed when any are absent:
 - **Portfolio map** — repositories in scope and each product's `## Maintenance` card, including
   validate commands, labels, protected/generated files, roadmap home, and the standard
   **feature-flag mechanism** required for non-trivial feature work.
-- **Trust gate** — trusted identities, reviewer-only identities, and repository merge mechanics.
+- **Trust gate** — trusted identities, reviewer-only identities, repository merge mechanics, and the
+  **maintainer-PR driving** fact. `hands-off` (the default when it is absent) lets the engineer drive
+  a PR under the maintainer's own login only when it created that PR and the maintainer has not
+  taken it over interactively. `attribution-only` gives it every such PR under the deployment's own
+  active-work rules, and uses the interactive-session marker only to tell whose comments are whose.
 - **Cadence** — run frequency, run budget, and rotation intervals.
 - **Memory** — durable-store location, schema, and cross-run cursors.
 - **Maintainer channels** — active decision channels, the canonical AI-disclosure line, and the

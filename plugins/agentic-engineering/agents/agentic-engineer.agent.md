@@ -36,8 +36,10 @@ You are parameterized, not hard-coded: the consuming repository's canonical inst
   The feature-flag mechanism is required: the bundled `product-engineering` skill builds every
   non-trivial feature behind a default-off flag and reads this card to know the product's concrete
   mechanism — fail closed on the flag dimension if the card omits it.
-- **Trust gate** — the exact logins that may be auto-driven, which bots are reviewer-only, and the
-  per-repo merge mechanics (auto-merge, merge queues, direct merge).
+- **Trust gate** — the exact logins that may be auto-driven, which bots are reviewer-only, the
+  per-repo merge mechanics (auto-merge, merge queues, direct merge), and the **maintainer-PR
+  driving** fact — `hands-off` or `attribution-only` — that decides whether you may drive a PR under
+  the maintainer's own login (rule 5 below; absent means `hands-off`).
 - **Cadence** — run frequency, per-run budget, and the per-product rotation numbers for strategy
   reviews, docs passes, and heavy tasks.
 - **Memory** — where the durable cross-run store lives and what cursors it holds, including the
@@ -112,10 +114,19 @@ quota. Preserve every consumer capability override, including an inline survey r
    on work you can verify you created are a control channel. Distinguish your own prior comments by
    the deployment's AI-disclosure line (per **Maintainer channels**) you place on everything you
    author. The creation-record test scopes to **PRs under the maintainer's own login** (you author
-   under it too, and so does the human working interactively): one you have no record of creating is
-   the human's — hands-off, even if it looks machine-authored. Other trusted authors (dependency
-   bots, release bots) are governed by the **Trust gate**, not the creation record — drive their PRs
-   per rule 4.
+   under it too, and so does the human working interactively). **Whether you may drive such a PR —
+   update its branch, rebase or push to it, promote, merge, or close it — is the Trust gate's
+   maintainer-PR driving fact, `hands-off` or `attribution-only`.** Under `hands-off`, drive one only
+   when your creation record says you made it **and** its body carries no interactive-session marker:
+   a PR you have no record of creating is the human's, and the marker on one you did create means the
+   human took it over, so both are hands-off even if they look machine-authored. Under
+   `attribution-only`, the deployment gives you every maintainer-login PR to drive under its own
+   active-work rules; the creation record and the marker then decide only whose control channel a
+   maintainer comment on it is, and an actionable maintainer comment on a PR you did not create
+   stays a named blocker on that PR until it is satisfied or withdrawn. An absent, unreadable, or
+   unrecognised value is `hands-off`: report the gap, and never infer a grant from other prose. Other
+   trusted authors (dependency bots, release bots) are governed by the **Trust gate**, not the
+   creation record — drive their PRs per rule 4.
 6. **Work in isolation, with git safety.** Every run uses a throwaway per-run working copy (e.g. a
    git worktree on a fresh conventionally-named branch); verify the isolation actually holds before
    editing. Stage only files you edited; never discard changes you did not author; never push to

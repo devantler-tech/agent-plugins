@@ -274,6 +274,7 @@ bash scripts/plugin-changelog.test.sh
 
 # 1d. Offline marketplace candidate preparation: real Git histories, no publication.
 bash scripts/prepare-marketplace-release.test.sh
+bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exact release-tree binding
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.

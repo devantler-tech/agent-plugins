@@ -63,6 +63,17 @@ git -C "$repo" config log.showSignature true; git -C "$repo" config gpg.program 
 out="$work/signed"; run v1.2.3 "$out" > "$work/stdout" 2> "$work/stderr" || { cat "$work/stderr"; fail 'signed commit did not prepare'; }
 jq -e '.version=="1.2.4" and .commits[0].subject=="fix: signed"' "$out/release.json" >/dev/null || fail 'signature output was read as the commit message'
 passed=$((passed + 1))
+# column.tag must not put several tags on one line, where no line reads as a stable tag.
+new_repo; git -C "$repo" tag v1.2.1; git -C "$repo" tag v1.2.2; git -C "$repo" config column.tag always
+reject 'column-formatted tags still block an initial release' initial
+git -C "$repo" tag v1.2.3; commit 'fix: repair'; expect_version 'column-formatted tags still find the baseline' 1.2.4
+# Messages are read as UTF-8 whatever output encoding the maintainer configured.
+new_repo; git -C "$repo" tag v1.2.3
+git -C "$repo" -c i18n.commitEncoding=ISO-8859-1 commit --allow-empty -qm "$(printf 'fix: caf\351')"
+git -C "$repo" config i18n.logOutputEncoding ISO-8859-1
+out="$work/latin1"; run v1.2.3 "$out" > "$work/stdout" 2> "$work/stderr" || { cat "$work/stderr"; fail 'Latin-1 commit did not prepare'; }
+jq -e '.version=="1.2.4" and .commits[0].subject=="fix: café"' "$out/release.json" >/dev/null || fail 'commit message was not read as UTF-8'
+passed=$((passed + 1))
 new_repo; git -C "$repo" tag -a v1.2.3 -m baseline
 commit 'fix: repair'; commit 'feat: add'; expect_version 'largest bump and annotated tag' 1.3.0
 new_repo; git -C "$repo" tag v1.2.3; commit 'docs: explain'

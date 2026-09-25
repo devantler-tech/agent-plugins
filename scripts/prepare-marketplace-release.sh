@@ -74,7 +74,8 @@ read_pair() {
 }
 read_pair "$head" head
 current=$(jq -r '.metadata.version' "$temp/data/head-copilot.json")
-git tag --list > "$temp/data/tags"
+# One tag per line whatever column.tag says; the readers below expect exactly that.
+git tag --list --no-column --format='%(refname:strip=2)' > "$temp/data/tags"
 jq -Rn -L "$here" 'include "marketplace-release"; [inputs | select(startswith("v")) | select(.[1:] | stable_syntax)]' < "$temp/data/tags" > "$temp/data/stable-tags.json"
 jq -e -L "$here" 'include "marketplace-release"; all(.[]; .[1:] | stable_version)' "$temp/data/stable-tags.json" >/dev/null || fail 'a stable tag exceeds the supported version range'
 base=
@@ -85,7 +86,7 @@ else
   base=$(git rev-parse --verify "refs/tags/$base_tag^{commit}") || fail 'base tag is missing'
   git rev-list --first-parent "$head" > "$temp/data/parents"
   grep -Fxq "$base" "$temp/data/parents" || fail 'base must be a first-parent ancestor of source'
-  git tag --merged "$head" > "$temp/data/merged-tags"
+  git tag --merged "$head" --no-column --format='%(refname:strip=2)' > "$temp/data/merged-tags"
   latest=$(jq -Rnr -L "$here" 'include "marketplace-release"; [inputs | select(startswith("v")) | select(.[1:] | stable_version)] | sort_by(.[1:] | split(".") | map(tonumber)) | last // ""' < "$temp/data/merged-tags")
   [ "$latest" = "$base_tag" ] || fail 'base is not the latest reachable stable marketplace tag'
   read_pair "$base" base
@@ -95,7 +96,7 @@ else
 fi
 : > "$temp/data/messages.jsonl"
 while IFS= read -r sha; do
-  git show -s --no-show-signature --format=%B "$sha" > "$temp/data/message"
+  git show -s --no-show-signature --encoding=UTF-8 --format=%B "$sha" > "$temp/data/message"
   jq -n --arg sha "$sha" --rawfile message "$temp/data/message" '{sha:$sha,message:$message}' >> "$temp/data/messages.jsonl"
 done < "$temp/data/commits"
 jq -e -L "$here" --arg source "$head" --arg base "$base" --arg baseTag "$base_tag" --arg current "$current" --slurpfile commits "$temp/data/messages.jsonl" \

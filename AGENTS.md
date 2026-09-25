@@ -45,6 +45,9 @@ scripts/
 ├── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
 ├── check-plugin-version-bump.sh      # Gate: a plugin whose shipped content changed must move its version
 ├── check-plugin-version-bump.test.sh # Self-test for the gate above
+├── plugin-changelog.sh             # Write skill-sync release notes and check changed-version entries
+├── plugin-changelog.test.sh        # Offline Git fixtures for release-note generation and checks
+├── changelog-headings.cjs          # CommonMark release-heading inventory used by writer and gate
 ├── guard-bundled-skill-edits.sh      # Gate: refuse a hand-edit to a synced skill tree, naming its upstream
 ├── guard-bundled-skill-edits.test.sh # Self-test for the gate above
 ├── guard-gh-json-fields.sh     # Gate: refuse a bundled definition that requests the nonexistent gh `merged` field
@@ -204,7 +207,16 @@ plugin membership) is authored here.
    [`scripts/bump-plugin-version.sh`](scripts/bump-plugin-version.sh), which moves all four places the
    version must agree (the portable and strict manifests plus both marketplace entries) — a hand-edit
    easily half-lands. The `Check version bump` CI job enforces it on every PR, and the daily skill-sync
-   workflow bumps itself via `--changed-since` so the automated update PR satisfies the gate unaided.
+   workflow bumps itself via `--changed-since` and writes dated skill/source/ref release notes with
+   `bash scripts/plugin-changelog.sh write origin/main`. Existing hand-written entries stay intact.
+   Both the writer and checker compare against the merge base, so unrelated releases on an advanced
+   main branch do not need entries here. Fully retired skills get removal notes with provenance from
+   that base; removing `SKILL.md` while leaving resources behind is rejected as an incomplete removal.
+   The same CI job rejects a new or changed plugin version without exactly one matching changelog
+   top-level `## X.Y.Z` heading outside code examples and raw HTML; unchanged legacy versions do not need
+   retroactive history invented for them. Hidden templates are preserved without suppressing a real entry.
+   The gate uses the locked CommonMark parser with Node.js 22+ (`npm ci --ignore-scripts` at the
+   repository root). These are repository maintenance dependencies, not bundled plugin resources.
 9. **Catalogue and manifests stay in lockstep.** The [plugin catalogue table](docs/plugins.md) mirrors the manifests; update it
    in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
    vice versa, and each row's **Resources** column matches that plugin's bundled resources on disk — its
@@ -240,6 +252,9 @@ runs once after installation and remains required. `scripts/install-skills-ref.t
 recovery and failure offline in `lint-scripts`.
 
 ```bash
+# Install the pinned parser for changelog checks and the offline regression suite (Node.js 22+).
+npm ci --ignore-scripts --no-audit --no-fund
+
 # 1. Marketplace parity, portable ↔ strict-Claude plugin.json parity, catalogue table,
 #    desired-state resources, and skill provenance — the exact checks CI's
 #    "Validate manifests" job runs.
@@ -249,6 +264,8 @@ recovery and failure offline in `lint-scripts`.
 #     never reaches consumers that cache by version (CI's "Check version bump" job).
 #     Fix a failure with: ./scripts/bump-plugin-version.sh <plugin> [patch|minor|major]
 ./scripts/check-plugin-version-bump.sh origin/main HEAD
+bash scripts/plugin-changelog.sh check origin/main HEAD
+bash scripts/plugin-changelog.test.sh
 
 # 1c. Every content digest a desired-state resource pins must match the file it pins.
 #     Those digests have a writer: refresh them rather than hand-editing, or the next

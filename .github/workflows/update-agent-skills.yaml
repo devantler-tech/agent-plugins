@@ -33,14 +33,14 @@ jobs:
   # content digest that `Validate manifests` pins, and nothing else in this repository
   # writes those digests — so without the refresh the branch is only greenable by a hand
   # edit, which the next sync force-pushes away with no signal that it happened. The sync
-  # workflow that opens the PR has no post-update hook, so both land here as follow-up
-  # commits on the same branch.
+  # workflow that opens the PR has no post-update hook, so the digest, version and dated
+  # changelog updates land here as follow-up commits on the same branch.
   #
   # Each per-skill PR gets its own follow-up. Two PRs that change skills in the same plugin
   # both bump that plugin from main's version, so whichever merges second conflicts on the
   # version; the next daily run rebuilds its branch from the new main and bumps it again.
   bump-versions:
-    name: Refresh digests and bump versions for ${{ matrix.skill.path }}
+    name: Refresh digests and release notes for ${{ matrix.skill.path }}
     needs: update
     if: ${{ needs.update.outputs.skills != '' && needs.update.outputs.skills != '[]' }}
     runs-on: ubuntu-latest
@@ -72,6 +72,16 @@ jobs:
         continue-on-error: true
         id: checkout
 
+      - name: 🔧 Set up Node.js
+        if: steps.checkout.outcome == 'success'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: 📦 Install the locked Markdown parser
+        if: steps.checkout.outcome == 'success'
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: 🔐 Refresh the desired-state digests the sync moved
         if: steps.checkout.outcome == 'success'
         env:
@@ -101,9 +111,12 @@ jobs:
           # remote-tracking ref — without origin/main the bump has no base to diff against.
           git fetch --no-tags origin main
           ./scripts/bump-plugin-version.sh --changed-since origin/main
-          if git diff --quiet; then
-            echo "No version bump needed."
+          bash scripts/plugin-changelog.sh write origin/main
+          git add -- .claude-plugin/marketplace.json .github/plugin/marketplace.json \
+            'plugins/*/plugin.json' 'plugins/*/.claude-plugin/plugin.json' 'plugins/*/CHANGELOG.md'
+          if git diff --cached --quiet; then
+            echo "Versions and release notes already match the synced content."
             exit 0
           fi
-          git commit -am "chore(deps): bump versions of changed plugins"
+          git commit -m "chore(deps): bump plugin versions and record skill updates"
           git push origin "HEAD:deps/agent-skills-update-${SKILL_SLUG}"

@@ -49,6 +49,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: 🔧 Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: 📦 Install the locked Markdown parser
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: 🐚 ShellCheck scripts
         # Repo-level scripts plus every helper a plugin bundles, whether it sits
         # beside a skill or serves the plugin's agents. A guard that ships to
@@ -89,6 +97,9 @@ jobs:
         # agree, that --changed-since bumps exactly what moved and is idempotent on a
         # re-run, and that it fails closed on a bad plugin/level/non-semver version.
         run: ./scripts/bump-plugin-version.test.sh
+
+      - name: 🧪 Self-test changelog generation and publication checks
+        run: bash scripts/plugin-changelog.test.sh
 
       - name: 🧪 Self-test the manifest guard
         # Proves validate-manifests.sh PASSES a consistent fixture and FAILS each
@@ -180,6 +191,14 @@ jobs:
           # shallow checkout would make it fail closed on every run.
           fetch-depth: 0
 
+      - name: 🔧 Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: 📦 Install the locked Markdown parser
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: 🔢 Verify changed plugins moved their version
         # Consumers cache plugins by <marketplace>/<plugin>/<version>, so shipping a
         # content change on an unchanged version is unreachable for anyone who already
@@ -193,6 +212,7 @@ jobs:
             exit 0
           fi
           ./scripts/check-plugin-version-bump.sh "$BASE_SHA" HEAD
+          bash scripts/plugin-changelog.sh check "$BASE_SHA" HEAD
 
   check-bundled-skill-edits:
     name: Check bundled skill edits

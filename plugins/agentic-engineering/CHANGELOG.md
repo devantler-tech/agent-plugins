@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.5.2 — 2026-09-25
+
+**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.17.0`.
+
 ## 5.5.1 — 2026-09-25
 
 **Fixed** — the surveyor no longer reports the engineer's own review findings as maintainer

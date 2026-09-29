@@ -715,12 +715,12 @@ including partial GraphQL errors, makes the candidate `QUERY-UNKNOWN`, never unc
 consumer also uses textual PR-body references, join against step 1's complete all-author body census;
 missing that census leaves the candidate's open-PR evidence unknown even when the native count is zero.
 
-Then read the dependency summary:
+Then read the dependency and sub-issue summaries in one query:
 
 ```sh
 gh api graphql -F owner=<owner> -F name=<repo> -F number=<number> \
-  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy}}}}' \
-  --jq 'if ((.data.repository.issue|type)!="object" or (.data.repository.issue.number|type)!="number" or (.data.repository.issue.issueDependenciesSummary|type)!="object" or (.data.repository.issue.issueDependenciesSummary.blockedBy|type)!="number" or (.data.repository.issue.issueDependenciesSummary.totalBlockedBy|type)!="number" or .data.repository.issue.issueDependenciesSummary.blockedBy < 0 or .data.repository.issue.issueDependenciesSummary.totalBlockedBy < .data.repository.issue.issueDependenciesSummary.blockedBy) then error("QUERY-UNKNOWN: malformed issue dependency summary") else {number:.data.repository.issue.number,openBlockedBy:.data.repository.issue.issueDependenciesSummary.blockedBy,totalBlockedBy:.data.repository.issue.issueDependenciesSummary.totalBlockedBy} end'
+  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy} subIssuesSummary{total completed}}}}' \
+  --jq 'if ((.data.repository.issue|type)!="object" or (.data.repository.issue.number|type)!="number" or (.data.repository.issue.issueDependenciesSummary|type)!="object" or (.data.repository.issue.issueDependenciesSummary.blockedBy|type)!="number" or (.data.repository.issue.issueDependenciesSummary.totalBlockedBy|type)!="number" or .data.repository.issue.issueDependenciesSummary.blockedBy < 0 or .data.repository.issue.issueDependenciesSummary.totalBlockedBy < .data.repository.issue.issueDependenciesSummary.blockedBy or (.data.repository.issue.subIssuesSummary|type)!="object" or (.data.repository.issue.subIssuesSummary.total|type)!="number" or (.data.repository.issue.subIssuesSummary.completed|type)!="number" or .data.repository.issue.subIssuesSummary.completed < 0 or .data.repository.issue.subIssuesSummary.total < .data.repository.issue.subIssuesSummary.completed) then error("QUERY-UNKNOWN: malformed issue dependency or sub-issue summary") else {number:.data.repository.issue.number,openBlockedBy:.data.repository.issue.issueDependenciesSummary.blockedBy,totalBlockedBy:.data.repository.issue.issueDependenciesSummary.totalBlockedBy,completedSubIssues:.data.repository.issue.subIssuesSummary.completed,totalSubIssues:.data.repository.issue.subIssuesSummary.total} end'
 ```
 
 `issueDependenciesSummary.blockedBy` is the count of **open** blocking issues;
@@ -730,6 +730,17 @@ count does not suppress it. The summary deliberately requests no blocker nodes: 
 may point at an out-of-portfolio repository, and fetching its metadata would cross the consumer's
 portfolio boundary. A missing or malformed summary makes that candidate `QUERY-UNKNOWN`, never
 unblocked.
+
+`subIssuesSummary` is **delivery evidence, never a skip reason**. Ownership joins say who holds an
+issue, not whether its work already shipped, and the oldest candidates are the likeliest to have been
+delivered through children that closed while the parent stayed open. Report
+`subissues=<completed>/<total>` on every Advance candidate you rank, so the consumer does not
+re-derive it. When `total` is positive and `completed` equals it, also report `DELIVERY-CHECK`: every
+child is closed, so the consumer's completion check decides whether starting the parent is still
+right. Never drop, down-rank or close that candidate yourself. A closed child proves only that the
+child closed, and the parent can carry acceptance criteria no child covered. A `total` of zero claims
+nothing. The summary requests counts only, for the same boundary reason as the blocker summary. A
+missing or malformed sub-issue summary makes the candidate `QUERY-UNKNOWN`, like the blocker summary.
 
 #### Advance selection evidence
 
@@ -870,6 +881,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - <repo>: untyped issues (invisible to type filters) → #a,#b
 - UNTYPED-RESIDUAL-UNAVAILABLE — <repo>: operand=<primary|typed:<Type>> truncated at <cap> of <total> → THAT repo's residual withheld (others unaffected); mandatory-query failure ⇒ nothing_on_fire: false
 - <repo> #<n> "<title>" — future-dated measurement, date=<UTC date> (not yet actionable)
+- <repo> #<n> "<title>" — subissues=<completed>/<total> DELIVERY-CHECK (every child closed; completion check before starting, never a skip)
 - <repo> #<n> "<title>" — measurement=unresolved, condition="<body condition, ≤80 chars>" → candidate-scoped unknown; not nominated; full-survey freshness cursor unchanged
 ```
 

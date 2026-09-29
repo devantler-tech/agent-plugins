@@ -79,14 +79,53 @@ expect_unknown() {
 }
 
 expect_output 'open and closed blockers' \
-  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":2,"totalBlockedBy":3}}}}}' \
-  '{"number":3196,"openBlockedBy":2,"totalBlockedBy":3}'
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":2,"totalBlockedBy":3},"subIssuesSummary":{"total":0,"completed":0}}}}}' \
+  '{"number":3196,"openBlockedBy":2,"totalBlockedBy":3,"completedSubIssues":0,"totalSubIssues":0}'
 expect_output 'closed blockers only' \
-  '{"data":{"repository":{"issue":{"number":3261,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":1}}}}}' \
-  '{"number":3261,"openBlockedBy":0,"totalBlockedBy":1}'
+  '{"data":{"repository":{"issue":{"number":3261,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":1},"subIssuesSummary":{"total":3,"completed":1}}}}}' \
+  '{"number":3261,"openBlockedBy":0,"totalBlockedBy":1,"completedSubIssues":1,"totalSubIssues":3}'
 expect_output 'no blockers' \
-  '{"data":{"repository":{"issue":{"number":5948,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0}}}}}' \
-  '{"number":5948,"openBlockedBy":0,"totalBlockedBy":0}'
+  '{"data":{"repository":{"issue":{"number":5948,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":0,"completed":0}}}}}' \
+  '{"number":5948,"openBlockedBy":0,"totalBlockedBy":0,"completedSubIssues":0,"totalSubIssues":0}'
+
+# Negative control: every child closed while the parent stayed open is the delivered-but-open
+# shape (monorepo#2994 after its only child, #3668, shipped). The read must surface it, not hide it.
+expect_output 'every sub-issue closed' \
+  '{"data":{"repository":{"issue":{"number":2994,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":1,"completed":1}}}}}' \
+  '{"number":2994,"openBlockedBy":0,"totalBlockedBy":0,"completedSubIssues":1,"totalSubIssues":1}'
+
+expect_unknown 'missing sub-issue summary' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0}}}}}'
+expect_unknown 'null sub-issue summary' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":null}}}}'
+expect_unknown 'wrong-shaped completed count' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":2,"completed":"1"}}}}}'
+expect_unknown 'completed exceeds total' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":1,"completed":2}}}}}'
+
+# The sub-issue summary is delivery evidence only. Pin the rule in its operative paragraph and the
+# digest row, and prove each pin fails when that text moves out of its section.
+check_subissue_rule() {
+  local source=$1 step5 advance
+  step5=$(sed -n '/^### 5\. Triage, stale, and advance signals/,/^#### Advance selection evidence$/p' "$source")
+  advance=$(sed -n '/^### Advance$/,/^```$/p' "$source")
+  # shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+  grep -Fq '`subIssuesSummary` is **delivery evidence, never a skip reason**.' <<<"$step5" || return 1
+  grep -Fq 'Never drop, down-rank or close that candidate yourself.' <<<"$step5" || return 1
+  grep -Fq 'subissues=<completed>/<total> DELIVERY-CHECK' <<<"$advance" || return 1
+}
+check_subissue_rule "$SURVEYOR" ||
+  fail 'the sub-issue summary must be pinned as delivery evidence, never a skip reason, with its digest row'
+MUTANT=$(mktemp)
+trap 'rm -f "$MUTANT"' EXIT
+# shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+for removed in '`subIssuesSummary` is **delivery evidence' 'right. Never drop, down-rank or close' '— subissues=<completed>/<total> DELIVERY-CHECK'; do
+  awk -v r="$removed" 'index($0,r) && !done {held=$0; done=1; next} {print} END {if (!done) exit 1; print "\n## Appendix\n" held}' \
+    "$SURVEYOR" >"$MUTANT" || fail "removal control did not fire: $removed"
+  if check_subissue_rule "$MUTANT"; then
+    fail "text moved out of its section still satisfied the sub-issue rule: $removed"
+  fi
+done
 
 expect_unknown 'missing issue' \
   '{"data":{"repository":{"issue":null}}}'
@@ -100,7 +139,7 @@ expect_unknown 'open count exceeds total' \
   '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":2,"totalBlockedBy":1}}}}}'
 
 # shellcheck disable=SC2016 # GraphQL variables are literal, not shell expansions.
-GRAPHQL_QUERY='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy}}}}'
+GRAPHQL_QUERY='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy} subIssuesSummary{total completed}}}}'
 GH_TELEMETRY=0 "$GUARD" --command \
   "gh api graphql -F owner=devantler-tech -F name=platform -F number=3196 -f query='$GRAPHQL_QUERY' --jq '$JQ_FILTER'" \
   >/dev/null || fail 'the prescribed dependency read is not admitted by the forge guard'

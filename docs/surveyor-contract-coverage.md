@@ -84,7 +84,7 @@ evidence-bearing, per-lane `none` output.
 
 The separate existing suites retain their own responsibilities:
 
-- `portfolio-surveyor-agent.test.sh`: the prescribed dependency-summary projection and guard admission.
+- `portfolio-surveyor-agent.test.sh`: the prescribed dependency and sub-issue summary projection, guard admission, and the delivery-evidence-only rule.
 - `surveyor-open-pr-links.test.sh`: the prescribed linked-PR count projection and malformed responses.
 - `surveyor-selection-contract.test.sh`: section-scoped ranking and actionability obligations.
 - The forge-guard, adapter, classifier, and thread-counter suites: executable command-boundary

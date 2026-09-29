@@ -21,6 +21,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.6.0 — 2026-09-29
+
+**Added** — `portfolio-surveyor` reads each Advance candidate's sub-issue counts in the same query
+as its blocker counts, and reports them as `subissues=<completed>/<total>`. When every child is
+closed it adds `DELIVERY-CHECK`, so the consumer checks whether the work already shipped before
+starting it. This is evidence only: the surveyor never skips, down-ranks or closes a candidate on it.
+A missing or malformed summary makes the candidate `QUERY-UNKNOWN`, like the blocker summary.
+
 ## 5.5.5 — 2026-09-25
 
 **Fixed** — `portfolio-surveyor` reads a measurement issue's due date only from the measurement

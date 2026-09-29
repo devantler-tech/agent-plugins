@@ -112,6 +112,8 @@ check_subissue_rule() {
   # shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
   grep -Fq '`subIssuesSummary` is **delivery evidence, never a skip reason**.' <<<"$step5" || return 1
   grep -Fq 'Never drop, down-rank or close that candidate yourself.' <<<"$step5" || return 1
+  grep -Fq 'on every Advance candidate this query deepens' <<<"$step5" || return 1
+  grep -Fq 'A ranked candidate you never deepen has no counts' <<<"$step5" || return 1
   grep -Fq 'subissues=<completed>/<total> DELIVERY-CHECK' <<<"$advance" || return 1
 }
 check_subissue_rule "$SURVEYOR" ||
@@ -119,7 +121,7 @@ check_subissue_rule "$SURVEYOR" ||
 MUTANT=$(mktemp)
 trap 'rm -f "$MUTANT"' EXIT
 # shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
-for removed in '`subIssuesSummary` is **delivery evidence' 'right. Never drop, down-rank or close' '— subissues=<completed>/<total> DELIVERY-CHECK'; do
+for removed in '`subIssuesSummary` is **delivery evidence' 'right. Never drop, down-rank or close' 'this query deepens, so the consumer' 'A ranked candidate you never deepen' '— subissues=<completed>/<total> DELIVERY-CHECK'; do
   awk -v r="$removed" 'index($0,r) && !done {held=$0; done=1; next} {print} END {if (!done) exit 1; print "\n## Appendix\n" held}' \
     "$SURVEYOR" >"$MUTANT" || fail "removal control did not fire: $removed"
   if check_subissue_rule "$MUTANT"; then

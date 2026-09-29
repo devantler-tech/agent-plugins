@@ -734,8 +734,10 @@ unblocked.
 `subIssuesSummary` is **delivery evidence, never a skip reason**. Ownership joins say who holds an
 issue, not whether its work already shipped, and the oldest candidates are the likeliest to have been
 delivered through children that closed while the parent stayed open. Report
-`subissues=<completed>/<total>` on every Advance candidate you rank, so the consumer does not
-re-derive it. When `total` is positive and `completed` equals it, also report `DELIVERY-CHECK`: every
+`subissues=<completed>/<total>` on every Advance candidate this query deepens, so the consumer does
+not re-derive it. A ranked candidate you never deepen has no counts: leave the field off its row
+rather than inventing one or running this query only to fill it. When `total` is positive and
+`completed` equals it, also report `DELIVERY-CHECK`: every
 child is closed, so the consumer's completion check decides whether starting the parent is still
 right. Never drop, down-rank or close that candidate yourself. A closed child proves only that the
 child closed, and the parent can carry acceptance criteria no child covered. A `total` of zero claims

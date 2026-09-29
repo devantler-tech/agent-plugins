@@ -21,6 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.6.1 — 2026-09-29
+
+**Fixed** — `portfolio-surveyor` reports `subissues=<completed>/<total>` only on the Advance
+candidates its dependency query deepens. 5.6.0 asked for the counts on every ranked candidate, but
+only a deepened candidate has them, so the rule asked a surveyor to invent a count or to run one more
+query per ranked row.
+
 ## 5.6.0 — 2026-09-29
 
 **Added** — `portfolio-surveyor` reads each Advance candidate's sub-issue counts in the same query

@@ -189,8 +189,16 @@ bash scripts/check-marketplace-release-remote.sh \
   --release <full-merged-release-commit>
 ```
 
-This needs an authenticated `gh` whose repository role is WRITE, MAINTAIN or ADMIN, so draft
-releases are visible; the operation itself is read-only. Choose
+This needs an authenticated `gh` with effective repository write permissions, so draft releases
+are visible; the operation itself creates no remote objects. Both user and GitHub App authentication
+are supported. Each observation reads the native REST repository and binds its immutable node ID,
+name, default branch and archive state to GraphQL. It also calls GitHub's nonpersistent release-note
+generation endpoint with the candidate tag and exact commit. This endpoint requires contents-write
+access and saves nothing remotely; its successful, well-formed response proves writer capability.
+The generated text is discarded and never supplies publication notes or authority. A user role must
+be WRITE, MAINTAIN or ADMIN; an explicitly null App role still requires the same positive native
+capability proof. Missing fields, unknown roles, failed capability checks and incomplete responses
+are refused. Repository permission projections alone do not establish an installation token's access. Choose
 the repository independently of the candidate. The command uses that explicit identity and host,
 not the checkout's Git transport configuration or `GH_HOST`.
 
@@ -204,7 +212,7 @@ The command repeats the remote observation around another local verification and
 of the default branch, tags or release, or a change in local tags during the check.
 
 Exit zero emits one JSON assessment with `scope: remote-prepublication-snapshot`, the repository,
-default branch, full commits and observed tag inventory. `authority: assessment-only` and
+immutable repository ID, default branch, full commits and observed tag inventory. `authority: assessment-only` and
 `publication: NOT_AUTHORIZED` remain unchanged. It never fetches into your clone, edits files or
 refs, reserves tags, or creates releases. The command is manual; no publishing trigger is enabled.
 
@@ -242,7 +250,10 @@ as a published release description. GitHub's version-based latest-release select
 
 Both remote writes are create-only, attempted once. Existing tags or releases are never updated,
 deleted or reused, even if they appear to match. A fresh read between writes checks the default branch,
-reserved tag and absent release. A final independent read verifies the published release ID, notes,
+reserved tag and absent release. Each phase also re-reads effective native permissions and binds
+both API identities to the immutable repository ID established during assessment and repeats the
+nonpersistent capability check. Losing permission
+or changing repository identity stops publication. A final independent read verifies the published release ID, notes,
 tag commit and URL. Only exit zero with `status: PUBLISHED` and `scope: remote-publication-readback`
 reports successful publication. The default mode retains `publication: NOT_AUTHORIZED` and makes no
 remote writes. No scheduled publishing workflow is enabled.
@@ -275,3 +286,4 @@ verify any manual recovery. Discarding an unused local candidate needs no reposi
 
 [ADR 0008](adr/0008-marketplace-release-preparation.md) defines this boundary.
 [ADR 0010](adr/0010-create-only-marketplace-publication.md) records the publication and recovery rules.
+[ADR 0013](adr/0013-native-publication-permission-proof.md) records the native permission and identity proof.

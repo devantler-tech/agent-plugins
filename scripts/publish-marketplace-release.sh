@@ -50,6 +50,8 @@ bash "$here/check-marketplace-release-remote.sh" --repo "$repo" --candidate "$te
 if [ "$publish" = false ]; then cat "$temp/assessment"; exit 0; fi
 tag=$(jq -er '.tag' "$temp/assessment")
 branch=$(jq -er '.defaultBranch' "$temp/assessment")
+node=$(jq -er '.repositoryId' "$temp/assessment")
+jq -n --arg tag "$tag" --arg release "$release" '{tag_name:$tag,target_commitish:$release}' > "$temp/writer-request"
 jq -r -L "$here" --arg release "$release" 'include "marketplace-publication"; publication_notes($release)' "$temp/candidate/release.json" > "$temp/notes"
 jq -n --arg tag "$tag" --arg release "$release" '{ref:("refs/tags/"+$tag),sha:$release}' > "$temp/tag-request"
 jq -n --arg tag "$tag" --arg release "$release" --rawfile notes "$temp/notes" \
@@ -57,7 +59,7 @@ jq -n --arg tag "$tag" --arg release "$release" --rawfile notes "$temp/notes" \
 # shellcheck disable=SC2016 # GraphQL values are separate data, never interpolated query text.
 query='query($owner:String!,$name:String!,$tag:String!,$qualifiedRef:String!) {
   repository(owner:$owner,name:$name) {
-    nameWithOwner isArchived viewerPermission defaultBranchRef { name target { __typename oid } }
+    id nameWithOwner isArchived viewerPermission defaultBranchRef { name target { __typename oid } }
     ref(qualifiedName:$qualifiedRef) { prefix name target { __typename oid } }
     release(tagName:$tag) { databaseId tagName isDraft isPrerelease name description publishedAt url tagCommit { oid } }
   }
@@ -65,11 +67,17 @@ query='query($owner:String!,$name:String!,$tag:String!,$qualifiedRef:String!) {
 release_id=0
 # Read and validate one publication phase against the frozen repository and release identities.
 snapshot() {
+  gh api --hostname github.com "repos/$repo" > "$temp/permission"
+  gh api --hostname github.com --method POST "repos/$repo/releases/generate-notes" \
+    --input "$temp/writer-request" > "$temp/writer"
   gh api graphql --hostname github.com -f query="$query" -f owner="${repo%%/*}" -f name="${repo#*/}" \
     -f tag="$tag" -f qualifiedRef="refs/tags/$tag" > "$temp/snapshot"
   jq -es -L "$here" --arg phase "$1" --arg repo "$repo" --arg release "$release" --arg tag "$tag" \
-    --arg branch "$branch" --argjson id "$release_id" --rawfile notes "$temp/notes" \
-    'include "marketplace-publication"; length==1 and (.[0] | publication_snapshot($phase;$repo;$branch;$tag;$release;$id;$notes))' \
+    --arg node "$node" --arg branch "$branch" --argjson id "$release_id" --rawfile notes "$temp/notes" \
+    --slurpfile permission "$temp/permission" \
+    --slurpfile writer "$temp/writer" \
+    'include "marketplace-publication"; length==1 and ($permission|length)==1 and ($writer|length)==1 and
+      (.[0] | publication_snapshot($phase;$repo;$node;$branch;$tag;$release;$id;$notes;$permission[0];$writer[0]))' \
     "$temp/snapshot" >/dev/null || fail "invalid $1 readback; repository, branch, tag or release changed"
 }
 snapshot absent

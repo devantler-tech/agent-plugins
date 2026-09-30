@@ -26,33 +26,43 @@ done
 [ -n "$candidate" ] || fail 'candidate is required'
 temp=$(mktemp -d "${TMPDIR:-/tmp}/marketplace-remote.XXXXXX")
 trap 'rm -rf "$temp"' EXIT
+# Regenerate and validate the complete local candidate against exact Git objects.
 verify() {
   bash "$here/verify-marketplace-release.sh" --candidate "$candidate" --source "$source" --release "$release"
 }
 # Validate before contacting the forge, including artifact types and all candidate bytes.
 verify > "$temp/assessment"
 tag=$(jq -er '.tag' "$temp/assessment")
+jq -n --arg tag "$tag" --arg release "$release" '{tag_name:$tag,target_commitish:$release}' > "$temp/writer-request"
 # shellcheck disable=SC2016 # GraphQL variables are passed separately as data.
 query='query($owner:String!,$name:String!,$tag:String!,$endCursor:String) {
   repository(owner:$owner,name:$name) {
-    nameWithOwner isArchived viewerPermission defaultBranchRef { name target { __typename oid } }
+    id nameWithOwner isArchived viewerPermission defaultBranchRef { name target { __typename oid } }
     release(tagName:$tag) { tagName isDraft isPrerelease }
     refs(refPrefix:"refs/tags/",first:100,after:$endCursor,orderBy:{field:ALPHABETICAL,direction:ASC}) {
       totalCount pageInfo { hasNextPage endCursor } nodes { name target { __typename oid } }
     }
   }
 }'
+# Capture every local tag object so missing or stale refs cannot establish absence.
 local_tags() {
   git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/tags/ > "$temp/local-refs"
   jq -Rn '[inputs | split(" ") | {name:.[0],oid:.[1]}] | sort_by(.name)' < "$temp/local-refs"
 }
+# Read positive writer capability and complete remote state without creating objects.
 remote_snapshot() {
+  # Bind repository identity and positively exercise contents-write without saving notes.
+  gh api --hostname github.com "repos/$repo" > "$temp/permission"
+  gh api --hostname github.com --method POST "repos/$repo/releases/generate-notes" \
+    --input "$temp/writer-request" > "$temp/writer"
   # Variables remain data; neither candidate content nor configured Git transports choose the host.
   gh api graphql --hostname github.com --paginate --slurp -f query="$query" \
     -f owner="${repo%%/*}" -f name="${repo#*/}" -f tag="$tag" > "$temp/pages"
   # --slurp must return exactly one array. Do not accept trailing JSON or a partial API result.
   jq -es 'length == 1 and (.[0] | type == "array")' "$temp/pages" >/dev/null || fail 'invalid page stream'
-  jq -e --arg repo "$repo" --arg release "$release" -f "$here/marketplace-remote-state.jq" "$temp/pages" > "$temp/remote"
+  jq -e -L "$here" --arg repo "$repo" --arg release "$release" --slurpfile permission "$temp/permission" \
+    --slurpfile writer "$temp/writer" \
+    -f "$here/marketplace-remote-state.jq" "$temp/pages" > "$temp/remote"
   jq -r '.tags[].name' "$temp/remote" > "$temp/tag-names"
   while IFS= read -r name; do
     git check-ref-format "refs/tags/$name" || fail 'invalid remote tag name'
@@ -71,5 +81,5 @@ cmp -s "$temp/before" "$temp/after" || fail 'remote state changed during assessm
 local_tags > "$temp/final-local-tags"
 cmp -s "$temp/local-tags" "$temp/final-local-tags" || fail 'local tags changed during assessment'
 jq --slurpfile remote "$temp/after" '. + {repository:$remote[0].repository,
-  defaultBranch:$remote[0].defaultBranch,remoteTags:$remote[0].tags,candidateRelease:"ABSENT",
+  repositoryId:$remote[0].repositoryId,defaultBranch:$remote[0].defaultBranch,remoteTags:$remote[0].tags,candidateRelease:"ABSENT",
   scope:"remote-prepublication-snapshot"}' "$temp/reassessment"

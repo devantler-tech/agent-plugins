@@ -1,4 +1,5 @@
 # Normalize a complete paginated GitHub observation; absence is meaningful only in valid data.
+include "marketplace-permissions";
 def oid: type == "string" and test("^[0-9a-f]{40}$");
 def nonempty: type == "string" and length > 0;
 def require($condition; $message): if $condition then . else error($message) end;
@@ -8,7 +9,9 @@ require(type == "array" and length > 0; "missing remote pages")
     (.errors // []) == [] and
     (.data.repository | type == "object" and
       .nameWithOwner == $repo and .isArchived == false and
-      (.viewerPermission | . == "ADMIN" or . == "MAINTAIN" or . == "WRITE") and
+      (.id | nonempty) and compatible_user_role and
+      (. as $repository | ($permission | length)==1 and ($writer | length)==1 and
+        ($permission[0] | native_writer_repository($repo;$repository.defaultBranchRef.name;$repository.id;$writer[0]))) and
       (.defaultBranchRef | type == "object" and (.name | nonempty) and
         .target.__typename == "Commit" and (.target.oid | oid) and .target.oid == $release) and
       has("release") and .release == null and
@@ -29,11 +32,11 @@ require(type == "array" and length > 0; "missing remote pages")
 | require(([.[].data.repository.refs.pageInfo.endCursor | select(. != null)] | length) ==
     ([.[].data.repository.refs.pageInfo.endCursor | select(. != null)] | unique | length);
     "repeated pagination cursor")
-| require(([.[].data.repository | {nameWithOwner,isArchived,viewerPermission,defaultBranchRef,release}] | unique | length) == 1;
+| require(([.[].data.repository | {id,nameWithOwner,isArchived,viewerPermission,defaultBranchRef,release}] | unique | length) == 1;
     "repository changed across pages")
 | require(([.[].data.repository.refs.totalCount] | unique | length) == 1; "tag count changed across pages")
 | [.[].data.repository.refs.nodes[] | {name,oid:.target.oid}] | sort_by(.name)
 | require(length == $pages[0].data.repository.refs.totalCount; "incomplete tag inventory")
 | require(length == ([.[].name] | unique | length); "duplicate tag")
-| {repository:$repo,defaultBranch:$pages[0].data.repository.defaultBranchRef.name,
+| {repository:$repo,repositoryId:$pages[0].data.repository.id,defaultBranch:$pages[0].data.repository.defaultBranchRef.name,
    releaseCommit:$release,tags:.,candidateRelease:"ABSENT"}

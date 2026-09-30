@@ -10,7 +10,7 @@ guard() {
   awk -v wanted="$1" '/^  [a-z]+:/ {job=$1;sub(/:$/,"",job)} job==wanted && /^    if: >-$/ {reading=1;next} reading && /^      / {sub(/^      /,"");printf "%s ",$0;next} reading {exit}' "$workflow"
 }
 assess=$(guard assess) propose=$(guard propose) recheck=$(guard recheck)
-[ -n "$assess" ] && [ -n "$propose" ] && [ -n "$recheck" ] || fail 'missing explicit job guards'
+if [ -z "$assess" ] || [ -z "$propose" ] || [ -z "$recheck" ]; then fail 'missing explicit job guards'; fi
 evaluate() {
   local expression
   expression=$(printf '%s' "$1" | sed -E "s/'/\"/g;s/&&/and/g;s/\|\|/or/g;s/(github|inputs|vars|needs)\./\$context.\1./g")

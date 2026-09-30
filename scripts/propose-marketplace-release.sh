@@ -8,7 +8,7 @@ repo='' source='' ci='' output='' armed=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo|--source|--ci-run|--output)
-      [ "$#" -ge 2 ] && [ -n "$2" ] || fail 'each option requires a value'
+      if [ "$#" -lt 2 ] || [ -z "$2" ]; then fail 'each option requires a value'; fi
       case "$1" in
         --repo) [ -z "$repo" ] || fail 'duplicate repo'; repo=$2;;
         --source) [ -z "$source" ] || fail 'duplicate source'; source=$2;;
@@ -24,7 +24,7 @@ done
 [[ "$source" =~ ^[0-9a-f]{40}$ ]] || fail 'source must be a full commit'
 [[ "$ci" = latest || "$ci" =~ ^[1-9][0-9]{0,14}$ ]] || fail 'CI run must be a positive integer or latest'
 selection=$ci
-[ -n "$output" ] && [ ! -e "$output" ] && [ ! -L "$output" ] || fail 'output must be new'
+if [ -z "$output" ] || [ -e "$output" ] || [ -L "$output" ]; then fail 'output must be new'; fi
 temp=$(mktemp -d "${TMPDIR:-/tmp}/marketplace-proposal.XXXXXX")
 attempted=false fetched_ref='' fetched_commit=''
 # Never roll back a remote write: a failed response is not proof that nothing was created.

@@ -1,46 +1,54 @@
-name: 📦 Prepare marketplace release
-
+name: Native publication permission proof
 on:
   workflow_dispatch:
     inputs:
       base-tag:
-        description: Last stable marketplace tag, or initial for the first release
+        description: Retained dispatch input; this diagnostic never prepares or publishes
         required: true
         type: string
-
 permissions: {}
-
 jobs:
-  prepare:
-    name: Prepare review artifact
+  read-proof:
+    if: github.ref == 'refs/heads/codex/actions-token-native-proof-280'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Checkout selected revision and complete tag history
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          fetch-depth: 0
+          ref: 53c9bb024abc05d57c5c39cb252c08418b155647
           persist-credentials: false
-
-      - name: Validate repository manifests
-        run: bash scripts/validate-manifests.sh
-
-      - name: Prepare the release candidate
+      - name: Prove read-only App token is refused by the exact repair
         env:
-          BASE_TAG: ${{ inputs.base-tag }}
-          SOURCE_COMMIT: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          bash scripts/prepare-marketplace-release.sh \
-            --base-tag "$BASE_TAG" --head "$SOURCE_COMMIT" \
-            --output "$RUNNER_TEMP/marketplace-release"
-
-      - name: Upload the review artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 53c9bb024abc05d57c5c39cb252c08418b155647
+          gh api --hostname github.com repos/devantler-tech/agent-plugins > "$RUNNER_TEMP/repository"
+          gh api graphql --hostname github.com -f query="query { repository(owner: \"devantler-tech\", name: \"agent-plugins\") { id viewerPermission defaultBranchRef { name } } }" > "$RUNNER_TEMP/identity"
+          jq -e '.data.repository | has("viewerPermission") and .viewerPermission==null' "$RUNNER_TEMP/identity" >/dev/null
+          if jq -e -L scripts --slurpfile identity "$RUNNER_TEMP/identity" 'include "marketplace-permissions"; native_writer_repository("devantler-tech/agent-plugins";$identity[0].data.repository.defaultBranchRef.name;$identity[0].data.repository.id)' "$RUNNER_TEMP/repository" >/dev/null; then
+            exit 1
+          fi
+          printf '{"revision":"53c9bb024abc05d57c5c39cb252c08418b155647","appRoleNull":true,"readOnlyRefused":true}\n'
+  write-proof:
+    if: github.ref == 'refs/heads/codex/actions-token-native-proof-280'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          name: marketplace-release-${{ github.sha }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/marketplace-release
-          if-no-files-found: error
-          # The generated directory contains only the plan, notes, and two public manifests.
-          include-hidden-files: true
-          retention-days: 14
+          ref: 53c9bb024abc05d57c5c39cb252c08418b155647
+          persist-credentials: false
+      - name: Prove native writer visibility using GET requests only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 53c9bb024abc05d57c5c39cb252c08418b155647
+          gh api --hostname github.com repos/devantler-tech/agent-plugins > "$RUNNER_TEMP/repository"
+          gh api graphql --hostname github.com -f query="query { repository(owner: \"devantler-tech\", name: \"agent-plugins\") { id viewerPermission defaultBranchRef { name } } }" > "$RUNNER_TEMP/identity"
+          jq -e '.data.repository | has("viewerPermission") and .viewerPermission==null' "$RUNNER_TEMP/identity" >/dev/null
+          jq -e -L scripts --slurpfile identity "$RUNNER_TEMP/identity" 'include "marketplace-permissions"; native_writer_repository("devantler-tech/agent-plugins";$identity[0].data.repository.defaultBranchRef.name;$identity[0].data.repository.id)' "$RUNNER_TEMP/repository" >/dev/null
+          printf '{"revision":"53c9bb024abc05d57c5c39cb252c08418b155647","appRoleNull":true,"nativeWriterAccepted":true}\n'

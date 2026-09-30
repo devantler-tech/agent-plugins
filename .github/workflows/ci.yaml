@@ -87,6 +87,9 @@ jobs:
       - name: 🧪 Self-test marketplace release verification
         run: bash scripts/verify-marketplace-release.test.sh
 
+      - name: 🧪 Self-test remote marketplace release assessment
+        run: bash scripts/check-marketplace-release-remote.test.sh
+
       - name: 🧪 Self-test the open-PR recheck
         # Proves recheck-open-prs.sh re-triggers each open PR in the one order that is safe
         # (close BEFORE reopen), never leaves a PR closed when a step fails mid-sequence,

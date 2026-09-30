@@ -118,6 +118,46 @@ This check cannot establish remote freshness, genuine readiness, who reviewed th
 consumer installation. Keep the candidate immutable while reviewing and verifying it; a later edit
 invalidates the result. Full repository validation and the independent review gate still apply.
 
+## Check against GitHub
+
+After the proposed release commit lands on the default branch, use the opt-in remote assessment:
+
+```sh
+bash scripts/check-marketplace-release-remote.sh \
+  --repo devantler-tech/agent-plugins \
+  --candidate /tmp/marketplace-next \
+  --source <full-reviewed-source-commit> \
+  --release <full-merged-release-commit>
+```
+
+This needs an authenticated `gh` whose repository role is WRITE, MAINTAIN or ADMIN, so draft
+releases are visible; the operation itself is read-only. Choose
+the repository independently of the candidate. The command uses that explicit identity and host,
+not the checkout's Git transport configuration or `GH_HOST`.
+
+It runs the local verifier and compares the complete local tag inventory with GitHub, including
+annotated tag object identities. The selected release must be the remote default-branch tip, and
+both its intended tag and GitHub release must be absent. GraphQL errors, missing fields, incomplete
+pagination and conflicting observations fail closed. A draft release also occupies the version.
+An account with only read or triage access cannot establish draft absence and is refused.
+See [GitHub's release visibility rules](https://docs.github.com/en/rest/releases/releases#list-releases).
+The command repeats the remote observation around another local verification and rejects movement
+of the default branch, tags or release, or a change in local tags during the check.
+
+Exit zero emits one JSON assessment with `scope: remote-prepublication-snapshot`, the repository,
+default branch, full commits and observed tag inventory. `authority: assessment-only` and
+`publication: NOT_AUTHORIZED` remain unchanged. It never fetches into your clone, edits files or
+refs, reserves tags, or creates releases. The command is manual; no publishing trigger is enabled.
+
+When tags disagree, refresh them in an isolated complete clone and regenerate the candidate there.
+Do not overwrite a conflicting tag or reuse a stale assessment. When the default branch has moved,
+prepare and review a new candidate from its current source. This check records two agreeing
+observations, not an atomic reservation: state can change between reads or immediately afterward.
+It cannot prove review readiness, release permissions, or consumer discovery. The eventual publisher
+must reserve the tag with a create-only operation and verify the published result independently.
+
+[ADR 0009](adr/0009-marketplace-remote-assessment.md) records this observation boundary.
+
 Actual publication is tracked in [#101](https://github.com/devantler-tech/agent-plugins/issues/101).
 Before publication, remote tags and the source must be rebound, the proposed manifest update must
 be reviewed and validated at its final commit, and tag reservation and GitHub release creation must

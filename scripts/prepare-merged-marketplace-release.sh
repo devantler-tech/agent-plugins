@@ -9,7 +9,7 @@ repo='' release='' ci='' output=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo|--release|--ci-run|--output)
-      [ "$#" -ge 2 ] && [ -n "$2" ] || fail 'each option requires a value'
+      if [ "$#" -lt 2 ] || [ -z "$2" ]; then fail 'each option requires a value'; fi
       case "$1" in
         --repo) [ -z "$repo" ] || fail 'duplicate repo'; repo=$2 ;;
         --release) [ -z "$release" ] || fail 'duplicate release'; release=$2 ;;
@@ -17,13 +17,14 @@ while [ "$#" -gt 0 ]; do
         --output) [ -z "$output" ] || fail 'duplicate output'; output=$2 ;;
       esac
       shift 2 ;;
-    *) fail 'usage: prepare-merged-marketplace-release.sh --repo <owner/name> --release <full-commit> --ci-run <id> --output <new-directory>' ;;
+    *) fail 'usage: prepare-merged-marketplace-release.sh --repo <owner/name> --release <full-commit> --ci-run <id|latest> --output <new-directory>' ;;
   esac
 done
 [[ "$repo" =~ ^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || fail 'repo must be an explicit github.com owner/name'
 [[ "$release" =~ ^[0-9a-f]{40}$ ]] || fail 'release must be a full 40-character commit'
-[[ "$ci" =~ ^[1-9][0-9]{0,14}$ ]] || fail 'CI run must be a positive integer'
-[ -n "$output" ] && [ ! -e "$output" ] && [ ! -L "$output" ] || fail 'output must be a new directory'
+selection=$ci
+[[ "$ci" = latest || "$ci" =~ ^[1-9][0-9]{0,14}$ ]] || fail 'CI run must be a positive integer or latest'
+if [ -z "$output" ] || [ -e "$output" ] || [ -L "$output" ]; then fail 'output must be a new directory'; fi
 [ "$(git cat-file -t "$release")" = commit ] || fail 'release must identify a commit'
 [ "$(git rev-parse HEAD)" = "$release" ] || fail 'checkout must be the selected current main commit'
 source=$(git show -s --no-show-signature --format=%P "$release")
@@ -43,6 +44,15 @@ snapshot() {
   jq -es --arg repo "$repo" 'length==1 and (.[0] | .full_name==$repo and .archived==false and .default_branch=="main")' "$temp/repo" >/dev/null || fail 'repository identity, archive state or default branch is invalid'
   gh api --hostname github.com "repos/$repo/git/ref/heads/main" > "$temp/ref"
   jq -es --arg release "$release" 'length==1 and (.[0] | .ref=="refs/heads/main" and .object.type=="commit" and .object.sha==$release)' "$temp/ref" >/dev/null || fail 'remote main is not the selected release commit'
+  if [ "$selection" = latest ]; then
+    # Demand the newest run, including a pending/failed one; never filter down to an older green.
+    gh api --hostname github.com "repos/$repo/actions/workflows/ci.yaml/runs?branch=main&event=push&head_sha=$release&per_page=1" > "$temp/latest"
+    latest=$(jq -esr 'if length==1 and (.[0] | (.total_count|type=="number" and .>0)
+      and (.workflow_runs|type=="array" and length==1)
+      and (.workflow_runs[0].id|type=="number" and .>0 and .<1000000000000000 and floor==.))
+      then .[0].workflow_runs[0].id else error("no complete latest CI run identity") end' "$temp/latest")
+    if [ "$ci" = latest ]; then ci=$latest; else [ "$ci" = "$latest" ] || fail 'latest CI run changed during verification'; fi
+  fi
   gh api --hostname github.com "repos/$repo/actions/runs/$ci" > "$temp/run"
   jq -es --arg repo "$repo" --arg release "$release" --argjson ci "$ci" '
     length==1 and (.[0] | .id==$ci and .path==".github/workflows/ci.yaml" and .event=="push"

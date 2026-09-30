@@ -1,15 +1,13 @@
 name: 📦 Publish marketplace release
 
 on:
-  workflow_run:
-    workflows: [🧪 CI]
-    types: [completed]
-    branches: [main]
+  schedule:
+    - cron: "25 * * * *"
   workflow_dispatch:
     inputs:
       ci-run:
-        description: Successful main push run ID of the repository CI workflow
-        required: true
+        description: Successful main push CI run ID, or latest to resolve the newest run
+        default: latest
         type: string
       publish:
         description: Create the verified absent tag and release (assessment otherwise)
@@ -20,7 +18,7 @@ permissions: {}
 
 concurrency:
   # Assessments cannot displace an armed publication; never cancel a writer mid-operation.
-  group: marketplace-publication-${{ ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'workflow_run' && vars.MARKETPLACE_AUTOPUBLISH == 'true')) && 'write' || 'assessment' }}
+  group: marketplace-publication-${{ ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPUBLISH == 'true')) && 'write' || 'assessment' }}
   cancel-in-progress: false
 
 jobs:
@@ -28,10 +26,7 @@ jobs:
     name: Reconstruct the merged proposal
     if: >-
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
+      (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPUBLISH == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -57,8 +52,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          RELEASE_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
-          CI_RUN: ${{ github.event.workflow_run.id || inputs.ci-run }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          CI_RUN: ${{ inputs.ci-run || 'latest' }}
         run: |
           bash scripts/prepare-merged-marketplace-release.sh \
             --repo "$REPOSITORY" --release "$RELEASE_COMMIT" --ci-run "$CI_RUN" \
@@ -67,7 +62,7 @@ jobs:
           {
             printf 'status=%s\n' "$(jq -er '.status' "$RUNNER_TEMP/assessment.json")"
             printf 'release=%s\n' "$RELEASE_COMMIT"
-            printf 'ci-run=%s\n' "$CI_RUN"
+            printf 'ci-run=%s\n' "$(jq -er '.ciRunId' "$RUNNER_TEMP/assessment.json")"
           } >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/assessment.json" >> "$GITHUB_STEP_SUMMARY"
 
@@ -89,7 +84,7 @@ jobs:
     if: >-
       needs.assess.outputs.status == 'VERIFIED' &&
       ((github.event_name == 'workflow_dispatch' && inputs.publish) ||
-       (github.event_name == 'workflow_run' && vars.MARKETPLACE_AUTOPUBLISH == 'true'))
+       (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPUBLISH == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

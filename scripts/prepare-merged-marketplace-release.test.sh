@@ -18,10 +18,22 @@ case "$endpoint" in
   repos/example/catalogue) file=repo ;;
   repos/example/catalogue/git/ref/heads/main) file=ref ;;
   repos/example/catalogue/actions/runs/42) file=run ;;
+  "repos/example/catalogue/actions/workflows/ci.yaml/runs?branch=main&event=push&head_sha=$FIXTURE_RELEASE&per_page=1") file=latest ;;
   *) exit 91 ;;
 esac
 count=$(awk -v endpoint="$endpoint" '$0==endpoint {n++} END {print n+0}' "$CALLS")
 [ "$FAULT" != transport ] || exit 92
+if [ "$file" = latest ]; then
+  case "$FAULT:$count" in
+    latest-empty:*) printf '{"total_count":0,"workflow_runs":[]}\n' ;;
+    latest-malformed:*) printf '{}\n' ;;
+    latest-trailing:*) printf '{}\n{}\n' ;;
+    latest-invalid-id:*) printf '{"total_count":1,"workflow_runs":[{"id":"evil"}]}\n' ;;
+    latest-moved:2) printf '{"total_count":1,"workflow_runs":[{"id":43}]}\n' ;;
+    *) jq -n --slurpfile run "$FORGE/run" '{total_count:1,workflow_runs:$run}' ;;
+  esac
+  exit 0
+fi
 change=.
 case "$FAULT:$file:$count" in
   wrong-ci:run:*|ci-after:run:2) change='.head_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' ;;
@@ -78,13 +90,15 @@ fixture() {
 # Bind the offline forge to the actual committed fixture, with a fixed successful CI identity.
 refresh() {
   FAULT=none; : > "$CALLS"
+  export FIXTURE_RELEASE="$release"
+  CI_SELECTION=42
   jq -n '{full_name:"example/catalogue",default_branch:"main",archived:false}' > "$FORGE/repo"
   jq -n --arg head "$release" '{ref:"refs/heads/main",object:{type:"commit",sha:$head}}' > "$FORGE/ref"
   jq -n --arg head "$release" '{id:42,path:".github/workflows/ci.yaml",event:"push",status:"completed",conclusion:"success",head_branch:"main",head_sha:$head,repository:{full_name:"example/catalogue"},head_repository:{full_name:"example/catalogue"}}' > "$FORGE/run"
   output=$(mktemp -d "$work/output.XXXXXX")/candidate
 }
 # Execute the real orchestrator, keeping only the forge HTTP boundary replaced.
-run() { (cd "$repo" && bash "$tool" --repo example/catalogue --release "$release" --ci-run 42 --output "$output"); }
+run() { (cd "$repo" && bash "$tool" --repo example/catalogue --release "$release" --ci-run "$CI_SELECTION" --output "$output"); }
 # Refusals must produce neither success output nor a usable candidate.
 reject() {
   local name=$1
@@ -130,6 +144,12 @@ fixture; release=$(printf 'merge\n' | git -C "$repo" commit-tree "$release^{tree
 fixture; git -C "$repo" checkout -q "$source"; reject 'checkout differs from selected release'
 fixture; mkdir "$output"; printf 'preserve\n' > "$output/owned"
 if run > "$work/result" 2> "$work/error"; then fail 'pre-existing candidate directory accepted'; fi
-[ ! -s "$work/result" ] && [ "$(cat "$output/owned")" = preserve ] || fail 'pre-existing output changed'
+if [ -s "$work/result" ] || [ "$(cat "$output/owned")" != preserve ]; then fail 'pre-existing output changed'; fi
 passed=$((passed+1))
+fixture; CI_SELECTION=latest; accept 'latest exact main CI' VERIFIED
+for fault in latest-empty latest-malformed latest-trailing latest-invalid-id latest-moved; do
+  fixture; CI_SELECTION=latest; FAULT=$fault; reject "$fault"
+done
+fixture; CI_SELECTION=latest; FAULT=running; reject 'latest CI is pending'
+fixture; CI_SELECTION=latest; FAULT=wrong-ci; reject 'latest list cannot bless unrelated CI'
 printf 'PASS %s merged marketplace preparation cases\n' "$passed"

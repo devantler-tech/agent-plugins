@@ -80,7 +80,8 @@ this preparation workflow has no publishing job.
 
 ## Publish the merged proposal in Actions
 
-**Publish marketplace release** assesses each successful repository CI push run on main. It uses
+**Publish marketplace release** supports manual main dispatch and an opt-in hourly check at minute
+25 UTC. It uses
 current-main tooling and regenerates the candidate from the version proposal's sole parent. Both
 remote main and the named CI run are checked before and after verification. A stale, foreign,
 failed, PR or unrelated workflow run is refused. An ordinary commit reports `NO_VERSION_CHANGE`
@@ -110,7 +111,11 @@ required. It accepts only a version-only proposal at current main, refuses occup
 and never overwrites or retries a write. Inspect remote objects after any failed publication;
 a failure is not proof that no write happened. `GITHUB_TOKEN` publication is not a promise that
 other release-triggered workflows ran. Independently verify the published tag, release, notes and
-a real pinned consumer installation. [ADR 0012](adr/0012-guarded-marketplace-publication-workflow.md)
+a real pinned consumer installation. The scheduled job runs only while the rollout variable is
+enabled; GitHub can delay scheduled runs. The `ci-run` input defaults to `latest`, which selects the
+newest exact-main push CI run and refuses it if pending or failed, rather than finding an older
+green. A changed latest run identity also refuses verification.
+[ADR 0012](adr/0012-guarded-marketplace-publication-workflow.md)
 records the workflow's trust and permission boundaries.
 
 ## Publication and recovery

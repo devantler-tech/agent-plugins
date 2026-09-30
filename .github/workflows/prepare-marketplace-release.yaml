@@ -16,25 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: 53c9bb024abc05d57c5c39cb252c08418b155647
+          ref: a22b566ee99dd38bc48e33516c6fb391ec5f9302
           persist-credentials: false
       - name: Prove read-only App token is refused by the exact repair
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 53c9bb024abc05d57c5c39cb252c08418b155647
+          test "$(git rev-parse HEAD)" = a22b566ee99dd38bc48e33516c6fb391ec5f9302
           gh api --hostname github.com repos/devantler-tech/agent-plugins > "$RUNNER_TEMP/repository"
           gh api graphql --hostname github.com -f query="query { repository(owner: \"devantler-tech\", name: \"agent-plugins\") { id viewerPermission defaultBranchRef { name } } }" > "$RUNNER_TEMP/identity"
           jq -e '.data.repository | has("viewerPermission") and .viewerPermission==null' "$RUNNER_TEMP/identity" >/dev/null
           jq '{identityMatches:(.full_name=="devantler-tech/agent-plugins"),pull:(.permissions.pull==true),push:(.permissions.push==true)}' "$RUNNER_TEMP/repository"
-          if jq -e -L scripts --slurpfile identity "$RUNNER_TEMP/identity" 'include "marketplace-permissions"; native_writer_repository("devantler-tech/agent-plugins";$identity[0].data.repository.defaultBranchRef.name;$identity[0].data.repository.id)' "$RUNNER_TEMP/repository" >/dev/null; then
+          jq -L scripts --slurpfile identity "$RUNNER_TEMP/identity" 'include "marketplace-permissions"; native_writer_repository("devantler-tech/agent-plugins";$identity[0].data.repository.defaultBranchRef.name;$identity[0].data.repository.id;{})' "$RUNNER_TEMP/repository" > "$RUNNER_TEMP/verdict"
+          jq -e '.==false' "$RUNNER_TEMP/verdict" >/dev/null
+          if gh api --hostname github.com --method POST repos/devantler-tech/agent-plugins/releases/generate-notes -f tag_name=v1.2.1 -f target_commitish=a22b566ee99dd38bc48e33516c6fb391ec5f9302 > "$RUNNER_TEMP/notes" 2> "$RUNNER_TEMP/error"; then
             exit 1
           fi
-          if gh api --hostname github.com --method POST repos/devantler-tech/agent-plugins/releases/generate-notes -f tag_name=v1.2.1 -f target_commitish=53c9bb024abc05d57c5c39cb252c08418b155647 > "$RUNNER_TEMP/notes" 2> "$RUNNER_TEMP/error"; then
-            exit 1
-          fi
-          printf '{"revision":"53c9bb024abc05d57c5c39cb252c08418b155647","appRoleNull":true,"readOnlyRefused":true}\n'
+          printf '{"revision":"a22b566ee99dd38bc48e33516c6fb391ec5f9302","appRoleNull":true,"readOnlyRefused":true}\n'
   write-proof:
     if: github.ref == 'refs/heads/codex/actions-token-native-proof-280'
     runs-on: ubuntu-latest
@@ -43,18 +42,19 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: 53c9bb024abc05d57c5c39cb252c08418b155647
+          ref: a22b566ee99dd38bc48e33516c6fb391ec5f9302
           persist-credentials: false
       - name: Prove native writer capability without saving notes or creating releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 53c9bb024abc05d57c5c39cb252c08418b155647
+          test "$(git rev-parse HEAD)" = a22b566ee99dd38bc48e33516c6fb391ec5f9302
           gh api --hostname github.com repos/devantler-tech/agent-plugins > "$RUNNER_TEMP/repository"
           gh api graphql --hostname github.com -f query="query { repository(owner: \"devantler-tech\", name: \"agent-plugins\") { id viewerPermission defaultBranchRef { name } } }" > "$RUNNER_TEMP/identity"
           jq -e '.data.repository | has("viewerPermission") and .viewerPermission==null' "$RUNNER_TEMP/identity" >/dev/null
           jq '{identityMatches:(.full_name=="devantler-tech/agent-plugins"),pull:(.permissions.pull==true),push:(.permissions.push==true)}' "$RUNNER_TEMP/repository"
-          gh api --hostname github.com --method POST repos/devantler-tech/agent-plugins/releases/generate-notes -f tag_name=v1.2.1 -f target_commitish=53c9bb024abc05d57c5c39cb252c08418b155647 > "$RUNNER_TEMP/notes"
+          gh api --hostname github.com --method POST repos/devantler-tech/agent-plugins/releases/generate-notes -f tag_name=v1.2.1 -f target_commitish=a22b566ee99dd38bc48e33516c6fb391ec5f9302 > "$RUNNER_TEMP/notes"
           jq -es 'length==1 and (.[0] | type=="object" and (.name|type=="string" and length>0) and (.body|type=="string"))' "$RUNNER_TEMP/notes" >/dev/null
-          printf '{"revision":"53c9bb024abc05d57c5c39cb252c08418b155647","appRoleNull":true,"nativeWriterAccepted":true}\n'
+          jq -e -L scripts --slurpfile identity "$RUNNER_TEMP/identity" --slurpfile proof "$RUNNER_TEMP/notes" 'include "marketplace-permissions"; native_writer_repository("devantler-tech/agent-plugins";$identity[0].data.repository.defaultBranchRef.name;$identity[0].data.repository.id;$proof[0])' "$RUNNER_TEMP/repository" >/dev/null
+          printf '{"revision":"a22b566ee99dd38bc48e33516c6fb391ec5f9302","appRoleNull":true,"nativeWriterAccepted":true}\n'

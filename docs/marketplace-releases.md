@@ -189,13 +189,16 @@ bash scripts/check-marketplace-release-remote.sh \
   --release <full-merged-release-commit>
 ```
 
-This needs an authenticated `gh` with effective repository read and write permissions, so draft
-releases are visible; the operation itself is read-only. Both user and GitHub App authentication
-are supported. Each observation reads the native REST repository permission projection, requires
-boolean `pull: true` and `push: true`, and binds its immutable node ID, repository name, default
-branch and archive state to the GraphQL observation. A user role must be WRITE, MAINTAIN or ADMIN;
-an explicitly null App user role is accepted only with that independent positive permission proof.
-Missing fields, unknown roles, read-only permissions and incomplete responses are refused. Choose
+This needs an authenticated `gh` with effective repository write permissions, so draft releases
+are visible; the operation itself creates no remote objects. Both user and GitHub App authentication
+are supported. Each observation reads the native REST repository and binds its immutable node ID,
+name, default branch and archive state to GraphQL. It also calls GitHub's nonpersistent release-note
+generation endpoint with the candidate tag and exact commit. This endpoint requires contents-write
+access and saves nothing remotely; its successful, well-formed response proves writer capability.
+The generated text is discarded and never supplies publication notes or authority. A user role must
+be WRITE, MAINTAIN or ADMIN; an explicitly null App role still requires the same positive native
+capability proof. Missing fields, unknown roles, failed capability checks and incomplete responses
+are refused. Repository permission projections alone do not establish an installation token's access. Choose
 the repository independently of the candidate. The command uses that explicit identity and host,
 not the checkout's Git transport configuration or `GH_HOST`.
 
@@ -248,7 +251,8 @@ as a published release description. GitHub's version-based latest-release select
 Both remote writes are create-only, attempted once. Existing tags or releases are never updated,
 deleted or reused, even if they appear to match. A fresh read between writes checks the default branch,
 reserved tag and absent release. Each phase also re-reads effective native permissions and binds
-both API responses to the immutable repository ID established during assessment. Losing permission
+both API identities to the immutable repository ID established during assessment and repeats the
+nonpersistent capability check. Losing permission
 or changing repository identity stops publication. A final independent read verifies the published release ID, notes,
 tag commit and URL. Only exit zero with `status: PUBLISHED` and `scope: remote-publication-readback`
 reports successful publication. The default mode retains `publication: NOT_AUTHORIZED` and makes no

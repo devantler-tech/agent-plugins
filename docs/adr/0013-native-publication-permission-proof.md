@@ -14,18 +14,24 @@ the installation's permissions. A null value also cannot establish writer access
 ## Decision
 
 Every remote assessment and publication phase independently reads the native REST repository.
-Its permission projection must contain boolean `pull: true` and `push: true`. The response must
-also have a positive integer repository ID, matching name, active archive state and matching
+The response must have a positive integer repository ID, matching name, active archive state and matching
 default branch. Its immutable node ID must match the GraphQL repository ID.
+
+Each phase also invokes GitHub's release-note generation endpoint with the verified candidate tag
+and exact release commit. GitHub requires contents-write access for this nonpersistent computation;
+it saves neither a release nor notes. A successful response containing one valid name/body object
+is positive capability evidence. The generated text is discarded and never controls published
+notes, commands or release authority. Repository permission projections alone are insufficient for
+installation-token capability.
 
 GraphQL still verifies the repository, complete tag inventory, branch and release state. Its user
 role field must exist and contain WRITE, MAINTAIN, ADMIN or explicit null. Null is compatible with
-App authentication only because the independent native REST response positively proves writer
+App authentication only because the independent native capability check positively proves writer
 visibility; missing, unknown, READ and TRIAGE roles are rejected. Missing, malformed, trailing or
 conflicting responses never establish clearance.
 
 The assessment records the immutable repository ID. All later publication phases bind both API
-responses to that same identity and re-read permission evidence. A permission loss or identity
+identities to that same repository and repeat the capability check. A permission loss or identity
 change stops the operation, including after a remote write.
 
 ## Consequences
@@ -43,4 +49,5 @@ them before recovery. No fallback token or extra credential is introduced.
 The permission model follows GitHub's documented
 [GraphQL repository role](https://docs.github.com/en/graphql/reference/repos),
 [native Actions token](https://docs.github.com/en/actions/concepts/security/github_token) and
-[REST repository endpoint](https://docs.github.com/en/rest/repos/repos#get-a-repository).
+[REST repository endpoint](https://docs.github.com/en/rest/repos/repos#get-a-repository) and
+[nonpersistent release-note generation](https://docs.github.com/en/rest/releases/releases#generate-release-notes-content-for-a-release).

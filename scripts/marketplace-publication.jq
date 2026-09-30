@@ -12,9 +12,9 @@ def publication_notes($release):
   ] | join("\n\n") + "\n";
 
 # Accept one observed publication phase only when all expected identities still agree.
-def publication_snapshot($phase;$repo;$node;$branch;$tag;$release;$id;$notes;$permission):
+def publication_snapshot($phase;$repo;$node;$branch;$tag;$release;$id;$notes;$permission;$proof):
   type=="object" and (.errors==null or .errors==[]) and
-  ($permission | native_writer_repository($repo;$branch;$node)) and
+  ($permission | native_writer_repository($repo;$branch;$node;$proof)) and
   (.data.repository | type=="object" and .id==$node and .nameWithOwner==$repo and .isArchived==false and
     compatible_user_role and
     .defaultBranchRef.name==$branch and .defaultBranchRef.target.__typename=="Commit" and

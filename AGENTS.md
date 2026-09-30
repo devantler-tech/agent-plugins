@@ -65,7 +65,7 @@ scripts/
 ├── prepare-merged-marketplace-release.sh # Reconstruct a merged proposal with exact successful main CI
 ├── prepare-merged-marketplace-release.test.sh # Real proposals and offline CI/ref movement cases
 ├── marketplace-publication-workflow.test.sh # Actual workflow guards, default-off and opt-in event matrix
-├── marketplace-permissions.jq # Shared native repository permission and immutable identity checks
+├── marketplace-permissions.jq # Native writer capability and immutable repository identity checks
 ├── refresh-desired-state-digests.sh      # Writer: recompute every digest a *.desired-state.json pins (the fix "digest must match" points at)
 ├── refresh-desired-state-digests.test.sh # Self-test for the generator, incl. its coupling to the validator
 └── sha256.lib.sh               # The two hashing rules, sourced by BOTH the validator and the generator so they cannot drift

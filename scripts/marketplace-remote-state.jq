@@ -10,8 +10,8 @@ require(type == "array" and length > 0; "missing remote pages")
     (.data.repository | type == "object" and
       .nameWithOwner == $repo and .isArchived == false and
       (.id | nonempty) and compatible_user_role and
-      (. as $repository | ($permission | length)==1 and
-        ($permission[0] | native_writer_repository($repo;$repository.defaultBranchRef.name;$repository.id))) and
+      (. as $repository | ($permission | length)==1 and ($writer | length)==1 and
+        ($permission[0] | native_writer_repository($repo;$repository.defaultBranchRef.name;$repository.id;$writer[0]))) and
       (.defaultBranchRef | type == "object" and (.name | nonempty) and
         .target.__typename == "Commit" and (.target.oid | oid) and .target.oid == $release) and
       has("release") and .release == null and

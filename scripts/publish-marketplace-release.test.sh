@@ -36,10 +36,7 @@ if [ "$endpoint" = repos/example/catalogue ] && [ "$method" = GET ]; then
   [ "$mode" != permission-transport ] || exit 105
   change=.
   case "$mode:$phase" in
-    permission-read:*|app-read:*|permission-after-tag:reserved|permission-after-release:published) change='.permissions.push=false' ;;
-    permission-pull:*) change='.permissions.pull=false' ;;
-    permission-string:*) change='.permissions.push="true"' ;;
-    permission-missing:*) change='del(.permissions)' ;;
+    app:*|app-read:*) change='.permissions={pull:false,push:false}' ;;
     permission-foreign:*) change='.full_name="other/catalogue"' ;;
     permission-node:*) change='.node_id="R_other"' ;;
     permission-id:*) change='.id=null' ;;
@@ -49,6 +46,17 @@ if [ "$endpoint" = repos/example/catalogue ] && [ "$method" = GET ]; then
   esac
   printf '%s\n' '{"id":123,"node_id":"R_catalogue","full_name":"example/catalogue","archived":false,"default_branch":"main","permissions":{"push":true,"pull":true}}' | jq "$change"
   [ "$mode" != permission-trailing ] || printf '{}\n'
+elif [ "$endpoint" = repos/example/catalogue/releases/generate-notes ] && [ "$method" = POST ]; then
+  jq -e --arg tag "$FIXTURE_TAG" --arg head "$FIXTURE_HEAD" '.=={tag_name:$tag,target_commitish:$head}' "$input" >/dev/null || exit 106
+  change=.
+  case "$mode:$phase" in
+    writer-denied:*|app-read:*|writer-after-tag:reserved|writer-after-release:published) exit 107 ;;
+    writer-malformed:*) change='{}' ;;
+    writer-name:*) change='.name=null' ;;
+    writer-body:*) change='.body=false' ;;
+  esac
+  printf '%s\n' '{"name":"Preview","body":"Nonpersistent notes, never used for publication"}' | jq "$change"
+  [ "$mode" != writer-trailing ] || printf '{}\n'
 elif [ "$endpoint" = graphql ]; then
   role=WRITE
   case "$mode" in app|app-read) role=null ;; esac
@@ -199,32 +207,33 @@ reject() {
 }
 setup; accept 'default is read-only'
 jq -e '.status=="VERIFIED" and .publication=="NOT_AUTHORIZED"' "$work/result" >/dev/null
-! grep -q '^POST ' "$CALLS" || fail 'default mode wrote'
+! grep -Eq '^POST .*git/refs$|^POST .*releases$' "$CALLS" || fail 'default mode wrote'
 setup; export FAULT=app; accept 'App assessment with effective writer access'
 jq -e '.status=="VERIFIED" and .publication=="NOT_AUTHORIZED" and .repositoryId=="R_catalogue"' "$work/result" >/dev/null
-! grep -q '^POST ' "$CALLS" || fail 'App assessment wrote'
+! grep -Eq '^POST .*git/refs$|^POST .*releases$' "$CALLS" || fail 'App assessment wrote'
 setup; export FAULT=app; accept 'App publication with effective writer access' --publish
 jq -e '.status=="PUBLISHED" and .releaseId==42' "$work/result" >/dev/null
-[ "$(grep -c '^POST ' "$CALLS")" -eq 2 ] || fail 'App publication did not create exactly two objects'
+[ "$(grep -Ec '^POST .*git/refs$|^POST .*releases$' "$CALLS")" -eq 2 ] || fail 'App publication did not create exactly two objects'
 [ "$(grep -c '^GET repos/example/catalogue$' "$CALLS")" -eq 5 ] || fail 'App publication did not recheck native permissions in every phase'
+[ "$(grep -c '^POST .*generate-notes$' "$CALLS")" -eq 5 ] || fail 'App publication did not recheck writer capability in every phase'
 for kind in initial incremental; do
   setup "$kind"; accept "$kind publication" --publish
   jq -e --arg head "$release" '.status=="PUBLISHED" and .releaseCommit==$head and .releaseId==42 and .publication=="PUBLISHED"' "$work/result" >/dev/null
-  [ "$(grep -c '^POST ' "$CALLS")" -eq 2 ] || fail 'publication did not create exactly two objects'
+  [ "$(grep -Ec '^POST .*git/refs$|^POST .*releases$' "$CALLS")" -eq 2 ] || fail 'publication did not create exactly two objects'
   test -e "$FORGE_STATE/tag" && test -e "$FORGE_STATE/release"
   if [ "$kind" = initial ]; then
     jq -e '.body|contains("&lt;unsafe&gt;") and (contains("<unsafe>")|not)' "$FORGE_STATE/release" >/dev/null
   fi
 done
-for fault in assessment-fails snapshot-fails branch-moved tag-raced malformed-snapshot graphql-errors invalid-errors wrong-repo no-permission missing-role unknown-role archived missing-ref missing-release trailing-json permission-read app-read permission-pull permission-string permission-missing permission-foreign permission-node permission-id permission-archived permission-branch permission-malformed permission-trailing permission-transport; do
+for fault in assessment-fails snapshot-fails branch-moved tag-raced malformed-snapshot graphql-errors invalid-errors wrong-repo no-permission missing-role unknown-role archived missing-ref missing-release trailing-json app-read writer-denied writer-malformed writer-name writer-body writer-trailing permission-foreign permission-node permission-id permission-archived permission-branch permission-malformed permission-trailing permission-transport; do
   setup; export FAULT=$fault; reject "$fault" --publish
-  ! grep -q '^POST ' "$CALLS" || fail "$fault wrote before readiness"
+  ! grep -Eq '^POST .*git/refs$|^POST .*releases$' "$CALLS" || fail "$fault wrote before readiness"
 done
-for fault in tag-write-fails lost-tag-response bad-tag-response malformed-tag-response trailing-tag-response branch-after-tag branch-renamed release-raced tag-moved annotated-tag permission-after-tag node-moved; do
+for fault in tag-write-fails lost-tag-response bad-tag-response malformed-tag-response trailing-tag-response branch-after-tag branch-renamed release-raced tag-moved annotated-tag writer-after-tag node-moved; do
   setup; export FAULT=$fault; reject "$fault" --publish
   ! grep -q '^POST .*releases$' "$CALLS" || fail "$fault created a release"
 done
-for fault in release-write-fails lost-release-response bad-release-response malformed-release-response trailing-release-response branch-after-release tag-after-release draft-readback prerelease-readback notes-readback id-readback commit-readback unpublished-readback url-readback permission-after-release node-after-release; do
+for fault in release-write-fails lost-release-response bad-release-response malformed-release-response trailing-release-response branch-after-release tag-after-release draft-readback prerelease-readback notes-readback id-readback commit-readback unpublished-readback url-readback writer-after-release node-after-release; do
   setup; export FAULT=$fault; reject "$fault" --publish
   [ -e "$FORGE_STATE/tag" ] || fail "$fault removed reserved tag"
   grep -q 'remote objects may exist' "$work/error" || fail "$fault omitted recovery warning"

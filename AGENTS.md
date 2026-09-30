@@ -64,6 +64,7 @@ scripts/
 ├── check-marketplace-version.test.sh # Real branch histories, stale proposals and malformed input
 ├── prepare-merged-marketplace-release.sh # Reconstruct a merged proposal with exact successful main CI
 ├── prepare-merged-marketplace-release.test.sh # Real proposals and offline CI/ref movement cases
+├── marketplace-publication-workflow.test.sh # Actual workflow guards, default-off and opt-in event matrix
 ├── refresh-desired-state-digests.sh      # Writer: recompute every digest a *.desired-state.json pins (the fix "digest must match" points at)
 ├── refresh-desired-state-digests.test.sh # Self-test for the generator, incl. its coupling to the validator
 └── sha256.lib.sh               # The two hashing rules, sourced by BOTH the validator and the generator so they cannot drift
@@ -285,6 +286,7 @@ bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exac
 bash scripts/check-marketplace-release-remote.test.sh # remote state, pagination and movement; offline forge
 bash scripts/publish-marketplace-release.test.sh # opt-in publication, competing writers and readback; offline forge
 bash scripts/prepare-merged-marketplace-release.test.sh # exact main CI and fresh proposal reconstruction
+bash scripts/marketplace-publication-workflow.test.sh # actual workflow authorization and permission branches
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.

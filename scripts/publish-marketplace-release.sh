@@ -3,7 +3,9 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Report a validation failure on stderr and stop without a success assessment.
 fail() { printf 'marketplace publication: %s\n' "$*" >&2; exit 1; }
+# Describe the safe default and the explicit write operation.
 usage() {
   printf 'usage: publish-marketplace-release.sh --repo <owner/name> --candidate <directory> --source <full-commit> --release <full-commit> [--publish]\n'
   printf 'Default: read-only assessment. --publish explicitly creates a tag and a published release. Establish CI and review readiness independently first.\n'
@@ -28,6 +30,7 @@ done
 [[ "$repo" =~ ^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || fail 'repo must be an explicit github.com owner/name'
 temp=$(mktemp -d "${TMPDIR:-/tmp}/marketplace-publish.XXXXXX")
 write_attempted=false
+# Remove private artifacts; on a failed write, identify remote state needing inspection.
 cleanup() {
   local status=$?
   if [ "$status" -ne 0 ] && [ "$write_attempted" = true ]; then
@@ -60,6 +63,7 @@ query='query($owner:String!,$name:String!,$tag:String!,$qualifiedRef:String!) {
   }
 }'
 release_id=0
+# Read and validate one publication phase against the frozen repository and release identities.
 snapshot() {
   gh api graphql --hostname github.com -f query="$query" -f owner="${repo%%/*}" -f name="${repo#*/}" \
     -f tag="$tag" -f qualifiedRef="refs/tags/$tag" > "$temp/snapshot"

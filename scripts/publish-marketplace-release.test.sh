@@ -115,7 +115,9 @@ STUB
 chmod +x "$work/bin/gh"
 export PATH="$work/bin:$PATH"
 passed=0
+# Stop the suite with the failing behavioral assertion.
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
+# Build an independent real Git candidate and reset the stateful forge for one scenario.
 setup() {
   repo=$(mktemp -d "$work/repo.XXXXXX")
   candidate="$repo-candidate"
@@ -153,12 +155,15 @@ setup() {
   : > "$CALLS"
   unset FAULT
 }
+# Invoke the production entry point with the scenario's independently selected commits.
 run() { (cd "$repo" && bash "$tool" --repo example/catalogue --candidate "$candidate" --source "$source" --release "$release" "$@"); }
+# Require successful execution and retain its output for scenario-specific assertions.
 accept() {
   label=$1; shift
   run "$@" > "$work/result" 2> "$work/error" || { cat "$work/error"; fail "$label rejected"; }
   passed=$((passed+1))
 }
+# Require failure without success output, destructive calls, or repeated remote writes.
 reject() {
   label=$1; shift
   if run "$@" > "$work/result" 2> "$work/error"; then fail "$label accepted"; fi

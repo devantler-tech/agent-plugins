@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.6.2 — 2026-09-30
+
+**Changed** — sync `agent-instructions` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.17.2`.
+
 ## 5.6.1 — 2026-09-29
 
 **Fixed** — `portfolio-surveyor` reports `subissues=<completed>/<total>` only on the Advance

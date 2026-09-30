@@ -27,6 +27,7 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 └── workflows/
     ├── ci.yaml                 # Runs scripts/validate-manifests.sh + lint-scripts (shellcheck + self-test) + agentskills.io spec per skill
     ├── prepare-marketplace-release.yaml # Manual, read-only release-candidate artifact
+    ├── publish-marketplace-release.yaml # Exact-main CI assessment; separate opt-in publication job
     └── update-agent-skills.yaml  # Daily gh skill update --all; one PR per drifted skill
 plugins/
 └── <plugin>/
@@ -61,6 +62,8 @@ scripts/
 ├── prepare-marketplace-release.test.sh # Real-history release and refusal cases
 ├── check-marketplace-version.sh # PR gate: reproduce and verify any marketplace version proposal
 ├── check-marketplace-version.test.sh # Real branch histories, stale proposals and malformed input
+├── prepare-merged-marketplace-release.sh # Reconstruct a merged proposal with exact successful main CI
+├── prepare-merged-marketplace-release.test.sh # Real proposals and offline CI/ref movement cases
 ├── refresh-desired-state-digests.sh      # Writer: recompute every digest a *.desired-state.json pins (the fix "digest must match" points at)
 ├── refresh-desired-state-digests.test.sh # Self-test for the generator, incl. its coupling to the validator
 └── sha256.lib.sh               # The two hashing rules, sourced by BOTH the validator and the generator so they cannot drift
@@ -281,6 +284,7 @@ bash scripts/prepare-marketplace-release.test.sh
 bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exact release-tree binding
 bash scripts/check-marketplace-release-remote.test.sh # remote state, pagination and movement; offline forge
 bash scripts/publish-marketplace-release.test.sh # opt-in publication, competing writers and readback; offline forge
+bash scripts/prepare-merged-marketplace-release.test.sh # exact main CI and fresh proposal reconstruction
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
@@ -343,6 +347,12 @@ decision affecting every repository, not this one's to make; the workflow above 
 repository-scoped equivalent.
 
 ## Maintenance (autonomous AI engineer)
+
+**Feature flags:** release preparation is explicit and read-only. Publication uses the existing
+`--publish` CLI option or the Actions `publish` boolean input, both default-off. Automatic Actions
+publication requires `MARKETPLACE_AUTOPUBLISH` to be exactly `true`; missing, false or any other
+value disables it. Assessment retains read-only permissions. Track eventual rollout-flag removal
+in [#277](https://github.com/devantler-tech/agent-plugins/issues/277).
 
 These conventions guide the autonomous **Agentic Engineer** — and any agentic tool — doing
 repository maintenance. The **shared** cross-repo conventions are defined centrally in the

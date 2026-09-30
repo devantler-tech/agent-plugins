@@ -102,6 +102,20 @@ jobs:
       - name: 🧪 Self-test marketplace workflow authorization branches
         run: bash scripts/marketplace-publication-workflow.test.sh
 
+      - name: 🧪 Self-test create-only marketplace proposals
+        run: bash scripts/propose-marketplace-release.test.sh
+
+      - name: 🧪 Self-test marketplace proposal workflow boundaries
+        run: bash scripts/marketplace-proposal-workflow.test.sh
+
+      - name: Verify the native Actions proposal identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api graphql --hostname github.com -f query='query { viewer { login } }' > "$RUNNER_TEMP/native-proposal-identity.json"
+          jq '{login: .data.viewer.login}' "$RUNNER_TEMP/native-proposal-identity.json"
+          jq -e '.data.viewer.login == "github-actions[bot]"' "$RUNNER_TEMP/native-proposal-identity.json"
+
       - name: 🧪 Self-test the open-PR recheck
         # Proves recheck-open-prs.sh re-triggers each open PR in the one order that is safe
         # (close BEFORE reopen), never leaves a PR closed when a step fails mid-sequence,

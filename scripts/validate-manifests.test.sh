@@ -210,6 +210,58 @@ d=$(fresh)
 jq '.plugins[0].version = "9.9.9"' "$d/.claude-plugin/marketplace.json" > "$d/tmp" && mv "$d/tmp" "$d/.claude-plugin/marketplace.json"
 check_fail "out-of-sync manifests fail" "Marketplace manifests are out of sync" "$d"
 
+# A failed producer in process substitution must never become a successful diff
+# of two empty (or partial, matching) outputs. Exercise both manifest pairs using
+# the real guard; leave jq's other validation operations unchanged.
+REAL_JQ=$(command -v jq)
+mkdir -p "$WORK/normalization-bin"
+cat > "$WORK/normalization-bin/jq" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = -S ] && [ "${2:-}" = . ]; then
+  case "${3:-}" in
+    $JQ_FAILURE_PATTERN)
+      if [ "$JQ_FAILURE_OUTPUT" = partial ]; then "$REAL_JQ" "$@" || exit 8; fi
+      printf 'injected JSON normalization failure\n' >&2
+      exit 7
+      ;;
+  esac
+fi
+exec "$REAL_JQ" "$@"
+EOF
+chmod +x "$WORK/normalization-bin/jq"
+for scope in marketplace plugin; do
+  if [ "$scope" = marketplace ]; then
+    left=.github/plugin/marketplace.json
+    right=.claude-plugin/marketplace.json
+    both='*/marketplace.json'
+  else
+    left=plugins/alpha/plugin.json
+    right=plugins/alpha/.claude-plugin/plugin.json
+    both='plugins/alpha/*plugin.json'
+  fi
+  for side in left right both; do
+    case "$side" in
+      left) pattern=$left; expected=$left ;;
+      right) pattern=$right; expected=$right ;;
+      both) pattern=$both; expected=$left ;;
+    esac
+    for output in empty partial; do
+      d=$(fresh)
+      PATH="$WORK/normalization-bin:$PATH" REAL_JQ="$REAL_JQ" \
+        JQ_FAILURE_PATTERN="$pattern" JQ_FAILURE_OUTPUT="$output" \
+        check_fail "$scope $side normalization failure with $output output fails" \
+          "Could not normalize $expected" "$d"
+    done
+  done
+done
+
+d=$(fresh)
+jq 'to_entries | reverse | from_entries' "$d/.claude-plugin/marketplace.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/.claude-plugin/marketplace.json"
+jq 'to_entries | reverse | from_entries' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
+check_pass "key order may differ in marketplace and plugin manifests" "$d"
+
 # --- check 3: append-only plugin rename history ---
 # Once a marketplace has renamed or retired a plugin, Claude Code needs the top-level
 # renames map forever so persisted enabledPlugins keys can migrate instead of becoming

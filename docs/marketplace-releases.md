@@ -1,4 +1,4 @@
-# Prepare a marketplace release
+# Prepare and publish a marketplace release
 
 A marketplace version describes the entire catalogue at a source revision. Each plugin retains its
 own version and runtime cache identity. Release preparation produces a review artifact containing
@@ -153,16 +153,66 @@ When tags disagree, refresh them in an isolated complete clone and regenerate th
 Do not overwrite a conflicting tag or reuse a stale assessment. When the default branch has moved,
 prepare and review a new candidate from its current source. This check records two agreeing
 observations, not an atomic reservation: state can change between reads or immediately afterward.
-It cannot prove review readiness, release permissions, or consumer discovery. The eventual publisher
-must reserve the tag with a create-only operation and verify the published result independently.
+It cannot prove review readiness, release permissions, or consumer discovery. The publisher below
+reserves the tag with a create-only operation and verifies the published result independently.
 
 [ADR 0009](adr/0009-marketplace-remote-assessment.md) records this observation boundary.
 
-Actual publication is tracked in [#101](https://github.com/devantler-tech/agent-plugins/issues/101).
-Before publication, remote tags and the source must be rebound, the proposed manifest update must
-be reviewed and validated at its final commit, and tag reservation and GitHub release creation must
-be verified. A source change invalidates this candidate. Do not upload it as a released plugin bundle
-or claim that consumers have received it. Discarding an unused candidate requires no repository
-rollback because preparation made no repository change.
+## Publish the reviewed commit
+
+First establish genuine readiness at the final merged commit: successful repository validation and
+required CI, completed current-head review with no unresolved findings, and the deployment's authority
+to release it. Neither a candidate nor a successful assessment establishes those independent gates.
+Use reviewed tooling from a complete clone and independently select the repository and full commits.
+
+Run the publisher without its write option for another read-only assessment:
+
+```sh
+bash scripts/publish-marketplace-release.sh \
+  --repo devantler-tech/agent-plugins \
+  --candidate /tmp/marketplace-next \
+  --source <full-reviewed-source-commit> \
+  --release <full-merged-release-commit>
+```
+
+To deliberately publish, add **`--publish`** to that same command. It regenerates a private candidate
+from the verified Git objects, assesses fresh remote state, reserves the tag at the selected commit,
+and creates a public, non-draft release. Publication notes render the verified plan's escaped commit
+subjects and plugin inventory with source/release identities; the proposal-only warning is not used
+as a published release description. GitHub's version-based latest-release selection is used.
+
+Both remote writes are create-only, attempted once. Existing tags or releases are never updated,
+deleted or reused, even if they appear to match. A fresh read between writes checks the default branch,
+reserved tag and absent release. A final independent read verifies the published release ID, notes,
+tag commit and URL. Only exit zero with `status: PUBLISHED` and `scope: remote-publication-readback`
+reports successful publication. The default mode retains `publication: NOT_AUTHORIZED` and makes no
+remote writes. No scheduled publishing workflow is enabled.
+
+After success, verify an actual consumer against the release tag and resolve its installed provenance
+back to the reported release commit. Native plugin discovery and updates depend on the chosen runtime;
+publication does not modify installed caches. For a skills-only smoke test in a disposable directory:
+
+```sh
+gh skill install devantler-tech/agent-plugins \
+  plugins/agentic-engineering/skills/agent-instructions \
+  --pin v1.0.0 --dir /tmp/marketplace-release-smoke
+```
+
+Replace the example tag with the verified published tag. Check the installed file and provenance;
+the install command exiting successfully alone is not sufficient.
+
+### Recover a partial attempt
+
+A failed write response may still mean the write succeeded. On any failure after a write was attempted,
+the command prints the repository, tag and exact commit to investigate. It emits no success result and
+never retries or rolls back automatically. Inspect that tag and both draft/published release state with
+write-capable visibility before deciding what to do. Preserve a conflicting writer's objects. An
+existing reservation requires an operator decision; rerunning the command does not resume it.
+
+Remote reads and the two writes are not atomic. A competing writer or default-branch movement can
+make a later check fail after the tag or release exists. A nonzero exit is not proof of absence. Record
+the observed state, restore correctness through the normal reviewed procedure, and independently
+verify any manual recovery. Discarding an unused local candidate needs no repository rollback.
 
 [ADR 0008](adr/0008-marketplace-release-preparation.md) defines this boundary.
+[ADR 0010](adr/0010-create-only-marketplace-publication.md) records the publication and recovery rules.

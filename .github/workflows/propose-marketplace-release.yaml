@@ -28,6 +28,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true'))
     runs-on: ubuntu-latest
+    # Read source, exact CI and open proposal occupancy without creation authority.
     permissions:
       contents: read
       actions: read
@@ -72,6 +73,7 @@ jobs:
       ((github.event_name == 'workflow_dispatch' && inputs.propose == true) ||
       (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true'))
     runs-on: ubuntu-latest
+    # The explicitly armed native writer creates only its verified branch, commit and draft.
     permissions:
       contents: write
       pull-requests: write
@@ -107,6 +109,7 @@ jobs:
       ((github.event_name == 'workflow_dispatch' && inputs.propose == true) ||
       (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true'))
     runs-on: ubuntu-latest
+    # Dispatch the existing rechecker; this job cannot read or change repository contents or PRs.
     permissions:
       actions: write
     steps:

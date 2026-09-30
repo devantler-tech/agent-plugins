@@ -3,6 +3,7 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Refuse incomplete or unsafe input without reporting a delivered proposal.
 fail() { printf 'marketplace proposal: %s\n' "$*" >&2; exit 1; }
 repo='' source='' ci='' output='' armed=false
 while [ "$#" -gt 0 ]; do
@@ -70,7 +71,7 @@ ci_snapshot() {
   gh api --hostname github.com "repos/$repo/actions/runs/$ci" > "$temp/ci"
   jq -es --arg repo "$repo" --arg source "$source" --argjson ci "$ci" 'length==1 and (.[0]|.id==$ci and .path==".github/workflows/ci.yaml" and .event=="push" and .status=="completed" and .conclusion=="success" and .head_branch=="main" and .head_sha==$source and .repository.full_name==$repo and .head_repository.full_name==$repo)' "$temp/ci" >/dev/null || fail 'exact successful main CI is required'
 }
-# Observe complete remote state and immutable native identity before each create-only write.
+# Refuse any local tag-object change since candidate preparation.
 local_tags_unchanged() {
   git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/tags/ > "$temp/current-refs"
   jq -Rn '[inputs|split(" ")|{name:.[0],oid:.[1]}]|sort_by(.name)' < "$temp/current-refs" > "$temp/current-tags"

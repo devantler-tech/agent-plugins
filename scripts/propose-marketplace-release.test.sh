@@ -162,7 +162,9 @@ STUB
 chmod +x "$work/bin/gh" "$work/bin/git"
 export PATH="$work/bin:$PATH"
 passed=0
+# Report a failed proposal invariant without continuing to later fixture cases.
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
+# Run the production CLI against a fresh real-Git and offline-forge fixture.
 run_case() {
   local name=$1 fault=$2 armed=$3 expected=$4 output code=0
   if [ -n "${CASE_ONLY:-}" ] && [ "$fault" != "$CASE_ONLY" ]; then return; fi

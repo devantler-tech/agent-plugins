@@ -37,7 +37,7 @@ Drafts still require current-head CI, substantive review, zero unresolved findin
 mechanics. No proposal operation promotes, merges, creates a release tag or publishes a release.
 Marketplace and individual plugin versions remain independent.
 
-Remote operations are not a transaction. Main can advance after observation. A write response can
+Remote operations are not a transaction. The `main` branch can advance after observation. A write response can
 fail after creating its object; failure emits no delivered result and never retries or rolls back.
 Inspect the named branch and any draft using the retained source and candidate before choosing an
 operator recovery. A later invocation refuses occupied state, including a partially created branch.

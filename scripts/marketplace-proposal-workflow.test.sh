@@ -4,18 +4,22 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 workflow=${1:-"$root/.github/workflows/propose-marketplace-release.yaml"}
 passed=0
+# Report the violated workflow boundary and stop the suite.
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
 [ -f "$workflow" ] || fail 'proposal workflow is not implemented'
+# Read a job's actual folded conditional from the workflow under test.
 guard() {
   awk -v wanted="$1" '/^  [a-z]+:/ {job=$1;sub(/:$/,"",job)} job==wanted && /^    if: >-$/ {reading=1;next} reading && /^      / {sub(/^      /,"");printf "%s ",$0;next} reading {exit}' "$workflow"
 }
 assess=$(guard assess) propose=$(guard propose) recheck=$(guard recheck)
 if [ -z "$assess" ] || [ -z "$propose" ] || [ -z "$recheck" ]; then fail 'missing explicit job guards'; fi
+# Evaluate the workflow's boolean guard against one synthetic event context.
 evaluate() {
   local expression
   expression=$(printf '%s' "$1" | sed -E "s/'/\"/g;s/&&/and/g;s/\|\|/or/g;s/(github|inputs|vars|needs)\./\$context.\1./g")
   jq -nr --argjson context "$2" "$expression"
 }
+# Assert the three job admission results for one event, flag and status combination.
 check() {
   local event=$1 ref=$2 armed=$3 flag=$4 assessment=$5 creation=$6 expected=$7 context actual
   context=$(jq -nc --arg event "$event" --arg ref "$ref" --argjson armed "$armed" --arg flag "$flag" --arg assessment "$assessment" --arg creation "$creation" '{github:{event_name:$event,ref:$ref},inputs:{propose:$armed},vars:{MARKETPLACE_AUTOPROPOSE:$flag},needs:{assess:{outputs:{status:$assessment}},propose:{outputs:{status:$creation}}}}')

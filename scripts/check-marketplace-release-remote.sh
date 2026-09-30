@@ -9,7 +9,7 @@ repo='' candidate='' source='' release=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo|--candidate|--source|--release)
-      [ "$#" -ge 2 ] && [ -n "$2" ] || fail 'each option requires a value'
+      if [ "$#" -lt 2 ] || [ -z "$2" ]; then fail 'each option requires a value'; fi
       case "$1" in
         --repo) [ -z "$repo" ] || fail 'duplicate repo'; repo=$2 ;;
         --candidate) [ -z "$candidate" ] || fail 'duplicate candidate'; candidate=$2 ;;

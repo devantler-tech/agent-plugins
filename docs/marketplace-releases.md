@@ -76,7 +76,47 @@ Run **Prepare marketplace release** manually, select the source branch/ref, and 
 tag or `initial`. The workflow checks out the selected revision with full history, validates the
 repository manifests, runs the same command, and uploads `marketplace-release-<commit>-<attempt>` for 14 days.
 The archive includes the two hidden manifest directories. The job has read-only repository access;
-there is no publishing job or automatic release trigger.
+this preparation workflow has no publishing job.
+
+## Publish the merged proposal in Actions
+
+**Publish marketplace release** supports manual main dispatch and an opt-in hourly check at minute
+25 UTC. It uses
+current-main tooling and regenerates the candidate from the version proposal's sole parent. Both
+remote main and the named CI run are checked before and after verification. A stale, foreign,
+failed, PR or unrelated workflow run is refused. An ordinary commit reports `NO_VERSION_CHANGE`
+and cannot publish. No downloaded artifact supplies publication authority.
+
+For manual assessment, select main and pass the successful main CI run ID:
+
+```sh
+gh workflow run publish-marketplace-release.yaml --repo devantler-tech/agent-plugins \
+  --ref main -f ci-run=<successful-main-CI-run-id> -F publish=false
+```
+
+The assessment job has contents and Actions read access and uploads its regenerated candidate for
+inspection. Publication is a separate job, disabled by default, with contents write and Actions
+read access. To publish that exact current-main proposal, dispatch again with `-F publish=true`.
+It reconstructs the candidate again, verifies the same CI run and current main, and invokes the
+create-only publisher. Main movement refuses the operation rather than using stale evidence.
+
+Automatic publication after successful main CI is enabled only when the repository variable
+`MARKETPLACE_AUTOPUBLISH` is exactly `true`. Missing, false or any other value leaves publication
+disabled. Enable it only as a separate validated rollout step; remove or change it to disable the
+automatic path. The rollout decision and eventual removal are tracked in
+[#277](https://github.com/devantler-tech/agent-plugins/issues/277).
+
+The workflow does not create, approve or merge version proposals. Their review and CI gates remain
+required. It accepts only a version-only proposal at current main, refuses occupied tags/releases,
+and never overwrites or retries a write. Inspect remote objects after any failed publication;
+a failure is not proof that no write happened. `GITHUB_TOKEN` publication is not a promise that
+other release-triggered workflows ran. Independently verify the published tag, release, notes and
+a real pinned consumer installation. The scheduled job runs only while the rollout variable is
+enabled; GitHub can delay scheduled runs. The `ci-run` input defaults to `latest`, which selects the
+newest exact-main push CI run and refuses it if pending or failed, rather than finding an older
+green. A changed latest run identity also refuses verification.
+[ADR 0012](adr/0012-guarded-marketplace-publication-workflow.md)
+records the workflow's trust and permission boundaries.
 
 ## Publication and recovery
 

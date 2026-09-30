@@ -1,0 +1,120 @@
+name: 📦 Publish marketplace release
+
+on:
+  schedule:
+    - cron: "25 * * * *"
+  workflow_dispatch:
+    inputs:
+      ci-run:
+        description: Successful main push CI run ID, or latest to resolve the newest run
+        default: latest
+        type: string
+      publish:
+        description: Create the verified absent tag and release (assessment otherwise)
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  # Assessments cannot displace an armed publication; never cancel a writer mid-operation.
+  group: marketplace-publication-${{ ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPUBLISH == 'true')) && 'write' || 'assessment' }}
+  cancel-in-progress: false
+
+jobs:
+  assess:
+    name: Reconstruct the merged proposal
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPUBLISH == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Assessment reads the committed proposal and the exact CI run; it cannot publish.
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      status: ${{ steps.prepare.outputs.status }}
+      release: ${{ steps.prepare.outputs.release }}
+      ci-run: ${{ steps.prepare.outputs.ci-run }}
+    steps:
+      - name: Checkout current main and complete tag history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate repository manifests
+        run: bash scripts/validate-manifests.sh
+
+      - name: Verify exact main CI and reconstruct the candidate
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          CI_RUN: ${{ inputs.ci-run || 'latest' }}
+        run: |
+          bash scripts/prepare-merged-marketplace-release.sh \
+            --repo "$REPOSITORY" --release "$RELEASE_COMMIT" --ci-run "$CI_RUN" \
+            --output "$RUNNER_TEMP/marketplace-candidate" > "$RUNNER_TEMP/assessment.json"
+          jq . "$RUNNER_TEMP/assessment.json"
+          {
+            printf 'status=%s\n' "$(jq -er '.status' "$RUNNER_TEMP/assessment.json")"
+            printf 'release=%s\n' "$RELEASE_COMMIT"
+            printf 'ci-run=%s\n' "$(jq -er '.ciRunId' "$RUNNER_TEMP/assessment.json")"
+          } >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/assessment.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the assessment and candidate
+        if: steps.prepare.outputs.status == 'VERIFIED'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: marketplace-publication-assessment-${{ steps.prepare.outputs.release }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/marketplace-candidate
+            ${{ runner.temp }}/assessment.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish the verified marketplace
+    needs: assess
+    if: >-
+      needs.assess.outputs.status == 'VERIFIED' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.publish) ||
+       (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPUBLISH == 'true'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only this explicitly armed job can create the absent release and tag.
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout current main and complete tag history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      # No downloaded artifact is authority: reconstruct again from this fresh main checkout.
+      - name: Recheck CI and publish with independent remote readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ needs.assess.outputs.release }}
+          CI_RUN: ${{ needs.assess.outputs.ci-run }}
+        run: |
+          bash scripts/prepare-merged-marketplace-release.sh \
+            --repo "$REPOSITORY" --release "$RELEASE_COMMIT" --ci-run "$CI_RUN" \
+            --output "$RUNNER_TEMP/marketplace-candidate" > "$RUNNER_TEMP/assessment.json"
+          jq -e '.status == "VERIFIED"' "$RUNNER_TEMP/assessment.json" > /dev/null
+          SOURCE_COMMIT=$(jq -er '.sourceCommit' "$RUNNER_TEMP/assessment.json")
+          bash scripts/publish-marketplace-release.sh --repo "$REPOSITORY" \
+            --candidate "$RUNNER_TEMP/marketplace-candidate" --source "$SOURCE_COMMIT" \
+            --release "$RELEASE_COMMIT" --publish > "$RUNNER_TEMP/publication.json"
+          jq . "$RUNNER_TEMP/publication.json"
+          cat "$RUNNER_TEMP/publication.json" >> "$GITHUB_STEP_SUMMARY"

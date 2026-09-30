@@ -96,6 +96,12 @@ jobs:
       - name: 🧪 Self-test marketplace publication
         run: bash scripts/publish-marketplace-release.test.sh
 
+      - name: 🧪 Self-test merged marketplace preparation and exact main CI
+        run: bash scripts/prepare-merged-marketplace-release.test.sh
+
+      - name: 🧪 Self-test marketplace workflow authorization branches
+        run: bash scripts/marketplace-publication-workflow.test.sh
+
       - name: 🧪 Self-test the open-PR recheck
         # Proves recheck-open-prs.sh re-triggers each open PR in the one order that is safe
         # (close BEFORE reopen), never leaves a PR closed when a step fails mid-sequence,

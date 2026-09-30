@@ -23,6 +23,6 @@ The [autonomous engineering setup](plugins/agentic-engineering/README.md) explai
 
 Skills come from their original authors, including [Agent Skills](https://github.com/devantler-tech/agent-skills). To suggest a bundle or report a problem, [open an issue](https://github.com/devantler-tech/agent-plugins/issues). For repository changes, read the [contributor instructions](AGENTS.md).
 
-Maintainers can [prepare and publish a marketplace release](docs/marketplace-releases.md) with a reviewed version proposal, matching manifests, and verified release notes. Pull-request CI checks that a marketplace version update exactly matches its generated proposal. Publication is an explicit manual operation.
+Maintainers can [prepare and publish a marketplace release](docs/marketplace-releases.md) with a reviewed version proposal, matching manifests, and verified release notes. Pull-request CI checks that a marketplace version update exactly matches its generated proposal. Actions can assess the merged proposal and explicitly publish it after its exact main CI passes; automatic publication is opt-in.
 
 [Apache 2.0 license](LICENSE)

@@ -1,0 +1,121 @@
+name: 📝 Propose marketplace release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci-run:
+        description: Exact successful main CI run, or latest
+        type: string
+        default: latest
+      propose:
+        description: Create a verified draft version proposal
+        type: boolean
+        default: false
+  schedule:
+    - cron: "35 * * * *"
+
+permissions: {}
+
+concurrency:
+  # Serialize every armed path together; read-only assessments cannot displace a writer.
+  group: marketplace-proposal-${{ ((github.event_name == 'workflow_dispatch' && inputs.propose) || (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true')) && 'write' || 'assessment' }}
+  cancel-in-progress: false
+
+jobs:
+  assess:
+    name: Prepare a current-main proposal
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true'))
+    runs-on: ubuntu-latest
+    # Read source, exact CI and open proposal occupancy without creation authority.
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      status: ${{ steps.assessment.outputs.status }}
+    steps:
+      - name: Checkout current main tooling and complete history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reconstruct and assess the proposal
+        id: assessment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CI_RUN: ${{ inputs.ci-run || 'latest' }}
+        run: |
+          bash scripts/propose-marketplace-release.sh \
+            --repo "$GH_REPO" --source "$(git rev-parse HEAD)" --ci-run "$CI_RUN" \
+            --output "$RUNNER_TEMP/proposal-candidate" > "$RUNNER_TEMP/proposal-assessment.json"
+          jq . "$RUNNER_TEMP/proposal-assessment.json"
+          printf 'status=%s\n' "$(jq -er .status "$RUNNER_TEMP/proposal-assessment.json")" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/proposal-assessment.json" >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain read-only proposal evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: marketplace-proposal-assessment-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/proposal-assessment.json
+            ${{ runner.temp }}/proposal-candidate
+          include-hidden-files: true
+          if-no-files-found: error
+
+  propose:
+    name: Create a signed version draft
+    needs: assess
+    if: >-
+      github.ref == 'refs/heads/main' && needs.assess.outputs.status == 'PREPARED' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.propose == true) ||
+      (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true'))
+    runs-on: ubuntu-latest
+    # The explicitly armed native writer creates only its verified branch, commit and draft.
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    outputs:
+      status: ${{ steps.creation.outputs.status }}
+    steps:
+      - name: Checkout current main for independent reconstruction
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Create and independently read back the draft
+        id: creation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CI_RUN: ${{ inputs.ci-run || 'latest' }}
+        run: |
+          bash scripts/propose-marketplace-release.sh \
+            --repo "$GH_REPO" --source "$(git rev-parse HEAD)" --ci-run "$CI_RUN" \
+            --output "$RUNNER_TEMP/proposal-created-candidate" --propose > "$RUNNER_TEMP/proposal-created.json"
+          jq . "$RUNNER_TEMP/proposal-created.json"
+          printf 'status=%s\n' "$(jq -er .status "$RUNNER_TEMP/proposal-created.json")" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/proposal-created.json" >> "$GITHUB_STEP_SUMMARY"
+
+  recheck:
+    name: Start normal required PR checks
+    needs: propose
+    if: >-
+      github.ref == 'refs/heads/main' && needs.propose.outputs.status == 'CREATED' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.propose == true) ||
+      (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true'))
+    runs-on: ubuntu-latest
+    # Dispatch the existing rechecker; this job cannot read or change repository contents or PRs.
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch the existing current-main CI recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run recheck-open-prs.yaml --repo "$GH_REPO" --ref main -F dry-run=false

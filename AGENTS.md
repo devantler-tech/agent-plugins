@@ -27,6 +27,7 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 └── workflows/
     ├── ci.yaml                 # Runs scripts/validate-manifests.sh + lint-scripts (shellcheck + self-test) + agentskills.io spec per skill
     ├── prepare-marketplace-release.yaml # Manual, read-only release-candidate artifact
+    ├── propose-marketplace-release.yaml # Current-main assessment; separate opt-in signed draft creation
     ├── publish-marketplace-release.yaml # Exact-main CI assessment; separate opt-in publication job
     └── update-agent-skills.yaml  # Daily gh skill update --all; one PR per drifted skill
 plugins/
@@ -65,6 +66,10 @@ scripts/
 ├── prepare-merged-marketplace-release.sh # Reconstruct a merged proposal with exact successful main CI
 ├── prepare-merged-marketplace-release.test.sh # Real proposals and offline CI/ref movement cases
 ├── marketplace-publication-workflow.test.sh # Actual workflow guards, default-off and opt-in event matrix
+├── propose-marketplace-release.sh # Current-main reconstruction and create-only signed draft proposals
+├── propose-marketplace-release.test.sh # Real histories and offline proposal/ref/readback refusals
+├── marketplace-proposal.jq # Complete repository-bound proposal observations and draft readback
+├── marketplace-proposal-workflow.test.sh # Proposal event, permission and normal-CI dispatch guards
 ├── marketplace-permissions.jq # Native writer capability and immutable repository identity checks
 ├── refresh-desired-state-digests.sh      # Writer: recompute every digest a *.desired-state.json pins (the fix "digest must match" points at)
 ├── refresh-desired-state-digests.test.sh # Self-test for the generator, incl. its coupling to the validator
@@ -288,6 +293,8 @@ bash scripts/check-marketplace-release-remote.test.sh # remote state, pagination
 bash scripts/publish-marketplace-release.test.sh # opt-in publication, competing writers and readback; offline forge
 bash scripts/prepare-merged-marketplace-release.test.sh # exact main CI and fresh proposal reconstruction
 bash scripts/marketplace-publication-workflow.test.sh # actual workflow authorization and permission branches
+bash scripts/propose-marketplace-release.test.sh # signed draft creation and complete readback; offline forge
+bash scripts/marketplace-proposal-workflow.test.sh # default-off proposal and CI dispatch boundaries
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
@@ -354,7 +361,9 @@ repository-scoped equivalent.
 **Feature flags:** release preparation is explicit and read-only. Publication uses the existing
 `--publish` CLI option or the Actions `publish` boolean input, both default-off. Automatic Actions
 publication requires `MARKETPLACE_AUTOPUBLISH` to be exactly `true`; missing, false or any other
-value disables it. Assessment retains read-only permissions. Track eventual rollout-flag removal
+value disables it. Proposal creation uses `--propose` or the Actions `propose` boolean, both default-off;
+scheduled creation separately requires `MARKETPLACE_AUTOPROPOSE` to be exactly `true`. Assessment
+retains read-only permissions. Track rollout and eventual flag removal
 in [#277](https://github.com/devantler-tech/agent-plugins/issues/277).
 
 These conventions guide the autonomous **Agentic Engineer** — and any agentic tool — doing

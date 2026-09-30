@@ -225,6 +225,73 @@ reserves the tag with a create-only operation and verifies the published result 
 
 [ADR 0009](adr/0009-marketplace-remote-assessment.md) records this observation boundary.
 
+## Create a version proposal through Actions
+
+The proposal workflow prepares the next marketplace version from current main and the latest stable
+published baseline. Manual dispatch defaults to read-only assessment:
+
+```sh
+gh workflow run propose-marketplace-release.yaml --repo devantler-tech/agent-plugins \
+  --ref main -f ci-run=latest -F propose=false
+```
+
+It matches complete local and remote tag objects, the published baseline commit, immutable repository
+identity and exact successful main push CI. It refuses an occupied proposal branch, candidate release
+or an open PR touching either marketplace manifest. A complete unrelated PR is not a blocker. The
+latest selector refuses a pending or failed latest CI run rather than finding an older green one.
+For renamed PR files, complete REST filename/status records must match GraphQL before the original
+paths are considered. Moving a manifest away is a conflict; complete unrelated renames are allowed.
+Two agreeing observations and byte-exact private reconstruction are required. `NO_CHANGE` performs
+no writes, including when proposal creation was requested. Evidence artifacts supply no write authority.
+Read-only candidate-release visibility is the reader's projection; it does not establish visibility of
+every draft release. The writer repeats occupancy checks with positively proven native write capability
+before creating objects. `PREPARED` is an assessment, not a reservation or mutation clearance.
+
+To deliberately create the reviewed-tooling proposal, use the same dispatch with **`-F propose=true`**.
+The native Actions bot reconstructs its own candidate. It creates a new deterministic branch and a
+GitHub-signed commit containing only the generated marketplace manifests, preserving individual
+plugin versions. The expected parent prevents appending to another writer's branch. Independent
+signature readback, a fresh fetch and exact release-tree verification precede draft creation.
+Final readback binds the bot author, branch, source, commit, draft, title and plain-language body.
+Only `CREATED` with `proposal: DRAFT_READBACK_VERIFIED` reports success.
+
+The final job dispatches the existing `recheck-open-prs.yaml` on main so the normal App-backed reopen
+starts fresh required PR checks. That dispatch reports a request, not successful CI. The draft still
+requires current-head checks, substantive review, zero unresolved findings and normal promotion and
+merge. It is never automatically promoted or merged, and proposal creation never reserves a release
+tag or publishes a release.
+
+Read-only local assessment uses the same command without write opt-in:
+
+```sh
+bash scripts/propose-marketplace-release.sh --repo devantler-tech/agent-plugins \
+  --source <full-current-main-commit> --ci-run latest --output /tmp/marketplace-proposal
+```
+
+The CLI's `--propose` writer requires native Actions authentication. It refuses another actor before
+creating a branch. Contents-write capability is positively checked without saving provider-generated
+notes at each write phase. Preparation needs contents, actions and pull-request read permissions;
+creation adds contents and pull-request write, while the separate CI dispatcher has only actions write.
+Checkouts retain no credentials and read-only artifacts are never downloaded into the writer.
+
+Scheduled proposal creation runs hourly at minute 35 UTC only when `MARKETPLACE_AUTOPROPOSE` is
+exactly `true`. Missing, false or any other value disables scheduled work. This variable is independent
+of publication's flag. Both remain default-off; rollout and eventual removal are tracked in #277.
+All armed manual and scheduled runs share one writer queue. Read-only assessments use a separate
+queue and cannot displace a queued writer; an active writer is never cancelled by a newer dispatch.
+
+### Recover a partial proposal
+
+Branch creation, signed commit creation and draft creation are separate create-only operations. A
+failed response can follow a successful write. The tool never retries, updates, deletes or adopts
+existing remote objects. On failure it names the repository, branch and source to inspect; it emits
+no delivered result. Retain the candidate, inspect the actual branch and any draft, and independently
+verify their parent, two-manifest tree and author before choosing an operator recovery. Preserve a
+competing writer's objects. A later invocation refuses an occupied or partially created branch;
+rerunning it is not a resume operation. Main advancement requires a fresh candidate and readiness.
+
+[ADR 0014](adr/0014-create-only-marketplace-proposals.md) records this boundary.
+
 ## Publish the reviewed commit
 
 First establish genuine readiness at the final merged commit: successful repository validation and

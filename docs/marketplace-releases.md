@@ -108,6 +108,25 @@ without reformatting them. A `NO_RELEASE` plan is not a candidate
 for verification. The intended tag must still be absent locally; this is not a post-publication
 verification command.
 
+Pull-request CI enforces this contract whenever a branch changes the marketplace version. To run
+that gate locally, supply the exact current base and proposed head:
+
+```sh
+bash scripts/check-marketplace-version.sh <full-current-base> <full-proposed-head>
+```
+
+The gate detects version changes against the branch's unique merge base, so ordinary branches are
+not blamed for releases that landed after they branched. A version proposal must be one commit on
+the current base containing only the generated manifests. If main advances, regenerate the proposal
+and repeat review and CI. The baseline is the stable tag matching the base manifests' version;
+missing history, malformed or ambiguous versions, and stale proposals fail closed. An unchanged
+marketplace version returns `NO_VERSION_CHANGE`; that result does not approve a release.
+
+The gate uses the pull request's actual head, not its synthetic merge commit. It is intentionally
+pre-merge: main CI reruns must continue to work after the release tag exists. After merging, still
+run the verifier and publisher against the actual merged commit as described below.
+[ADR 0011](adr/0011-marketplace-version-proposal-gate.md) records this boundary.
+
 Only exit zero with a single JSON result reporting `status: VERIFIED` is a successful local
 assessment. It includes both full commits and `authority: assessment-only`, with
 `publication: NOT_AUTHORIZED`. Invalid input or any mismatch exits nonzero without a success result.

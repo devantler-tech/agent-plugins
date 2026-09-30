@@ -87,6 +87,9 @@ jobs:
       - name: 🧪 Self-test marketplace release verification
         run: bash scripts/verify-marketplace-release.test.sh
 
+      - name: 🧪 Self-test marketplace version proposals
+        run: bash scripts/check-marketplace-version.test.sh
+
       - name: 🧪 Self-test remote marketplace release assessment
         run: bash scripts/check-marketplace-release-remote.test.sh
 
@@ -222,6 +225,15 @@ jobs:
           fi
           ./scripts/check-plugin-version-bump.sh "$BASE_SHA" HEAD
           bash scripts/plugin-changelog.sh check "$BASE_SHA" HEAD
+
+      - name: 🔢 Verify the marketplace version proposal
+        # A published tag occupies the version, so this prepublication gate belongs
+        # to PRs only. Use the actual head, never GitHub's synthetic merge commit.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/check-marketplace-version.sh "$BASE_SHA" "$HEAD_SHA"
 
   check-bundled-skill-edits:
     name: Check bundled skill edits

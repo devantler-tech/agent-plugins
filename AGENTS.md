@@ -59,6 +59,8 @@ scripts/
 ├── prepare-marketplace-release.sh # Offline version proposal, manifests and release notes from Git objects
 ├── marketplace-release.jq      # Candidate validation, version calculation and notes rendering
 ├── prepare-marketplace-release.test.sh # Real-history release and refusal cases
+├── check-marketplace-version.sh # PR gate: reproduce and verify any marketplace version proposal
+├── check-marketplace-version.test.sh # Real branch histories, stale proposals and malformed input
 ├── refresh-desired-state-digests.sh      # Writer: recompute every digest a *.desired-state.json pins (the fix "digest must match" points at)
 ├── refresh-desired-state-digests.test.sh # Self-test for the generator, incl. its coupling to the validator
 └── sha256.lib.sh               # The two hashing rules, sourced by BOTH the validator and the generator so they cannot drift

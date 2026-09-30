@@ -17,7 +17,8 @@ on:
 permissions: {}
 
 concurrency:
-  group: marketplace-proposal-${{ github.event_name }}-${{ inputs.propose && 'create' || 'assess' }}
+  # Serialize every armed path together; read-only assessments cannot displace a writer.
+  group: marketplace-proposal-${{ ((github.event_name == 'workflow_dispatch' && inputs.propose) || (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true')) && 'write' || 'assessment' }}
   cancel-in-progress: false
 
 jobs:

@@ -58,7 +58,7 @@ query='query($owner:String!,$name:String!,$baseline:String!,$tag:String!,$branch
   refs(refPrefix:"refs/tags/",first:100,after:$endCursor,orderBy:{field:ALPHABETICAL,direction:ASC}) {
    totalCount nodes { name target { __typename oid } } pageInfo {hasNextPage endCursor}
   }
-  pullRequests(states:OPEN,first:100) { totalCount nodes { number headRefName files(first:100) {totalCount nodes {path}} } }
+  pullRequests(states:OPEN,first:100) { totalCount nodes { number headRefName files(first:100) {totalCount nodes {path changeType}} } }
  }
 }'
 # Demand an exact successful main push run; the latest selector cannot search past a pending run.
@@ -84,6 +84,13 @@ snapshot() {
   gh api --hostname github.com "repos/$repo" > "$temp/repo"
   gh api graphql --hostname github.com --paginate --slurp -f query="$query" -f owner="${repo%%/*}" -f name="${repo#*/}" -f baseline="$base_tag" -f tag="$(if [ -n "$version" ]; then printf '%s' "$tag"; else printf '%s' '__no_candidate__'; fi)" -f branch="refs/heads/$branch" > "$temp/pages"
   jq -es 'length==1 and (.[0]|type=="array")' "$temp/pages" >/dev/null || fail 'incomplete page stream'
+  jq -e -L "$here" 'include "marketplace-proposal"; length>0 and all(.[]; .errors==null and (.data.repository.pullRequests|proposal_pr_inventory))' "$temp/pages" >/dev/null || fail 'complete PR file identities are required'
+  jq -r '[.[].data.repository.pullRequests.nodes[]|select(any(.files.nodes[];.changeType=="RENAMED"))|.number]|unique|.[]' "$temp/pages" > "$temp/rename-requests"
+  while IFS= read -r number; do
+    gh api --hostname github.com --paginate --slurp "repos/$repo/pulls/$number/files?per_page=100" > "$temp/rename-files"
+    jq -e -L "$here" --argjson number "$number" --slurpfile files "$temp/rename-files" 'include "marketplace-proposal"; proposal_rename_metadata($number;$files)' "$temp/pages" > "$temp/enriched-pages"
+    mv "$temp/enriched-pages" "$temp/pages"
+  done < "$temp/rename-requests"
   jq -e -L "$here" --arg repo "$repo" --arg source "$source" --argjson baseline "$baseline" --slurpfile tags "$temp/tags" --slurpfile permission "$temp/repo" --arg branch "$branch" --arg owned "$owned" 'include "marketplace-proposal"; proposal_snapshot($repo;$source;$baseline;$tags[0];$permission;$branch;$owned)' "$temp/pages"
   local_tags_unchanged
   ci_snapshot

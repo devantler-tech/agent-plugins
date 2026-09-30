@@ -239,6 +239,8 @@ It matches complete local and remote tag objects, the published baseline commit,
 identity and exact successful main push CI. It refuses an occupied proposal branch, candidate release
 or an open PR touching either marketplace manifest. A complete unrelated PR is not a blocker. The
 latest selector refuses a pending or failed latest CI run rather than finding an older green one.
+For renamed PR files, complete REST filename/status records must match GraphQL before the original
+paths are considered. Moving a manifest away is a conflict; complete unrelated renames are allowed.
 Two agreeing observations and byte-exact private reconstruction are required. `NO_CHANGE` performs
 no writes, including when proposal creation was requested. Evidence artifacts supply no write authority.
 Read-only candidate-release visibility is the reader's projection; it does not establish visibility of
@@ -275,6 +277,8 @@ Checkouts retain no credentials and read-only artifacts are never downloaded int
 Scheduled proposal creation runs hourly at minute 35 UTC only when `MARKETPLACE_AUTOPROPOSE` is
 exactly `true`. Missing, false or any other value disables scheduled work. This variable is independent
 of publication's flag. Both remain default-off; rollout and eventual removal are tracked in #277.
+All armed manual and scheduled runs share one writer queue. Read-only assessments use a separate
+queue and cannot displace a queued writer; an active writer is never cancelled by a newer dispatch.
 
 ### Recover a partial proposal
 

@@ -98,8 +98,11 @@ elif [ "$endpoint" = graphql ] && [ "$paginated" = true ]; then
     page-incomplete) change='.[0].data.repository.refs.pageInfo.hasNextPage=true';;
     pr-incomplete) change='.[0].data.repository.pullRequests.totalCount=101';;
     pr-files-incomplete) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:101,nodes:[]}}]}';;
-    pr-conflict) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:1,nodes:[{path:".github/plugin/marketplace.json"}]}}]}';;
-    unrelated-pr) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:1,nodes:[{path:"README.md"}]}}]}';;
+    pr-conflict) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:1,nodes:[{path:".github/plugin/marketplace.json",changeType:"MODIFIED"}]}}]}';;
+    unrelated-pr) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:1,nodes:[{path:"README.md",changeType:"MODIFIED"}]}}]}';;
+    pr-rename-*|unrelated-rename|rename-*) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:1,nodes:[{path:"docs/new.json",changeType:"RENAMED"}]}}]}';;
+    pr-change-type-missing) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:1,nodes:[{path:"README.md"}]}}]}';;
+    pr-change-type-malformed) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:1,nodes:[{path:"README.md",changeType:"UNKNOWN"}]}}]}';;
     branch-occupied) change='.[0].data.repository.proposal={name:"occupied"}';;
     writer-other-user) change='.[0].data.viewer.login="devantler"';;
     writer-role-missing) change='del(.[0].data.repository.viewerPermission)';;
@@ -108,6 +111,22 @@ elif [ "$endpoint" = graphql ] && [ "$paginated" = true ]; then
   esac
   jq "$change" "$FORGE_STATE/snapshot"
   [ "$mode" != trailing ] || printf '{}\n'
+elif [ "$endpoint" = 'repos/example/catalogue/pulls/9/files?per_page=100' ]; then
+  [ "$mode" != rename-api-denied ] || exit 111
+  previous=docs/old.json
+  case "$mode" in
+    pr-rename-github) previous=.github/plugin/marketplace.json;;
+    pr-rename-claude) previous=.claude-plugin/marketplace.json;;
+    rename-fresh-drift) if [ "$(cat "$FORGE_STATE/reads")" -gt 1 ]; then previous=.github/plugin/marketplace.json; fi;;
+  esac
+  jq -n --arg previous "$previous" '[[{filename:"docs/new.json",status:"renamed",previous_filename:$previous}]]' > "$FORGE_STATE/files"
+  case "$mode" in
+    rename-prev-missing) jq '.[0][0]|=del(.previous_filename)' "$FORGE_STATE/files";;
+    rename-rest-path) jq '.[0][0].filename="other.json"' "$FORGE_STATE/files";;
+    rename-rest-status) jq '.[0][0].status="modified"' "$FORGE_STATE/files";;
+    rename-rest-truncated) printf '[[]]\n';;
+    *) cat "$FORGE_STATE/files";;
+  esac
 elif [ "$endpoint" = repos/example/catalogue/releases/generate-notes ]; then
   [ "$mode" != writer-denied ] || exit 105
   if [ "$mode" = writer-after-ref ] && [ -f "$FORGE_STATE/branch" ]; then exit 105; fi
@@ -198,6 +217,13 @@ run_case() {
 run_case 'read-only preparation' none false PREPARED
 run_case 'explicit signed draft creation' none true CREATED
 run_case 'unrelated PR does not fence these manifests' unrelated-pr false PREPARED
+run_case 'GitHub manifest renamed away is a conflict' pr-rename-github false REFUSED
+run_case 'Claude manifest renamed away is a conflict' pr-rename-claude true REFUSED
+run_case 'unrelated rename remains actionable' unrelated-rename false PREPARED
+run_case 'unrelated rename permits an armed proposal' unrelated-rename true CREATED
+for fault in rename-prev-missing rename-rest-path rename-rest-status rename-rest-truncated rename-api-denied rename-fresh-drift pr-change-type-missing pr-change-type-malformed; do
+  run_case "$fault is refused" "$fault" true REFUSED
+done
 run_case 'local tags changing during assessment is refused' local-tags-changed false REFUSED
 for fault in repo-foreign repo-node repo-missing ci-pending ci-foreign ci-stale ci-event ci-workflow latest-ci-changed main-stale main-moved main-after-ref baseline-draft baseline-missing baseline-wrong baseline-changed candidate-occupied candidate-field-missing proposal-field-missing tag-missing tag-unknown page-incomplete pr-incomplete pr-files-incomplete pr-conflict branch-occupied malformed trailing writer-other-user writer-role-missing writer-read-role writer-denied writer-after-ref writer-after-commit ref-race commit-fails commit-extra commit-wrong-parent unsigned signature-readback pr-fails readback-fails readback-not-draft readback-wrong-head; do
   run_case "$fault is refused" "$fault" true REFUSED

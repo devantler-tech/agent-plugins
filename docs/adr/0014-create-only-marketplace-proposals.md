@@ -31,6 +31,11 @@ Manual dispatch defaults to assessment; scheduled creation requires `MARKETPLACE
 exactly `true`. The rollout variable remains absent until separately evaluated. Rollout and removal
 are tracked in issue #277.
 
+All armed manual and scheduled runs share one writer queue. Read-only assessments use a separate
+queue. Renamed PR files are matched to complete REST filename/status observations before their
+original paths are used, so moving either manifest away remains a conflict. Complete unrelated
+renames remain actionable; missing or inconsistent rename metadata is a refusal.
+
 ## Consequences
 
 Drafts still require current-head CI, substantive review, zero unresolved findings and normal merge

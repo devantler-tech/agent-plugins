@@ -69,6 +69,24 @@ awk '
  main==2 && history==2 && credentials==2 && off==1 && create_needs==1 && recheck_needs==1)}
 ' "$workflow" || fail 'permission, dependency, checkout or default-off boundary'
 passed=$((passed+1))
+concurrency=$(sed -n 's/^  group: marketplace-proposal-${{ \(.*\) }}$/\1/p' "$workflow")
+suffix=" && 'write' || 'assessment'"
+condition=${concurrency%"$suffix"}
+if [ -z "$condition" ] || [ "$condition" = "$concurrency" ]; then fail 'missing shared writer concurrency group'; fi
+# Evaluate the actual concurrency condition so every armed event shares the write queue.
+check_concurrency() {
+  local event=$1 armed=$2 flag=$3 expected=$4 context actual
+  context=$(jq -nc --arg event "$event" --argjson armed "$armed" --arg flag "$flag" '{github:{event_name:$event},inputs:{propose:$armed},vars:{MARKETPLACE_AUTOPROPOSE:$flag}}')
+  if [ "$(evaluate "$condition" "$context")" = true ]; then actual='write'; else actual='assessment'; fi
+  [ "$actual" = "$expected" ] || fail "concurrency $event/$armed/$flag: $actual"
+  passed=$((passed+1))
+}
+check_concurrency workflow_dispatch true '' write
+check_concurrency workflow_dispatch true true write
+check_concurrency workflow_dispatch false true assessment
+check_concurrency workflow_dispatch false '' assessment
+check_concurrency schedule false true write
+for flag in '' false TRUE; do check_concurrency schedule false "$flag" assessment; done
 # shellcheck disable=SC2016 # Match the literal variable reference used by the actual workflow.
 grep -Fq 'gh workflow run recheck-open-prs.yaml --repo "$GH_REPO" --ref main -F dry-run=false' "$workflow" || fail 'CI must use the existing canonical recheck'
 ! grep -Eq 'workflow_run:|pull_request_target:|download-artifact|APP_PRIVATE_KEY|gh pr (merge|ready)' "$workflow" || fail 'unexpected authority or artifact consumer'

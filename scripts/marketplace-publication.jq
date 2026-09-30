@@ -1,4 +1,5 @@
 include "marketplace-release";
+include "marketplace-permissions";
 
 # Render the verified plan as public notes, escaping its data-derived Markdown text.
 def publication_notes($release):
@@ -11,10 +12,11 @@ def publication_notes($release):
   ] | join("\n\n") + "\n";
 
 # Accept one observed publication phase only when all expected identities still agree.
-def publication_snapshot($phase;$repo;$branch;$tag;$release;$id;$notes):
+def publication_snapshot($phase;$repo;$node;$branch;$tag;$release;$id;$notes;$permission):
   type=="object" and (.errors==null or .errors==[]) and
-  (.data.repository | type=="object" and .nameWithOwner==$repo and .isArchived==false and
-    (.viewerPermission|.=="ADMIN" or .=="MAINTAIN" or .=="WRITE") and
+  ($permission | native_writer_repository($repo;$branch;$node)) and
+  (.data.repository | type=="object" and .id==$node and .nameWithOwner==$repo and .isArchived==false and
+    compatible_user_role and
     .defaultBranchRef.name==$branch and .defaultBranchRef.target.__typename=="Commit" and
     .defaultBranchRef.target.oid==$release and has("ref") and has("release") and
     (if $phase=="absent" then .ref==null else

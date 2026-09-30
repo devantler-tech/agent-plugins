@@ -23,14 +23,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Read-only native permission projection probe
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          gh api "repos/$REPOSITORY" --jq '{repositoryMatches:(.full_name==env.REPOSITORY),permissionFieldPresent:has("permissions"),writerProjection:(.permissions.push==true)}'
-          gh api graphql -f query='query { repository(owner:"devantler-tech",name:"agent-plugins") { viewerPermission } }' --jq '{nullUserRole:(.data.repository.viewerPermission==null)}'
-
       - name: Validate repository manifests
         run: bash scripts/validate-manifests.sh
 

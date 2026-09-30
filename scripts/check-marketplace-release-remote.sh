@@ -35,7 +35,7 @@ tag=$(jq -er '.tag' "$temp/assessment")
 # shellcheck disable=SC2016 # GraphQL variables are passed separately as data.
 query='query($owner:String!,$name:String!,$tag:String!,$endCursor:String) {
   repository(owner:$owner,name:$name) {
-    nameWithOwner isArchived viewerPermission defaultBranchRef { name target { __typename oid } }
+    id nameWithOwner isArchived viewerPermission defaultBranchRef { name target { __typename oid } }
     release(tagName:$tag) { tagName isDraft isPrerelease }
     refs(refPrefix:"refs/tags/",first:100,after:$endCursor,orderBy:{field:ALPHABETICAL,direction:ASC}) {
       totalCount pageInfo { hasNextPage endCursor } nodes { name target { __typename oid } }
@@ -47,12 +47,15 @@ local_tags() {
   jq -Rn '[inputs | split(" ") | {name:.[0],oid:.[1]}] | sort_by(.name)' < "$temp/local-refs"
 }
 remote_snapshot() {
+  # Read effective writer visibility independently; App authentication has no user role.
+  gh api --hostname github.com "repos/$repo" > "$temp/permission"
   # Variables remain data; neither candidate content nor configured Git transports choose the host.
   gh api graphql --hostname github.com --paginate --slurp -f query="$query" \
     -f owner="${repo%%/*}" -f name="${repo#*/}" -f tag="$tag" > "$temp/pages"
   # --slurp must return exactly one array. Do not accept trailing JSON or a partial API result.
   jq -es 'length == 1 and (.[0] | type == "array")' "$temp/pages" >/dev/null || fail 'invalid page stream'
-  jq -e --arg repo "$repo" --arg release "$release" -f "$here/marketplace-remote-state.jq" "$temp/pages" > "$temp/remote"
+  jq -e -L "$here" --arg repo "$repo" --arg release "$release" --slurpfile permission "$temp/permission" \
+    -f "$here/marketplace-remote-state.jq" "$temp/pages" > "$temp/remote"
   jq -r '.tags[].name' "$temp/remote" > "$temp/tag-names"
   while IFS= read -r name; do
     git check-ref-format "refs/tags/$name" || fail 'invalid remote tag name'
@@ -71,5 +74,5 @@ cmp -s "$temp/before" "$temp/after" || fail 'remote state changed during assessm
 local_tags > "$temp/final-local-tags"
 cmp -s "$temp/local-tags" "$temp/final-local-tags" || fail 'local tags changed during assessment'
 jq --slurpfile remote "$temp/after" '. + {repository:$remote[0].repository,
-  defaultBranch:$remote[0].defaultBranch,remoteTags:$remote[0].tags,candidateRelease:"ABSENT",
+  repositoryId:$remote[0].repositoryId,defaultBranch:$remote[0].defaultBranch,remoteTags:$remote[0].tags,candidateRelease:"ABSENT",
   scope:"remote-prepublication-snapshot"}' "$temp/reassessment"

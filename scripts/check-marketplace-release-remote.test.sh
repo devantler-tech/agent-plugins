@@ -7,15 +7,22 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
 export REMOTE_FIXTURE="$work/remote" REMOTE_SECOND="$work/second" CALLS="$work/calls"
+export PERMISSION_FIXTURE="$work/permission" PERMISSION_SECOND="$work/permission-second"
 mkdir "$work/bin"
 cat > "$work/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
-printf 'call\n' >> "$CALLS"
+if [ "$*" = 'api --hostname github.com repos/example/catalogue' ]; then
+  printf 'repository\n' >> "$CALLS"
+  [ "${FORGE_FAIL:-false}" != true ] || exit 92
+  if [ "$(grep -c '^repository$' "$CALLS")" -gt 1 ] && [ -e "$PERMISSION_SECOND" ]; then cat "$PERMISSION_SECOND"; else cat "$PERMISSION_FIXTURE"; fi
+  exit 0
+fi
+printf 'graphql\n' >> "$CALLS"
 [[ "$*" == 'api graphql '* && "$*" == *'--hostname github.com'* && "$*" == *'--paginate --slurp'* ]] || exit 90
 [[ "$*" != *mutation* && "$*" == *'owner=example'* && "$*" == *'name=catalogue'* ]] || exit 91
 [[ ${FORGE_FAIL:-false} != true ]] || exit 92
-if [ "$(wc -l < "$CALLS")" -gt 1 ] && [ -e "$REMOTE_SECOND" ]; then cat "$REMOTE_SECOND"; else cat "$REMOTE_FIXTURE"; fi
+if [ "$(grep -c '^graphql$' "$CALLS")" -gt 1 ] && [ -e "$REMOTE_SECOND" ]; then cat "$REMOTE_SECOND"; else cat "$REMOTE_FIXTURE"; fi
 STUB
 chmod +x "$work/bin/gh"
 export PATH="$work/bin:$PATH"
@@ -47,16 +54,17 @@ setup() {
     git -C "$repo" commit -qm 'chore(release): prepare version'
   fi
   release=$(git -C "$repo" rev-parse HEAD)
-  rm -f "$REMOTE_SECOND"
+  rm -f "$REMOTE_SECOND" "$PERMISSION_SECOND"
   unset FORGE_FAIL
   snapshot
 }
 snapshot() {
   git -C "$repo" for-each-ref --format='%(refname:strip=2) %(objectname)' refs/tags/ > "$work/tags"
   jq -Rn --arg head "$release" '[inputs | split(" ") | {name:.[0],target:{__typename:"Tag",oid:.[1]}}] as $tags |
-    [{data:{repository:{nameWithOwner:"example/catalogue",isArchived:false,viewerPermission:"WRITE",
+    [{data:{repository:{id:"R_catalogue",nameWithOwner:"example/catalogue",isArchived:false,viewerPermission:"WRITE",
       defaultBranchRef:{name:"main",target:{__typename:"Commit",oid:$head}},release:null,
       refs:{totalCount:($tags|length),nodes:$tags,pageInfo:{hasNextPage:false,endCursor:null}}}}}]' < "$work/tags" > "$REMOTE_FIXTURE"
+  printf '%s\n' '{"id":123,"node_id":"R_catalogue","full_name":"example/catalogue","archived":false,"default_branch":"main","permissions":{"push":true,"pull":true}}' > "$PERMISSION_FIXTURE"
 }
 mutate() { jq "$1" "$REMOTE_FIXTURE" > "$work/change"; mv "$work/change" "$REMOTE_FIXTURE"; }
 run() {
@@ -66,7 +74,8 @@ run() {
 accept() {
   run > "$work/result" 2> "$work/error" || { cat "$work/error"; fail "$1 rejected"; }
   jq -e --arg release "$release" '.status=="VERIFIED" and .releaseCommit==$release and .repository=="example/catalogue" and .scope=="remote-prepublication-snapshot" and .authority=="assessment-only" and .publication=="NOT_AUTHORIZED"' "$work/result" >/dev/null || fail "$1 verdict"
-  [ "$(wc -l < "$CALLS")" -eq 2 ] || fail "$1 did not reobserve remote"
+  [ "$(grep -c '^graphql$' "$CALLS")" -eq 2 ] || fail "$1 did not reobserve remote"
+  [ "$(grep -c '^repository$' "$CALLS")" -eq 2 ] || fail "$1 did not reobserve native writer evidence"
   passed=$((passed+1))
 }
 reject() {
@@ -74,6 +83,7 @@ reject() {
   [ ! -s "$work/result" ] || fail "$1 emitted assessment"
   passed=$((passed+1))
 }
+setup incremental; mutate '.[0].data.repository.viewerPermission=null'; accept 'App null-role with native writer evidence'
 setup; accept 'initial snapshot'
 setup incremental; accept 'annotated baseline and manifest-only release'
 git -C "$repo" show-ref > "$work/refs-before"
@@ -108,6 +118,17 @@ for change in \
   '{}'; do
   setup incremental; mutate "$change"; reject "$change"
 done
+for change in '.permissions.push=false' '.permissions.pull=false' '.permissions.push="true"' \
+  'del(.permissions)' 'del(.permissions.push)' '.node_id="R_foreign"' '.id=null' \
+  '.full_name="other/catalogue"' '.archived=true' '.default_branch="trunk"'; do
+  setup incremental
+  jq "$change" "$PERMISSION_FIXTURE" > "$work/change"; mv "$work/change" "$PERMISSION_FIXTURE"
+  reject "native permission $change"
+done
+setup incremental; mutate '.[0].data.repository.viewerPermission=null'
+jq '.permissions.push=false' "$PERMISSION_FIXTURE" > "$PERMISSION_SECOND"
+reject 'App permission lost during assessment'
+setup incremental; printf '{}\n{}\n' > "$PERMISSION_FIXTURE"; reject 'trailing native permission response'
 setup; printf 'not json\n' > "$REMOTE_FIXTURE"; reject 'malformed response'
 setup; printf '\n[]\n' >> "$REMOTE_FIXTURE"; reject 'trailing JSON document'
 setup; export FORGE_FAIL=true; reject 'forge failure'; unset FORGE_FAIL

@@ -73,13 +73,19 @@ def proposal_snapshot($repo;$source;$baseline;$tags;$permission;$branch;$owned):
    sourceCommit:$source,baseline:$baseline,publishedBaseline:$pages[0].data.repository.baseline,tags:$remote};
 
 # A draft readback binds the mutable PR projection to the exact signed, reproduced commit.
-def proposal_readback($repo;$node;$source;$branch;$commit;$number;$title;$body):
+def proposal_readback($repo;$node;$source;$branch;$commit;$number;$title;$body;$native):
+  ($native|length==1) and ($native[0] |
+    (.node_id|nonblank) and .number==$number and .state=="open" and .draft==true and
+    .user.login=="github-actions[bot]" and .user.type=="Bot" and (.user.node_id|nonblank) and
+    .head.ref==$branch and .head.sha==$commit and .head.repo.full_name==$repo and
+    .base.ref=="main" and .base.sha==$source and .base.repo.full_name==$repo and
+    .title==$title and .body==$body and .html_url==("https://github.com/"+$repo+"/pull/"+($number|tostring))) and
   .errors==null and (.data.repository |
     .id==$node and .nameWithOwner==$repo and .isArchived==false and
     .defaultBranchRef.name=="main" and .defaultBranchRef.target.oid==$source and
     .ref.name==$branch and .ref.target.oid==$commit and
-    (.pullRequest | .number==$number and .state=="OPEN" and .isDraft==true and
-      .author.login=="github-actions[bot]" and
+    (.pullRequest | .id==$native[0].node_id and .number==$number and .state=="OPEN" and .isDraft==true and
+      .author.__typename=="Bot" and .author.login=="github-actions" and .author.id==$native[0].user.node_id and
       .headRefName==$branch and .headRefOid==$commit and .baseRefName=="main" and .baseRefOid==$source and
       .headRepository.nameWithOwner==$repo and .title==$title and .body==$body and
       .url==("https://github.com/"+$repo+"/pull/"+($number|tostring))));

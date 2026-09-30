@@ -27,6 +27,9 @@ The workflow uses separate read-only preparation, creation and CI-trigger jobs. 
 its own candidate with current main tooling. Only exact successful draft readback permits dispatch
 of the existing main recheck workflow, which supplies fresh normal PR CI. Downloaded artifacts,
 branch names, PR bodies and commit subjects cannot choose executable code or the target repository.
+Final readback requires matching REST/GraphQL PR and author node identities: REST identifies the
+native author as `Bot` `github-actions[bot]`, while GraphQL identifies it as `Bot` `github-actions`.
+No human actor, missing identity or arbitrary normalized login satisfies this join.
 Manual dispatch defaults to assessment; scheduled creation requires `MARKETPLACE_AUTOPROPOSE` to be
 exactly `true`. The rollout variable remains absent until separately evaluated. Rollout and removal
 are tracked in issue #277.

@@ -273,6 +273,9 @@ creating a branch. Contents-write capability is positively checked without savin
 notes at each write phase. Preparation needs contents, actions and pull-request read permissions;
 creation adds contents and pull-request write, while the separate CI dispatcher has only actions write.
 Checkouts retain no credentials and read-only artifacts are never downloaded into the writer.
+Final draft readback joins independent REST and GraphQL PR observations by their exact PR and
+author node identities. The author must be REST `Bot` `github-actions[bot]` and GraphQL `Bot`
+`github-actions`; missing identities, human actors or mismatched projections are refused.
 
 Scheduled proposal creation runs hourly at minute 35 UTC only when `MARKETPLACE_AUTOPROPOSE` is
 exactly `true`. Missing, false or any other value disables scheduled work. This variable is independent

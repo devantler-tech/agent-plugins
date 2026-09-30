@@ -198,7 +198,9 @@ plugin membership) is authored here.
    a job must push.
 7. **Conventional-commit messages** (`feat:`/`fix:`/`chore:`/`ci:`/`docs:`/`refactor:`). The repo is
    consumed directly as a marketplace. The opt-in [release-preparation command](docs/marketplace-releases.md)
-   calculates a repository version proposal from commit history; publication is not automated.
+   calculates a repository version proposal from commit history. Publication is a separate manual
+   command, read-only unless explicitly invoked with `--publish`; it never overwrites existing tags
+   or releases. Establish current-head readiness before enabling that operation.
    Per-plugin versions are moved explicitly, per the next convention.
 8. **A plugin's version is its cache key — move it whenever its content changes.** Runtimes cache
    plugins by `<marketplace>/<plugin>/<version>`, so a content change that leaves the version alone is
@@ -276,6 +278,7 @@ bash scripts/plugin-changelog.test.sh
 bash scripts/prepare-marketplace-release.test.sh
 bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exact release-tree binding
 bash scripts/check-marketplace-release-remote.test.sh # remote state, pagination and movement; offline forge
+bash scripts/publish-marketplace-release.test.sh # opt-in publication, competing writers and readback; offline forge
 
 # 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.

@@ -77,8 +77,8 @@ See the [plugin catalogue](docs/plugins.md) and the per-tool
 The repo ships **two marketplace manifests that must stay byte-for-byte in sync** (modulo key order):
 [`.github/plugin/marketplace.json`](.github/plugin/marketplace.json) for Copilot / VS Code and
 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) for Claude Code. CI **diffs the
-two** (`jq -S` normalised) and fails on drift, so a cross-tool install can never offer different
-plugins to different tools. **Any change to the plugin set updates both manifests in the same PR** —
+two** (`jq -S` normalised) and fails on drift or a failed normalization, so a cross-tool install can
+never offer different plugins to different tools. **Any change to the plugin set updates both manifests in the same PR** —
 they are the source of truth for what the marketplace offers. CI also checks each manifest entry against
 the **filesystem**: every plugin must have a matching portable `plugins/<name>/plugin.json` (with the
 same `name`/`description`/`version` and `source` `./plugins/<name>`) plus an equivalent

@@ -44,13 +44,30 @@ validate_marketplace_json() {
   echo "✓ $manifest is valid"
 }
 
-# 2. The Copilot and Claude manifests must be identical once key-sorted.
-validate_marketplace_parity() {
-  if ! diff <(jq -S . "$COPILOT_MANIFEST") <(jq -S . "$CLAUDE_MANIFEST") > /dev/null 2>&1; then
-    echo "::error::Marketplace manifests are out of sync"
-    diff <(jq -S . "$COPILOT_MANIFEST") <(jq -S . "$CLAUDE_MANIFEST") || true
+# Capture each producer's status explicitly: diff cannot observe a failed jq
+# inside process substitution, even when both producers print nothing.
+validate_json_parity() {
+  local left="$1" right="$2" mismatch="$3" left_json right_json
+  if ! left_json=$(jq -S . "$left"); then
+    echo "::error::Could not normalize $left"
     return 1
   fi
+  if ! right_json=$(jq -S . "$right"); then
+    echo "::error::Could not normalize $right"
+    return 1
+  fi
+  if [ "$left_json" != "$right_json" ]; then
+    echo "::error::$mismatch"
+    # Diagnostic only; the checked, captured values above decide parity.
+    diff -u <(printf '%s\n' "$left_json") <(printf '%s\n' "$right_json") || true
+    return 1
+  fi
+}
+
+# 2. The Copilot and Claude manifests must be identical once key-sorted.
+validate_marketplace_parity() {
+  validate_json_parity "$COPILOT_MANIFEST" "$CLAUDE_MANIFEST" \
+    'Marketplace manifests are out of sync' || return 1
   echo "✓ Marketplace manifests are in sync"
 }
 
@@ -246,8 +263,7 @@ validate_plugin_json() {
     elif ! jq -e 'type == "object"' "$claude_pj" > /dev/null 2>&1; then
       echo "::error::Invalid $claude_pj"
       ok=0
-    elif ! diff -u <(jq -S . "$pj") <(jq -S . "$claude_pj") > /dev/null; then
-      echo "::error::$claude_pj differs from $pj"
+    elif ! validate_json_parity "$pj" "$claude_pj" "$claude_pj differs from $pj"; then
       ok=0
     fi
     # Component-path fields (skills/agents), when present, MUST be arrays. Claude Code rejects

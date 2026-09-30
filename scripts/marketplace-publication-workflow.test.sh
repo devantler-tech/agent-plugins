@@ -18,7 +18,7 @@ guard() {
 }
 assess=$(guard assess)
 publish=$(guard publish)
-[ -n "$assess" ] && [ -n "$publish" ] || fail 'missing workflow guards'
+if [ -z "$assess" ] || [ -z "$publish" ]; then fail 'missing workflow guards'; fi
 
 evaluate() {
   local expression
@@ -35,8 +35,9 @@ case_check() {
   actual_publish=$(evaluate "$publish" "$context")
   # Actions implicitly requires the assessment dependency to run successfully.
   if [ "$actual_assess" = false ]; then actual_publish=false; fi
-  [ "$actual_assess" = "$expected_assess" ] && [ "$actual_publish" = "$expected_publish" ] || \
+  if [ "$actual_assess" != "$expected_assess" ] || [ "$actual_publish" != "$expected_publish" ]; then
     fail "$name: assessment=$actual_assess publication=$actual_publish"
+  fi
   passed=$((passed + 1))
 }
 

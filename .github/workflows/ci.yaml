@@ -127,6 +127,9 @@ jobs:
         # stubbed on PATH, so nothing reaches the network or touches a real pull request.
         run: ./scripts/recheck-open-prs.test.sh
 
+      - name: 🧪 Self-test head-checked PR base refreshes
+        run: bash scripts/recheck-open-prs-base-refresh.test.sh
+
       - name: 🧪 Self-test the version-bump helper
         # Proves bump-plugin-version.sh moves the version in ALL FOUR manifests that must
         # agree, that --changed-since bumps exactly what moved and is idempotent on a

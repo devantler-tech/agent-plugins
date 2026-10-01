@@ -14,17 +14,20 @@
 #   is declared org-wide and Observe-only, so it is not this repository's to flip. This script is
 #   the repository-scoped equivalent: after the gate lands, ask every open PR to run again.
 #
-# WHY CLOSE-AND-REOPEN, AND NOT A RE-RUN
+# WHY A FRESH BASE, AND NOT A RE-RUN
 #   Re-running a workflow run reuses the ORIGINAL event's `GITHUB_SHA` and `GITHUB_REF`. For a
 #   `pull_request` run that ref is `refs/pull/N/merge`, so a re-run replays the merge commit as it
 #   stood before the gate landed — with the old workflow file. Only a NEW `pull_request` event
-#   resolves the merge ref again and picks the new gate up. Of the events that do so, `reopened`
-#   is the only one that does not move the PR's head: a push (`synchronize`) would invalidate
-#   every green review at the current head and cannot reach a fork's branch at all.
+#   resolves the merge ref again and picks the new gate up. Same-repository branches are updated
+#   through the head-checked update-branch API, preserving their commits and open state. This
+#   moves the head and requires review at that new head. Current non-Dependabot branches and
+#   forks use `reopened`, which preserves their head and starts CI for App-created drafts.
+#   Current Dependabot branches require an observed PR run without closing; Dependabot forks
+#   are refused because closing a Dependabot PR can suppress a wanted update.
 #
 # WHY AN APP TOKEN IS REQUIRED
 #   Events produced with the repository's `GITHUB_TOKEN` do not start new workflow runs, so a
-#   reopen performed with it would be silent. The caller must pass a token from the repository's
+#   branch update or reopen performed with it would be silent. The caller must pass a token from the repository's
 #   GitHub App — the same reason `update-agent-skills.yaml` mints one to open its PR.
 #
 # THE TWO THINGS THIS MUST NEVER LEAVE BEHIND
@@ -209,6 +212,109 @@ rearm() {
   gh pr merge "$@"
 }
 
+# Update only a same-repository branch, retaining its complete prior history and merge settings.
+# GitHub's expected_head_sha rejects an intervening push. Accepted asynchronous writes are not
+# success evidence: read back the new head, verify both ancestors, then observe its PR event.
+# Return 3 only for a current non-Dependabot branch that needs the existing reopen route.
+refresh_same_repository() {
+  local n=$1 before=$2 old_head old_base relation current new_head new_base base_path final_base waited=0
+  old_head=$(printf '%s' "$before" | jq -r '.headRefOid')
+  # A PR's associated base OID is not proof of the current named branch tip.
+  base_path=$(printf '%s' "$base" | jq -sRr @uri)
+  if ! old_base=$(gh api "repos/$repo/branches/$base_path" --jq '.commit.sha'); then
+    echo "::error::#$n current base could not be read; left untouched"
+    return 1
+  fi
+  if [[ ! "$old_head" =~ ^[0-9a-f]{40}$ || ! "$old_base" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "::error::#$n commit identity is incomplete; left untouched"
+    return 1
+  fi
+  if ! relation=$(gh api "repos/$repo/compare/$old_base...$old_head" --jq '.status'); then
+    echo "::error::#$n base ancestry could not be read; left untouched"
+    return 1
+  fi
+  case "$relation" in
+    ahead|identical)
+      case "$(printf '%s' "$before" | jq -r '.author.login')" in
+        'app/dependabot'|'dependabot[bot]')
+          # This is verification of an already-current head, not a newly triggered event.
+          # A pre-gate head cannot enter this route: it fails the named-base ancestry above.
+          if ! await_fresh_check "$old_head" 0; then
+            echo "::error::#$n contains the current base but no PR workflow run was observed; left open"
+            return 1
+          fi
+          if ! current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
+            || ! printf '%s' "$current" | jq -e --argjson before "$before" \
+              'has("autoMergeRequest") and .state=="OPEN" and .number==$before.number and .baseRefName==$before.baseRefName and
+               .headRefOid==$before.headRefOid and .isCrossRepository==false and
+               .author.login==$before.author.login and .autoMergeRequest==$before.autoMergeRequest' > /dev/null \
+            || ! final_base=$(gh api "repos/$repo/branches/$base_path" --jq '.commit.sha') \
+            || [ "$final_base" != "$old_base" ]; then
+            echo "::error::#$n moved during the check wait; current refresh is unverified"
+            return 1
+          fi
+          echo "  checked #$n — its head contains the current base and has an observed PR run"
+          return 0 ;;
+        *) return 3 ;;
+      esac ;;
+    behind|diverged) ;;
+    *) echo "::error::#$n base ancestry is unknown; left untouched"; return 1 ;;
+  esac
+  if ! gh api --method PUT "repos/$repo/pulls/$n/update-branch" -f expected_head_sha="$old_head" > /dev/null; then
+    echo "::error::#$n head-checked base update failed; no close or recreation attempted"
+    return 1
+  fi
+  while [ "$waited" -lt "$CHECK_WAIT_SECONDS" ]; do
+    if ! current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
+      || ! printf '%s' "$current" | jq -e --argjson before "$before" --arg base "$base" \
+        'has("autoMergeRequest") and .state=="OPEN" and .number==$before.number and .baseRefName==$base and
+         .isCrossRepository==false and .author.login==$before.author.login and
+         .autoMergeRequest==$before.autoMergeRequest and (.headRefOid|test("^[0-9a-f]{40}$")) and
+         (.baseRefOid|test("^[0-9a-f]{40}$"))' > /dev/null; then
+      echo "::error::#$n updated state is unreadable or changed; no recovery mutation attempted"
+      return 1
+    fi
+    new_head=$(printf '%s' "$current" | jq -r '.headRefOid')
+    if ! new_base=$(gh api "repos/$repo/branches/$base_path" --jq '.commit.sha') \
+      || [[ ! "$new_base" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "::error::#$n current base became unreadable; refresh is unverified"
+      return 1
+    fi
+    if [ "$new_head" != "$old_head" ]; then
+      if ! relation=$(gh api "repos/$repo/compare/$old_head...$new_head" --jq '.status') || [ "$relation" != ahead ]; then
+        echo "::error::#$n updated head does not prove preservation of the previous commits"
+        return 1
+      fi
+      if ! relation=$(gh api "repos/$repo/compare/$new_base...$new_head" --jq '.status') \
+        || { [ "$relation" != ahead ] && [ "$relation" != identical ]; }; then
+        echo "::error::#$n updated head does not prove inclusion of the current base"
+        return 1
+      fi
+      if ! await_fresh_check "$new_head" 0; then
+        echo "::error::#$n base was updated, but no fresh pull_request workflow run was observed"
+        return 1
+      fi
+      # A check observed at one head cannot certify a successor pushed during the wait.
+      if ! current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
+        || ! printf '%s' "$current" | jq -e --argjson before "$before" --arg head "$new_head" --arg base "$base" \
+          'has("autoMergeRequest") and .state=="OPEN" and .number==$before.number and .baseRefName==$base and
+           .headRefOid==$head and .isCrossRepository==false and .author.login==$before.author.login and
+           .autoMergeRequest==$before.autoMergeRequest' > /dev/null \
+        || ! final_base=$(gh api "repos/$repo/branches/$base_path" --jq '.commit.sha') \
+        || [ "$final_base" != "$new_base" ]; then
+        echo "::error::#$n moved during the check wait; current refresh is unverified"
+        return 1
+      fi
+      echo "  refreshed #$n at $new_head — prior commits and auto-merge settings preserved; current-head review required"
+      return 0
+    fi
+    sleep "$CHECK_POLL_SECONDS"
+    waited=$((waited + CHECK_POLL_SECONDS))
+  done
+  echo "::error::#$n accepted update did not produce an observed new head"
+  return 1
+}
+
 trap settle EXIT
 
 # `gh pr list --limit N` fetches at most N, so any cap silently skips the pull requests past it
@@ -267,8 +373,11 @@ while IFS=$'\t' read -r number title; do
   # then be restored as GitHub's default message — a silent change to someone's chosen commit.
   # A failed read leaves the PR untouched: closing it without knowing its state would risk both
   # reversing a deliberate closure and dropping an armed auto-merge.
-  if ! snapshot=$(gh pr view "$number" --repo "$repo" --json state,autoMergeRequest,headRefOid) \
-    || [ -z "$snapshot" ]; then
+  if ! snapshot=$(gh pr view "$number" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
+    || ! printf '%s' "$snapshot" | jq -e --argjson number "$number" --arg base "$base" \
+      'type=="object" and has("autoMergeRequest") and (.author.login|type=="string" and test("\\S")) and
+       .number==$number and .baseRefName==$base and (.isCrossRepository|type=="boolean") and
+       (.state=="OPEN" or .state=="CLOSED" or .state=="MERGED")' > /dev/null; then
     echo "::error::#$number state could not be read; left untouched"
     failed=$((failed + 1))
     continue
@@ -282,6 +391,24 @@ while IFS=$'\t' read -r number title; do
     echo "  skipped #$number — no longer open (state=${pr_state:-unknown})"
     continue
   fi
+
+  if [ "$(printf '%s' "$snapshot" | jq -r '.isCrossRepository')" = false ]; then
+    refresh_same_repository "$number" "$snapshot"
+    refresh_status=$?
+    if [ "$refresh_status" -eq 0 ]; then
+      done_count=$((done_count + 1))
+      continue
+    elif [ "$refresh_status" -ne 3 ]; then
+      failed=$((failed + 1))
+      continue
+    fi
+  fi
+  case "$(printf '%s' "$snapshot" | jq -r '.author.login')" in
+    'app/dependabot'|'dependabot[bot]')
+      echo "::error::#$number is a Dependabot fork; closing would suppress its update, so it was left untouched"
+      failed=$((failed + 1))
+      continue ;;
+  esac
 
   automerge=$(printf '%s' "$snapshot" | jq -r 'if .autoMergeRequest == null then "none" else "armed" end')
   if [ "$automerge" = "armed" ]; then
@@ -360,7 +487,7 @@ while IFS=$'\t' read -r number title; do
   # last pull request from the sweep — silently, and reported as a smaller total.
 done < <(printf '%s\n' "$prs")
 
-echo "recheck-open-prs: $done_count of $count re-triggered"
+echo "recheck-open-prs: $done_count of $count current-base refreshes completed"
 if [ "$failed" -gt 0 ]; then
   echo "::error::$failed pull request(s) could not be re-triggered; their required checks are still the pre-gate result"
   exit 1

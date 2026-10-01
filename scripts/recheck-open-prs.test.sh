@@ -91,8 +91,10 @@ case "\$verb" in
       am=null
     fi
     case "\$fields" in
-      "state,autoMergeRequest,headRefOid")
-        printf '{"state":"%s","autoMergeRequest":%s,"headRefOid":"deadbeef"}\n' "\$st" "\$am"
+      "state,autoMergeRequest,headRefOid"|"state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository")
+        author=\$(cat "\$db/author-\$n" 2>/dev/null || printf 'devantler')
+        fork=\$(cat "\$db/fork-\$n" 2>/dev/null || printf 'true')
+        printf '{"number":%s,"baseRefName":"main","state":"%s","autoMergeRequest":%s,"headRefOid":"deadbeef","author":{"login":"%s"},"isCrossRepository":%s}\n' "\$n" "\$st" "\$am" "\$author" "\$fork"
         ;;
       state)
         printf '%s\n' "\$st"
@@ -519,6 +521,22 @@ if [ "$rc" -eq 2 ] && [[ $out == *"malformed"* ]]; then
 else
   bad "a malformed listing fails closed rather than reading as a shorter list" "exit $rc: $out"
 fi
+
+# A Dependabot close suppresses its release even when the PR is immediately reopened.
+# A fork cannot use the same-repository base-update route; it must fail without closing.
+for author in 'app/dependabot' 'dependabot[bot]'; do
+  d="$WORK/dependabot-${author//[^a-z]/}"
+  make_gh "$d" "$TWO_PRS" '' '11'
+  printf '%s' "$author" > "$d/db/author-11"
+  out=$(run_script "$d")
+  rc=$?
+  if [ "$rc" -eq 1 ] && ! grep -q '^pr close 11$' "$d/calls.log" \
+    && [ -f "$d/db/am-11" ] && [ ! -f "$d/db/closed-11" ]; then
+    ok "Dependabot fork $author stays open with auto-merge untouched"
+  else
+    bad "Dependabot fork $author stays open with auto-merge untouched" "exit $rc" "$(cat "$d/calls.log")" "$out"
+  fi
+done
 
 echo "-----------------------------------------"
 echo "recheck-open-prs.sh self-test: $pass passed, $fail failed"

@@ -10,8 +10,8 @@ name: 🔁 Recheck open PRs
 # be up to date before merging"), but it is declared org-wide and Observe-only in
 # devantler-tech/.github, so it is not this repository's to flip. This workflow is the
 # repository-scoped equivalent: when `main` moves, ask every open PR to run again. See
-# scripts/recheck-open-prs.sh for why a close-and-reopen is the only re-trigger that resolves a
-# fresh merge ref, and why it needs an App token.
+# scripts/recheck-open-prs.sh for the head-checked same-repository update and fork reopen routes,
+# their observed-event checks, and why they need an App token. Dependabot PRs are never closed.
 #
 # WHY EVERY PUSH, RATHER THAN A NARROWER TRIGGER
 #   Deciding "did a gate change?" was tried and cannot be made correct here.
@@ -39,8 +39,8 @@ on:
         default: false
 
 concurrency:
-  # One recheck at a time: two overlapping passes would close the same PR twice and race each
-  # other's reopen. `cancel-in-progress: false` protects the pass that is already running; a
+  # One recheck at a time: overlapping branch updates or fork reopen operations could race.
+  # `cancel-in-progress: false` protects the pass that is already running; a
   # PENDING pass discarded by a third push loses nothing, because every pass sweeps every open
   # PR unconditionally, so the newest one does strictly more than the one it displaced.
   #
@@ -77,10 +77,8 @@ jobs:
       - name: 🔑 Generate GitHub App token (sweep)
         id: app-token
         if: ${{ !inputs.dry-run }}
-        # `contents: write` is not spare: restoring an auto-merge request with `gh pr merge --auto`
-        # needs it as well as pull-requests write. Without it the close and reopen would succeed
-        # and every re-arm would fail, so a PR that arrived with auto-merge armed would be left
-        # without it.
+        # `contents: write` is required for same-repository base updates and for restoring a
+        # fork's previously armed auto-merge request. The script never arms an unarmed request.
         #
         # `actions: read` is likewise load-bearing. Before restoring an armed auto-merge the script
         # waits for a `pull_request` run from the reopen, and that read is what makes the wait safe

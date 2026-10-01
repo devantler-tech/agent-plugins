@@ -46,7 +46,7 @@ decode_surface() {
                      ( .. | objects | to_entries[] | select(.key | test("^(args|argv|cmd|command)$"; "i"))
                           | .value | select(type == "array" and length > 0 and all(type == "string"))
                           | join(" ") )
-                   | ., "%"' "$1" 2>/dev/null || true ;;
+                   | ., "%"' "$1" 2>/dev/null ;;
     *)      cat "$1" ;;
   esac
 }
@@ -77,18 +77,11 @@ extract_lists() {
              -e 's/…/,/g' -e 's/\.\.\./,/g' \
              -e 's/[[:space:]]+/ /g' \
              -e 's/--json[[:space:]]*[=,]*[[:space:]]*[`"'"'"']?[[:space:]]*/--json /g' \
-    | grep -a -o -- '--json [A-Za-z,]*' | sort -u || true   # NULs are deleted above and -a keeps text mode anyway: GNU grep would otherwise print "binary file matches" and no list
-}
-
-# Every list in $1 that names a bare `merged`, one per line.
-bad_lists_in() {
-  local list fields
-  while IFS= read -r list; do
-    fields="${list#--json }"
-    case ",${fields}," in
-      *,merged,*) printf -- '--json %s\n' "${fields}" ;;
-    esac
-  done < <(extract_lists "$1")
+    | { # grep's 1 is an ordinary no-match; every other failure stays in the pipeline.
+        local status=0
+        grep -a -o -- '--json [A-Za-z,]*' || status=$?
+        [ "$status" -le 1 ]
+      } | sort -u
 }
 
 # A surface may legitimately CONTAIN the bad request — a skill that WARNS against it, for instance.
@@ -126,9 +119,9 @@ fi
 # The digest of a file, or empty when no hashing tool is available (which is UNKNOWN, not a pass).
 digest_of() {
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" 2>/dev/null | cut -d' ' -f1
+    sha256sum < "$1" 2>/dev/null | cut -d' ' -f1
   elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1
+    shasum -a 256 < "$1" 2>/dev/null | cut -d' ' -f1
   fi
 }
 
@@ -167,7 +160,7 @@ while IFS= read -r -d '' f; do
     *.sh) ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
-done < <(cat "${discovered}")
+done < "${discovered}"
 [ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md, *.txt or *.json under ${root}/plugins"
 
 scanned=0
@@ -184,14 +177,22 @@ for surface in "${surfaces[@]}"; do
               unknown "${surface#"${root}/"} does not parse, so any field it prescribes would go unseen" ;;
   esac
   scanned=$((scanned + 1))
-  lists=$((lists + $(extract_lists "${surface}" | grep -c . || true)))
+  # Retain one complete observation. A failed stage may already have emitted valid-looking
+  # output, so preserve its status before counting or classifying any of that output.
+  surface_lists="$(extract_lists "${surface}")" ||
+    unknown "${surface#"${root}/"} could not be completely extracted"
   rel="${surface#"${root}/"}"
   surface_digest=""
-  while IFS= read -r bad; do
-    [ -n "${bad}" ] || continue
+  while IFS= read -r list; do
+    [ -n "${list}" ] || continue
+    lists=$((lists + 1))
+    fields="${list#--json }"
+    case ",${fields}," in *,merged,*) ;; *) continue ;; esac
+    bad="${list}"
     if [ -z "${surface_digest}" ]; then
-      surface_digest="$(digest_of "${surface}")"
-      [ -n "${surface_digest}" ] ||
+      surface_digest="$(digest_of "${surface}")" ||
+        unknown "could not hash ${rel}, so its reviewed exemption is unknown"
+      [[ "${surface_digest}" =~ ^[0-9a-f]{64}$ ]] ||
         unknown "cannot hash ${rel}, so a reviewed exemption for it cannot be checked (install sha256sum or shasum)"
     fi
     if is_allowed "${rel}" "${surface_digest}"; then
@@ -200,7 +201,9 @@ for surface in "${surfaces[@]}"; do
       continue
     fi
     offenders="${offenders}  ${rel}: ${bad}"$'\n'
-  done < <(bad_lists_in "${surface}")
+  done <<EOF
+${surface_lists}
+EOF
 done
 
 [ "${lists}" -gt 0 ] ||

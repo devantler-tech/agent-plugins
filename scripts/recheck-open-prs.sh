@@ -237,6 +237,8 @@ refresh_same_repository() {
     ahead|identical)
       case "$(printf '%s' "$before" | jq -r '.author.login')" in
         'app/dependabot'|'dependabot[bot]')
+          # This is verification of an already-current head, not a newly triggered event.
+          # A pre-gate head cannot enter this route: it fails the named-base ancestry above.
           if ! await_fresh_check "$old_head" 0; then
             echo "::error::#$n contains the current base but no PR workflow run was observed; left open"
             return 1

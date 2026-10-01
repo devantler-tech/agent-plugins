@@ -161,6 +161,20 @@ for mode in normal no-check late-movement late-base; do
   fi
   echo "PASS current Dependabot $mode"
 done
+# An existing run cannot certify a gate added later: the same head no longer contains the base.
+export MODE=unchanged BASE="$later"
+rm -f "$work/current" "$work/later-base"
+: > "$work/calls"
+rc=0
+PATH="$work/bin:$PATH" RECHECK_CHECK_WAIT_SECONDS=1 RECHECK_CHECK_POLL_SECONDS=1 \
+  bash "$here/recheck-open-prs.sh" --repo owner/name > "$work/output" 2>&1 || rc=$?
+test "$rc" -eq 1
+grep -q '/update-branch' "$work/calls"
+if grep -Eq '^pr (close|reopen|merge)' "$work/calls"; then
+  echo 'FAIL advanced gate: closed a wanted update'; exit 1
+fi
+echo 'PASS existing run cannot certify an advanced base at the unchanged head'
+export BASE="$base"
 # Native proposal drafts are created with GITHUB_TOKEN and need the App's reopened event.
 export MODE=current-human
 rm -f "$work/reopened" "$work/rearmed" "$work/current" "$work/later-base"

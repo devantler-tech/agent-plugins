@@ -3,9 +3,9 @@ description: 'The ADVANCE playbook for an autonomous AI engineer — how to move
 license: Apache-2.0
 metadata:
     github-path: product-engineering
-    github-ref: refs/tags/v1.20.0
+    github-ref: refs/tags/v1.20.2
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 885af83020f8da20f09aa41264a074c22c8eb04e
+    github-tree-sha: 5a0b13ca55d6998a443e80d6ae1c6535428bc1e5
 name: product-engineering
 ---
 # Product engineering — moving products forward
@@ -128,6 +128,12 @@ find under-tested **critical paths** (error handling, boundaries, past regressio
 and scaffolding. Add **meaningful** tests that assert real behaviour and edge cases; reproduce a
 past bug as a regression test. Never weaken an assertion, add a vacuous test, or skip-mark a failing
 test to make numbers move — a coverage PR with weak tests is worse than none.
+
+For evidence collectors and validation gates, test **incomplete observations alongside clean
+ones**, including a dependency that emits plausible partial output before failing. Counting and
+classification must use the same complete observation; a clean result elsewhere cannot clear a
+failed read. Use [the partial-failure regression procedure](references/partial-failure-regressions.md)
+when changing these paths, retaining the consumer's distinction between rejected and UNKNOWN evidence.
 
 ## 5. Benchmarking & performance
 

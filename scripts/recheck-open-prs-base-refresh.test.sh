@@ -82,6 +82,7 @@ if [[ "$*" == *'pr view'* ]]; then
     jq --arg mode "$MODE" --arg base "$current_base" --arg original "$ORIGINAL" --argjson after "$(test -f "$FIXTURE/current" && echo true || echo false)" \
       'if $mode=="missing-merge-state" then del(.autoMergeRequest)
        elif $mode=="unarmed" then .autoMergeRequest=null
+       elif $mode=="missing-merge-after" then if $after then del(.autoMergeRequest) else .autoMergeRequest=null end
        elif $mode=="changed-merge-state" and $after then .autoMergeRequest=null
        elif $mode=="changed-boundary" and $after then .isCrossRepository=true
        elif $mode=="changed-author" and $after then .author.login="another-author"
@@ -127,6 +128,7 @@ run_case stale-pr-base 0
 run_case update-fails 1
 run_case unchanged 1
 run_case unreadable-after-update 1
+run_case missing-merge-after 1
 run_case dropped-adaptation 1
 run_case dropped-base 1
 run_case no-check 1

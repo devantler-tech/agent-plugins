@@ -243,7 +243,7 @@ refresh_same_repository() {
           fi
           if ! current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
             || ! printf '%s' "$current" | jq -e --argjson before "$before" \
-              '.state=="OPEN" and .number==$before.number and .baseRefName==$before.baseRefName and
+              'has("autoMergeRequest") and .state=="OPEN" and .number==$before.number and .baseRefName==$before.baseRefName and
                .headRefOid==$before.headRefOid and .isCrossRepository==false and
                .author.login==$before.author.login and .autoMergeRequest==$before.autoMergeRequest' > /dev/null \
             || ! final_base=$(gh api "repos/$repo/branches/$base_path" --jq '.commit.sha') \
@@ -265,7 +265,7 @@ refresh_same_repository() {
   while [ "$waited" -lt "$CHECK_WAIT_SECONDS" ]; do
     if ! current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
       || ! printf '%s' "$current" | jq -e --argjson before "$before" --arg base "$base" \
-        '.state=="OPEN" and .number==$before.number and .baseRefName==$base and
+        'has("autoMergeRequest") and .state=="OPEN" and .number==$before.number and .baseRefName==$base and
          .isCrossRepository==false and .author.login==$before.author.login and
          .autoMergeRequest==$before.autoMergeRequest and (.headRefOid|test("^[0-9a-f]{40}$")) and
          (.baseRefOid|test("^[0-9a-f]{40}$"))' > /dev/null; then
@@ -295,7 +295,7 @@ refresh_same_repository() {
       # A check observed at one head cannot certify a successor pushed during the wait.
       if ! current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
         || ! printf '%s' "$current" | jq -e --argjson before "$before" --arg head "$new_head" --arg base "$base" \
-          '.state=="OPEN" and .number==$before.number and .baseRefName==$base and
+          'has("autoMergeRequest") and .state=="OPEN" and .number==$before.number and .baseRefName==$base and
            .headRefOid==$head and .isCrossRepository==false and .author.login==$before.author.login and
            .autoMergeRequest==$before.autoMergeRequest' > /dev/null \
         || ! final_base=$(gh api "repos/$repo/branches/$base_path" --jq '.commit.sha') \

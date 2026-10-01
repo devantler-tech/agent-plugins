@@ -302,6 +302,10 @@ case ${1:-} in
           exec "$REAL_CAT" "$@"
         fi
         ;;
+      changing-exemption)
+        "$REAL_CAT" "$@" || exit 74
+        printf '%s\n' 'Never use the invalid field; this reviewed warning has no command.' > "$1"
+        ;;
       *) exec "$REAL_CAT" "$@" ;;
     esac ;;
   *) exec "$REAL_CAT" "$@" ;;
@@ -309,7 +313,7 @@ esac
 STUB
 cat > "$fault_bin/jq" <<'STUB'
 #!/usr/bin/env bash
-if [[ ${1:-} == -r && ${*: -1} == */case.json ]]; then
+if [[ ${1:-} == -r && -n ${DECODE_FAULT:-} ]]; then
   [[ ${DECODE_FAULT:-} != partial ]] || printf '%s\n' 'gh pr view 42 --json state,mergedAt'
   exit 74
 fi
@@ -341,6 +345,16 @@ dir="$(fixture changing-read)"
 printf '%s\n' 'gh pr view 42 --json state,merged' > "$dir/plugins/p/agents/case.md"
 READ_FAULT=changing READ_MARKER="$work/read-marker" REAL_CAT=$real_cat PATH="$fault_bin:$PATH" \
   expect 1 'classify the observed bad list even if a later read would be clean' "$dir"
+
+# A later reviewed digest must not exempt the different bytes actually inspected.
+dir="$(fixture changing-exemption)"
+mkdir -p "$dir/scripts"
+printf '%s\n' 'Never use the invalid field; this reviewed warning has no command.' > "$work/warning.md"
+printf 'plugins/p/agents/case.md\t%s\ta reviewed warning\n' "$(sha_of "$work/warning.md")" \
+  > "$dir/scripts/gh-json-fields-allowlist.tsv"
+printf '%s\n' 'gh pr view 42 --json state,merged' > "$dir/plugins/p/agents/case.md"
+READ_FAULT=changing-exemption REAL_CAT=$real_cat PATH="$fault_bin:$PATH" \
+  expect 1 'a replacement file digest cannot exempt the observed bad content' "$dir"
 
 # Fail only the marked surface, leaving discovery and the clean baseline operational.
 # The partial variant emits genuine transformed output before failing; neither variant

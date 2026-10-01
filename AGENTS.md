@@ -61,6 +61,8 @@ scripts/
 ├── prepare-marketplace-release.sh # Offline version proposal, manifests and release notes from Git objects
 ├── marketplace-release.jq      # Candidate validation, version calculation and notes rendering
 ├── prepare-marketplace-release.test.sh # Real-history release and refusal cases
+├── inspect-marketplace-release.sh # Read-only historical inspection behind --inspect-existing
+├── inspect-marketplace-release.test.sh # Occupied tags, immutable caller state and refusal cases
 ├── check-marketplace-version.sh # PR gate: reproduce and verify any marketplace version proposal
 ├── check-marketplace-version.test.sh # Real branch histories, stale proposals and malformed input
 ├── prepare-merged-marketplace-release.sh # Reconstruct a merged proposal with exact successful main CI
@@ -289,6 +291,7 @@ bash scripts/plugin-changelog.test.sh
 # 1d. Offline marketplace candidate preparation: real Git histories, no publication.
 bash scripts/prepare-marketplace-release.test.sh
 bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exact release-tree binding
+bash scripts/inspect-marketplace-release.test.sh # historical content, occupied tags and caller-state preservation
 bash scripts/check-marketplace-release-remote.test.sh # remote state, pagination and movement; offline forge
 bash scripts/publish-marketplace-release.test.sh # opt-in publication, competing writers and readback; offline forge
 bash scripts/prepare-merged-marketplace-release.test.sh # exact main CI and fresh proposal reconstruction
@@ -365,6 +368,8 @@ value disables it. Proposal creation uses `--propose` or the Actions `propose` b
 scheduled creation separately requires `MARKETPLACE_AUTOPROPOSE` to be exactly `true`. Assessment
 retains read-only permissions. Track rollout and eventual flag removal
 in [#277](https://github.com/devantler-tech/agent-plugins/issues/277).
+Historical content inspection requires the verifier's explicit `--inspect-existing` option. Its
+`INSPECTED` result supplies no proposal, publication, remote-state or readiness clearance.
 
 These conventions guide the autonomous **Agentic Engineer** — and any agentic tool — doing
 repository maintenance. The **shared** cross-repo conventions are defined centrally in the

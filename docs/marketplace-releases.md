@@ -177,6 +177,43 @@ This check cannot establish remote freshness, genuine readiness, who reviewed th
 consumer installation. Keep the candidate immutable while reviewing and verifying it; a later edit
 invalidates the result. Full repository validation and the independent review gate still apply.
 
+### Inspect a retained proposal after its tag is occupied
+
+For an operator investigating a retained candidate or completed release, explicitly select the
+verifier's read-only historical mode:
+
+```sh
+bash scripts/verify-marketplace-release.sh \
+  --candidate /tmp/retained-marketplace-candidate \
+  --source <full-independently-selected-source-commit> \
+  --release <full-retained-proposal-or-release-commit> \
+  --inspect-existing
+```
+
+Use reviewed tooling from a complete local clone and keep the candidate immutable. The inspector
+reuses the complete candidate reproduction, source parent, two-manifest tree and file-mode checks
+in a disposable local repository. Only that private repository's copy of the candidate tag is
+removed for reconstruction. The caller's tags, branches, index and working files are preserved;
+neither GitHub nor another remote is contacted. Inherited Git layout overrides are neutralized.
+
+Success emits `status: INSPECTED`, `scope: local-historical-content`, and a `localTag` snapshot.
+`PRESENT` records the tag object, resolved commit and whether it targets the nominated release;
+`ABSENT` records null identities and match status. A different target is reported without adopting
+or changing it. A non-commit tag or any tag-inventory movement during inspection is refused.
+
+This is content evidence for an operator decision. `proposal: NOT_AUTHORIZED`,
+`publication: NOT_AUTHORIZED`, `readiness: NOT_ASSESSED` and `remoteState: UNKNOWN` remain explicit.
+`INSPECTED` never satisfies a writer's `VERIFIED` contract, reserves a version, authenticates a
+proposal author, or establishes current main, CI, review or consumer discovery. The ordinary
+verifier still refuses an occupied tag. Inspect remote identities and permissions separately;
+regenerate and review a new current-main candidate before any subsequent write.
+
+All other local tags remain available to the strict history checks. Initial-release reconstruction
+still requires no other stable tags, and a changed baseline identity is refused. Inspection does
+not manufacture missing historical evidence or permit an arbitrary baseline. A snapshot can change
+after the final observation; the result is not an atomic reservation.
+[ADR 0015](adr/0015-historical-marketplace-content-inspection.md) records this boundary.
+
 ## Check against GitHub
 
 After the proposed release commit lands on the default branch, use the opt-in remote assessment:
@@ -292,6 +329,8 @@ no delivered result. Retain the candidate, inspect the actual branch and any dra
 verify their parent, two-manifest tree and author before choosing an operator recovery. Preserve a
 competing writer's objects. A later invocation refuses an occupied or partially created branch;
 rerunning it is not a resume operation. Main advancement requires a fresh candidate and readiness.
+If the candidate tag is already occupied, use the explicit historical inspection above for local
+content evidence; its result does not authorize resuming the partial writer.
 
 [ADR 0014](adr/0014-create-only-marketplace-proposals.md) records this boundary.
 

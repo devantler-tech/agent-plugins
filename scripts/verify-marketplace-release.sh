@@ -3,7 +3,9 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Refuse invalid input without emitting a successful assessment.
 fail() { printf 'release verification: %s\n' "$*" >&2; exit 1; }
+# Describe the public verifier and its explicit historical inspection option.
 usage() { printf 'usage: verify-marketplace-release.sh --candidate <directory> --source <full-commit> --release <full-commit> [--inspect-existing]\n'; }
 candidate='' source='' release='' inspect_existing=false
 while [ "$#" -gt 0 ]; do

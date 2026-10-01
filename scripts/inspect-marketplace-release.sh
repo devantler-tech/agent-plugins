@@ -2,6 +2,7 @@
 # Read-only historical content assessment, invoked by verify-marketplace-release.sh.
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Stop inspection without exposing the private verifier's success result.
 fail() { printf 'release inspection: %s\n' "$*" >&2; exit 1; }
 [ "$#" -eq 3 ] || fail 'candidate, source and release are required'
 candidate=$1 source=$2 release=$3
@@ -20,7 +21,7 @@ temp=$(mktemp -d "${TMPDIR:-/tmp}/marketplace-inspect.XXXXXX")
 trap 'rm -rf "$temp"' EXIT
 # Check the original before cloning; a local clone need not retain these restrictions.
 [ "$(git -C "$original" rev-parse --is-shallow-repository)" = false ] || fail 'complete Git history is required'
-grafts=$(git -C "$original" rev-parse --git-path info/grafts)
+grafts=$(git -C "$original" rev-parse --path-format=absolute --git-path info/grafts)
 [ ! -s "$grafts" ] || fail 'grafted history is unsupported'
 if git -C "$original" config --get extensions.partialClone > "$temp/partial"; then
   [ ! -s "$temp/partial" ] || fail 'partial clones are unsupported'

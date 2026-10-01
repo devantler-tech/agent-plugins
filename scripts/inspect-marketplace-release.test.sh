@@ -7,10 +7,15 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
 passed=0
+# Stop the suite at the first contract mismatch.
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
+# Build a real baseline, feature source, four-file candidate and version-only release.
 fixture() {
   repo=$(mktemp -d "$work/repo.XXXXXX")
   repo=$(cd "$repo" && pwd -P)
+  unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+    GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_NAMESPACE GIT_CONFIG_PARAMETERS \
+    GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_NOSYSTEM
   git -C "$repo" init -q
   git -C "$repo" config user.name Test
   git -C "$repo" config user.email test@example.invalid
@@ -31,7 +36,9 @@ fixture() {
   git -C "$repo" commit -qm 'chore(release): prepare 1.3.0'
   release=$(git -C "$repo" rev-parse HEAD)
 }
+# Exercise the public entrypoint against the selected fixture and explicit options.
 run() { (cd "$repo" && bash "$tool" --candidate "$candidate" --source "$source" --release "$release" "$@"); }
+# Require a non-authoritative historical verdict and the expected local tag observation.
 accept() {
   local name=$1 state=$2 matches=$3
   run --inspect-existing > "$work/result" 2> "$work/error" || { cat "$work/error"; fail "$name rejected"; }
@@ -44,17 +51,27 @@ accept() {
   ' "$work/result" >/dev/null || fail "$name verdict"
   passed=$((passed+1))
 }
+# Require nonzero refusal with no leaked successful result.
 reject() {
   local name=$1; shift
   if run --inspect-existing "$@" > "$work/result" 2> "$work/error"; then fail "$name accepted"; fi
   [ ! -s "$work/result" ] || fail "$name emitted success"
   passed=$((passed+1))
 }
+# Capture caller refs, dirty/untracked files and index checksum for before/after comparison.
 snapshot() {
   git -C "$repo" for-each-ref --sort=refname --format='%(refname) %(objectname)' > "$1.refs"
   git -C "$repo" status --porcelain > "$1.status"
   cksum "$repo/.git/index" > "$1.index"
 }
+# A subprocess exercises the real fixture setup under a foreign inherited Git layout.
+if [ "${1:-}" = --fixture-isolation-check ]; then
+  [ "$#" -eq 1 ] || fail 'one fixture isolation option is supported'
+  fixture; run --inspect-existing > "$work/result"
+  jq -e '.status=="INSPECTED" and .localTag.state=="ABSENT"' "$work/result" >/dev/null
+  exit 0
+fi
+[ "$#" -eq 0 ] || fail 'unknown suite option'
 fixture
 run > "$work/default"
 jq -e '.status=="VERIFIED" and .scope=="local-prepublication"' "$work/default" >/dev/null
@@ -97,6 +114,13 @@ fixture; reject 'duplicate inspection flag' --inspect-existing
 fixture; git -C "$repo" config remote.origin.promisor true; reject 'partial source clone'
 fixture; git -C "$repo" rev-parse HEAD > "$repo/.git/shallow"; reject 'shallow source history'
 fixture; mkdir -p "$repo/.git/info"; printf 'grafted\n' > "$repo/.git/info/grafts"; reject 'grafted source history'
+fixture; mkdir -p "$repo/sub" "$repo/.git/info"; printf '%s\n' "$source" > "$repo/.git/info/grafts"
+if (cd "$repo/sub" && bash "$tool" --candidate "$candidate" --source "$source" --release "$release" --inspect-existing) > "$work/result" 2> "$work/error"; then
+  fail 'grafted source inspected from a subdirectory was accepted'
+fi
+[ ! -s "$work/result" ] || fail 'subdirectory graft refusal emitted success'
+grep -q 'grafted history is unsupported' "$work/error" || fail 'subdirectory graft was refused for another reason'
+passed=$((passed+1))
 fixture; git -C "$repo" tag v1.3.0 "$release"; printf changed > "$repo/content"; git -C "$repo" add content; git -C "$repo" commit --amend --no-edit -q; release=$(git -C "$repo" rev-parse HEAD); reject 'unrelated release content'
 fixture; chmod +x "$repo/.github/plugin/marketplace.json"; git -C "$repo" add .github/plugin/marketplace.json; git -C "$repo" commit --amend --no-edit -q; release=$(git -C "$repo" rev-parse HEAD); reject 'changed manifest mode'
 fixture; git -C "$repo" commit --allow-empty -qm 'fix: later work'; release=$(git -C "$repo" rev-parse HEAD); reject 'wrong source parent'
@@ -106,6 +130,13 @@ fixture; git -C "$repo" tag v1.3.0 "$release"
 foreign=$(mktemp -d "$work/foreign.XXXXXX")
 git clone --shared --no-checkout -q "$repo" "$foreign"
 foreign_tag=$(git -C "$foreign" rev-parse refs/tags/v1.3.0)
+cp "$foreign/.git/config" "$work/foreign-config-before"
+git -C "$foreign" for-each-ref --sort=refname --format='%(refname) %(objectname)' > "$work/foreign-refs-before"
+GIT_DIR="$foreign/.git" GIT_WORK_TREE="$foreign" bash "${BASH_SOURCE[0]}" --fixture-isolation-check || fail 'inherited fixture layout was not isolated'
+cmp "$work/foreign-config-before" "$foreign/.git/config" || fail 'fixture changed foreign configuration'
+git -C "$foreign" for-each-ref --sort=refname --format='%(refname) %(objectname)' > "$work/foreign-refs-after"
+cmp "$work/foreign-refs-before" "$work/foreign-refs-after" || fail 'fixture changed foreign refs'
+passed=$((passed+1))
 GIT_DIR="$foreign/.git" GIT_WORK_TREE="$foreign" accept 'inherited foreign Git layout is neutralized' PRESENT true
 [ "$(git -C "$foreign" rev-parse refs/tags/v1.3.0)" = "$foreign_tag" ] || fail 'foreign tag changed'
 passed=$((passed+1))

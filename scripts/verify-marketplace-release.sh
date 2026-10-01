@@ -3,9 +3,11 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Refuse invalid input without emitting a successful assessment.
 fail() { printf 'release verification: %s\n' "$*" >&2; exit 1; }
-usage() { printf 'usage: verify-marketplace-release.sh --candidate <directory> --source <full-commit> --release <full-commit>\n'; }
-candidate='' source='' release=''
+# Describe the public verifier and its explicit historical inspection option.
+usage() { printf 'usage: verify-marketplace-release.sh --candidate <directory> --source <full-commit> --release <full-commit> [--inspect-existing]\n'; }
+candidate='' source='' release='' inspect_existing=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --candidate)
@@ -17,6 +19,9 @@ while [ "$#" -gt 0 ]; do
     --release)
       if [ "$#" -lt 2 ] || [ -n "$release" ]; then fail 'one release commit is required'; fi
       release=$2; shift 2 ;;
+    --inspect-existing)
+      [ "$inspect_existing" = false ] || fail 'inspection may be selected only once'
+      inspect_existing=true; shift ;;
     --help) usage; exit 0 ;;
     *) fail "unknown argument: $1" ;;
   esac
@@ -24,6 +29,11 @@ done
 [[ "$source" =~ ^[0-9a-f]{40}$ && "$release" =~ ^[0-9a-f]{40}$ ]] || fail 'source and release must be full 40-character commits'
 if [ -z "$candidate" ] || [ ! -d "$candidate" ] || [ -L "$candidate" ]; then fail 'candidate must be a real directory'; fi
 candidate=$(cd "$candidate" && pwd -P)
+# Dispatch before consulting Git: the inspector neutralizes inherited layout overrides.
+# Its distinct result cannot satisfy the normal prepublication verifier's contract.
+if [ "$inspect_existing" = true ]; then
+  exec bash "$here/inspect-marketplace-release.sh" "$candidate" "$source" "$release"
+fi
 temp=$(mktemp -d "${TMPDIR:-/tmp}/marketplace-verify.XXXXXX")
 trap 'rm -rf "$temp"' EXIT
 # Inspect types before reading: do not follow artifact symlinks or block on a pipe.

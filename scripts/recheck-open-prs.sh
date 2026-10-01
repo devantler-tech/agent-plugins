@@ -20,9 +20,10 @@
 #   stood before the gate landed — with the old workflow file. Only a NEW `pull_request` event
 #   resolves the merge ref again and picks the new gate up. Same-repository branches are updated
 #   through the head-checked update-branch API, preserving their commits and open state. This
-#   moves the head and requires review at that new head. A branch already containing the current
-#   base needs no synthetic event. Forks use `reopened`, which preserves their head; Dependabot
-#   forks are refused because closing a Dependabot PR records the update as unwanted.
+#   moves the head and requires review at that new head. Current non-Dependabot branches and
+#   forks use `reopened`, which preserves their head and starts CI for App-created drafts.
+#   Current Dependabot branches require an observed PR run without closing; Dependabot forks
+#   are refused because closing a Dependabot PR records the update as unwanted.
 #
 # WHY AN APP TOKEN IS REQUIRED
 #   Events produced with the repository's `GITHUB_TOKEN` do not start new workflow runs, so a
@@ -214,6 +215,7 @@ rearm() {
 # Update only a same-repository branch, retaining its complete prior history and merge settings.
 # GitHub's expected_head_sha rejects an intervening push. Accepted asynchronous writes are not
 # success evidence: read back the new head, verify both ancestors, then observe its PR event.
+# Return 3 only for a current non-Dependabot branch that needs the existing reopen route.
 refresh_same_repository() {
   local n=$1 before=$2 old_head old_base relation current new_head new_base base_path final_base waited=0
   old_head=$(printf '%s' "$before" | jq -r '.headRefOid')
@@ -233,8 +235,26 @@ refresh_same_repository() {
   fi
   case "$relation" in
     ahead|identical)
-      echo "  checked #$n — its head already contains the current base"
-      return 0 ;;
+      case "$(printf '%s' "$before" | jq -r '.author.login')" in
+        'app/dependabot'|'dependabot[bot]')
+          if ! await_fresh_check "$old_head" 0; then
+            echo "::error::#$n contains the current base but no PR workflow run was observed; left open"
+            return 1
+          fi
+          if ! current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
+            || ! printf '%s' "$current" | jq -e --argjson before "$before" \
+              '.state=="OPEN" and .number==$before.number and .baseRefName==$before.baseRefName and
+               .headRefOid==$before.headRefOid and .isCrossRepository==false and
+               .author.login==$before.author.login and .autoMergeRequest==$before.autoMergeRequest' > /dev/null \
+            || ! final_base=$(gh api "repos/$repo/branches/$base_path" --jq '.commit.sha') \
+            || [ "$final_base" != "$old_base" ]; then
+            echo "::error::#$n moved during the check wait; current refresh is unverified"
+            return 1
+          fi
+          echo "  checked #$n — its head contains the current base and has an observed PR run"
+          return 0 ;;
+        *) return 3 ;;
+      esac ;;
     behind|diverged) ;;
     *) echo "::error::#$n base ancestry is unknown; left untouched"; return 1 ;;
   esac
@@ -371,12 +391,15 @@ while IFS=$'\t' read -r number title; do
   fi
 
   if [ "$(printf '%s' "$snapshot" | jq -r '.isCrossRepository')" = false ]; then
-    if refresh_same_repository "$number" "$snapshot"; then
+    refresh_same_repository "$number" "$snapshot"
+    refresh_status=$?
+    if [ "$refresh_status" -eq 0 ]; then
       done_count=$((done_count + 1))
-    else
+      continue
+    elif [ "$refresh_status" -ne 3 ]; then
       failed=$((failed + 1))
+      continue
     fi
-    continue
   fi
   case "$(printf '%s' "$snapshot" | jq -r '.author.login')" in
     'app/dependabot'|'dependabot[bot]')

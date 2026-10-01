@@ -37,7 +37,8 @@ if [[ "$*" == *'/actions/runs'* ]]; then
   [[ "$MODE" != no-check ]] || { printf '0\n'; exit; }
   if [[ "$MODE" == late-movement ]]; then printf '%s' "$LATER" > "$FIXTURE/current"; fi
   if [[ "$MODE" == late-base ]]; then : > "$FIXTURE/later-base"; fi
-  printf '91\n'; exit
+  if [ -f "$FIXTURE/reopened" ]; then printf '92\n'; else printf '91\n'; fi
+  exit
 fi
 if [[ "$*" == *'/branches/'* ]]; then
   [[ "$MODE" != branch-read-fails ]] || exit 1
@@ -70,6 +71,7 @@ if [[ "$*" == *'pr view'* ]]; then
   [[ "$MODE" != unreadable-after-update || ! -f "$FIXTURE/current" ]] || exit 1
   current=$(cat "$FIXTURE/current" 2>/dev/null || printf '%s' "$HEAD")
   [[ "$MODE" != missing-author ]] && author='app/dependabot' || author=''
+  if [[ "$MODE" == human || "$MODE" == current-human ]]; then author=devantler; fi
   [[ "$MODE" != missing-boundary ]] && fork=false || fork=null
   if [[ "$MODE" == dropped-adaptation && -f "$FIXTURE/current" ]]; then current=$BASE; fi
   current_base=$BASE
@@ -88,6 +90,11 @@ if [[ "$*" == *'pr view'* ]]; then
        else . end | .baseRefOid=(if $mode=="stale-pr-base" then $original else $base end)'
   exit
 fi
+case "$1 $2" in
+  'pr close') : > "$FIXTURE/closed"; exit ;;
+  'pr reopen') rm -f "$FIXTURE/closed"; : > "$FIXTURE/reopened"; exit ;;
+  'pr merge') : > "$FIXTURE/rearmed"; exit ;;
+esac
 printf 'unexpected mutation\n' >&2
 exit 3
 EOF
@@ -114,6 +121,7 @@ run_case() {
   echo "PASS same-repository $mode"
 }
 run_case normal 0
+run_case human 0
 run_case unarmed 0
 run_case stale-pr-base 0
 run_case update-fails 1
@@ -135,12 +143,29 @@ run_case wrong-pr 1
 run_case retargeted 1
 run_case late-movement 1
 run_case late-base 1
-# A current branch needs no mutation; its committed base already contains the gate.
-export MODE=normal HEAD="$updated"
-rm -f "$work/current" "$work/later-base"
+# A current Dependabot branch stays open, but its observed run certifies only that exact head/base.
+export HEAD="$updated"
+for mode in normal no-check late-movement late-base; do
+  export MODE="$mode"
+  rm -f "$work/current" "$work/later-base"
+  : > "$work/calls"
+  rc=0
+  PATH="$work/bin:$PATH" RECHECK_CHECK_WAIT_SECONDS=1 RECHECK_CHECK_POLL_SECONDS=1 \
+    bash "$here/recheck-open-prs.sh" --repo owner/name > "$work/output" 2>&1 || rc=$?
+  expected=1
+  [ "$mode" != normal ] || expected=0
+  if [ "$rc" -ne "$expected" ] || grep -Eq '/update-branch|^pr (close|reopen|merge)' "$work/calls"; then
+    cat "$work/output"; echo "FAIL current Dependabot $mode: exit $rc"; exit 1
+  fi
+  echo "PASS current Dependabot $mode"
+done
+# Native proposal drafts are created with GITHUB_TOKEN and need the App's reopened event.
+export MODE=current-human
+rm -f "$work/reopened" "$work/rearmed" "$work/current" "$work/later-base"
 : > "$work/calls"
-PATH="$work/bin:$PATH" bash "$here/recheck-open-prs.sh" --repo owner/name > "$work/output" 2>&1
-if grep -Eq '/update-branch|^pr (close|reopen|merge)' "$work/calls"; then
-  echo 'FAIL current base: mutated a verified current branch'; exit 1
-fi
-echo 'PASS current base is verified without a synthetic closure'
+PATH="$work/bin:$PATH" RECHECK_CHECK_WAIT_SECONDS=1 RECHECK_CHECK_POLL_SECONDS=1 \
+  bash "$here/recheck-open-prs.sh" --repo owner/name > "$work/output" 2>&1
+test -f "$work/reopened"
+test -f "$work/rearmed"
+if grep -q '/update-branch' "$work/calls"; then echo 'FAIL current draft: unnecessary head movement'; exit 1; fi
+echo 'PASS current non-Dependabot draft still receives a fresh reopen event'

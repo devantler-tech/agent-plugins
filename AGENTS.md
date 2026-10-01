@@ -341,13 +341,16 @@ which is worse than no trigger. **If you narrow this trigger, you are re-opening
 [`recheck-open-prs.sh`](scripts/recheck-open-prs.sh) refreshes **same-repository branches** through
 GitHub's update-branch API with the observed head as its concurrency guard. It verifies that the
 result contains both the old head and current base, preserves auto-merge settings, and observes a
-fresh PR workflow event. A head already containing the current base needs no synthetic closure.
-An updated head requires a new current-head review before merge; existing commits are retained.
+fresh PR workflow event. An updated head requires a new current-head review before merge;
+existing commits are retained. Current non-Dependabot branches use the reopen route to ensure
+App-created drafts receive their required PR CI event.
 
 **Forks** use close and immediate reopen, which preserves their head and current-head review.
 **Dependabot PRs are never closed or recreated:** closing records the release as unwanted, so a
 Dependabot fork is reported as a failure and left untouched. Unknown author or repository-boundary
 data, failed updates and incomplete readback likewise cannot report a successful refresh.
+For a current Dependabot branch, the helper observes a PR workflow run at that head and verifies
+the head includes the current named base. Missing event evidence is a failure, not a reason to close it.
 
 Re-running an old workflow replays its original merge revision; it does not apply a new gate.
 These refresh routes use an App token because `GITHUB_TOKEN` events start no new workflow runs.

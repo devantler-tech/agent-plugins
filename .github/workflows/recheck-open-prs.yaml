@@ -10,7 +10,7 @@ name: 🔁 Recheck open PRs
 # be up to date before merging"), but it is declared org-wide and Observe-only in
 # devantler-tech/.github, so it is not this repository's to flip. This workflow is the
 # repository-scoped equivalent: when `main` moves, ask every open PR to run again. See
-# scripts/recheck-open-prs.sh for the head-checked same-repository update and fork reopen routes,
+# scripts/recheck-open-prs.sh for the head-checked base update and non-Dependabot reopen routes,
 # their observed-event checks, and why they need an App token. Dependabot PRs are never closed.
 #
 # WHY EVERY PUSH, RATHER THAN A NARROWER TRIGGER

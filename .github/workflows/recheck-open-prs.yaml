@@ -78,7 +78,7 @@ jobs:
         id: app-token
         if: ${{ !inputs.dry-run }}
         # `contents: write` is required for same-repository base updates and for restoring a
-        # fork's previously armed auto-merge request. The script never arms an unarmed request.
+        # reopened PR's previously armed auto-merge request. The script never arms an unarmed request.
         #
         # `actions: read` is likewise load-bearing. Before restoring an armed auto-merge the script
         # waits for a `pull_request` run from the reopen, and that read is what makes the wait safe

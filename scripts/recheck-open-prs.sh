@@ -23,7 +23,7 @@
 #   moves the head and requires review at that new head. Current non-Dependabot branches and
 #   forks use `reopened`, which preserves their head and starts CI for App-created drafts.
 #   Current Dependabot branches require an observed PR run without closing; Dependabot forks
-#   are refused because closing a Dependabot PR records the update as unwanted.
+#   are refused because closing a Dependabot PR can suppress a wanted update.
 #
 # WHY AN APP TOKEN IS REQUIRED
 #   Events produced with the repository's `GITHUB_TOKEN` do not start new workflow runs, so a

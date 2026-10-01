@@ -280,5 +280,108 @@ mkdir -p "${work}/unknown-no-lists/plugins/p"
 printf '%s\n' 'no commands here' > "${work}/unknown-no-lists/plugins/p/README.md"
 expect 2 "no --json lists is UNKNOWN" "${work}/unknown-no-lists"
 
+# A readable file can still fail while it is read, decoded or transformed. Keep a clean
+# baseline in every fixture so another surface cannot hide an incomplete observation.
+real_cat="$(command -v cat)"
+real_jq="$(command -v jq)"
+real_grep="$(command -v grep)"
+fault_bin="${work}/fault-bin"
+mkdir -p "$fault_bin"
+cat > "$fault_bin/cat" <<'STUB'
+#!/usr/bin/env bash
+case ${1:-} in
+  */case.md)
+    case ${READ_FAULT:-} in
+      empty) exit 74 ;;
+      partial) printf '%s\n' 'gh pr view 42 --json state,mergedAt'; exit 74 ;;
+      changing)
+        if [[ -e $READ_MARKER ]]; then
+          printf '%s\n' 'gh pr view 42 --json state,mergedAt'
+        else
+          : > "$READ_MARKER"
+          exec "$REAL_CAT" "$@"
+        fi
+        ;;
+      changing-exemption)
+        "$REAL_CAT" "$@" || exit 74
+        printf '%s\n' 'Never use the invalid field; this reviewed warning has no command.' > "$1"
+        ;;
+      *) exec "$REAL_CAT" "$@" ;;
+    esac ;;
+  *) exec "$REAL_CAT" "$@" ;;
+esac
+STUB
+cat > "$fault_bin/jq" <<'STUB'
+#!/usr/bin/env bash
+if [[ ${1:-} == -r && -n ${DECODE_FAULT:-} ]]; then
+  [[ ${DECODE_FAULT:-} != partial ]] || printf '%s\n' 'gh pr view 42 --json state,mergedAt'
+  exit 74
+fi
+exec "$REAL_JQ" "$@"
+STUB
+chmod +x "$fault_bin/cat" "$fault_bin/jq"
+
+expect_unknown() {
+  expect 2 "$1" "$2"
+  if ! grep -q 'UNKNOWN' "${work}/out" || grep -q 'guard-gh-json-fields: OK' "${work}/out"; then
+    failed=$((failed + 1))
+    echo "FAIL: $1 — incomplete extraction must report UNKNOWN without OK" >&2
+  fi
+}
+for mode in empty partial; do
+  dir="$(fixture "unknown-read-$mode")"
+  printf '%s\n' 'gh pr view 42 --json state,merged' > "$dir/plugins/p/agents/case.md"
+  READ_FAULT=$mode REAL_CAT=$real_cat PATH="$fault_bin:$PATH" \
+    expect_unknown "a $mode failed read cannot inherit baseline success" "$dir"
+  dir="$(fixture "unknown-decode-$mode")"
+  printf '%s\n' '{"prompt":"gh pr view 42 --json state,merged"}' > "$dir/plugins/p/case.json"
+  DECODE_FAULT=$mode REAL_CAT=$real_cat REAL_JQ=$real_jq PATH="$fault_bin:$PATH" \
+    expect_unknown "a $mode failed JSON decode cannot inherit baseline success" "$dir"
+done
+
+# Counting and classification must share the same successful observation. A file that
+# changes between independent reads must not erase the invalid prescription already seen.
+dir="$(fixture changing-read)"
+printf '%s\n' 'gh pr view 42 --json state,merged' > "$dir/plugins/p/agents/case.md"
+READ_FAULT=changing READ_MARKER="$work/read-marker" REAL_CAT=$real_cat PATH="$fault_bin:$PATH" \
+  expect 1 'classify the observed bad list even if a later read would be clean' "$dir"
+
+# A later reviewed digest must not exempt the different bytes actually inspected.
+dir="$(fixture changing-exemption)"
+mkdir -p "$dir/scripts"
+printf '%s\n' 'Never use the invalid field; this reviewed warning has no command.' > "$work/warning.md"
+printf 'plugins/p/agents/case.md\t%s\ta reviewed warning\n' "$(sha_of "$work/warning.md")" \
+  > "$dir/scripts/gh-json-fields-allowlist.tsv"
+printf '%s\n' 'gh pr view 42 --json state,merged' > "$dir/plugins/p/agents/case.md"
+READ_FAULT=changing-exemption REAL_CAT=$real_cat PATH="$fault_bin:$PATH" \
+  expect 1 'a replacement file digest cannot exempt the observed bad content' "$dir"
+
+# Fail only the marked surface, leaving discovery and the clean baseline operational.
+# The partial variant emits genuine transformed output before failing; neither variant
+# can be treated as a complete scan. A grep no-match (1) is already covered by prose cases.
+for stage in tr awk sed grep sort; do
+  stage_bin="$work/stage-$stage"
+  mkdir -p "$stage_bin"
+  real_stage="$(command -v "$stage")"
+  cat > "$stage_bin/$stage" <<'STUB'
+#!/usr/bin/env bash
+input=$(mktemp) || exit 74
+trap 'rm -f "$input"' EXIT
+"$REAL_CAT" > "$input" || exit 74
+if "$REAL_GREP" -aqF faultMarker "$input"; then
+  [[ $STAGE_FAULT != partial ]] || "$REAL_STAGE" "$@" < "$input"
+  exit 74
+fi
+"$REAL_STAGE" "$@" < "$input"
+STUB
+  chmod +x "$stage_bin/$stage"
+  for mode in empty partial; do
+    dir="$(fixture "unknown-$stage-$mode")"
+    printf '%s\n' 'gh pr view 42 --json state,merged,faultMarker' > "$dir/plugins/p/agents/case.md"
+    REAL_CAT=$real_cat REAL_GREP=$real_grep REAL_STAGE=$real_stage STAGE_FAULT=$mode PATH="$stage_bin:$PATH" \
+      expect_unknown "a $mode failed $stage stage is UNKNOWN" "$dir"
+  done
+done
+
 echo "guard-gh-json-fields.test: ${passed} passed, ${failed} failed"
 [ "${failed}" -eq 0 ]

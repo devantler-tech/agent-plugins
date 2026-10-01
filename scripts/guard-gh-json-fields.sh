@@ -34,7 +34,8 @@ unknown() {
   exit 2
 }
 
-# Emit a surface as plain text. JSON is DECODED, never pattern-matched: a \u escape of a letter IS
+# Emit the retained surface as plain text. $1 selects its type; $2 contains its observed bytes.
+# JSON is DECODED, never pattern-matched: a \u escape of a letter IS
 # that letter, so an escaped `merged` is still `merged`. Each decoded string is followed by `%`, which ends a field
 # list, so two unrelated values cannot join into `--json merged`.
 decode_surface() {
@@ -46,8 +47,8 @@ decode_surface() {
                      ( .. | objects | to_entries[] | select(.key | test("^(args|argv|cmd|command)$"; "i"))
                           | .value | select(type == "array" and length > 0 and all(type == "string"))
                           | join(" ") )
-                   | ., "%"' "$1" 2>/dev/null || true ;;
-    *)      cat "$1" ;;
+                   | ., "%"' "$2" 2>/dev/null ;;
+    *)      cat "$2" ;;
   esac
 }
 
@@ -62,7 +63,7 @@ decode_surface() {
 # in SHELL quotes ('--json') is unwrapped first — that is one argument to the shell — while a
 # backtick-wrapped one stays a Markdown code span.
 extract_lists() {
-  decode_surface "$1" \
+  decode_surface "$1" "$2" \
     | tr -d '\000' \
     | awk '{ if (sub(/\\$/, "")) { printf "%s", $0 } else { print } }' \
     | sed -E -e 's/\\[nrt]/ /g' -e 's/\\/ /g' \
@@ -77,18 +78,11 @@ extract_lists() {
              -e 's/…/,/g' -e 's/\.\.\./,/g' \
              -e 's/[[:space:]]+/ /g' \
              -e 's/--json[[:space:]]*[=,]*[[:space:]]*[`"'"'"']?[[:space:]]*/--json /g' \
-    | grep -a -o -- '--json [A-Za-z,]*' | sort -u || true   # NULs are deleted above and -a keeps text mode anyway: GNU grep would otherwise print "binary file matches" and no list
-}
-
-# Every list in $1 that names a bare `merged`, one per line.
-bad_lists_in() {
-  local list fields
-  while IFS= read -r list; do
-    fields="${list#--json }"
-    case ",${fields}," in
-      *,merged,*) printf -- '--json %s\n' "${fields}" ;;
-    esac
-  done < <(extract_lists "$1")
+    | { # grep's 1 is an ordinary no-match; every other failure stays in the pipeline.
+        local status=0
+        grep -a -o -- '--json [A-Za-z,]*' || status=$?
+        [ "$status" -le 1 ]
+      } | sort -u
 }
 
 # A surface may legitimately CONTAIN the bad request — a skill that WARNS against it, for instance.
@@ -126,9 +120,9 @@ fi
 # The digest of a file, or empty when no hashing tool is available (which is UNKNOWN, not a pass).
 digest_of() {
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" 2>/dev/null | cut -d' ' -f1
+    sha256sum < "$1" 2>/dev/null | cut -d' ' -f1
   elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1
+    shasum -a 256 < "$1" 2>/dev/null | cut -d' ' -f1
   fi
 }
 
@@ -155,8 +149,11 @@ allowed_used=""
 # Discovery is MATERIALISED first and its exit status checked. Read straight from the pipeline, a
 # `find` that dies part way through would deliver a short list and the scan would report OK over
 # whatever it happened to see.
-discovered="$(mktemp)"
-trap 'rm -f "${discovered}"' EXIT
+umask 077
+observation_dir="$(mktemp -d)" || unknown 'could not create the private observation directory'
+discovered="${observation_dir}/paths"
+snapshot="${observation_dir}/surface"
+trap 'rm -f "${discovered}" "${snapshot}"; rmdir "${observation_dir}"' EXIT
 find "${root}/plugins" ! -type d -print0 2>/dev/null | LC_ALL=C sort -z > "${discovered}" ||
   unknown "could not list the files under ${root}/plugins, so the scan would cover an unknown subset"
 
@@ -167,7 +164,7 @@ while IFS= read -r -d '' f; do
     *.sh) ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
-done < <(cat "${discovered}")
+done < "${discovered}"
 [ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md, *.txt or *.json under ${root}/plugins"
 
 scanned=0
@@ -179,19 +176,31 @@ for surface in "${surfaces[@]}"; do
   # is UNKNOWN too: reading one can never finish, and a check that hangs is worse than one that fails.
   [ -f "${surface}" ] || unknown "${surface#"${root}/"} is not a regular file (a device, a pipe, or a dangling link), so it cannot be scanned"
   [ -r "${surface}" ] || unknown "${surface#"${root}/"} cannot be read, so any field it prescribes would go unseen"
+  # Read the original once. Extraction, syntax checks and exemption hashing share these
+  # private bytes, so a later source change cannot authorize a different observation.
+  cat "${surface}" > "${snapshot}" ||
+    unknown "${surface#"${root}/"} could not be completely read"
   case "${surface}" in
-    *.json) jq empty "${surface}" >/dev/null 2>&1 ||
+    *.json) jq empty "${snapshot}" >/dev/null 2>&1 ||
               unknown "${surface#"${root}/"} does not parse, so any field it prescribes would go unseen" ;;
   esac
   scanned=$((scanned + 1))
-  lists=$((lists + $(extract_lists "${surface}" | grep -c . || true)))
+  # Retain one complete observation. A failed stage may already have emitted valid-looking
+  # output, so preserve its status before counting or classifying any of that output.
+  surface_lists="$(extract_lists "${surface}" "${snapshot}")" ||
+    unknown "${surface#"${root}/"} could not be completely extracted"
   rel="${surface#"${root}/"}"
   surface_digest=""
-  while IFS= read -r bad; do
-    [ -n "${bad}" ] || continue
+  while IFS= read -r list; do
+    [ -n "${list}" ] || continue
+    lists=$((lists + 1))
+    fields="${list#--json }"
+    case ",${fields}," in *,merged,*) ;; *) continue ;; esac
+    bad="${list}"
     if [ -z "${surface_digest}" ]; then
-      surface_digest="$(digest_of "${surface}")"
-      [ -n "${surface_digest}" ] ||
+      surface_digest="$(digest_of "${snapshot}")" ||
+        unknown "could not hash ${rel}, so its reviewed exemption is unknown"
+      [[ "${surface_digest}" =~ ^[0-9a-f]{64}$ ]] ||
         unknown "cannot hash ${rel}, so a reviewed exemption for it cannot be checked (install sha256sum or shasum)"
     fi
     if is_allowed "${rel}" "${surface_digest}"; then
@@ -200,7 +209,9 @@ for surface in "${surfaces[@]}"; do
       continue
     fi
     offenders="${offenders}  ${rel}: ${bad}"$'\n'
-  done < <(bad_lists_in "${surface}")
+  done <<EOF
+${surface_lists}
+EOF
 done
 
 [ "${lists}" -gt 0 ] ||

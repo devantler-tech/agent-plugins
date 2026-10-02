@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prepare immutable, offline review artifacts. No checkout, ref, or remote writes.
 set -euo pipefail
-export GIT_NO_REPLACE_OBJECTS=1
+export GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 fail() { printf 'release preparation: %s\n' "$*" >&2; exit 1; }
 usage() { printf 'usage: prepare-marketplace-release.sh --base-tag <initial|vX.Y.Z> --output <new-directory> [--head <full-commit>]\n'; }
@@ -31,10 +31,9 @@ fi
 grafts=$(git rev-parse --git-path info/grafts)
 [ ! -s "$grafts" ] || fail 'grafted history is unsupported'
 # A partial clone fetches missing objects on demand, which would break the offline guarantee.
-[ -z "$(git config --get extensions.partialClone || true)" ] || fail 'partial clones are unsupported: every object must be local'
-while IFS= read -r promisor; do
-  [ "${promisor##* }" != true ] || fail 'partial clones are unsupported: every object must be local'
-done < <(git config --type=bool --get-regexp '^remote\..*\.promisor$' || true)
+# shellcheck source=scripts/complete-clone.lib.sh
+. "$here/complete-clone.lib.sh"
+assert_complete_clone_config || fail 'incomplete Git configuration; offline history is required'
 if [ -z "$head" ]; then head=$(git rev-parse --verify HEAD); fi
 [[ "$head" =~ ^[0-9a-f]{40}$ ]] || fail 'head must be a full 40-character commit'
 [ "$(git cat-file -t "$head")" = commit ] || fail 'head must identify a commit'

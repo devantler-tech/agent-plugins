@@ -223,11 +223,16 @@ plugin membership) is authored here.
    latest version" and keeps serving the stale copy, with no error and no drift signal. Bump with
    [`scripts/bump-plugin-version.sh`](scripts/bump-plugin-version.sh), which moves all four places the
    version must agree (the portable and strict manifests plus both marketplace entries) — a hand-edit
-   easily half-lands. The `Check version bump` CI job enforces it on every PR, and the daily skill-sync
+   easily half-lands. The updater checks identities, unique membership and version parity before
+   writing any manifest, including when several plugins changed. Cache versions must increase using
+   canonical stable versions; a downgrade cannot reuse an older cache identity.
+   The `Check version bump` CI job enforces it on every PR, and the daily skill-sync
    workflow bumps itself via `--changed-since` and writes dated skill/source/ref release notes with
    `bash scripts/plugin-changelog.sh write origin/main`. Existing hand-written entries stay intact.
    Both the writer and checker compare against the merge base, so unrelated releases on an advanced
-   main branch do not need entries here. Fully retired skills get removal notes with provenance from
+   main branch do not need entries here. A completed base-tree query proves whether a manifest or
+   skill is absent; a listed but unreadable blob is a verification failure, never a new item.
+   Fully retired skills get removal notes with provenance from
    that base; removing `SKILL.md` while leaving resources behind is rejected as an incomplete removal.
    The same CI job rejects a new or changed plugin version without exactly one matching changelog
    top-level `## X.Y.Z` heading outside code examples and raw HTML; unchanged legacy versions do not need
@@ -360,6 +365,10 @@ existing commits are retained. Current non-Dependabot branches use the reopen ro
 App-created drafts receive their required PR CI event.
 
 **Forks** use close and immediate reopen, which preserves their head and current-head review.
+Every reopen requires a newer PR event and a matching OPEN readback of head, base, author and
+merge state, including when auto-merge was unarmed. Unknown merge strategies refuse mutation;
+restoring a known strategy also pins the observed head. The restored request is read back before
+completion is counted.
 **Dependabot PRs are never closed or recreated:** closing can suppress a wanted update, so a
 Dependabot fork is reported as a failure and left untouched. Unknown author or repository-boundary
 data, failed updates and incomplete readback likewise cannot report a successful refresh.

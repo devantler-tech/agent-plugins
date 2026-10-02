@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verify marketplace version proposals before merge without changing any Git state.
 set -euo pipefail
-export GIT_NO_REPLACE_OBJECTS=1
+export GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # Refuse incomplete evidence without emitting a success record.
 fail() { printf 'marketplace version gate: %s\n' "$*" >&2; exit 1; }
@@ -10,10 +10,9 @@ base=$1 head=$2
 [[ "$base" =~ ^[0-9a-f]{40}$ && "$head" =~ ^[0-9a-f]{40}$ ]] || fail 'base and head must be full 40-character commits'
 [ "$(git rev-parse --is-shallow-repository)" = false ] || fail 'complete Git history is required'
 [ ! -s "$(git rev-parse --git-path info/grafts)" ] || fail 'grafted history is unsupported'
-[ -z "$(git config --get extensions.partialClone || true)" ] || fail 'partial clones are unsupported'
-while IFS= read -r promisor; do
-  [ "${promisor##* }" != true ] || fail 'partial clones are unsupported'
-done < <(git config --type=bool --get-regexp '^remote\..*\.promisor$' || true)
+# shellcheck source=scripts/complete-clone.lib.sh
+. "$here/complete-clone.lib.sh"
+assert_complete_clone_config || fail 'incomplete Git configuration; offline history is required'
 for commit in "$base" "$head"; do
   [ "$(git cat-file -t "$commit")" = commit ] || fail 'base and head must identify commits'
 done

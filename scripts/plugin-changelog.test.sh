@@ -304,4 +304,23 @@ for kind in bullet ordered nested quote html; do
   (cd "$dir" && bash "$script" check "$base" HEAD)
   passed=$((passed + 1))
 done
+# The manifest is listed in the retained base tree, but its unique blob is missing.
+fixture
+jq '.identity="alpha"' "$dir/plugins/alpha/plugin.json" > "$work/manifest"
+cp "$work/manifest" "$dir/plugins/alpha/plugin.json"
+commit
+base=$(git -C "$dir" rev-parse HEAD)
+blob=$(git -C "$dir" rev-parse "$base:plugins/alpha/plugin.json")
+printf '\nnew sync\n' >> "$dir/plugins/alpha/skills/example/SKILL.md"
+bump; commit
+cp "$dir/plugins/alpha/CHANGELOG.md" "$work/unchanged"
+rm "$dir/.git/objects/${blob:0:2}/${blob:2}"
+git -C "$dir" cat-file -e "$base^{commit}"
+[ -n "$(git -C "$dir" ls-tree "$base" -- plugins/alpha/plugin.json)" ]
+if git -C "$dir" show "$base:plugins/alpha/plugin.json" >/dev/null 2>&1; then exit 1; fi
+refuse write "$base" 2026-10-02
+grep -q 'unreadable base manifest' "$work/out"
+cmp "$work/unchanged" "$dir/plugins/alpha/CHANGELOG.md"
+refuse check "$base" HEAD
+grep -q 'unreadable base manifest' "$work/out"
 printf 'plugin changelog: PASS (%s cases)\n' "$passed"

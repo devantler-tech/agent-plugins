@@ -53,8 +53,10 @@ while IFS= read -r dir; do
   name=${dir#plugins/}
   manifest="$dir/plugin.json"
   old=''
-  if git cat-file -e "$base:$manifest" 2>/dev/null; then
-    old=$(git show "$base:$manifest" | jq -er '.version | strings')
+  base_entry=$(git ls-tree "$base" -- "$manifest") || fail "unreadable base manifest tree: $name"
+  if [ -n "$base_entry" ]; then
+    base_manifest=$(git show "$base:$manifest") || fail "unreadable base manifest: $name"
+    old=$(jq -er '.version | strings' <<< "$base_manifest") || fail "invalid base manifest: $name"
   fi
   if [ "$mode" = check ]; then
     version=$(git show "$head:$manifest" | jq -er '.version | strings')

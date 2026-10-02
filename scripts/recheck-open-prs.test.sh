@@ -94,7 +94,18 @@ case "\$verb" in
       "state,autoMergeRequest,headRefOid"|"state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository")
         author=\$(cat "\$db/author-\$n" 2>/dev/null || printf 'devantler')
         fork=\$(cat "\$db/fork-\$n" 2>/dev/null || printf 'true')
-        printf '{"number":%s,"baseRefName":"main","state":"%s","autoMergeRequest":%s,"headRefOid":"deadbeef","author":{"login":"%s"},"isCrossRepository":%s}\n' "\$n" "\$st" "\$am" "\$author" "\$fork"
+        head_sha=1111111111111111111111111111111111111111
+        base_sha=2222222222222222222222222222222222222222
+        if [ -f "\$db/moved" ] && [ "\$(cat "\$db/checkbump" 2>/dev/null || printf 0)" -gt 0 ]; then
+          head_sha=3333333333333333333333333333333333333333
+        fi
+        if [ "\$(cat "\$db/checkbump" 2>/dev/null || printf 0)" -gt 0 ]; then
+          [ ! -f "\$db/moved-author" ] || author=other-author
+          [ ! -f "\$db/moved-base" ] || base_sha=4444444444444444444444444444444444444444
+          [ ! -f "\$db/moved-boundary" ] || fork=false
+          [ ! -f "\$db/unreadable-readback" ] || exit 1
+        fi
+        printf '{"number":%s,"baseRefName":"main","state":"%s","autoMergeRequest":%s,"headRefOid":"%s","baseRefOid":"%s","author":{"login":"%s"},"isCrossRepository":%s}\n' "\$n" "\$st" "\$am" "\$head_sha" "\$base_sha" "\$author" "\$fork"
         ;;
       state)
         printf '%s\n' "\$st"
@@ -126,13 +137,16 @@ case "\$verb" in
     if [ "\$fail_verb" = "reopen" ] && [ ! -f "\$db/failed-reopen" ]; then
       : > "\$db/failed-reopen"; exit 1
     fi
+    [ ! -f "\$db/reopen-noop" ] || exit 0
     rm -f "\$db/closed-\$n"
+    [ ! -f "\$db/no-new-run" ] || exit 0
     # Reopening creates a new check run, so the high-water mark moves.
     printf '%s' "\$(( \$(cat "\$db/checkbump" 2>/dev/null || printf '0') + 1 ))" > "\$db/checkbump"
     exit 0
     ;;
   "pr merge")
     printf '%s\n' "pr merge \$*" >> "\$log"
+    [ ! -f "\$db/merge-noop" ] || exit 0
     if [ "\$fail_verb" = "merge" ] && [ ! -f "\$db/failed-merge" ]; then
       : > "\$db/failed-merge"; exit 1
     fi
@@ -410,7 +424,11 @@ else
   bad "the original auto-merge strategy is restored, not replaced with squash" "exit $rc" "$log"
 fi
 # A rebase carries no commit message, so the message flags must not ride along with it.
-if [[ $log != *"--rebase --subject"* ]] && [[ $log == *"--merge --subject custom subject 22"* ]]; then
+rebase_call=$(printf '%s\n' "$log" | sed -n '/pr merge.*pr merge 11 /p')
+merge_call=$(printf '%s\n' "$log" | sed -n '/pr merge.*pr merge 22 /p')
+if [[ $rebase_call != *--subject* && $rebase_call != *--body* ]] &&
+   [[ $merge_call == *"--subject custom subject 22"* && $merge_call == *"--body custom body 22"* ]] &&
+   [[ $rebase_call == *"--match-head-commit 1111111111111111111111111111111111111111"* ]]; then
   ok "commit metadata accompanies a merge or squash, never a rebase"
 else
   bad "commit metadata accompanies a merge or squash, never a rebase" "$log"
@@ -446,13 +464,9 @@ fi
 d="$WORK/nofreshcheck"
 make_gh "$d" "$TWO_PRS" "" "11"
 # Freeze the high-water mark: reopening no longer produces a new workflow run.
-python3 - "$d/bin/gh" <<'PYEOF'
-import sys,re
-p=sys.argv[1]
-s=open(p).read()
-s=s.replace('printf \'%s\' "$(( $(cat "$db/checkbump" 2>/dev/null || printf \'0\') + 1 ))" > "$db/checkbump"', ':')
-open(p,"w").write(s)
-PYEOF
+sed '/printf.*checkbump.*+ 1.*>.*checkbump/s/.*/    :/' "$d/bin/gh" > "$d/frozen"
+mv "$d/frozen" "$d/bin/gh"
+chmod +x "$d/bin/gh"
 out=$(run_script "$d")
 rc=$?
 log=$(cat "$d/calls.log")
@@ -476,14 +490,9 @@ fi
 # `pull_request` run ids cannot: only a new event produces a new run id.
 d="$WORK/rerun"
 make_gh "$d" "$TWO_PRS" "" "11"
-python3 - "$d/bin/gh" <<'PYEOF'
-import sys
-p=sys.argv[1]
-s=open(p).read()
-# Reopening no longer produces a new workflow run — as though only a rerun had happened.
-s=s.replace('printf \'%s\' "$(( $(cat "$db/checkbump" 2>/dev/null || printf \'0\') + 1 ))" > "$db/checkbump"', ':')
-open(p,"w").write(s)
-PYEOF
+sed '/printf.*checkbump.*+ 1.*>.*checkbump/s/.*/    :/' "$d/bin/gh" > "$d/frozen"
+mv "$d/frozen" "$d/bin/gh"
+chmod +x "$d/bin/gh"
 out=$(run_script "$d")
 rc=$?
 if [ "$rc" -eq 1 ] && [ "$(grep -c 'pr merge 11' "$d/calls.log")" -eq 0 ] \
@@ -536,6 +545,33 @@ for author in 'app/dependabot' 'dependabot[bot]'; do
   else
     bad "Dependabot fork $author stays open with auto-merge untouched" "exit $rc" "$(cat "$d/calls.log")" "$out"
   fi
+done
+
+# Completion needs the reopened event even when auto-merge was never armed.
+for mode in no-new-run reopen-noop moved moved-author moved-base moved-boundary unreadable-readback; do
+  d="$WORK/unarmed-$mode"
+  make_gh "$d" $'11\tfirst\n'
+  : > "$d/db/$mode"
+  out=$(run_script "$d"); rc=$?
+  if [ "$rc" -eq 1 ] && [[ "$out" == *"0 of 1 current-base refreshes completed"* ]] && ! grep -q '^pr merge' "$d/calls.log"; then
+    ok "unarmed $mode reopen cannot report completion"
+  else bad "unarmed $mode reopen cannot report completion" "exit $rc: $out"; fi
+done
+d="$WORK/rearm-noop"
+make_gh "$d" $'11\tfirst\n' '' 11
+: > "$d/db/merge-noop"
+out=$(run_script "$d"); rc=$?
+if [ "$rc" -eq 1 ] && [[ "$out" == *"0 of 1 current-base refreshes completed"* ]] && [ ! -f "$d/db/am-11" ]; then
+  ok "an acknowledged re-arm without matching state cannot report completion"
+else bad "an acknowledged re-arm without matching state cannot report completion" "exit $rc: $out"; fi
+for method in UNKNOWN ''; do
+  d="$WORK/method-$method"
+  make_gh "$d" $'11\tfirst\n' '' 11
+  printf '%s' "$method" > "$d/db/method-11"
+  out=$(run_script "$d"); rc=$?
+  if [ "$rc" -eq 1 ] && ! grep -q '^pr close' "$d/calls.log" && [ -f "$d/db/am-11" ]; then
+    ok "unknown method '$method' refuses mutation instead of defaulting to squash"
+  else bad "unknown method '$method' refuses mutation" "exit $rc: $out"; fi
 done
 
 echo "-----------------------------------------"

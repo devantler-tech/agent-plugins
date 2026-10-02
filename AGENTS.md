@@ -321,6 +321,11 @@ asserted `.skills == "skills/"` in every `plugin.json`, long after the conventio
 that field (skills are auto-discovered), so following this document reported all 8 plugins broken
 while CI was green (#65).
 
+The validator retains marketplace entries, catalogue rows, desired-state resources, runtime assets,
+schedule sources and skill provenance only after their inventory commands succeed. Failed empty or
+partial observations refuse validation; complete empty selections remain valid where resources are
+optional. Filesystem inventories preserve complete filenames with NUL-delimited records.
+
 The required gate is the aggregated **`CI - Required Checks`** job (validate-manifests +
 discover-skills + validate-spec); `actionlint` above is a local-only convenience, not a CI gate. Never
 weaken a check to pass — fix the root cause.

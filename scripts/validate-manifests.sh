@@ -34,6 +34,19 @@ README="docs/plugins.md"
 # shellcheck source=scripts/sha256.lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sha256.lib.sh"
 
+# Consumers read only a retained complete inventory. Process substitutions hide
+# producer failures from their loops, including failures after valid partial output.
+inventory_dir=$(mktemp -d "${TMPDIR:-/tmp}/manifest-inventories.XXXXXX") || exit 1
+trap 'rm -rf "$inventory_dir"' EXIT
+capture_inventory() {
+  local destination="$1" description="$2"
+  shift 2
+  if ! "$@" > "$inventory_dir/$destination"; then
+    echo "::error::Could not enumerate $description"
+    return 1
+  fi
+}
+
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
   local manifest="$1"
@@ -323,6 +336,8 @@ validate_marketplace_plugins_parity() {
   local failed=0
   local manifest="$CLAUDE_MANIFEST"
   local name description version source ok pj
+  capture_inventory marketplace 'marketplace plugins' \
+    jq -r '.plugins[] | [.name, .description, .version, .source] | @tsv' "$manifest" || return 1
   # Every plugin entry in the manifest resolves to a matching plugins/<name>/ on disk.
   while IFS=$'\t' read -r name description version source; do
     ok=1
@@ -353,7 +368,7 @@ validate_marketplace_plugins_parity() {
     else
       failed=1
     fi
-  done < <(jq -r '.plugins[] | [.name, .description, .version, .source] | @tsv' "$manifest")
+  done < "$inventory_dir/marketplace"
   # Every plugins/<name>/ on disk appears in the manifest (no orphan plugin).
   for pj in plugins/*/plugin.json; do
     name=$(jq -r '.name' "$pj")
@@ -409,6 +424,13 @@ validate_readme_parity() {
   local failed=0
   local line name readme_resources disk_resources
   local readme_names=()
+  # grep's exit 1 is a complete empty selection; an I/O failure is not.
+  local catalogue_status=0
+  grep -E '^\| \[`[a-z0-9-]+`\]' "$README" > "$inventory_dir/catalogue" || catalogue_status=$?
+  if [ "$catalogue_status" -gt 1 ]; then
+    echo '::error::Could not enumerate catalogue rows'
+    return 1
+  fi
   # Each catalogue row: parse the plugin name (col 1) and its Resources column (col 3).
   while IFS= read -r line; do
     name=$(printf '%s' "$line" | sed -nE 's/^\| \[`([a-z0-9-]+)`\].*/\1/p')
@@ -431,7 +453,7 @@ validate_readme_parity() {
     else
       echo "✓ $README ↔ plugins/$name (resources: ${disk_resources% })"
     fi
-  done < <(grep -E '^\| \[`[a-z0-9-]+`\]' "$README")
+  done < "$inventory_dir/catalogue"
   # Every plugins/<name>/ on disk appears as a catalogue row (no plugin missing from the table).
   local pj listed rn
   for pj in plugins/*/plugin.json; do
@@ -462,6 +484,8 @@ validate_desired_state_resources() {
   local -a asset_components
   local entrypoint_sha256 actual_entrypoint_sha256
   local portfolio_surveyor_sha256 actual_portfolio_surveyor_sha256
+  capture_inventory desired-state 'desired-state resources' \
+    find plugins -type f -path '*/resources/*.desired-state.json' -print0 || return 1
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
@@ -497,7 +521,7 @@ validate_desired_state_resources() {
     fi
   fi
 
-  while IFS= read -r resource; do
+  while IFS= read -r -d '' resource; do
     resource_failed=0
     if ! jq -e . "$resource" > /dev/null 2>&1; then
       echo "::error::$resource: not valid JSON"
@@ -575,6 +599,11 @@ validate_desired_state_resources() {
       resource_failed=1
     fi
 
+    capture_inventory assets 'required runtime assets' jq -r '
+      .spec.source.requiredRuntimeAssets[]?
+      | [(.path // ""), (.sha256 // ""), (.executable // "")]
+      | @tsv
+    ' "$resource" || return 1
     while IFS=$'\t' read -r runtime_asset runtime_asset_sha runtime_asset_executable; do
       [ -n "$runtime_asset" ] || continue
       case "$runtime_asset" in
@@ -648,11 +677,7 @@ validate_desired_state_resources() {
         failed=1
         resource_failed=1
       fi
-    done < <(jq -r '
-      .spec.source.requiredRuntimeAssets[]?
-      | [(.path // ""), (.sha256 // ""), (.executable // "")]
-      | @tsv
-    ' "$resource")
+    done < "$inventory_dir/assets"
 
     # This is a content-integrity and review gate, not a natural-language semantic parser:
     # the canonical block pins the required rule, while the digest makes every other
@@ -1270,6 +1295,10 @@ validate_desired_state_resources() {
       resource_failed=1
     fi
 
+    capture_inventory schedules 'plugin schedule sources' jq -r '
+      .spec.runtime.scheduler.schedules[]?.definitionFrom
+      | select(type == "string" and startswith("plugin:"))
+    ' "$resource" || return 1
     while IFS= read -r schedule_source; do
       schedule_plugin=${schedule_source#plugin:}
       schedule_plugin=${schedule_plugin%%/*}
@@ -1283,10 +1312,7 @@ validate_desired_state_resources() {
         failed=1
         resource_failed=1
       fi
-    done < <(jq -r '
-      .spec.runtime.scheduler.schedules[]?.definitionFrom
-      | select(type == "string" and startswith("plugin:"))
-    ' "$resource")
+    done < "$inventory_dir/schedules"
 
     if ! jq -e '
       all(.spec.runtime.scheduler.schedules[];
@@ -1341,7 +1367,7 @@ validate_desired_state_resources() {
     if [ "$resource_failed" -eq 0 ]; then
       echo "✓ desired state $resource"
     fi
-  done < <(find plugins -type f -path '*/resources/*.desired-state.json' | sort)
+  done < "$inventory_dir/desired-state"
   return "$failed"
 }
 
@@ -1357,7 +1383,9 @@ validate_desired_state_resources() {
 validate_skill_provenance() {
   local failed=0
   local skill
-  while IFS= read -r skill; do
+  capture_inventory provenance 'skill provenance' \
+    find plugins -type f -path '*/skills/*/SKILL.md' -print0 || return 1
+  while IFS= read -r -d '' skill; do
     if awk '
       # Walk only the frontmatter (lines between the first two --- ); END decides via found.
       NR==1 && $0 !~ /^---[[:space:]]*$/ { exit }
@@ -1384,7 +1412,7 @@ validate_skill_provenance() {
       echo "::error::$skill: missing upstream provenance (metadata.github-repo) — bundled skills must come from 'gh skill install', never hand-authored"
       failed=1
     fi
-  done < <(find plugins -type f -path '*/skills/*/SKILL.md' | sort)
+  done < "$inventory_dir/provenance"
   return "$failed"
 }
 

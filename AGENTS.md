@@ -264,9 +264,10 @@ Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-eff
 does not currently enforce but that keeps workflow changes clean:
 
 The JSON-field guard needs Go 1.22 or later when a plugin carries Go support source. It builds only
-its installed syntax decoder, reads comments and decoded literal strings/argv, and never executes
-the inspected package. Dynamic values beside a known JSON flag, malformed source, or an incomplete
-decode stay UNKNOWN; this is not analysis of arbitrary Go runtime behavior.
+its installed syntax decoder, reads comments and decoded literal strings/argument blocks, and never
+executes the inspected package. Unresolved groupings beside a known JSON flag, malformed source,
+incomplete decoding, or exhausted source/decoded-work budgets stay UNKNOWN. This is not analysis of
+arbitrary Go runtime behavior.
 
 CI installs the pinned spec validator through `scripts/install-skills-ref.sh`, with at most three
 attempts and 5/10-second backoff. A persistent installation failure blocks the job; skill validation

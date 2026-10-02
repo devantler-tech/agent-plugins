@@ -16,8 +16,9 @@
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
 # silently misleads every agent that reads it.
 # Go needs Go 1.22+: only the installed syntax decoder is built. It reads comments, decoded literal
-# strings and literal Command/CommandContext or string-array argv; unresolved values beside a known
-# JSON flag and malformed/oversized source are UNKNOWN. This does not evaluate arbitrary Go programs.
+# strings and literal Command/CommandContext or composite argument blocks. Unresolved groupings beside
+# a known JSON flag, malformed source, or the 8 MiB source / 4 MiB decoded-work / 262144-step budgets
+# are UNKNOWN. This does not evaluate arbitrary Go programs.
 #
 # A surface that legitimately contains the request (a skill warning against it) is exempted by a
 # reviewed line in scripts/gh-json-fields-allowlist.tsv — path, TAB, the file's sha256, TAB, the

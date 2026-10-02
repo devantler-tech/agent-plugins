@@ -268,7 +268,7 @@ fi
 real_find=$(command -v find)
 real_jq=$(command -v jq)
 real_hash=$(command -v shasum)
-for boundary in resources roles assets hash; do
+for boundary in resources roles assets hash declaration; do
   for output in empty partial; do
     d=$(fresh); make_fixture "$d"
     cp -R "$d/plugins/alpha" "$d/plugins/beta"
@@ -301,7 +301,8 @@ STUB
     cat > "$d/bin/jq" <<'STUB'
 #!/usr/bin/env bash
 if { [ "$BOUNDARY" = roles ] && [[ "$*" == *to_entries* ]]; } ||
-   { [ "$BOUNDARY" = assets ] && [[ "$*" == *'.spec.source.requiredRuntimeAssets[]?'* ]]; }; then
+   { [ "$BOUNDARY" = assets ] && [[ "$*" == *'.spec.source.requiredRuntimeAssets[]?'* ]]; } ||
+   { [ "$BOUNDARY" = declaration ] && [[ "$*" == *'has("entrypointSha256")'* ]]; }; then
   if [ "$OUTPUT" = partial ]; then
     case " $* " in
       *' -j '*) "$REAL_JQ" "$@" | { IFS= read -r -d '' record || :; printf '%s\0' "$record"; } ;;

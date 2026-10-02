@@ -102,8 +102,11 @@ while IFS= read -r -d '' resource; do
   program='.'
 
   entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$resource")
-  if jq -e 'has("spec") and (.spec | has("source")) and (.spec.source | has("entrypointSha256"))' \
-    "$resource" > /dev/null; then
+  if ! has_entrypoint_digest=$(jq -r 'has("spec") and (.spec | has("source")) and (.spec.source | has("entrypointSha256"))' "$resource"); then
+    echo "::error::$resource: entrypoint declaration could not be observed; refusing all writes." >&2
+    exit 1
+  fi
+  if [ "$has_entrypoint_digest" = true ]; then
     if [ -z "$entrypoint" ]; then
       # Declared but unresolvable. Skipping it would exit 0 over a digest nothing examined — the
       # exact shape of failure this generator exists to remove, one level up.

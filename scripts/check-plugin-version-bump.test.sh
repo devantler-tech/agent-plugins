@@ -191,6 +191,32 @@ make_plugin "$d" gamma "1.0.0"
 commit_all "$d" "new plugin"
 check_pass "a manifest genuinely absent at the base still reads as a new plugin" "$d"
 
+# Git can fail after emitting a plausible prefix. Neither prefix nor empty output
+# proves there were no other plugins. The real guard must retain the command status.
+REAL_GIT=$(command -v git)
+export REAL_GIT
+mkdir -p "$WORK/git-fault"
+cat > "$WORK/git-fault/git" <<'STUB'
+#!/usr/bin/env bash
+if [[ $1 == ls-tree && $2 == -d && $3 == --name-only ]]; then
+  [[ $VERSION_GIT_FAULT != partial ]] || printf 'plugins/alpha\n'
+  printf 'injected plugin listing failure\n' >&2
+  exit 71
+fi
+exec "$REAL_GIT" "$@"
+STUB
+chmod +x "$WORK/git-fault/git"
+for fault in empty partial; do
+  d=$(fresh)
+  make_plugin "$d" alpha "1.0.0" "edited alpha"
+  set_version "$d" alpha "1.0.1"
+  make_plugin "$d" beta "1.0.0" "edited beta"
+  commit_all "$d" "one bumped, one missing from failed listing"
+  PATH="$WORK/git-fault:$PATH" VERSION_GIT_FAULT="$fault" \
+    check_fail "failed $fault plugin listing cannot report success" \
+      "Cannot enumerate plugins" "$d"
+done
+
 echo "-----------------------------------------"
 echo "check-plugin-version-bump.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

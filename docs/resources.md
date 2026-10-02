@@ -2,6 +2,10 @@
 
 [Plugin catalogue](plugins.md) · [Installation](installation.md)
 
+The [tool ownership assessment](tool-ownership.md) records the callers and owners of marketplace
+maintenance tools, installed agent helpers and copied skill resources, with explicit limits on
+what those observations establish.
+
 ## Copy-paste agent onboarding
 
 The [`agentic-engineering` desired-state manifest](../plugins/agentic-engineering/resources/provider-neutral.desired-state.json)

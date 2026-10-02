@@ -8,7 +8,8 @@ fail() { printf 'release inspection: %s\n' "$*" >&2; exit 1; }
 candidate=$1 source=$2 release=$3
 [[ "$source" =~ ^[0-9a-f]{40}$ && "$release" =~ ^[0-9a-f]{40}$ ]] || fail 'full source and release commits are required'
 if [ ! -d "$candidate" ] || [ -L "$candidate" ]; then fail 'candidate must be a real directory'; fi
-candidate=$(cd "$candidate" && pwd -P)
+candidate=$(cd "$candidate" && pwd -P && printf '.')
+candidate=${candidate%$'\n.'}
 if [ ! -f "$candidate/release.json" ] || [ -L "$candidate/release.json" ]; then fail 'candidate plan must be a regular file'; fi
 # No inherited layout or command-scoped configuration may redirect private ref writes.
 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \

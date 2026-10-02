@@ -53,6 +53,16 @@ refuse() {
     passed=$((passed+1))
   fi
 }
+accept() {
+  local name=$1 status=$2
+  if ! run > "$work/result" 2> "$work/error"; then
+    printf 'FAIL %s was refused: %s\n' "$name" "$(cat "$work/error")" >&2; failed=$((failed+1))
+  elif ! jq -e --arg status "$status" '.status==$status and .publication=="NOT_AUTHORIZED"' "$work/result" >/dev/null; then
+    printf 'FAIL %s has the wrong assessment\n' "$name" >&2; failed=$((failed+1))
+  else
+    passed=$((passed+1))
+  fi
+}
 mkdir "$work/bin"
 cat > "$work/bin/git" <<'STUB'
 #!/usr/bin/env bash
@@ -92,6 +102,13 @@ jq -e '.status=="INSPECTED" and .publication=="NOT_AUTHORIZED"' "$work/result" >
 passed=$((passed+1))
 git -C "$repo" config extensions.partialClone ''
 refuse 'defined empty partial-clone extension remains refused'
+for mode in verify inspect; do
+  fixture
+  mv "$candidate" "$candidate"$'\n'
+  candidate=$candidate$'\n'
+  status=VERIFIED; [ "$mode" != inspect ] || status=INSPECTED
+  accept "literal trailing-newline candidate in $mode" "$status"
+done
 for fault in extension promisor extension-newline promisor-newline; do
   fixture; mode=inspect
   PATH="$work/bin:$PATH" REAL_GIT="$real_git" OBS_REPO="$repo" OBS_FAULT="$fault" refuse "partial failed $fault configuration" 'unreadable partial-clone configuration'

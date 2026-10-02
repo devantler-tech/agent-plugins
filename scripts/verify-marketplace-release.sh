@@ -28,7 +28,8 @@ while [ "$#" -gt 0 ]; do
 done
 [[ "$source" =~ ^[0-9a-f]{40}$ && "$release" =~ ^[0-9a-f]{40}$ ]] || fail 'source and release must be full 40-character commits'
 if [ -z "$candidate" ] || [ ! -d "$candidate" ] || [ -L "$candidate" ]; then fail 'candidate must be a real directory'; fi
-candidate=$(cd "$candidate" && pwd -P)
+candidate=$(cd "$candidate" && pwd -P && printf '.')
+candidate=${candidate%$'\n.'}
 # Dispatch before consulting Git: the inspector neutralizes inherited layout overrides.
 # Its distinct result cannot satisfy the normal prepublication verifier's contract.
 if [ "$inspect_existing" = true ]; then

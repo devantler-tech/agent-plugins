@@ -36,6 +36,13 @@ fi
 violations=0
 checked=0
 
+# Retain the producer status before consuming any paths. A process substitution
+# hides a failed ls-tree, including one that has already emitted a valid prefix.
+if ! plugin_dirs=$(git ls-tree -d --name-only "$HEAD_REF" plugins/); then
+  echo "::error::Cannot enumerate plugins at '$HEAD_REF'; refusing an incomplete version check."
+  exit 1
+fi
+
 # Plugin directories as they exist at HEAD. A plugin deleted in this change has no version
 # to bump, so iterating HEAD (not the base) is what keeps a removal from failing the gate.
 while IFS= read -r plugin_dir; do
@@ -98,7 +105,7 @@ while IFS= read -r plugin_dir; do
   fi
 
   echo "✓ $name content changed and version moved $base_version → $head_version"
-done < <(git ls-tree -d --name-only "$HEAD_REF" plugins/)
+done <<< "$plugin_dirs"
 
 if [ "$violations" -gt 0 ]; then
   echo "::error::$violations plugin(s) changed content without a version bump."

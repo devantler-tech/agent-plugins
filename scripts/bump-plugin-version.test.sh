@@ -142,6 +142,57 @@ d=$(fresh)
 if (cd "$d" && "$BUMP" --changed-since origin/nope) >/dev/null 2>&1; then
   ko "unresolvable base should fail"; else ok "unresolvable base fails closed"; fi
 
+# Exercise the real updater with failed Git observations. Enumeration and all
+# change queries must finish before any of the four manifests are written.
+REAL_GIT=$(command -v git)
+export REAL_GIT
+mkdir -p "$WORK/git-fault"
+cat > "$WORK/git-fault/git" <<'STUB'
+#!/usr/bin/env bash
+case $VERSION_GIT_FAULT in
+  tree-empty|tree-partial)
+    if [[ $1 == ls-tree && $2 == -d && $3 == --name-only ]]; then
+      [[ $VERSION_GIT_FAULT != tree-partial ]] || printf 'plugins/alpha\n'
+      printf 'injected plugin listing failure\n' >&2
+      exit 71
+    fi ;;
+  diff-empty|diff-partial)
+    if [[ $1 == diff && ${!#} == plugins/beta/ ]]; then
+      [[ $VERSION_GIT_FAULT != diff-partial ]] || printf 'plugins/beta/plugin.json\n'
+      printf 'injected plugin change query failure\n' >&2
+      exit 72
+    fi ;;
+esac
+exec "$REAL_GIT" "$@"
+STUB
+chmod +x "$WORK/git-fault/git"
+for fault in tree-empty tree-partial diff-empty diff-partial; do
+  d=$(fresh)
+  git -C "$d" checkout --quiet -b feature
+  make_plugin "$d" alpha "1.2.3" "edited alpha"
+  make_plugin "$d" beta "1.2.3" "edited beta"
+  git -C "$d" add plugins/alpha plugins/beta
+  git -C "$d" commit --quiet -m content
+  out=$( (cd "$d" && PATH="$WORK/git-fault:$PATH" VERSION_GIT_FAULT="$fault" \
+    "$BUMP" --changed-since main) 2>&1 ); rc=$?
+  case $fault in
+    tree-*) diagnostic='Cannot enumerate plugins' ;;
+    diff-*) diagnostic='Cannot inspect changed content' ;;
+  esac
+  if [[ $rc -ne 0 && $out == *"$diagnostic"* ]]; then
+    ok "$fault observation refuses the update"
+  else
+    ko "$fault observation should fail with '$diagnostic'; got exit $rc: $out"
+  fi
+  expect_all "$fault leaves all alpha manifests untouched" "$d" alpha "1.2.3"
+  expect_all "$fault leaves all beta manifests untouched" "$d" beta "1.2.3"
+  if [[ -z $(git -C "$d" status --porcelain --untracked-files=all) ]]; then
+    ok "$fault leaves no temporary files or changes"
+  else
+    ko "$fault observation wrote into the repository"
+  fi
+done
+
 echo "-----------------------------------------"
 echo "bump-plugin-version.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -28,7 +28,8 @@ while [ "$#" -gt 0 ]; do
 done
 [[ "$source" =~ ^[0-9a-f]{40}$ && "$release" =~ ^[0-9a-f]{40}$ ]] || fail 'source and release must be full 40-character commits'
 if [ -z "$candidate" ] || [ ! -d "$candidate" ] || [ -L "$candidate" ]; then fail 'candidate must be a real directory'; fi
-candidate=$(cd "$candidate" && pwd -P)
+candidate=$(cd "$candidate" && pwd -P && printf '.')
+candidate=${candidate%$'\n.'}
 # Dispatch before consulting Git: the inspector neutralizes inherited layout overrides.
 # Its distinct result cannot satisfy the normal prepublication verifier's contract.
 if [ "$inspect_existing" = true ]; then
@@ -38,6 +39,7 @@ temp=$(mktemp -d "${TMPDIR:-/tmp}/marketplace-verify.XXXXXX")
 trap 'rm -rf "$temp"' EXIT
 # Inspect types before reading: do not follow artifact symlinks or block on a pipe.
 find "$candidate" -mindepth 1 -print0 > "$temp/entries"
+entry=''
 while IFS= read -r -d '' entry; do
   [ ! -L "$entry" ] || fail 'candidate contains a symlink'
   case "${entry#"$candidate/"}" in
@@ -47,6 +49,7 @@ while IFS= read -r -d '' entry; do
     *) fail 'candidate contains unexpected entries' ;;
   esac
 done < "$temp/entries"
+[ -z "$entry" ] || fail 'candidate inventory contains an unterminated record'
 for path in release.json RELEASE_NOTES.md .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
   [ -f "$candidate/$path" ] || fail "missing candidate artifact: $path"
 done
@@ -67,12 +70,14 @@ else
 fi
 # Only the marketplace manifests may change. Include mode changes, deletions and renames.
 git diff-tree --no-commit-id --name-only -r --no-renames --no-ext-diff -z "$source" "$release" > "$temp/changes"
+path=''
 while IFS= read -r -d '' path; do
   case "$path" in
     .github/plugin/marketplace.json|.claude-plugin/marketplace.json) ;;
     *) fail 'release contains changes outside the proposed marketplace manifests' ;;
   esac
 done < "$temp/changes"
+[ -z "$path" ] || fail 'release change inventory contains an unterminated record'
 for path in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
   source_entry=$(git ls-tree "$source" -- "$path")
   release_entry=$(git ls-tree "$release" -- "$path")

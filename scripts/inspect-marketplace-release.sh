@@ -8,7 +8,8 @@ fail() { printf 'release inspection: %s\n' "$*" >&2; exit 1; }
 candidate=$1 source=$2 release=$3
 [[ "$source" =~ ^[0-9a-f]{40}$ && "$release" =~ ^[0-9a-f]{40}$ ]] || fail 'full source and release commits are required'
 if [ ! -d "$candidate" ] || [ -L "$candidate" ]; then fail 'candidate must be a real directory'; fi
-candidate=$(cd "$candidate" && pwd -P)
+candidate=$(cd "$candidate" && pwd -P && printf '.')
+candidate=${candidate%$'\n.'}
 if [ ! -f "$candidate/release.json" ] || [ -L "$candidate/release.json" ]; then fail 'candidate plan must be a regular file'; fi
 # No inherited layout or command-scoped configuration may redirect private ref writes.
 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
@@ -23,18 +24,10 @@ trap 'rm -rf "$temp"' EXIT
 [ "$(git -C "$original" rev-parse --is-shallow-repository)" = false ] || fail 'complete Git history is required'
 grafts=$(git -C "$original" rev-parse --path-format=absolute --git-path info/grafts)
 [ ! -s "$grafts" ] || fail 'grafted history is unsupported'
-if git -C "$original" config --get extensions.partialClone > "$temp/partial"; then
-  [ ! -s "$temp/partial" ] || fail 'partial clones are unsupported'
-else
-  [ "$?" -eq 1 ] || fail 'partial-clone configuration is unreadable'
-fi
-if git -C "$original" config --type=bool --get-regexp '^remote\..*\.promisor$' > "$temp/promisors"; then
-  while IFS= read -r promisor; do
-    [ "${promisor##* }" != true ] || fail 'partial clones are unsupported'
-  done < "$temp/promisors"
-else
-  [ "$?" -eq 1 ] || fail 'promisor configuration is unreadable'
-fi
+# Observe the original configuration; the private clone does not retain it.
+# shellcheck source=scripts/complete-clone.lib.sh
+. "$here/complete-clone.lib.sh"
+(cd "$original" && assert_complete_clone_config) || fail 'incomplete Git configuration; offline history is required'
 for commit in "$source" "$release"; do
   [ "$(git -C "$original" cat-file -t "$commit")" = commit ] || fail 'selected commits must be available locally'
 done

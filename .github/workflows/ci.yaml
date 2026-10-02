@@ -107,6 +107,9 @@ jobs:
       - name: 🧪 Self-test historical marketplace inspection
         run: bash scripts/inspect-marketplace-release.test.sh
 
+      - name: 🧪 Self-test complete marketplace observations
+        run: bash scripts/marketplace-observation-completeness.test.sh
+
       - name: 🧪 Self-test marketplace version proposals
         run: bash scripts/check-marketplace-version.test.sh
 

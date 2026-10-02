@@ -52,6 +52,7 @@ git rev-parse --show-toplevel >/dev/null || fail 'must run inside a Git worktree
 census=$(mktemp) || fail 'cannot retain Git worktrees'
 trap 'rm -f "$census"' EXIT
 git worktree list --porcelain -z > "$census" || fail 'cannot list Git worktrees'
+record=''
 while IFS= read -r -d '' record; do
   [[ "$record" == 'worktree '* ]] || continue
   if tree=$(cd "${record#worktree }" 2>/dev/null && pwd -P && printf '.'); then
@@ -61,6 +62,7 @@ while IFS= read -r -d '' record; do
   fi
   case "$output/" in "$tree"/*) fail 'output must be outside every Git worktree' ;; esac
 done < "$census"
+[ -z "$record" ] || fail 'worktree census contains an unterminated record'
 rm -f "$census"
 trap - EXIT
 if [ -e "$output" ] || [ -L "$output" ]; then fail 'output already exists'; fi

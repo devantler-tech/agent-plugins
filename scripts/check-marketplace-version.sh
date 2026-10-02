@@ -9,7 +9,9 @@ fail() { printf 'marketplace version gate: %s\n' "$*" >&2; exit 1; }
 base=$1 head=$2
 [[ "$base" =~ ^[0-9a-f]{40}$ && "$head" =~ ^[0-9a-f]{40}$ ]] || fail 'base and head must be full 40-character commits'
 [ "$(git rev-parse --is-shallow-repository)" = false ] || fail 'complete Git history is required'
-[ ! -s "$(git rev-parse --git-path info/grafts)" ] || fail 'grafted history is unsupported'
+grafts=$(git rev-parse --git-path info/grafts) || fail 'graft path is unreadable'
+[ -n "$grafts" ] || fail 'graft path is empty'
+[ ! -s "$grafts" ] || fail 'grafted history is unsupported'
 # shellcheck source=scripts/complete-clone.lib.sh
 . "$here/complete-clone.lib.sh"
 assert_complete_clone_config || fail 'incomplete Git configuration; offline history is required'

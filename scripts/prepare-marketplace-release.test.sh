@@ -186,9 +186,8 @@ mkdir "$work/bin"
 # shellcheck disable=SC2016
 printf '#!/usr/bin/env bash\nif [ "$1" = -R ]; then exit 23; fi\nexec %q "$@"\n' "$(command -v cp)" > "$work/bin/cp"
 chmod +x "$work/bin/cp"
-if (export PATH="$work/bin:$release_test_path"; run v1.2.3 "$work/copy-failure") > "$work/stdout" 2> "$work/stderr"; then fail 'copy failure passed'; fi
+if (cd "$repo" && env PATH="$work/bin:$release_test_path" bash "$tool" --base-tag v1.2.3 --output "$work/copy-failure") > "$work/stdout" 2> "$work/stderr"; then fail 'copy failure passed'; fi
 test ! -e "$work/copy-failure"; test ! -s "$work/stdout"; passed=$((passed + 1))
-printf 'marketplace release preparation: PASS (%s cases)\n' "$passed"
 
 # A successful probe followed by a failed listing is not one complete census.
 # Keep the real first listing, then fail before/after a valid prefix on a second
@@ -219,9 +218,9 @@ for fault in early empty partial; do
   git -C "$repo" worktree add -q --detach "$linked"
   calls="$work/calls-$fault"
   out="$linked/.github/candidate"
-  if (export PATH="$work/git-fault:$release_test_path" RELEASE_GIT_FAULT="$fault" \
-      RELEASE_GIT_CALLS="$calls" RELEASE_FIRST_WORKTREE="$repo";
-      run initial "$out") > "$work/stdout" 2> "$work/stderr"; then
+  if (cd "$repo" && env PATH="$work/git-fault:$release_test_path" RELEASE_GIT_FAULT="$fault" \
+      RELEASE_GIT_CALLS="$calls" RELEASE_FIRST_WORKTREE="$repo" \
+      bash "$tool" --base-tag initial --output "$out") > "$work/stdout" 2> "$work/stderr"; then
     printf 'FAIL %s worktree observation accepted output in a linked checkout\n' "$fault" >&2
     census_failed=$((census_failed + 1))
   fi
@@ -250,4 +249,4 @@ for suffix in $'space and\nnewline' $'trailing\n'; do
   passed=$((passed + 1))
 done
 [[ $census_failed == 0 ]] || fail "$census_failed worktree boundary regressions"
-printf 'marketplace worktree boundary regressions: PASS (%s total cases)\n' "$passed"
+printf 'marketplace release preparation: PASS (%s cases)\n' "$passed"

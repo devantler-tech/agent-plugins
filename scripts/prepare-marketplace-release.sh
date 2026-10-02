@@ -39,7 +39,9 @@ if [ -z "$head" ]; then head=$(git rev-parse --verify HEAD); fi
 [[ "$head" =~ ^[0-9a-f]{40}$ ]] || fail 'head must be a full 40-character commit'
 [ "$(git cat-file -t "$head")" = commit ] || fail 'head must identify a commit'
 # A sentinel retains path newlines that command substitution would otherwise trim.
-parent=$(cd "$(dirname "$output")" && pwd -P && printf '.') || fail 'output parent must exist'
+parent=$(dirname "$output" && printf '.') || fail 'output parent must exist'
+parent=${parent%.}; parent=${parent%$'\n'}
+parent=$(cd "$parent" && pwd -P && printf '.') || fail 'output parent must exist'
 parent=${parent%.}; parent=${parent%$'\n'}
 name=$(basename "$output" && printf '.') || fail 'output must name a new directory'
 name=${name%.}; name=${name%$'\n'}

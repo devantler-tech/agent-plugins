@@ -1905,7 +1905,11 @@ case "$INVENTORY_SCOPE" in
   schedules) [[ "$expression" == *'.spec.runtime.scheduler.schedules[]?.definitionFrom'* ]] && selected=true ;;
 esac
 if [ "$selected" = true ]; then
-  if [ "$INVENTORY_OUTPUT" = partial ]; then "$REAL_JQ" "$@" | sed -n '1p'; fi
+  "$REAL_JQ" "$@" > "$INVENTORY_CAPTURE.full" || exit 8
+  if [ "$INVENTORY_OUTPUT" = partial ]; then
+    "$REAL_JQ" "$@" | sed -n '1p' > "$INVENTORY_CAPTURE.partial"
+    cat "$INVENTORY_CAPTURE.partial"
+  fi
   printf 'injected JSON inventory failure\n' >&2
   exit 7
 fi
@@ -1914,7 +1918,11 @@ EOF
 cat > "$WORK/inventory-bin/grep" <<'EOF'
 #!/usr/bin/env bash
 if [ "$INVENTORY_SCOPE" = catalogue ] && [ "${3:-}" = docs/plugins.md ]; then
-  if [ "$INVENTORY_OUTPUT" = partial ]; then "$REAL_GREP" "$@"; fi
+  "$REAL_GREP" "$@" > "$INVENTORY_CAPTURE.full" || exit 8
+  if [ "$INVENTORY_OUTPUT" = partial ]; then
+    sed -n '1p' "$INVENTORY_CAPTURE.full" > "$INVENTORY_CAPTURE.partial"
+    cat "$INVENTORY_CAPTURE.partial"
+  fi
   printf 'injected catalogue inventory failure\n' >&2
   exit 2
 fi
@@ -1924,13 +1932,37 @@ cat > "$WORK/inventory-bin/find" <<'EOF'
 #!/usr/bin/env bash
 case "$INVENTORY_SCOPE:${5:-}" in
   desired-state:'*/resources/*.desired-state.json'|provenance:'*/skills/*/SKILL.md')
-    if [ "$INVENTORY_OUTPUT" = partial ]; then "$REAL_FIND" "$@" | sort | sed -n '1p'; fi
+    "$REAL_FIND" "$@" > "$INVENTORY_CAPTURE.full" || exit 8
+    if [ "$INVENTORY_OUTPUT" = partial ]; then
+      # The current guard requests NUL records; preserve the original guard's
+      # newline mode as well so baseline replays still reach the failing producer.
+      if [ "${!#}" = -print0 ]; then
+        IFS= read -r -d '' record < "$INVENTORY_CAPTURE.full" || exit 8
+        printf '%s\0' "$record" > "$INVENTORY_CAPTURE.partial"
+      else
+        sed -n '1p' "$INVENTORY_CAPTURE.full" > "$INVENTORY_CAPTURE.partial"
+      fi
+      cat "$INVENTORY_CAPTURE.partial"
+    fi
     printf 'injected filesystem inventory failure\n' >&2
     exit 7 ;;
 esac
 exec "$REAL_FIND" "$@"
 EOF
 chmod +x "$WORK/inventory-bin/jq" "$WORK/inventory-bin/grep" "$WORK/inventory-bin/find"
+
+# Count complete records using the producer's delimiter, independently of the guard.
+inventory_record_count() {
+  local file="$1" scope="$2" _record count=0
+  case "$scope" in
+    desired-state|provenance)
+      while IFS= read -r -d '' _record; do count=$((count + 1)); done < "$file" ;;
+    *)
+      while IFS= read -r _record; do count=$((count + 1)); done < "$file" ;;
+  esac
+  printf '%s\n' "$count"
+}
+
 for scope in marketplace catalogue desired-state provenance assets schedules; do
   case "$scope" in
     marketplace) diagnostic='Could not enumerate marketplace plugins' ;;
@@ -1942,20 +1974,39 @@ for scope in marketplace catalogue desired-state provenance assets schedules; do
   esac
   for output in empty partial; do
     d=$(fresh)
+    capture="$d/inventory-capture"
     case "$scope" in
       desired-state|assets|schedules) make_desired_state "$d" alpha ;;
     esac
+    if [ "$scope" = desired-state ]; then make_desired_state "$d" beta; fi
     if [ "$scope" = assets ]; then
       mkdir -p "$d/plugins/alpha/scripts"
       printf '#!/usr/bin/env bash\nprintf "asset\\n"\n' > "$d/plugins/alpha/scripts/inventory-asset.sh"
       chmod +x "$d/plugins/alpha/scripts/inventory-asset.sh"
+      cp "$d/plugins/alpha/scripts/inventory-asset.sh" "$d/plugins/alpha/scripts/inventory-other.sh"
       asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/inventory-asset.sh")
-      jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets=[{path:"scripts/inventory-asset.sh",sha256:$digest,executable:true}]' \
+      jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets=[{path:"scripts/inventory-asset.sh",sha256:$digest,executable:true},{path:"scripts/inventory-other.sh",sha256:$digest,executable:true}]' \
         "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
     fi
+    if [ "$output" = partial ]; then
+      case "$scope" in
+        desired-state|assets) check_pass "$scope multi-record inventory fixture is valid" "$d" ;;
+      esac
+    fi
     PATH="$WORK/inventory-bin:$PATH" REAL_JQ="$REAL_JQ" REAL_FIND="$REAL_FIND" REAL_GREP="$REAL_GREP" \
-      INVENTORY_SCOPE="$scope" INVENTORY_OUTPUT="$output" \
+      INVENTORY_SCOPE="$scope" INVENTORY_OUTPUT="$output" INVENTORY_CAPTURE="$capture" \
       check_fail "$scope inventory $output producer failure refuses validation" "$diagnostic" "$d"
+    if [ "$output" = partial ]; then
+      full_count=$(inventory_record_count "$capture.full" "$scope")
+      partial_count=$(inventory_record_count "$capture.partial" "$scope")
+      if [ "$partial_count" -gt 0 ] && [ "$partial_count" -lt "$full_count" ]; then
+        echo "  ✓ $scope partial inventory is a nonempty strict subset"
+        pass=$((pass + 1))
+      else
+        echo "  ✗ $scope partial inventory is not a strict subset ($partial_count/$full_count)"
+        fail=$((fail + 1))
+      fi
+    fi
   done
 done
 

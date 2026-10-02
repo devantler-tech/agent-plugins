@@ -3,9 +3,9 @@ description: 'The ADVANCE playbook for an autonomous AI engineer — how to move
 license: Apache-2.0
 metadata:
     github-path: product-engineering
-    github-ref: refs/tags/v1.20.2
+    github-ref: refs/tags/v1.21.0
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 5a0b13ca55d6998a443e80d6ae1c6535428bc1e5
+    github-tree-sha: c71aae9b12b54986121e03f8c9548d002b971448
 name: product-engineering
 ---
 # Product engineering — moving products forward
@@ -170,7 +170,8 @@ feature decision, not a behavior-preserving refactor.
 
 For a scripting survey or migration, use [the tool-maturation decision procedure](references/tool-maturation.md).
 Its optional read-only helper records committed shell paths at an exact revision with caller
-coverage left unknown; opt in explicitly and retain its declared scope before assessing use.
+coverage left unknown; `--include-go` also supplies parsed Go entrypoint files without building
+surveyed packages. Opt in explicitly and retain the procedure's declared scope before assessing use.
 Record every in-scope candidate's observed callers, destination, fit rationale and unknowns in the
 issue tracker. Preserve behavior, compatibility and recovery; exercise the installed command from
 a real caller before claiming migration. A survey, suggested destination or new binary alone is

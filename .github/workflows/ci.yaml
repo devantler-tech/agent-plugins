@@ -82,12 +82,18 @@ jobs:
           GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
             go test scripts/gh-json-go/main.go scripts/gh-json-go/main_test.go
 
-      - name: 🧪 Self-test the version-bump guard
+      - name: 🧪 Self-test the version-bump tools
         # Proves check-plugin-version-bump.sh PASSES what it must not block (a bumped
         # plugin, a new plugin, a deleted plugin, an unrelated change) and FAILS every
         # drift it exists to catch — including a second unbumped plugin in the same
         # change, which an early-exit refactor would silently hide.
-        run: ./scripts/check-plugin-version-bump.test.sh
+        # Run both suites even when the first fails, retaining a failed job result.
+        # This exposes guard and updater regressions together without masking either.
+        run: |
+          result=0
+          ./scripts/check-plugin-version-bump.test.sh || result=1
+          ./scripts/bump-plugin-version.test.sh || result=1
+          exit "$result"
 
       - name: 🧪 Self-test validator installation recovery
         run: bash scripts/install-skills-ref.test.sh
@@ -140,12 +146,6 @@ jobs:
 
       - name: 🧪 Self-test head-checked PR base refreshes
         run: bash scripts/recheck-open-prs-base-refresh.test.sh
-
-      - name: 🧪 Self-test the version-bump helper
-        # Proves bump-plugin-version.sh moves the version in ALL FOUR manifests that must
-        # agree, that --changed-since bumps exactly what moved and is idempotent on a
-        # re-run, and that it fails closed on a bad plugin/level/non-semver version.
-        run: ./scripts/bump-plugin-version.test.sh
 
       - name: 🧪 Self-test changelog generation and publication checks
         run: bash scripts/plugin-changelog.test.sh

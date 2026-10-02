@@ -72,6 +72,7 @@ bump_one() {
   echo "✓ $name $current → $new"
 }
 
+# Select a single plugin or finish every changed-plugin observation before writing versions.
 main() {
   local level plugins
 
@@ -83,10 +84,21 @@ main() {
       echo "::error::Cannot resolve a merge base for '$base'...HEAD." >&2
       exit 1
     fi
+    # Complete all observations before bump_one writes any manifest. A failed
+    # producer may have emitted a plausible prefix; that prefix is not a census.
+    local plugin_dirs changed
+    if ! plugin_dirs=$(git ls-tree -d --name-only HEAD plugins/); then
+      echo "::error::Cannot enumerate plugins at HEAD; no versions were changed." >&2
+      return 1
+    fi
     plugins=""
     while IFS= read -r plugin_dir; do
       [ -n "$plugin_dir" ] || continue
-      [ -n "$(git diff --name-only "$base_sha" HEAD -- "$plugin_dir/")" ] || continue
+      if ! changed=$(git diff --name-only "$base_sha" HEAD -- "$plugin_dir/"); then
+        echo "::error::Cannot inspect changed content for '$plugin_dir'; no versions were changed." >&2
+        return 1
+      fi
+      [ -n "$changed" ] || continue
 
       # The goal is "this plugin's version moved", not "add one every run". If a previous
       # pass (or a human) already bumped it relative to the base, re-running must be a
@@ -100,7 +112,7 @@ main() {
         continue
       fi
       plugins="$plugins ${plugin_dir#plugins/}"
-    done < <(git ls-tree -d --name-only HEAD plugins/)
+    done <<< "$plugin_dirs"
     if [ -z "${plugins// /}" ]; then
       echo "✓ No plugin content changed since $base — nothing to bump"
       return 0

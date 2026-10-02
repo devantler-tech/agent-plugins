@@ -85,6 +85,7 @@ digest_for() {
   printf '%s\n' "$digest"
 }
 
+resource=''
 while IFS= read -r -d '' resource; do
   seen=$((seen + 1))
   [ -n "$resource" ] || continue
@@ -173,6 +174,7 @@ while IFS= read -r -d '' resource; do
     exit 1
   fi
   asset_map='{}'
+  asset_path=''
   while IFS= read -r -d '' asset_path; do
     if [ -z "$asset_path" ]; then
       # An entry with a declared digest and no path is unverifiable, so filtering it out would
@@ -195,6 +197,10 @@ while IFS= read -r -d '' resource; do
         '.[$p] = $s' <<< "$asset_map"
     )
   done < "$work/assets"
+  if [ -n "$asset_path" ]; then
+    echo '::error::unterminated runtime-asset inventory; refusing all writes.' >&2
+    exit 2
+  fi
 
   if [ "$asset_map" != '{}' ]; then
     args+=(--argjson assetDigests "$asset_map")
@@ -220,6 +226,10 @@ while IFS= read -r -d '' resource; do
   printf '%s\n' "$updated" > "$work/update-$seen"
   printf '%s\0%s\0' "$resource" "$work/update-$seen" >> "$work/changes"
 done < "$work/resources"
+if [ -n "$resource" ]; then
+  echo '::error::unterminated desired-state resource inventory; refusing all writes.' >&2
+  exit 2
+fi
 
 # Zero resources is never a legitimate clean run: this repository always declares at least one.
 # Without this, an enumeration that matched nothing is indistinguishable from one that matched

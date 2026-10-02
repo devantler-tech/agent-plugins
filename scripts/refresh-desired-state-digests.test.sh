@@ -365,5 +365,46 @@ if [ "$rc" -eq 0 ] &&
   ok "distinct role keys retain their distinct content digests"
 else ko "distinct role keys retain their distinct content digests (rc=$rc)"; fi
 
+# Successful commands still must provide complete NUL framing. A prefix followed
+# by an unfinished last record must never authorize any resource write.
+for boundary in resources assets; do
+  for mode in write check; do
+    d=$(fresh); make_fixture "$d"
+    J="$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+    jq '.spec.source.requiredRuntimeAssets += [{path:"scripts/another-asset.sh",sha256:.spec.source.requiredRuntimeAssets[0].sha256,executable:true}]' "$J" > "$d/j"
+    mv "$d/j" "$J"
+    cp "$d/plugins/alpha/scripts/asset.sh" "$d/plugins/alpha/scripts/another-asset.sh"
+    cp -R "$d/plugins/alpha" "$d/plugins/beta"
+    cp "$J" "$d/before-alpha"
+    cp "$d/plugins/beta/resources/provider-neutral.desired-state.json" "$d/before-beta"
+    mkdir "$d/bin"
+    cat > "$d/bin/find" <<'STUB'
+#!/usr/bin/env bash
+if [ "$BOUNDARY" = resources ]; then
+  printf 'plugins/alpha/resources/provider-neutral.desired-state.json\0plugins/beta/resources/provider-neutral.desired-state.json'
+  exit 0
+fi
+exec "$REAL_FIND" "$@"
+STUB
+    cat > "$d/bin/jq" <<'STUB'
+#!/usr/bin/env bash
+if [ "$BOUNDARY" = assets ] && [[ "$*" == *'.spec.source.requiredRuntimeAssets[]?'* ]]; then
+  printf 'scripts/asset.sh\0scripts/another-asset.sh'
+  exit 0
+fi
+exec "$REAL_JQ" "$@"
+STUB
+    chmod +x "$d/bin/"*
+    check_flag=''; [ "$mode" != check ] || check_flag=--check
+    (cd "$d" && PATH="$d/bin:$PATH" BOUNDARY="$boundary" REAL_FIND="$real_find" REAL_JQ="$real_jq" "$REFRESH" ${check_flag:+"$check_flag"} > "$d/out" 2>&1); rc=$?
+    if [ "$rc" -ne 0 ] && grep -q 'unterminated' "$d/out" &&
+       cmp -s "$d/before-alpha" "$J" && cmp -s "$d/before-beta" "$d/plugins/beta/resources/provider-neutral.desired-state.json"; then
+      ok "unterminated $boundary $mode inventory refuses every write"
+    else
+      ko "unterminated $boundary $mode inventory accepted or wrote resources (rc=$rc)"
+    fi
+  done
+done
+
 echo "refresh-desired-state-digests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

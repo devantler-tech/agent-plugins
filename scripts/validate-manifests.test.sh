@@ -1890,6 +1890,75 @@ sed 's/No-change fallback is research, never idle/No-change fallback may be rese
 check_fail "Agent Improver must research rather than stop on an evidence-clean run" \
   "agent-improver must research and route candidates instead of idling" "$d"
 
+# A failed inventory producer may emit nothing or valid partial data. The real
+# validator must refuse both, even when all emitted entries are individually valid.
+REAL_GREP=$(command -v grep)
+REAL_FIND=$(command -v find)
+mkdir -p "$WORK/inventory-bin"
+cat > "$WORK/inventory-bin/jq" <<'EOF'
+#!/usr/bin/env bash
+expression=${2:-}
+selected=false
+case "$INVENTORY_SCOPE" in
+  marketplace) [[ "$expression" == '.plugins[] | [.name, .description, .version, .source] | @tsv' ]] && selected=true ;;
+  assets) [[ "$expression" == *'.spec.source.requiredRuntimeAssets[]?'* ]] && selected=true ;;
+  schedules) [[ "$expression" == *'.spec.runtime.scheduler.schedules[]?.definitionFrom'* ]] && selected=true ;;
+esac
+if [ "$selected" = true ]; then
+  if [ "$INVENTORY_OUTPUT" = partial ]; then "$REAL_JQ" "$@" | sed -n '1p'; fi
+  printf 'injected JSON inventory failure\n' >&2
+  exit 7
+fi
+exec "$REAL_JQ" "$@"
+EOF
+cat > "$WORK/inventory-bin/grep" <<'EOF'
+#!/usr/bin/env bash
+if [ "$INVENTORY_SCOPE" = catalogue ] && [ "${3:-}" = docs/plugins.md ]; then
+  if [ "$INVENTORY_OUTPUT" = partial ]; then "$REAL_GREP" "$@"; fi
+  printf 'injected catalogue inventory failure\n' >&2
+  exit 2
+fi
+exec "$REAL_GREP" "$@"
+EOF
+cat > "$WORK/inventory-bin/find" <<'EOF'
+#!/usr/bin/env bash
+case "$INVENTORY_SCOPE:${5:-}" in
+  desired-state:'*/resources/*.desired-state.json'|provenance:'*/skills/*/SKILL.md')
+    if [ "$INVENTORY_OUTPUT" = partial ]; then "$REAL_FIND" "$@" | sort | sed -n '1p'; fi
+    printf 'injected filesystem inventory failure\n' >&2
+    exit 7 ;;
+esac
+exec "$REAL_FIND" "$@"
+EOF
+chmod +x "$WORK/inventory-bin/jq" "$WORK/inventory-bin/grep" "$WORK/inventory-bin/find"
+for scope in marketplace catalogue desired-state provenance assets schedules; do
+  case "$scope" in
+    marketplace) diagnostic='Could not enumerate marketplace plugins' ;;
+    catalogue) diagnostic='Could not enumerate catalogue rows' ;;
+    desired-state) diagnostic='Could not enumerate desired-state resources' ;;
+    provenance) diagnostic='Could not enumerate skill provenance' ;;
+    assets) diagnostic='Could not enumerate required runtime assets' ;;
+    schedules) diagnostic='Could not enumerate plugin schedule sources' ;;
+  esac
+  for output in empty partial; do
+    d=$(fresh)
+    case "$scope" in
+      desired-state|assets|schedules) make_desired_state "$d" alpha ;;
+    esac
+    if [ "$scope" = assets ]; then
+      mkdir -p "$d/plugins/alpha/scripts"
+      printf '#!/usr/bin/env bash\nprintf "asset\\n"\n' > "$d/plugins/alpha/scripts/inventory-asset.sh"
+      chmod +x "$d/plugins/alpha/scripts/inventory-asset.sh"
+      asset_digest=$(sha256_bytes "$d/plugins/alpha/scripts/inventory-asset.sh")
+      jq --arg digest "$asset_digest" '.spec.source.requiredRuntimeAssets=[{path:"scripts/inventory-asset.sh",sha256:$digest,executable:true}]' \
+        "$d/plugins/alpha/resources/provider-neutral.desired-state.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+    fi
+    PATH="$WORK/inventory-bin:$PATH" REAL_JQ="$REAL_JQ" REAL_FIND="$REAL_FIND" REAL_GREP="$REAL_GREP" \
+      INVENTORY_SCOPE="$scope" INVENTORY_OUTPUT="$output" \
+      check_fail "$scope inventory $output producer failure refuses validation" "$diagnostic" "$d"
+  done
+done
+
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

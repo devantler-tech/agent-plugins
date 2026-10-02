@@ -179,27 +179,8 @@ validate_mcp_json() {
 # it. An empty, quoted-empty (`""`/`''`), comment-only (`# …`), or bare-block-indicator value
 # with no body is rejected, and a file with no frontmatter yields no match. Staying awk-only
 # (no yq dependency), mirroring validate_skill_provenance.
-frontmatter_has_value() {
-  local file="$1" key="$2"
-  awk -v key="$key" '
-    NR==1 && $0 !~ /^---[[:space:]]*$/ { exit 1 }         # no frontmatter ⇒ absent
-    /^---[[:space:]]*$/ { fm++; if (fm==2) exit(found?0:1); next }
-    fm!=1 { next }
-    $0 ~ "^" key ":" {                                     # our top-level key
-      inkey=1
-      v=$0; sub("^" key ":[[:space:]]*","",v)             # drop the key
-      sub(/[[:space:]]+#.*$/,"",v)                         # drop trailing " # comment"
-      if (v ~ /^#/) v=""                                   # whole value is a comment ⇒ null
-      gsub(/^[[:space:]"'"'"']+|[[:space:]"'"'"']+$/,"",v) # trim spaces + surrounding quotes
-      if (v ~ /^[|>][0-9+-]*$/) v=""                       # bare block-scalar indicator ⇒ body decides
-      if (v != "") { found=1; inkey=0 }
-      next
-    }
-    /^[^[:space:]]/ { inkey=0; next }                      # another top-level key closes scope
-    inkey && /[^[:space:]]/ { found=1; inkey=0 }           # indented non-blank body of a block scalar
-    END { exit(found?0:1) }
-  ' "$file"
-}
+# shellcheck source=scripts/frontmatter.lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/frontmatter.lib.sh"
 
 # A bundled custom-agents resource (ADR 0001 §D1/§D3): an agents/ directory must hold at least
 # one agents/*.agent.md, and every agent file must carry YAML frontmatter with a non-empty 'name'
@@ -1386,27 +1367,7 @@ validate_skill_provenance() {
   capture_inventory provenance 'skill provenance' \
     find plugins -type f -path '*/skills/*/SKILL.md' -print0 || return 1
   while IFS= read -r -d '' skill; do
-    if awk '
-      # Walk only the frontmatter (lines between the first two --- ); END decides via found.
-      NR==1 && $0 !~ /^---[[:space:]]*$/ { exit }
-      /^---[[:space:]]*$/ { fm++; next }
-      fm!=1 { next }
-      # A non-indented key (column 0) is a top-level mapping key. metadata: opens the
-      # block we care about; any other top-level key closes it (so a TOP-LEVEL
-      # github-repo: can never satisfy the guard).
-      /^metadata:[[:space:]]*$/ { in_meta=1; next }
-      /^[^[:space:]]/ { in_meta=0; next }
-      # Inside metadata:, an indented github-repo: with a real value is provenance.
-      in_meta && /^[[:space:]]+github-repo:/ {
-        v=$0
-        sub(/^[[:space:]]+github-repo:[[:space:]]*/, "", v)  # drop the key
-        sub(/[[:space:]]+#.*$/, "", v)                        # drop trailing " # comment"
-        if (v ~ /^#/) v=""                                    # whole value is a comment ⇒ null
-        gsub(/^[[:space:]"'"'"']+|[[:space:]"'"'"']+$/, "", v) # trim spaces and surrounding quotes
-        if (v != "") found=1
-      }
-      END { exit(found ? 0 : 1) }
-    ' "$skill"; then
+    if owner=$(frontmatter_repository < "$skill") && [ -n "$owner" ]; then
       echo "✓ provenance $skill"
     else
       echo "::error::$skill: missing upstream provenance (metadata.github-repo) — bundled skills must come from 'gh skill install', never hand-authored"

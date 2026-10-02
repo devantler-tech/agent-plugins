@@ -354,6 +354,40 @@ else
   fi
 fi
 
+
+# Body examples are data, and a newline is part of one complete path component.
+mkdir -p "$FIXTURE/plugins/github/skills/body-only"
+printf '%s\n' '---' 'name: body-only' 'description: Local.' '---' '' 'metadata:' '  github-repo: https://github.com/devantler-tech/agent-skills' > "$FIXTURE/plugins/github/skills/body-only/SKILL.md"
+newline_dir=$'plugins/github/skills/line
+break'
+mkdir -p "$FIXTURE/$newline_dir"
+cp "$FIXTURE/plugins/github/skills/github-issues/SKILL.md" "$FIXTURE/$newline_dir/SKILL.md"
+git -C "$FIXTURE" add plugins/github/skills/body-only/SKILL.md "$newline_dir/SKILL.md"
+git -C "$FIXTURE" commit -qm 'header and full path fixtures'
+NEW_BASE=$(git -C "$FIXTURE" rev-parse HEAD)
+SHA="$NEW_BASE" run_z plugins/github/skills/body-only/SKILL.md
+expect 0 'new or locally-authored' 'body metadata cannot turn an authored skill into a synced skill'
+SHA="$NEW_BASE" run_z "$newline_dir/SKILL.md"
+expect 1 'fix it upstream' 'a newline-containing skill directory is fully protected'
+for owner in null malformed nested duplicate unclosed; do
+  f="$FIXTURE/plugins/github/skills/invalid-owner/SKILL.md"
+  mkdir -p "$(dirname "$f")"
+  printf '%s\n' '---' 'name: invalid-owner' 'description: Example.' 'metadata:' > "$f"
+  case $owner in
+    null) printf '%s\n' '  github-repo: null' >> "$f" ;;
+    malformed) printf '%s\n' '  github-repo: arbitrary-text' >> "$f" ;;
+    nested) printf '%s\n' '  unrelated:' '    github-repo: https://github.com/devantler-tech/agent-skills' >> "$f" ;;
+    duplicate) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' '  github-repo: null' >> "$f" ;;
+    unclosed) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' >> "$f" ;;
+  esac
+  [ "$owner" = unclosed ] || printf '%s\n' '---' body >> "$f"
+  git -C "$FIXTURE" add plugins/github/skills/invalid-owner/SKILL.md
+  git -C "$FIXTURE" commit -qm "invalid $owner provenance"
+  NEW_BASE=$(git -C "$FIXTURE" rev-parse HEAD)
+  SHA="$NEW_BASE" run_z plugins/github/skills/invalid-owner/SKILL.md
+  expect 2 'cannot read' "invalid $owner base provenance stays unknown"
+done
+
 # A readable commit/tree can refer to a blob absent from a partial object store.
 blob=$(git -C "$FIXTURE" rev-parse "$BASE:plugins/github/skills/github-issues/SKILL.md")
 git -C "$FIXTURE" show "$BASE:plugins/github/skills/github-issues/SKILL.md" > "$WORK/base-skill"

@@ -194,7 +194,7 @@ for fault in tree-empty tree-partial diff-empty diff-partial; do
 done
 
 # Malformed late inputs must not leave an earlier manifest (or plugin) bumped.
-for corruption in missing duplicate identity parity malformed; do
+for corruption in missing duplicate identity parity malformed symlink; do
   d=$(fresh)
   f="$d/.github/plugin/marketplace.json"
   case "$corruption" in
@@ -203,11 +203,18 @@ for corruption in missing duplicate identity parity malformed; do
     identity) jq '.name="beta"' "$d/plugins/alpha/plugin.json" > "$d/t"; mv "$d/t" "$d/plugins/alpha/plugin.json" ;;
     parity) jq '.plugins[0].version="1.2.2"' "$f" > "$d/t"; mv "$d/t" "$f" ;;
     malformed) printf '{invalid\n' > "$f" ;;
+    symlink)
+      cp "$d/plugins/alpha/plugin.json" "$WORK/outside-manifest"
+      rm "$d/plugins/alpha/plugin.json"
+      ln -s "$WORK/outside-manifest" "$d/plugins/alpha/plugin.json"
+      cp "$WORK/outside-manifest" "$WORK/outside-before" ;;
   esac
   git -C "$d" diff > "$WORK/before"
   (cd "$d" && "$BUMP" alpha patch > "$WORK/out" 2>&1); rc=$?
   git -C "$d" diff > "$WORK/after"
-  if [ "$rc" -ne 0 ] && cmp -s "$WORK/before" "$WORK/after" && [ -z "$(git -C "$d" ls-files --others --exclude-standard)" ]; then
+  outside_ok=true
+  if [ "$corruption" = symlink ]; then cmp -s "$WORK/outside-before" "$WORK/outside-manifest" || outside_ok=false; fi
+  if "$outside_ok" && [ "$rc" -ne 0 ] && cmp -s "$WORK/before" "$WORK/after" && [ -z "$(git -C "$d" ls-files --others --exclude-standard)" ]; then
     ok "$corruption input leaves all four manifests unchanged"
   else ko "$corruption input leaves all four manifests unchanged (rc=$rc)"; fi
 done

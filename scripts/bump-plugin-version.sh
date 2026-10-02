@@ -30,7 +30,8 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 : > "$work/changes"
 for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
-  jq -e 'type == "object" and (.plugins | type == "array")' "$manifest" >/dev/null || exit 1
+  [ -f "$manifest" ] && [ ! -L "$manifest" ] || exit 1
+  jq -es 'length==1 and (.[0] | type == "object" and (.plugins | type == "array"))' "$manifest" >/dev/null || exit 1
   cp "$manifest" "$work/$(basename "$(dirname "$manifest")").json"
 done
 
@@ -40,7 +41,8 @@ plan_one() {
   current=$(jq -er '.version | select(type == "string")' "$dir/.claude-plugin/plugin.json") || return 1
   plugin_version_valid "$current" || { echo '::error::Invalid cache version.' >&2; return 1; }
   for manifest in "$dir/plugin.json" "$dir/.claude-plugin/plugin.json"; do
-    jq -e --arg n "$name" --arg v "$current" '.name == $n and .version == $v' "$manifest" >/dev/null || {
+    [ -f "$manifest" ] && [ ! -L "$manifest" ] || return 1
+    jq -es --arg n "$name" --arg v "$current" 'length==1 and (.[0] | .name == $n and .version == $v)' "$manifest" >/dev/null || {
       echo "::error::$manifest: plugin identity or version parity is invalid; no manifests were changed." >&2
       return 1
     }

@@ -3,6 +3,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 tool="$root/scripts/prepare-marketplace-release.sh"
+release_test_path=$PATH
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
@@ -185,7 +186,7 @@ mkdir "$work/bin"
 # shellcheck disable=SC2016
 printf '#!/usr/bin/env bash\nif [ "$1" = -R ]; then exit 23; fi\nexec %q "$@"\n' "$(command -v cp)" > "$work/bin/cp"
 chmod +x "$work/bin/cp"
-if (export PATH="$work/bin:$PATH"; run v1.2.3 "$work/copy-failure") > "$work/stdout" 2> "$work/stderr"; then fail 'copy failure passed'; fi
+if (export PATH="$work/bin:$release_test_path"; run v1.2.3 "$work/copy-failure") > "$work/stdout" 2> "$work/stderr"; then fail 'copy failure passed'; fi
 test ! -e "$work/copy-failure"; test ! -s "$work/stdout"; passed=$((passed + 1))
 printf 'marketplace release preparation: PASS (%s cases)\n' "$passed"
 
@@ -218,7 +219,7 @@ for fault in early empty partial; do
   git -C "$repo" worktree add -q --detach "$linked"
   calls="$work/calls-$fault"
   out="$linked/.github/candidate"
-  if (export PATH="$work/git-fault:$PATH" RELEASE_GIT_FAULT="$fault" \
+  if (export PATH="$work/git-fault:$release_test_path" RELEASE_GIT_FAULT="$fault" \
       RELEASE_GIT_CALLS="$calls" RELEASE_FIRST_WORKTREE="$repo";
       run initial "$out") > "$work/stdout" 2> "$work/stderr"; then
     printf 'FAIL %s worktree observation accepted output in a linked checkout\n' "$fault" >&2

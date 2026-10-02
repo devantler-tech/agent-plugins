@@ -54,6 +54,7 @@ scripts/
 ├── guard-bundled-skill-edits.test.sh # Self-test for the gate above
 ├── guard-gh-json-fields.sh     # Gate: refuse a bundled definition that requests the nonexistent gh `merged` field
 ├── guard-gh-json-fields.test.sh # Self-test for the gate above
+├── gh-json-go/                # Syntax-only Go guidance decoder and its tests; never executes scanned source
 ├── recheck-open-prs.sh         # Re-trigger every open PR's checks after a CI gate changes on main
 ├── recheck-open-prs.test.sh    # Self-test for the recheck above (stubs `gh`; no network)
 ├── bump-plugin-version.sh      # Move a plugin's version across all four manifests (the fix the gate points at)
@@ -261,6 +262,11 @@ plugin membership) is authored here.
 
 Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:
+
+The JSON-field guard needs Go 1.22 or later when a plugin carries Go support source. It builds only
+its installed syntax decoder, reads comments and decoded literal strings/argv, and never executes
+the inspected package. Dynamic values beside a known JSON flag, malformed source, or an incomplete
+decode stay UNKNOWN; this is not analysis of arbitrary Go runtime behavior.
 
 CI installs the pinned spec validator through `scripts/install-skills-ref.sh`, with at most three
 attempts and 5/10-second backoff. A persistent installation failure blocks the job; skill validation

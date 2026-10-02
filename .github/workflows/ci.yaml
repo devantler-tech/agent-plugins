@@ -164,6 +164,11 @@ jobs:
         # context as UNKNOWN rather than a pass.
         run: ./scripts/guard-bundled-skill-edits.test.sh
 
+      - name: 🧪 Self-test the Go guidance decoder
+        run: |
+          GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
+            go test scripts/gh-json-go/main.go scripts/gh-json-go/main_test.go
+
       - name: 🧪 Self-test the gh JSON field guard
         # Proves every known formatting of an invalid `--json …merged…` request is caught
         # (including a JSON \u escape and a nested skill file), that mergedAt/mergedBy/

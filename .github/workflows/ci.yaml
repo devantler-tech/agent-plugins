@@ -71,6 +71,11 @@ jobs:
           printf 'Linting %s script(s).\n' "${#files[@]}"
           shellcheck "${files[@]}"
 
+      - name: 🧪 Self-test the Go guidance decoder
+        run: |
+          GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
+            go test scripts/gh-json-go/main.go scripts/gh-json-go/main_test.go
+
       - name: 🧪 Self-test the version-bump guard
         # Proves check-plugin-version-bump.sh PASSES what it must not block (a bumped
         # plugin, a new plugin, a deleted plugin, an unrelated change) and FAILS every
@@ -163,11 +168,6 @@ jobs:
         # ref so stripping the line at head cannot disable it, and treats missing CI
         # context as UNKNOWN rather than a pass.
         run: ./scripts/guard-bundled-skill-edits.test.sh
-
-      - name: 🧪 Self-test the Go guidance decoder
-        run: |
-          GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
-            go test scripts/gh-json-go/main.go scripts/gh-json-go/main_test.go
 
       - name: 🧪 Self-test the gh JSON field guard
         # Proves every known formatting of an invalid `--json …merged…` request is caught

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -18,6 +19,8 @@ func TestGuidance(t *testing.T) {
 		{"context", `package p; var x = exec.CommandContext(ctx, "gh", "pr", "view", "--json", "merged")`, "--json merged", false},
 		{"dot import", `package p; var x = Command("gh", "pr", "view", "--json", "merged")`, "--json merged", false},
 		{"argv", `package p; var x = []string{"--json", "merged"}`, "--json merged", false},
+		{"named argv", `package p; type argv []string; var x = argv{"--json", "merged"}`, "--json merged", false},
+		{"inferred nested argv", `package p; var x = [][]string{{"--json", "merged"}}`, "", true},
 		{"dynamic", `package p; var x = []string{"--json", fields}`, "", true},
 		{"dynamic command", `package p; var x = exec.Command("gh", "--json", fields)`, "", true},
 		{"keyed argv", `package p; var x = []string{0:"--json", 1:"merged"}`, "", true},
@@ -37,6 +40,23 @@ func TestGuidance(t *testing.T) {
 				t.Fatal("incomplete parsing returned partial success")
 			}
 		})
+	}
+}
+
+func TestMaximalConcatenation(t *testing.T) {
+	parts, err := guidance([]byte("package p; const x = " + strings.Repeat(`"a"+`, 127) + `"a"`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parts) != 1 || parts[0] != strings.Repeat("a", 128) {
+		t.Fatal("concatenation prefixes were repeatedly retained")
+	}
+}
+
+func TestDecodedBudget(t *testing.T) {
+	parts, err := guidance([]byte("package p; const x = " + strconv.Quote(strings.Repeat("x", (4<<20)+1))))
+	if err == nil || parts != nil {
+		t.Fatal("oversized decoded output did not return UNKNOWN")
 	}
 }
 

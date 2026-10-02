@@ -298,6 +298,8 @@ bash scripts/plugin-changelog.test.sh
 # 1c. Every content digest a desired-state resource pins must match the file it pins.
 #     Those digests have a writer: refresh them rather than hand-editing, or the next
 #     agent-skills sync force-pushes the hand edit away. --check reports without writing.
+#     The writer completes every inventory and digest before its first resource write;
+#     failed observations or missing targets leave all resources unchanged.
 ./scripts/refresh-desired-state-digests.sh --check
 
 # 1d. Offline marketplace candidate preparation: real Git histories, no publication.

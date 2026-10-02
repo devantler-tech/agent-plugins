@@ -30,10 +30,13 @@ record_failure() {
 
 # page <total> <has-next> <cursor> <resolved-flags...> — one GraphQL page as gh prints it.
 page() {
-  local total=$1 next=$2 cursor=$3 nodes='' flag
+  local total=$1 next=$2 cursor=$3 nodes='' flag index=0
   shift 3
-  for flag in "$@"; do nodes="${nodes:+${nodes},}{\"isResolved\":${flag}}"; done
-  printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":%s,"nodes":[%s],"pageInfo":{"hasNextPage":%s,"endCursor":"%s"}}}}}}\n' \
+  for flag in "$@"; do
+    index=$((index + 1))
+    nodes="${nodes:+${nodes},}{\"id\":\"thread-${cursor}-${index}\",\"isResolved\":${flag}}"
+  done
+  printf '{"data":{"repository":{"nameWithOwner":"devantler-tech/monorepo","pullRequest":{"number":2436,"reviewThreads":{"totalCount":%s,"nodes":[%s],"pageInfo":{"hasNextPage":%s,"endCursor":"%s"}}}}}}\n' \
     "$total" "$nodes" "$next" "$cursor"
 }
 
@@ -44,6 +47,7 @@ cat >"$TEST_TMP/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 dir="${STUB_PAGES:?}"
 [ "${GH_TELEMETRY:-}" = 0 ] || exit 3
+if [ "${CHECK_HOST:-}" = 1 ]; then [ "${GH_HOST:-}" = github.com ] || exit 3; fi
 [ "$1" = api ] && [ "$2" = graphql ] || exit 3
 case " $* " in *' -f owner=devantler-tech -f name=monorepo -F number=2436 '*) ;; *) exit 3 ;; esac
 paginate=0
@@ -97,8 +101,7 @@ page 2 false c1 true true | scenario resolved-only
 printf '%s\n' '' | scenario empty
 printf '%s\n' '{"errors":[{"message":"Could not resolve to a PullRequest"}],"data":{"repository":{"pullRequest":null}}}' |
   scenario missing-pr
-printf '%s\n' '{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":2,"nodes":[{"isResolved":true},{}],"pageInfo":{"hasNextPage":false,"endCursor":"c1"}}}}}}' |
-  scenario missing-flag
+page 2 false c1 true true | jq -c 'del(.data.repository.pullRequest.reviewThreads.nodes[1].isResolved)' | scenario missing-flag
 printf '%s\n' '{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":"1","nodes":[{"isResolved":false}],"pageInfo":{"hasNextPage":false,"endCursor":"c1"}}}}}}' |
   scenario string-total
 {
@@ -117,6 +120,37 @@ expect 'a node without isResolved is UNKNOWN, never resolved' "$COUNTER" missing
 expect 'a non-numeric total is UNKNOWN' "$COUNTER" string-total 2 'UNKNOWN malformed'
 expect 'totals that change between pages are UNKNOWN' "$COUNTER" inconsistent 2 'UNKNOWN inconsistent'
 
+# Counts alone cannot establish complete, unique, target-bound pagination.
+page 1 true c1 true | scenario unfinished
+page 1 false c1 true | jq -c 'del(.data.repository.pullRequest.reviewThreads.pageInfo)' | scenario no-page-info
+page 1 false c1 true | jq -c '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage="false"' | scenario bad-page-info
+{
+  page 2 false c1 true
+  page 2 false c2 true
+} | scenario early-terminal
+{
+  page 2 true c1 true
+  page 2 false c1 true | jq -c '.data.repository.pullRequest.reviewThreads.nodes[0].id="thread-c2-1"'
+} | scenario repeated-cursor
+page 2 false c1 true true | jq -c '.data.repository.pullRequest.reviewThreads.nodes[1].id=.data.repository.pullRequest.reviewThreads.nodes[0].id' | scenario repeated-thread
+page 1 false c1 true | jq -c 'del(.data.repository.pullRequest.reviewThreads.nodes[0].id)' | scenario no-thread-id
+page 1 false c1 true | jq -c '.data.repository.nameWithOwner="devantler-tech/agent-skills"' | scenario wrong-repo
+page 1 false c1 true | jq -c '.data.repository.pullRequest.number=1' | scenario wrong-pr
+page 1 false c1 true | jq -c '.data.repository.nameWithOwner="DEVANTLER-TECH/MONOREPO"' | scenario repo-alias
+for s in unfinished no-page-info bad-page-info early-terminal repeated-cursor; do
+  expect "$s cannot clear unresolved threads" "$COUNTER" "$s" 2 'UNKNOWN pagination'
+done
+for s in repeated-thread no-thread-id; do
+  expect "$s cannot substitute for a complete unique inventory" "$COUNTER" "$s" 2 'UNKNOWN identity'
+done
+for s in wrong-repo wrong-pr; do
+  expect "$s cannot count another target" "$COUNTER" "$s" 2 'UNKNOWN target'
+done
+expect 'repository casing aliases retain the same target' "$COUNTER" repo-alias 0 'unresolved=0 total=1'
+page 3 false c1 true true | scenario truncated-terminal
+expect 'a terminal page cannot hide missing nodes' "$COUNTER" truncated-terminal 2 'UNKNOWN truncated fetched=2 total=3'
+CHECK_HOST=1 GH_HOST=enterprise.invalid expect 'an inherited host cannot retarget the collector' "$COUNTER" zero 0 'unresolved=0 total=0'
+
 # A gh that fails outright, with no output at all.
 mkdir -p "$TEST_TMP/pages/failed"
 page 1 false c1 false >"$TEST_TMP/pages/failed/page-1"
@@ -126,14 +160,13 @@ expect 'a failed read is UNKNOWN, not zero' "$COUNTER" failed 2 'UNKNOWN read-fa
 # Ablation 1: without --paginate the helper sees 100 of 103, and the truncation check must
 # catch it rather than report the first page's zero.
 sed 's/ --paginate//' "$COUNTER" >"$TEST_TMP/no-paginate.sh"
-expect 'ablation: no --paginate is caught as truncation' "$TEST_TMP/no-paginate.sh" paginated 2 \
-  'UNKNOWN truncated fetched=100 total=103'
-# ...and with the truncation check removed as well, the same read prints the dangerous zero.
-# This proves the check above is what decides it.
+expect 'ablation: no --paginate is caught as unfinished pagination' "$TEST_TMP/no-paginate.sh" paginated 2 \
+  'UNKNOWN pagination'
+# Even without the count check, unfinished pagination remains independently unknown.
 # shellcheck disable=SC2016 # a literal pattern for sed, not a shell expansion
 sed 's/ --paginate//; s/"\$fetched" != "\$total"/"x" = "y"/' "$COUNTER" >"$TEST_TMP/no-guard.sh"
-expect 'ablation: no --paginate and no truncation check reads zero' "$TEST_TMP/no-guard.sh" paginated 0 \
-  'unresolved=0 total=103'
+expect 'ablation: terminal-page validation still refuses incomplete reads' "$TEST_TMP/no-guard.sh" paginated 2 \
+  'UNKNOWN pagination'
 
 # Ablation 2: without the per-node boolean check, a node that lost its isResolved field drops
 # out of the unresolved count unseen and the read turns into a clean zero.

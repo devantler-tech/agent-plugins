@@ -18,7 +18,8 @@
 # Stdout: exactly one line.
 #   unresolved=<n> total=<t>    a complete read: every thread was fetched and parsed
 #   UNKNOWN <reason>            usage | tool-unavailable | read-failed | malformed |
-#                               inconsistent | truncated fetched=<f> total=<t>
+#                               inconsistent | target | identity | pagination |
+#                               truncated fetched=<f> total=<t>
 #
 # Exit status (the same split a consumer merge gate keys on, so swapping helpers cannot
 # turn a nonzero count into a pass):
@@ -66,14 +67,17 @@ command -v gh >/dev/null 2>&1 || unknown tool-unavailable
 # guard requires this in the process environment; argv cannot carry it (an env-prefixed
 # command is denied).
 export GH_TELEMETRY=0
+export GH_HOST=github.com
 
 # shellcheck disable=SC2016 # GraphQL variables, not shell expansions
 query='query($owner:String!,$name:String!,$number:Int!,$endCursor:String){
   repository(owner:$owner,name:$name){
+    nameWithOwner
     pullRequest(number:$number){
+      number
       reviewThreads(first:100,after:$endCursor){
         totalCount
-        nodes{isResolved}
+        nodes{id isResolved}
         pageInfo{hasNextPage endCursor}
       }}}}'
 
@@ -92,7 +96,7 @@ fi
 # whose every node has a boolean isResolved. A missing field is malformed, never "resolved":
 # a node without isResolved would otherwise drop out of the unresolved count unseen.
 # shellcheck disable=SC2016 # jq program; dollar-prefixed names belong to jq
-if ! counts=$(printf '%s\n' "$pages" | jq -s -r '
+if ! counts=$(printf '%s\n' "$pages" | jq -s -r --arg repo "$repo" --argjson pr "$pr" '
   [.[] | .data.repository.pullRequest.reviewThreads] as $t
   | if ($t | length) == 0
       or any($t[];
@@ -104,13 +108,31 @@ if ! counts=$(printf '%s\n' "$pages" | jq -s -r '
           or any(.nodes[]; (type != "object") or ((.isResolved | type) != "boolean")))
     then error("malformed")
     else . end
-  | if ([$t[].totalCount] | unique | length) != 1 then "inconsistent"
-    else "\([$t[].nodes[]] | length) \($t[0].totalCount) \([$t[].nodes[] | select(.isResolved == false)] | length)"
+  | def counts: "\([$t[].nodes[]] | length) \($t[0].totalCount) \([$t[].nodes[] | select(.isResolved == false)] | length)";
+    if ([$t[].totalCount] | unique | length) != 1 then "inconsistent"
+    elif any(.[]; (.data.repository.nameWithOwner | type != "string")
+        or ((.data.repository.nameWithOwner | ascii_downcase) != ($repo | ascii_downcase))
+        or .data.repository.pullRequest.number != $pr) then "target"
+    elif any($t[].nodes[]; (.id | type != "string" or length == 0))
+        or ([$t[].nodes[].id] | unique | length) != ([$t[].nodes[]] | length) then "identity"
+    elif any($t[]; (.pageInfo | type != "object")
+        or (.pageInfo.hasNextPage | type != "boolean")
+        or (.pageInfo.endCursor != null and (.pageInfo.endCursor | type != "string"))
+        or ((.nodes | length) > 0 and (.pageInfo.endCursor | type != "string" or length == 0))
+        or (.pageInfo.hasNextPage and ((.nodes | length) == 0)))
+        or $t[-1].pageInfo.hasNextPage != false
+        or any($t[0:-1][]; .pageInfo.hasNextPage != true)
+        or ([$t[].pageInfo.endCursor | select(. != null and . != "")] | length)
+            != ([$t[].pageInfo.endCursor | select(. != null and . != "")] | unique | length)
+      then "pagination"
+    else counts
     end
 ' 2>/dev/null); then
   unknown malformed
 fi
-[ "$counts" != inconsistent ] || unknown inconsistent
+case "$counts" in
+  inconsistent|target|identity|pagination) unknown "$counts" ;;
+esac
 
 fetched=${counts%% *}
 rest=${counts#* }

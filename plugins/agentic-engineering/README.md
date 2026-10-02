@@ -248,9 +248,17 @@ under the guard:
 
 - `scripts/classify-default-branch-ci-runs.sh` judges default-branch CI. The guard accepts only
   `--repo`, `--branch`, and a full `--head-sha`, and refuses the helper's offline `--input` mode.
+  The helper rejects unrecognized outcomes, contradictory status/conclusion pairs, repeated run
+  identities and invalid numeric identifiers before selecting the latest workflow result.
 - `scripts/count-unresolved-review-threads.sh` supplies the surveyor's unresolved-thread count. The
   guard accepts only `--repo` and a positive `--pr`, and only when the helper runs alone: its
   verdict is its exit status (0 none, 1 some, 2 unknown), so a pipeline around it is denied.
+  A complete count requires the requested repository and PR on every page, unique thread IDs,
+  consistent totals and a pagination chain that ends with `hasNextPage=false`. Missing or
+  contradictory evidence returns `UNKNOWN` (exit 2).
+
+Both remote helpers bind their GitHub CLI reads to `github.com`, independently of `GH_HOST`
+in the calling environment.
 
 Each has a provider-neutral desired-state entry pinning its plugin-relative path, reviewed SHA-256,
 and executable requirement, and the guard accepts only the exact helper beside itself. Resolve the

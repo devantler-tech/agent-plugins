@@ -13,12 +13,12 @@
       "requiredRuntimeAssets": [
         {
           "path": "scripts/classify-default-branch-ci-runs.sh",
-          "sha256": "ed1dfd1135d655b911a2b004d588c4538a981e8273c1f7b8e2185e9eb6d71a1f",
+          "sha256": "e14b7c2d33563c7368d4760bbd3fa999e1ab06af5db14753d8dd8c0cb9c58a5a",
           "executable": true
         },
         {
           "path": "scripts/count-unresolved-review-threads.sh",
-          "sha256": "af4eac21030a7b9d1b9b3f720f569b6162603acdefb6fa35021fd01df70e1d9f",
+          "sha256": "cb41182d440b38fa43b72920b16c23a7d8b27a279b935cd7e21b506c7b1373c1",
           "executable": true
         },
         {

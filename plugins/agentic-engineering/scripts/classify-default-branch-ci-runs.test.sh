@@ -407,6 +407,58 @@ else
   pass=$((pass + 1))
 fi
 
+# The classifier must not turn contradictory or malformed records into clear health.
+base_run='[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","status":"completed","conclusion":"success","created_at":"2026-10-02T00:00:00Z","html_url":"https://example.test/run-10","name":"CI"}]'
+for mutation in \
+  '.[0].conclusion="unrecognized"' \
+  'del(.[0].conclusion)' \
+  '.[0].conclusion=null' \
+  '.[0].status="in_progress"' \
+  '.[0].status="unrecognized"' \
+  '.[0].conclusion="failure" | . += [.[0] | .conclusion="success"]' \
+  '. += [.[0]]' \
+  '.[0].id=0' \
+  '.[0].id=-1' \
+  '.[0].id=1.5' \
+  '.[0].id=9007199254740992' \
+  '.[0].workflow_id=0' \
+  '.[0].workflow_id=-1' \
+  '.[0].workflow_id=1.5' \
+  '.[0].workflow_id=9007199254740992' \
+  '.[0].run_attempt=9007199254740992'; do
+  payload=$(printf '%s\n' "$base_run" | jq -c "$mutation")
+  expect_error "invalid run record: $mutation" "$payload"
+done
+payload=$(printf '%s\n' "$base_run" | jq -c '.[0].conclusion="failure" | . += [.[0] | .run_attempt=2 | .conclusion="success"]')
+expect_output 'distinct attempts of the same run remain separately observable' "$payload" ''
+for status in queued in_progress requested waiting pending; do
+  payload=$(printf '%s\n' "$base_run" | jq -c --arg status "$status" '.[0].status=$status | .[0].conclusion=null')
+  expect_output "recognized unsettled run: $status" "$payload" ''
+done
+for conclusion in cancelled neutral skipped stale action_required; do
+  payload=$(printf '%s\n' "$base_run" | jq -c --arg conclusion "$conclusion" '.[0].conclusion=$conclusion')
+  expect_output "recognized non-clearing conclusion: $conclusion" "$payload" ''
+done
+stub_dir="$TEST_TMP/host-bound-bin"
+mkdir -p "$stub_dir"
+printf '%s\n' "$base_run" | jq -c \
+  '.[0].head_sha="0123456789abcdef0123456789abcdef01234567" | .[0].head_branch="main" | {total_count:1,workflow_runs:.}' > "$TEST_TMP/host-response"
+cat > "$stub_dir/gh" <<'STUB'
+#!/usr/bin/env bash
+[ "${GH_HOST:-}" = github.com ] && [ "${GH_TELEMETRY:-}" = 0 ] || exit 77
+cat "$STUB_CI_RESPONSE"
+STUB
+chmod +x "$stub_dir/gh"
+out='' status=0
+out=$(GH_HOST=enterprise.invalid STUB_CI_RESPONSE="$TEST_TMP/host-response" PATH="$stub_dir:$PATH" \
+  "$CLASSIFIER" --repo devantler-tech/example --branch main \
+  --head-sha 0123456789abcdef0123456789abcdef01234567 2>"$TEST_TMP/stderr") || status=$?
+if [ "$status" = 0 ] && [ -z "$out" ]; then
+  pass=$((pass + 1))
+else
+  record_failure 'an inherited host cannot retarget the CI collector'
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf '%s passed, %s failed\n' "$pass" "$fail" >&2
   exit 1

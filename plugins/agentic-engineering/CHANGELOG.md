@@ -21,6 +21,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 5.6.9 — 2026-10-03
+
+**Fixed** — review-thread counts require a finished pagination chain, unique thread identities
+and the requested repository and PR on every page. Incomplete or contradictory reads stay unknown.
+
+**Fixed** — default-branch CI classification rejects unrecognized outcomes, duplicate run
+identities and invalid numeric identifiers before a result can clear a previous failure.
+Both bundled remote collectors bind their reads to github.com.
+
 ## 5.6.8 — 2026-10-02
 
 **Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.0`.
@@ -528,4 +537,3 @@ read-only preflight loads the new namespace successfully.
 ## 1.0.0 — 2026-06-28
 
 **Changed** — rename the copilot plugin to agentic-engineering. ([#35](https://github.com/devantler-tech/agent-plugins/pull/35))
-

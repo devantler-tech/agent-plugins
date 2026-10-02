@@ -250,6 +250,7 @@ under the guard:
   `--repo`, `--branch`, and a full `--head-sha`, and refuses the helper's offline `--input` mode.
   The helper rejects unrecognized outcomes, contradictory status/conclusion pairs, repeated run
   identities and invalid numeric identifiers before selecting the latest workflow result.
+  Each selector is accepted once; repeated or empty values refuse before collection.
 - `scripts/count-unresolved-review-threads.sh` supplies the surveyor's unresolved-thread count. The
   guard accepts only `--repo` and a positive `--pr`, and only when the helper runs alone: its
   verdict is its exit status (0 none, 1 some, 2 unknown), so a pipeline around it is denied.

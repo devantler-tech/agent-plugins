@@ -13,7 +13,7 @@
       "requiredRuntimeAssets": [
         {
           "path": "scripts/classify-default-branch-ci-runs.sh",
-          "sha256": "e14b7c2d33563c7368d4760bbd3fa999e1ab06af5db14753d8dd8c0cb9c58a5a",
+          "sha256": "9909a71ce7daa7c12ca47d887f8c4b4045734b1b87c9550ccd15d05cf049b2a7",
           "executable": true
         },
         {

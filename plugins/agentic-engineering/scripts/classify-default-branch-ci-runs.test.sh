@@ -459,6 +459,41 @@ else
   record_failure 'an inherited host cannot retarget the CI collector'
 fi
 
+selector_bin="$TEST_TMP/selector-bin"
+mkdir -p "$selector_bin"
+cat > "$selector_bin/gh" <<'STUB'
+#!/usr/bin/env bash
+printf 'called\n' >> "$STUB_SELECTOR_CALLS"
+printf '{"total_count":0,"workflow_runs":[]}\n'
+STUB
+chmod +x "$selector_bin/gh"
+printf 'not-json\n' > "$TEST_TMP/invalid-first.json"
+printf '[]\n' > "$TEST_TMP/valid-second.json"
+for selector in input repo branch head-sha; do
+  for first_kind in valid empty; do
+    case "$selector" in
+      input) first_value="$TEST_TMP/invalid-first.json"; second_value="$TEST_TMP/valid-second.json"
+        args=(--input "$first_value" --input "$second_value") ;;
+      repo) first_value=devantler-tech/example; second_value=$first_value
+        args=(--repo "$first_value" --repo "$second_value" --branch main --head-sha 0123456789abcdef0123456789abcdef01234567) ;;
+      branch) first_value=main; second_value=$first_value
+        args=(--branch "$first_value" --branch "$second_value" --repo devantler-tech/example --head-sha 0123456789abcdef0123456789abcdef01234567) ;;
+      head-sha) first_value=0123456789abcdef0123456789abcdef01234567; second_value=$first_value
+        args=(--head-sha "$first_value" --head-sha "$second_value" --repo devantler-tech/example --branch main) ;;
+    esac
+    if [ "$first_kind" = empty ]; then args[1]=''; fi
+    rm -f "$TEST_TMP/selector-calls"
+    out='' status=0
+    out=$(PATH="$selector_bin:$PATH" STUB_SELECTOR_CALLS="$TEST_TMP/selector-calls" \
+      "$CLASSIFIER" "${args[@]}" 2>"$TEST_TMP/stderr") || status=$?
+    if [ "$status" -eq 2 ] && [ -z "$out" ] && [ ! -e "$TEST_TMP/selector-calls" ]; then
+      pass=$((pass + 1))
+    else
+      record_failure "repeated $selector with $first_kind first value refuses before collection"
+    fi
+  done
+done
+
 if [ "$fail" -ne 0 ]; then
   printf '%s passed, %s failed\n' "$pass" "$fail" >&2
   exit 1

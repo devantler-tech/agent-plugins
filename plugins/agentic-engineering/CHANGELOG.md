@@ -28,6 +28,7 @@ and the requested repository and PR on every page. Incomplete or contradictory r
 
 **Fixed** — default-branch CI classification rejects unrecognized outcomes, duplicate run
 identities and invalid numeric identifiers before a result can clear a previous failure.
+Repeated selectors refuse before collection so later arguments cannot replace the requested target.
 Both bundled remote collectors bind their reads to github.com.
 
 ## 5.6.8 — 2026-10-02

@@ -30,22 +30,22 @@ input_path=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo)
-      [ "$#" -ge 2 ] || usage
+      [ "$#" -ge 2 ] && [ -z "$repo" ] && [ -n "$2" ] || usage
       repo=$2
       shift 2
       ;;
     --branch)
-      [ "$#" -ge 2 ] || usage
+      [ "$#" -ge 2 ] && [ -z "$branch" ] && [ -n "$2" ] || usage
       branch=$2
       shift 2
       ;;
     --head-sha)
-      [ "$#" -ge 2 ] || usage
+      [ "$#" -ge 2 ] && [ -z "$head_sha" ] && [ -n "$2" ] || usage
       head_sha=$2
       shift 2
       ;;
     --input)
-      [ "$#" -ge 2 ] || usage
+      [ "$#" -ge 2 ] && [ -z "$input_path" ] && [ -n "$2" ] || usage
       input_path=$2
       shift 2
       ;;

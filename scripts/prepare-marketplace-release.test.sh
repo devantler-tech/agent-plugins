@@ -188,3 +188,65 @@ chmod +x "$work/bin/cp"
 if (export PATH="$work/bin:$PATH"; run v1.2.3 "$work/copy-failure") > "$work/stdout" 2> "$work/stderr"; then fail 'copy failure passed'; fi
 test ! -e "$work/copy-failure"; test ! -s "$work/stdout"; passed=$((passed + 1))
 printf 'marketplace release preparation: PASS (%s cases)\n' "$passed"
+
+# A successful probe followed by a failed listing is not one complete census.
+# Keep the real first listing, then fail before/after a valid prefix on a second
+# call. The old process-substitution loop loses that second producer's status.
+real_git=$(command -v git)
+export RELEASE_REAL_GIT="$real_git"
+mkdir -p "$work/git-fault"
+cat > "$work/git-fault/git" <<'STUB'
+#!/usr/bin/env bash
+if [[ $1 == worktree && $2 == list ]]; then
+  count=0
+  [[ ! -f $RELEASE_GIT_CALLS ]] || read -r count < "$RELEASE_GIT_CALLS"
+  count=$((count + 1))
+  printf '%s\n' "$count" > "$RELEASE_GIT_CALLS"
+  if [[ $RELEASE_GIT_FAULT == early || $count -gt 1 ]]; then
+    [[ $RELEASE_GIT_FAULT != partial ]] || printf 'worktree %s\0\0' "$RELEASE_FIRST_WORKTREE"
+    printf 'injected worktree census failure\n' >&2
+    exit 71
+  fi
+fi
+exec "$RELEASE_REAL_GIT" "$@"
+STUB
+chmod +x "$work/git-fault/git"
+census_failed=0
+for fault in early empty partial; do
+  new_repo
+  linked="$work/linked-$fault"
+  git -C "$repo" worktree add -q --detach "$linked"
+  calls="$work/calls-$fault"
+  out="$linked/.github/candidate"
+  if (export PATH="$work/git-fault:$PATH" RELEASE_GIT_FAULT="$fault" \
+      RELEASE_GIT_CALLS="$calls" RELEASE_FIRST_WORKTREE="$repo";
+      run initial "$out") > "$work/stdout" 2> "$work/stderr"; then
+    printf 'FAIL %s worktree observation accepted output in a linked checkout\n' "$fault" >&2
+    census_failed=$((census_failed + 1))
+  fi
+  if [[ -e $out || -s $work/stdout || -n $(git -C "$linked" status --porcelain --ignored) ]]; then
+    printf 'FAIL %s worktree observation wrote into a linked checkout or emitted success\n' "$fault" >&2
+    census_failed=$((census_failed + 1))
+  fi
+  passed=$((passed + 1))
+done
+
+# NUL records must keep newline-containing paths, including a trailing newline
+# that command substitution would otherwise trim from pwd's output.
+for suffix in $'space and\nnewline' $'trailing\n'; do
+  new_repo
+  linked="$work/linked-$suffix"
+  git -C "$repo" worktree add -q --detach "$linked"
+  out="$linked/.github/candidate"
+  if run initial "$out" > "$work/stdout" 2> "$work/stderr"; then
+    printf 'FAIL newline-containing linked checkout accepted\n' >&2
+    census_failed=$((census_failed + 1))
+  fi
+  if [[ -e $out || -s $work/stdout || -n $(git -C "$linked" status --porcelain --ignored) ]]; then
+    printf 'FAIL newline-containing linked checkout was changed\n' >&2
+    census_failed=$((census_failed + 1))
+  fi
+  passed=$((passed + 1))
+done
+[[ $census_failed == 0 ]] || fail "$census_failed worktree boundary regressions"
+printf 'marketplace worktree boundary regressions: PASS (%s total cases)\n' "$passed"

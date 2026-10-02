@@ -303,7 +303,7 @@ cat >"$TMP/thread-bin/gh" <<'EOF'
 set -euo pipefail
 [ "${GH_TELEMETRY:-}" = 0 ] || exit 1
 [ "$1 $2 $3" = 'api graphql --paginate' ] || exit 1
-printf '%s\n' '{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":2,"nodes":[{"isResolved":true},{"isResolved":false}],"pageInfo":{"hasNextPage":false,"endCursor":"c1"}}}}}}'
+printf '%s\n' '{"data":{"repository":{"nameWithOwner":"owner/repo","pullRequest":{"number":7,"reviewThreads":{"totalCount":2,"nodes":[{"id":"thread-1","isResolved":true},{"id":"thread-2","isResolved":false}],"pageInfo":{"hasNextPage":false,"endCursor":"c1"}}}}}}'
 EOF
 chmod +x "$TMP/thread-bin/gh"
 for install_dir in "$TMP/threads-v1" "$TMP/relocated threads 'quoted' \$literal"; do

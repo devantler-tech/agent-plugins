@@ -30,22 +30,22 @@ input_path=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo)
-      [ "$#" -ge 2 ] || usage
+      if [ "$#" -lt 2 ] || [ -n "$repo" ] || [ -z "$2" ]; then usage; fi
       repo=$2
       shift 2
       ;;
     --branch)
-      [ "$#" -ge 2 ] || usage
+      if [ "$#" -lt 2 ] || [ -n "$branch" ] || [ -z "$2" ]; then usage; fi
       branch=$2
       shift 2
       ;;
     --head-sha)
-      [ "$#" -ge 2 ] || usage
+      if [ "$#" -lt 2 ] || [ -n "$head_sha" ] || [ -z "$2" ]; then usage; fi
       head_sha=$2
       shift 2
       ;;
     --input)
-      [ "$#" -ge 2 ] || usage
+      if [ "$#" -lt 2 ] || [ -n "$input_path" ] || [ -z "$2" ]; then usage; fi
       input_path=$2
       shift 2
       ;;
@@ -85,6 +85,7 @@ else
   # The forge-readonly guard requires this in the process environment; argv
   # cannot carry it (an env-prefixed command is denied).
   export GH_TELEMETRY=0
+  export GH_HOST=github.com
 
   if ! payload=$(gh api --paginate --slurp --method GET "repos/${repo}/actions/runs" \
     -f head_sha="$head_sha" \
@@ -147,6 +148,22 @@ jq_filter='
     or .conclusion == "timed_out"
     or .conclusion == "startup_failure";
 
+  def identifier: type == "number" and isfinite and . >= 1
+    and . <= 9007199254740991 and floor == .;
+
+  def valid_outcome:
+    has("conclusion") and
+    (if .conclusion == null then
+       .status as $status | ["queued","in_progress","requested","waiting","pending"] | index($status) != null
+     else
+       .conclusion as $conclusion |
+       ["success","failure","timed_out","startup_failure","cancelled","neutral","skipped","stale","action_required"]
+       | index($conclusion) != null
+     end)
+    and (if has("status") then
+      (if .conclusion == null then .status != "completed" else .status == "completed" end)
+      else true end);
+
   def valid_github_timestamp:
     . as $timestamp
     | type == "string"
@@ -191,17 +208,20 @@ jq_filter='
   | ($identified_runs
       | map(select((.event as $event | $branch_events | index($event)) != null))) as $branch_runs
   | if any($branch_runs[];
-      (.workflow_id | type != "number")
-      or (.id | type != "number")
+      ((.workflow_id | identifier) | not)
+      or ((.id | identifier) | not)
       or ((.created_at | valid_github_timestamp) | not)
       or ((.run_started_at // null) != null
           and ((.run_started_at | valid_github_timestamp) | not))
-      or (.run_attempt | type != "number")
-      or (.run_attempt < 1)
-      or (.run_attempt | floor != .))
+      or ((.run_attempt | identifier) | not))
     then error("branch run is missing workflow_id, id, run_attempt, or execution time")
     else $branch_runs
     end
+  | if (map([.id,.run_attempt]) | unique | length) != length then
+      error("duplicate workflow run identity")
+    elif any(.[]; (valid_outcome | not)) then
+      error("invalid workflow run outcome")
+    else . end
   | group_by(run_identity)
   | map(
       sort_by([(.run_started_at // .created_at), .id, .run_attempt])

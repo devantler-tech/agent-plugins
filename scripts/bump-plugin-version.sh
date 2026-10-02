@@ -72,6 +72,7 @@ bump_one() {
   echo "✓ $name $current → $new"
 }
 
+# Select a single plugin or finish every changed-plugin observation before writing versions.
 main() {
   local level plugins
 

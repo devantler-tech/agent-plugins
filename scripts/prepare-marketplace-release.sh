@@ -38,18 +38,32 @@ done < <(git config --type=bool --get-regexp '^remote\..*\.promisor$' || true)
 if [ -z "$head" ]; then head=$(git rev-parse --verify HEAD); fi
 [[ "$head" =~ ^[0-9a-f]{40}$ ]] || fail 'head must be a full 40-character commit'
 [ "$(git cat-file -t "$head")" = commit ] || fail 'head must identify a commit'
-parent=$(cd "$(dirname "$output")" && pwd -P) || fail 'output parent must exist'
-name=$(basename "$output")
+# A sentinel retains path newlines that command substitution would otherwise trim.
+parent=$(dirname "$output" && printf '.') || fail 'output parent must exist'
+parent=${parent%.}; parent=${parent%$'\n'}
+parent=$(cd "$parent" && pwd -P && printf '.') || fail 'output parent must exist'
+parent=${parent%.}; parent=${parent%$'\n'}
+name=$(basename "$output" && printf '.') || fail 'output must name a new directory'
+name=${name%.}; name=${name%$'\n'}
 [[ "$name" != . && "$name" != .. && "$name" != / ]] || fail 'output must name a new directory'
 output="$parent/$name"
 git rev-parse --show-toplevel >/dev/null || fail 'must run inside a Git worktree'
-# Every worktree of the repository is a checkout, linked ones included.
-git worktree list --porcelain -z >/dev/null || fail 'cannot list Git worktrees'
+# Retain one complete NUL census and its producer status before consuming it.
+# Keep this private scratch file separate from the not-yet-authorized output.
+census=$(mktemp) || fail 'cannot retain Git worktrees'
+trap 'rm -f "$census"' EXIT
+git worktree list --porcelain -z > "$census" || fail 'cannot list Git worktrees'
 while IFS= read -r -d '' record; do
   [[ "$record" == 'worktree '* ]] || continue
-  tree=$(cd "${record#worktree }" 2>/dev/null && pwd -P) || tree=${record#worktree }
+  if tree=$(cd "${record#worktree }" 2>/dev/null && pwd -P && printf '.'); then
+    tree=${tree%.}; tree=${tree%$'\n'}
+  else
+    tree=${record#worktree }
+  fi
   case "$output/" in "$tree"/*) fail 'output must be outside every Git worktree' ;; esac
-done < <(git worktree list --porcelain -z)
+done < "$census"
+rm -f "$census"
+trap - EXIT
 if [ -e "$output" ] || [ -L "$output" ]; then fail 'output already exists'; fi
 temp=$(mktemp -d "$parent/.marketplace-release.XXXXXX")
 owned_output=false

@@ -363,6 +363,9 @@ existing commits are retained. Current non-Dependabot branches use the reopen ro
 App-created drafts receive their required PR CI event.
 
 **Forks** use close and immediate reopen, which preserves their head and current-head review.
+Every reopen requires a newer PR event and a matching OPEN readback of head, base, author and
+merge state, including when auto-merge was unarmed. Unknown merge strategies refuse mutation;
+restoring a known strategy also pins the observed head.
 **Dependabot PRs are never closed or recreated:** closing can suppress a wanted update, so a
 Dependabot fork is reported as a failure and left untouched. Unknown author or repository-boundary
 data, failed updates and incomplete readback likewise cannot report a successful refresh.

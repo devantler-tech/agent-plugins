@@ -80,6 +80,7 @@ if [[ "$*" == *'pr view'* ]]; then
     '{number:11,baseRefName:"main",state:"OPEN",headRefOid:$head,baseRefOid:$base,author:{login:$author},isCrossRepository:$fork,
       autoMergeRequest:{mergeMethod:"SQUASH",commitHeadline:"original title",commitBody:"original body"}}' |
     jq --arg mode "$MODE" --arg base "$current_base" --arg original "$ORIGINAL" --argjson after "$(test -f "$FIXTURE/current" && echo true || echo false)" \
+      --argjson reopened "$(test -f "$FIXTURE/reopened" && echo true || echo false)" --argjson rearmed "$(test -f "$FIXTURE/rearmed" && echo true || echo false)" \
       'if $mode=="missing-merge-state" then del(.autoMergeRequest)
        elif $mode=="unarmed" then .autoMergeRequest=null
        elif $mode=="missing-merge-after" then if $after then del(.autoMergeRequest) else .autoMergeRequest=null end
@@ -88,7 +89,8 @@ if [[ "$*" == *'pr view'* ]]; then
        elif $mode=="changed-author" and $after then .author.login="another-author"
        elif $mode=="wrong-pr" then .number=12
        elif $mode=="retargeted" then .baseRefName="different-base"
-       else . end | .baseRefOid=(if $mode=="stale-pr-base" then $original else $base end)'
+       else . end | .baseRefOid=(if $mode=="stale-pr-base" then $original else $base end)
+       | if $reopened and ($rearmed | not) then .autoMergeRequest=null else . end'
   exit
 fi
 case "$1 $2" in

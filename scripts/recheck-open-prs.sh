@@ -144,7 +144,11 @@ settle() {
       continue
     fi
     echo "recheck-open-prs: restoring auto-merge on #$n" >&2
-    rearm "$n" "$method" "$headline" "$body" > /dev/null 2>&1 \
+    if ! verify_reopened "$n" "$(cat "$state/rearm/$n/before")"; then
+      echo "::error::#$n auto-merge was NOT restored: reopened state moved or is unreadable." >&2
+      continue
+    fi
+    rearm "$n" "$method" "$headline" "$body" "$sha" > /dev/null 2>&1 \
       || echo "::error::#$n auto-merge could not be restored; re-arm it by hand" >&2
   done
   rm -rf "$state"
@@ -192,18 +196,30 @@ await_fresh_check() {
   return 1
 }
 
+# A successful write acknowledgement is not readback proof, including on unarmed PRs.
+verify_reopened() {
+  local n=$1 before=$2 current
+  current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) || return 1
+  printf '%s' "$current" | jq -e --argjson before "$before" '
+    type=="object" and has("autoMergeRequest") and .autoMergeRequest==null and
+    .state=="OPEN" and .number==$before.number and .headRefOid==$before.headRefOid and
+    .baseRefOid==$before.baseRefOid and .baseRefName==$before.baseRefName and
+    .author.login==$before.author.login and .isCrossRepository==$before.isCrossRepository' >/dev/null
+}
+
 # Re-arm auto-merge exactly as it was: the same strategy, and the same commit metadata.
 # Recreating it as a default squash would silently change both the merge behaviour and the
 # message someone chose deliberately.
 rearm() {
-  local n=$1 method=$2 headline=$3 body=$4 flag
+  local n=$1 method=$2 headline=$3 body=$4 sha=$5 flag
   case "$method" in
     MERGE) flag=--merge ;;
     REBASE) flag=--rebase ;;
-    # An unknown or missing method falls back to squash, which every ruleset here permits.
-    *) flag=--squash ;;
+    SQUASH) flag=--squash ;;
+    *) echo "::error::Unknown auto-merge method; refusing to guess." >&2; return 1 ;;
   esac
-  set -- "$n" --repo "$repo" --auto "$flag"
+  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || return 1
+  set -- "$n" --repo "$repo" --auto "$flag" --match-head-commit "$sha"
   # A rebase carries no commit message of its own, so those flags apply to the other two only.
   if [ "$flag" != "--rebase" ]; then
     [ -z "$headline" ] || set -- "$@" --subject "$headline"
@@ -392,6 +408,17 @@ while IFS=$'\t' read -r number title; do
     continue
   fi
 
+  if ! printf '%s' "$snapshot" | jq -e '
+    (.headRefOid | type=="string" and test("^[0-9a-f]{40}$")) and
+    (.baseRefOid | type=="string" and test("^[0-9a-f]{40}$")) and
+    (.autoMergeRequest==null or (.autoMergeRequest | type=="object" and
+      (.mergeMethod=="MERGE" or .mergeMethod=="REBASE" or .mergeMethod=="SQUASH") and
+      (.commitHeadline | .==null or type=="string") and (.commitBody | .==null or type=="string")))' >/dev/null; then
+    echo "::error::#$number identity or auto-merge strategy is unknown; left untouched"
+    failed=$((failed + 1))
+    continue
+  fi
+
   if [ "$(printf '%s' "$snapshot" | jq -r '.isCrossRepository')" = false ]; then
     refresh_same_repository "$number" "$snapshot"
     refresh_status=$?
@@ -410,29 +437,24 @@ while IFS=$'\t' read -r number title; do
       continue ;;
   esac
 
+  head_sha=$(printf '%s' "$snapshot" | jq -r '.headRefOid')
+  if ! check_baseline=$(newest_pr_run "$head_sha") ||
+     case "$check_baseline" in '' | *[!0-9]*) true ;; *) false ;; esac; then
+    echo "::error::#$number run baseline could not be read; left untouched"
+    failed=$((failed + 1))
+    continue
+  fi
+
   automerge=$(printf '%s' "$snapshot" | jq -r 'if .autoMergeRequest == null then "none" else "armed" end')
   if [ "$automerge" = "armed" ]; then
     # Capture the strategy and commit metadata before the close clears the request, so the
     # restore puts back what was there rather than a default squash.
     mkdir -p "$state/rearm/$number"
+    printf '%s' "$snapshot" > "$state/rearm/$number/before"
     printf '%s' "$snapshot" | jq -r '.autoMergeRequest.mergeMethod // ""' > "$state/rearm/$number/method"
     printf '%s' "$snapshot" | jq -r '.autoMergeRequest.commitHeadline // ""' > "$state/rearm/$number/headline"
     printf '%s' "$snapshot" | jq -r '.autoMergeRequest.commitBody // ""' > "$state/rearm/$number/body"
     head_sha=$(printf '%s' "$snapshot" | jq -r '.headRefOid // ""')
-    # The high-water mark of the required check at this commit BEFORE the reopen, so "a run from
-    # the reopen exists" is answerable afterwards without trusting any clock.
-    #
-    # A failed read leaves the PR untouched rather than assuming 0: a zero baseline is satisfied
-    # by any historical run, so the wait would pass instantly and re-arm against the pre-gate
-    # green — recreating the merge window this capture exists to close.
-    if ! check_baseline=$(newest_pr_run "$head_sha") \
-      || case "$check_baseline" in '' | *[!0-9]*) true ;; *) false ;; esac \
-      || [ -z "$head_sha" ]; then
-      echo "::error::#$number run baseline could not be read; left untouched (its auto-merge could not be safely restored)"
-      rm -rf "$state/rearm/$number"
-      failed=$((failed + 1))
-      continue
-    fi
     printf '%s' "$head_sha" > "$state/rearm/$number/sha"
     printf '%s' "$check_baseline" > "$state/rearm/$number/baseline"
   fi
@@ -453,22 +475,19 @@ while IFS=$'\t' read -r number title; do
     failed=$((failed + 1))
     continue
   fi
+  if ! await_fresh_check "$head_sha" "$check_baseline" || ! verify_reopened "$number" "$snapshot"; then
+    echo "::error::#$number reopen is unverified: no fresh PR event or matching OPEN readback; auto-merge was NOT restored, because it could merge the PR on the pre-gate result."
+    rm -rf "$state/rearm/$number"
+    failed=$((failed + 1))
+    continue
+  fi
   rm -f "$state/closed/$number"
 
   if [ "$automerge" = "armed" ]; then
     method=$(cat "$state/rearm/$number/method" 2> /dev/null) || method=""
     headline=$(cat "$state/rearm/$number/headline" 2> /dev/null) || headline=""
     body=$(cat "$state/rearm/$number/body" 2> /dev/null) || body=""
-    # Wait for the reopen's own workflow run before arming. Until it exists the newest result at
-    # this commit is the pre-gate green, and `--auto` merges as soon as the requirements read as
-    # met — which would take the pull request past the gate this run is applying.
-    if ! await_fresh_check "$head_sha" "$check_baseline"; then
-      echo "::error::#$number was re-triggered, but auto-merge was NOT restored: no pull_request run from the reopen appeared within ${CHECK_WAIT_SECONDS}s, and arming it now could merge the PR on the pre-gate result. Re-arm it by hand once its checks are running."
-      rm -rf "$state/rearm/$number"
-      failed=$((failed + 1))
-      continue
-    fi
-    if ! rearm "$number" "$method" "$headline" "$body" > /dev/null; then
+    if ! rearm "$number" "$method" "$headline" "$body" "$head_sha" > /dev/null; then
       # Left in the rearm set on purpose: once the close has cleared the request, a later run
       # cannot tell that this PR ever had auto-merge armed, so the obligation has to survive
       # here or it is lost for good. The trap retries it.

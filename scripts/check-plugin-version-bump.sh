@@ -18,6 +18,8 @@
 # Fail-closed: an unresolvable ref is an error, never a pass — a shallow checkout must not
 # silently downgrade this gate to a no-op.
 set -euo pipefail
+# shellcheck source=scripts/plugin-version.lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/plugin-version.lib.sh"
 
 BASE_REF="${1:-${BASE_REF:-origin/main}}"
 HEAD_REF="${2:-${HEAD_REF:-HEAD}}"
@@ -56,6 +58,12 @@ while IFS= read -r plugin_dir; do
   head_version=$(git show "$HEAD_REF:$plugin_dir/$MANIFEST_REL" 2>/dev/null | jq -r '.version // empty')
   if [ -z "$head_version" ]; then
     echo "::error::$plugin_dir/$MANIFEST_REL: missing or empty 'version' at $HEAD_REF"
+    violations=$((violations + 1))
+    continue
+  fi
+
+  if ! plugin_version_valid "$head_version"; then
+    echo "::error::$name: cache version must increase using canonical stable versions."
     violations=$((violations + 1))
     continue
   fi
@@ -104,6 +112,11 @@ while IFS= read -r plugin_dir; do
     continue
   fi
 
+  if ! plugin_version_increases "$base_version" "$head_version"; then
+    echo "::error::$name: cache version must increase from a canonical stable version ($base_version → $head_version)."
+    violations=$((violations + 1))
+    continue
+  fi
   echo "✓ $name content changed and version moved $base_version → $head_version"
 done <<< "$plugin_dirs"
 

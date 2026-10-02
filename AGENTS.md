@@ -223,7 +223,10 @@ plugin membership) is authored here.
    latest version" and keeps serving the stale copy, with no error and no drift signal. Bump with
    [`scripts/bump-plugin-version.sh`](scripts/bump-plugin-version.sh), which moves all four places the
    version must agree (the portable and strict manifests plus both marketplace entries) — a hand-edit
-   easily half-lands. The `Check version bump` CI job enforces it on every PR, and the daily skill-sync
+   easily half-lands. The updater checks identities, unique membership and version parity before
+   writing any manifest, including when several plugins changed. Cache versions must increase using
+   canonical stable versions; a downgrade cannot reuse an older cache identity.
+   The `Check version bump` CI job enforces it on every PR, and the daily skill-sync
    workflow bumps itself via `--changed-since` and writes dated skill/source/ref release notes with
    `bash scripts/plugin-changelog.sh write origin/main`. Existing hand-written entries stay intact.
    Both the writer and checker compare against the merge base, so unrelated releases on an advanced

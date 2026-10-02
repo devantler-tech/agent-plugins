@@ -217,6 +217,19 @@ for fault in empty partial; do
       "Cannot enumerate plugins" "$d"
 done
 
+for next in 0.9.9 0.99.99 0.0.1 01.0.1 1.0.1-beta; do
+  d=$(fresh)
+  set_version "$d" alpha "$next"
+  commit_all "$d" "invalid cache move"
+  check_fail "backwards or invalid version $next cannot pass" "must increase" "$d"
+done
+for next in 1.0.1 1.1.0 2.0.0; do
+  d=$(fresh)
+  set_version "$d" alpha "$next"
+  commit_all "$d" "forward cache move"
+  check_pass "forward version $next passes" "$d"
+done
+
 echo "-----------------------------------------"
 echo "check-plugin-version-bump.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

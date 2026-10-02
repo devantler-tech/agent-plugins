@@ -248,7 +248,7 @@ fi
 # ---------------------------------------------------------------------------
 d=$(fresh)
 out=$( cd "$d" && "$REFRESH" 2>&1 ); rc=$?
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'no \*.desired-state.json resource found'; then
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -Eq 'no \*.desired-state.json resource found|resource inventory failed'; then
   ok "an enumeration matching nothing fails closed instead of reporting success"
 else
   ko "an enumeration matching nothing fails closed (rc=$rc): $out"
@@ -262,6 +262,108 @@ if [ "$rc" -eq 2 ]; then
 else
   ko "--check also fails closed on an empty enumeration (rc=$rc): $out"
 fi
+
+
+# Complete observations precede every write; a failed valid prefix is not coverage.
+real_find=$(command -v find)
+real_jq=$(command -v jq)
+real_hash=$(command -v shasum)
+for boundary in resources roles assets hash declaration; do
+  for output in empty partial; do
+    d=$(fresh); make_fixture "$d"
+    cp -R "$d/plugins/alpha" "$d/plugins/beta"
+    J="$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+    jq '.spec.roles["another-role"]={definitionSha256:.spec.roles["agent-improver"].definitionSha256} |
+      .spec.source.requiredRuntimeAssets += [{path:"scripts/another-asset.sh",sha256:.spec.source.requiredRuntimeAssets[0].sha256,executable:true}]' "$J" > "$d/j"
+    mv "$d/j" "$J"
+    cp "$d/plugins/alpha/agents/agent-improver.agent.md" "$d/plugins/alpha/agents/another-role.agent.md"
+    cp "$d/plugins/alpha/scripts/asset.sh" "$d/plugins/alpha/scripts/another-asset.sh"
+    # Prove a successful observation has more records than the one-record prefix.
+    if [ "$("$real_find" "$d/plugins" -name '*.desired-state.json' | wc -l | tr -d ' ')" != 2 ] ||
+       [ "$("$real_jq" '.spec.roles | length' "$J")" != 2 ] ||
+       [ "$("$real_jq" '.spec.source.requiredRuntimeAssets | length' "$J")" != 2 ]; then
+      ko "failure fixture has two resources, roles and assets"
+      continue
+    fi
+    cp "$J" "$d/before-alpha"
+    cp "$d/plugins/beta/resources/provider-neutral.desired-state.json" "$d/before-beta"
+    mkdir "$d/bin"
+    cat > "$d/bin/find" <<'STUB'
+#!/usr/bin/env bash
+if [ "$BOUNDARY" = resources ]; then
+  if [ "$OUTPUT" = partial ]; then
+    case " $* " in *' -print0 '*) printf 'plugins/alpha/resources/provider-neutral.desired-state.json\0' ;; *) printf 'plugins/alpha/resources/provider-neutral.desired-state.json\n' ;; esac | tee "$CAPTURE"
+  fi
+  exit 7
+fi
+exec "$REAL_FIND" "$@"
+STUB
+    cat > "$d/bin/jq" <<'STUB'
+#!/usr/bin/env bash
+if { [ "$BOUNDARY" = roles ] && [[ "$*" == *to_entries* ]]; } ||
+   { [ "$BOUNDARY" = assets ] && [[ "$*" == *'.spec.source.requiredRuntimeAssets[]?'* ]]; } ||
+   { [ "$BOUNDARY" = declaration ] && [[ "$*" == *'has("entrypointSha256")'* ]]; }; then
+  if [ "$OUTPUT" = partial ]; then
+    case " $* " in
+      *' -j '*) "$REAL_JQ" "$@" | { IFS= read -r -d '' record || :; printf '%s\0' "$record"; } ;;
+      *) "$REAL_JQ" "$@" | { IFS= read -r record || :; printf '%s\n' "$record"; } ;;
+    esac | tee "$CAPTURE"
+  fi
+  exit 7
+fi
+exec "$REAL_JQ" "$@"
+STUB
+    cat > "$d/bin/sha256sum" <<'STUB'
+#!/usr/bin/env bash
+if [ "$BOUNDARY" = hash ] && [ "$#" -gt 0 ] && [[ "$1" == *asset.sh ]]; then
+  [ "$OUTPUT" != partial ] || printf '%064d  %s\n' 0 "$1" | tee "$CAPTURE"
+  exit 7
+fi
+exec "$REAL_HASH" -a 256 "$@"
+STUB
+    chmod +x "$d/bin/"*
+    (cd "$d" && PATH="$d/bin:$PATH" BOUNDARY="$boundary" OUTPUT="$output" CAPTURE="$d/prefix" REAL_FIND="$real_find" REAL_JQ="$real_jq" REAL_HASH="$real_hash" "$REFRESH" > "$d/out" 2>&1); rc=$?
+    prefix_ok=true
+    if [ "$output" = partial ]; then
+      records=$(tr -cd '\000\n' < "$d/prefix" | wc -c | tr -d ' ')
+      [ "$records" = 1 ] || prefix_ok=false
+    fi
+    if "$prefix_ok" && [ "$rc" -ne 0 ] && cmp -s "$d/before-alpha" "$J" && cmp -s "$d/before-beta" "$d/plugins/beta/resources/provider-neutral.desired-state.json"; then
+      ok "failed $boundary $output observation refuses all writes"
+    else
+      ko "failed $boundary $output observation refused unchanged (rc=$rc)"
+    fi
+  done
+done
+for invalid in same-resource later-resource; do
+  d=$(fresh); make_fixture "$d"
+  cp -R "$d/plugins/alpha" "$d/plugins/beta"
+  cp "$d/plugins/alpha/resources/provider-neutral.desired-state.json" "$d/before-alpha"
+  cp "$d/plugins/beta/resources/provider-neutral.desired-state.json" "$d/before-beta"
+  if [ "$invalid" = same-resource ]; then
+    rm "$d/plugins/alpha/scripts/asset.sh"
+  else
+    rm "$d/plugins/beta/scripts/asset.sh"
+  fi
+  (cd "$d" && "$REFRESH" > "$d/out" 2>&1); rc=$?
+  if [ "$rc" -ne 0 ] && cmp -s "$d/before-alpha" "$d/plugins/alpha/resources/provider-neutral.desired-state.json" && cmp -s "$d/before-beta" "$d/plugins/beta/resources/provider-neutral.desired-state.json"; then
+    ok "invalid $invalid leaves every generated resource unchanged"
+  else ko "invalid $invalid leaves every generated resource unchanged (rc=$rc)"; fi
+done
+
+# Hyphens and underscores must not collapse distinct role keys onto one jq variable.
+d=$(fresh); make_fixture "$d"
+J="$d/plugins/alpha/resources/provider-neutral.desired-state.json"
+jq --arg zero "$ZERO" '.spec.roles += {"some-role":{definitionSha256:$zero},"some_role":{definitionSha256:$zero}}' "$J" > "$d/j"
+mv "$d/j" "$J"
+printf 'hyphen role\n' > "$d/plugins/alpha/agents/some-role.agent.md"
+printf 'underscore role\n' > "$d/plugins/alpha/agents/some_role.agent.md"
+(cd "$d" && "$REFRESH" > "$d/out" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] &&
+   [ "$(field "$d" '.spec.roles["some-role"].definitionSha256')" = "$(sha_norm "$d/plugins/alpha/agents/some-role.agent.md")" ] &&
+   [ "$(field "$d" '.spec.roles["some_role"].definitionSha256')" = "$(sha_norm "$d/plugins/alpha/agents/some_role.agent.md")" ]; then
+  ok "distinct role keys retain their distinct content digests"
+else ko "distinct role keys retain their distinct content digests (rc=$rc)"; fi
 
 echo "refresh-desired-state-digests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

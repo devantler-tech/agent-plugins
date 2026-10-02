@@ -1,6 +1,8 @@
 package main
 
 import (
+	"go/ast"
+	"go/token"
 	"strconv"
 	"strings"
 	"testing"
@@ -69,5 +71,17 @@ func TestSeparateStrings(t *testing.T) {
 		if strings.Contains(part, "--json merged") {
 			t.Fatalf("unrelated notes were joined: %q", part)
 		}
+	}
+}
+
+func TestKnownArgumentsAreDecodedOnce(t *testing.T) {
+	value := strings.Repeat("x", 1200000)
+	d := &decoder{}
+	d.joinArgs([]ast.Expr{
+		&ast.BasicLit{Kind: token.STRING, Value: `"--json"`},
+		&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(value)},
+	})
+	if d.err != nil || len(d.parts) != 1 || d.parts[0] != "--json "+value {
+		t.Fatalf("known argv was redundantly decoded: %v", d.err)
 	}
 }

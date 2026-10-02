@@ -248,5 +248,20 @@ for suffix in $'space and\nnewline' $'trailing\n'; do
   fi
   passed=$((passed + 1))
 done
+# Canonicalization must preserve legitimate outside parents and output names.
+# A decoy without the final newline catches silently redirected output.
+new_repo
+outside="$work/outside"$'\n'
+mkdir "$outside" "$work/outside"
+out="$outside/candidate"$'\n'
+if ! run initial "$out" > "$work/stdout" 2> "$work/stderr"; then
+  printf 'FAIL newline-ending outside path refused\n' >&2
+  census_failed=$((census_failed + 1))
+fi
+if [[ ! -f $out/release.json || -e $work/outside/candidate || -e $outside/candidate ]]; then
+  printf 'FAIL newline-ending outside path redirected\n' >&2
+  census_failed=$((census_failed + 1))
+fi
+passed=$((passed + 1))
 [[ $census_failed == 0 ]] || fail "$census_failed worktree boundary regressions"
 printf 'marketplace release preparation: PASS (%s cases)\n' "$passed"

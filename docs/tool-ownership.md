@@ -57,7 +57,7 @@ Shared use of the release API does not make source-skill and marketplace publica
 
 | Candidate | Observed caller and responsibility |
 |---|---|
-| [`prepare-marketplace-release.sh`](../scripts/prepare-marketplace-release.sh) | Preparation workflow, proposal helper, publication helper and merged-proposal verifier reproduce a candidate from exact Git history. The assessment found an unchecked second worktree census and newline-trimming output boundary; [#322](https://github.com/devantler-tech/agent-plugins/issues/322) tracks the repair. |
+| [`prepare-marketplace-release.sh`](../scripts/prepare-marketplace-release.sh) | Preparation workflow, proposal helper, publication helper and merged-proposal verifier reproduce a candidate from exact Git history. The assessment found an unchecked second worktree census and newline-trimming output boundary; [#323](https://github.com/devantler-tech/agent-plugins/pull/323) delivers the repair for #322. |
 | [`verify-marketplace-release.sh`](../scripts/verify-marketplace-release.sh) | Proposal, publication and merged-proposal helpers verify candidate contents and commit relationships. Its explicit historical-inspection option delegates to the inspector. |
 | [`inspect-marketplace-release.sh`](../scripts/inspect-marketplace-release.sh) | The verifier's opt-in historical path checks occupied releases without granting fresh publication readiness. |
 | [`check-marketplace-version.sh`](../scripts/check-marketplace-version.sh) | PR CI and merged-proposal preparation check the proposed marketplace version against reproduced content. |
@@ -96,7 +96,7 @@ benefit. This assessment grants no new embedded-language exception.
 
 The copied `measure-flow.jq`, `check-evidence.jq` and `accountability-brief.jq` retain their Agent Skills
 owners and documented installed interfaces. Those distribution copies do not count as additional
-independent product needs. The [source assessment](https://github.com/devantler-tech/agent-skills/issues/153)
+independent product needs. The [source assessment](https://github.com/devantler-tech/agent-skills/blob/100ef49575abe177e6275da31331033535714d1f/docs/tool-ownership.md)
 records those contracts and the source repository's remaining helper decisions.
 
 The two authored Go tools already share the standard library's `go/parser`, `go/ast` and `go/token`.
@@ -114,7 +114,8 @@ only on a concrete new caller contract or measured coupling, rather than hypothe
 
 The version-tool failure was repaired in [#320](https://github.com/devantler-tech/agent-plugins/pull/320),
 with before/after regressions and normal workflow callers. Release preparation's separate output
-boundary finding is tracked by #322 with real linked-checkout fixtures. The syntax decoder is already adopted by the marketplace's actual guidance gate;
+boundary finding was repaired in #323 with real linked-checkout and newline-path fixtures.
+The syntax decoder is already adopted by the marketplace's actual guidance gate;
 that is repository-local Go adoption, not publication of a standalone command. Retain the existing
 wrappers and version pins as recovery paths when proposing any further migration.
 

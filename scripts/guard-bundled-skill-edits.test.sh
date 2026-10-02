@@ -366,6 +366,21 @@ else note_fail "missing-blob fixture did not isolate unreadable provenance"; fi
 run "$REF"
 expect 2 'cannot read' 'a listed unreadable skill cannot receive the new-skill exemption'
 git -C "$FIXTURE" hash-object -w "$WORK/base-skill" >/dev/null
+real_git=$(command -v git)
+mkdir "$WORK/tree-fault"
+cat > "$WORK/tree-fault/git" <<'STUB'
+#!/usr/bin/env bash
+if [[ " $* " == *" ls-tree $FAULT_BASE -- plugins/github/skills/github-issues/SKILL.md "* ]]; then
+  [ "$FAULT_OUTPUT" != partial ] || "$REAL_GIT" "$@"
+  exit 7
+fi
+exec "$REAL_GIT" "$@"
+STUB
+chmod +x "$WORK/tree-fault/git"
+for output in empty partial; do
+  PATH="$WORK/tree-fault:$PATH" REAL_GIT="$real_git" FAULT_BASE="$BASE" FAULT_OUTPUT="$output" run "$REF"
+  expect 2 'cannot read' "a failed $output base tree observation is unknown"
+done
 
 echo
 if [ "$fail" -gt 0 ]; then

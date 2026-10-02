@@ -337,7 +337,7 @@ Agent identity and installed-source checks share a minimum frontmatter observer.
 closed header, unique top-level keys, text-valued agent identity, and a usable GitHub repository at
 the direct `metadata.github-repo` key. Unsupported header syntax is refused; this observer does not
 replace the skill specification validator. The bundled-edit guard uses the same source observation
-at the base commit and preserves whole path components, including embedded newlines. Body examples
+at the base commit and preserves whole path components, including embedded and trailing newlines. Body examples
 never supply provenance, and malformed base provenance remains UNKNOWN.
 
 The required gate is the aggregated **`CI - Required Checks`** job (validate-manifests +

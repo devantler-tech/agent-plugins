@@ -18,6 +18,7 @@ type decoder struct {
 	err          error
 }
 
+// step bounds all syntax visits and stops work after the first observation failure.
 func (d *decoder) step() bool {
 	if d.err != nil {
 		return false
@@ -71,12 +72,14 @@ func (d *decoder) literal(expr ast.Expr) (string, bool) {
 	return "", false
 }
 
+// emit charges retained output to the same sticky observation budget.
 func (d *decoder) emit(text string) {
 	if d.step() && d.reserve(len(text)) {
 		d.parts = append(d.parts, text)
 	}
 }
 
+// hasFlag searches unresolved groups for a syntax-local JSON flag.
 func (d *decoder) hasFlag(expression ast.Expr) bool {
 	flag := false
 	ast.Inspect(expression, func(node ast.Node) bool {
@@ -95,13 +98,18 @@ func (d *decoder) hasFlag(expression ast.Expr) bool {
 	return flag
 }
 
+// joinArgs joins complete literal argv and refuses incomplete groups beside a known flag.
 func (d *decoder) joinArgs(expressions []ast.Expr) {
 	var args []string
 	complete, hasJSON := true, false
 	for _, expression := range expressions {
 		text, ok := d.literal(expression)
 		complete = complete && ok
-		hasJSON = d.hasFlag(expression) || hasJSON
+		if ok {
+			hasJSON = hasJSON || text == "--json" || strings.HasPrefix(text, "--json=")
+		} else {
+			hasJSON = d.hasFlag(expression) || hasJSON
+		}
 		args = append(args, text)
 	}
 	if !complete && hasJSON && d.err == nil {
@@ -171,6 +179,7 @@ func guidance(source []byte) ([]string, error) {
 	return d.parts, nil
 }
 
+// run reads a bounded retained snapshot and publishes only complete decoded guidance.
 func run() error {
 	if len(os.Args) != 2 {
 		return fmt.Errorf("one retained source path is required")
@@ -193,6 +202,7 @@ func run() error {
 	return err
 }
 
+// main reports incomplete observation with the guard's UNKNOWN exit code.
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

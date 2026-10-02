@@ -10,7 +10,11 @@ proposals and identifies the source commit containing the plugins.
 
 ## Prepare locally
 
-Use Bash, Git, and jq 1.6 or later from a complete repository clone. Shallow and partial
+Use Bash, Git, and jq 1.6 or later from a complete repository clone. Configuration queries must
+complete before an offline result is possible: only Git's no-match status proves an absent
+partial-clone setting. Failed reads, including partial output, refuse preparation and validation;
+lazy object fetching is disabled defensively.
+Shallow and partial
 (`--filter`) clones are refused, because reading their history would need the network. Refresh
 tags from the trusted remote before choosing a baseline; the offline command cannot establish
 remote freshness.

@@ -106,9 +106,6 @@ sync_slug_of() {
   printf '%s' "${1#plugins/}" | tr '/' '-' | tr -c 'A-Za-z0-9._-' '-'
 }
 
-# exists_at REV PATH -> true when the blob is present at that revision.
-exists_at() { git_at cat-file -e "${1}:${2}" 2>/dev/null; }
-
 # dir_gone_at REV DIR -> true when the directory holds NO files at that revision.
 #
 # 🔴 RETIREMENT MEANS THE WHOLE DIRECTORY, NOT JUST `SKILL.md`. Keying it on the manifest
@@ -134,13 +131,13 @@ dir_gone_at() {
 # partial object store, or a mis-derived path. That is an affirmative all-clear the
 # guard has not earned, and it contradicts this script's own promise to exit 2 when the
 # context is unreadable. Probe existence first, and only call it new when the base
-# itself is readable and the file is genuinely not in it.
+# tree observation completed and the file is genuinely not in it.
 upstream_at_base() {
-  local skill_dir="$1" blob
-  if ! exists_at "$BASE_SHA" "${skill_dir}/SKILL.md"; then
-    git_at cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null || return 2
-    return 1
-  fi
+  local skill_dir="$1" blob listing
+  # Only a completed tree query can prove absence. Missing blobs say nothing
+  # about whether the base revision already shipped this skill.
+  listing=$(git_at ls-tree "$BASE_SHA" -- "${skill_dir}/SKILL.md" 2>/dev/null) || return 2
+  [ -n "$listing" ] || return 1
   blob="$(git_at show "${BASE_SHA}:${skill_dir}/SKILL.md" 2>/dev/null)" || return 2
   # The provenance line must sit INSIDE the metadata: block, so a top-level
   # github-repo: cannot satisfy it.

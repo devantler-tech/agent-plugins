@@ -227,7 +227,9 @@ plugin membership) is authored here.
    workflow bumps itself via `--changed-since` and writes dated skill/source/ref release notes with
    `bash scripts/plugin-changelog.sh write origin/main`. Existing hand-written entries stay intact.
    Both the writer and checker compare against the merge base, so unrelated releases on an advanced
-   main branch do not need entries here. Fully retired skills get removal notes with provenance from
+   main branch do not need entries here. A completed base-tree query proves whether a manifest or
+   skill is absent; a listed but unreadable blob is a verification failure, never a new item.
+   Fully retired skills get removal notes with provenance from
    that base; removing `SKILL.md` while leaving resources behind is rejected as an incomplete removal.
    The same CI job rejects a new or changed plugin version without exactly one matching changelog
    top-level `## X.Y.Z` heading outside code examples and raw HTML; unchanged legacy versions do not need

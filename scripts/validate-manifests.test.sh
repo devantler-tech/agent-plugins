@@ -2010,6 +2010,42 @@ for scope in marketplace catalogue desired-state provenance assets schedules; do
   done
 done
 
+
+# Actual consumers require a complete, unambiguous text identity.
+for header in unclosed duplicate-name duplicate-description null bool number sequence mapping number-underscored number-special number-binary number-sexagesimal; do
+  d=$(fresh)
+  mkdir -p "$d/plugins/alpha/agents"
+  f="$d/plugins/alpha/agents/sample.agent.md"
+  printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
+  case $header in
+    duplicate-name) printf '%s\n' 'name: ""' >> "$f" ;;
+    duplicate-description) printf '%s\n' 'description: ""' >> "$f" ;;
+    null|bool|number|sequence|mapping|number-*)
+      case $header in null) value=null ;; bool) value=false ;; number) value=123 ;; sequence) value='[]' ;; mapping) value='{}' ;; number-underscored) value=1_000 ;; number-special) value=.inf ;; number-binary) value=0b101 ;; number-sexagesimal) value=1:20 ;; esac
+      printf '%s\n' '---' "name: $value" 'description: A real description.' > "$f" ;;
+  esac
+  [ "$header" = unclosed ] || printf '%s\n' '---' body >> "$f"
+  # shellcheck disable=SC2016 # Backticks are literal fixture markup.
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+  mv "$d/table" "$d/docs/plugins.md"
+  check_fail "agent $header header is refused" 'must declare a non-empty' "$d"
+done
+for owner in null malformed nested duplicate-owner duplicate-metadata unclosed; do
+  d=$(fresh)
+  f="$d/plugins/alpha/skills/example-skill/SKILL.md"
+  printf '%s\n' '---' 'name: example-skill' 'description: Example.' 'metadata:' > "$f"
+  case $owner in
+    null) printf '%s\n' '  github-repo: null' >> "$f" ;;
+    malformed) printf '%s\n' '  github-repo: arbitrary-text' >> "$f" ;;
+    nested) printf '%s\n' '  unrelated:' '    github-repo: https://github.com/devantler-tech/agent-skills' >> "$f" ;;
+    duplicate-owner) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' '  github-repo: null' >> "$f" ;;
+    duplicate-metadata) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' 'metadata:' '  unrelated: value' >> "$f" ;;
+    unclosed) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' >> "$f" ;;
+  esac
+  [ "$owner" = unclosed ] || printf '%s\n' '---' body >> "$f"
+  check_fail "skill $owner provenance is refused" 'missing upstream provenance' "$d"
+done
+
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

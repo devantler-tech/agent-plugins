@@ -36,6 +36,9 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# shellcheck source=scripts/frontmatter.lib.sh
+source "$REPO_ROOT/scripts/frontmatter.lib.sh"
+
 SYNC_ACTOR="${SYNC_ACTOR:-botantler-1[bot]}"
 SYNC_BRANCH="${SYNC_BRANCH:-deps/agent-skills-update}"
 
@@ -90,8 +93,12 @@ git_at() { git -C "${GUARD_REPO_DIR:-$REPO_ROOT}" "$@"; }
 # literal components in their exact positions cannot drift that way, and it replaces
 # four `cut` subshells per path with none.
 skill_dir_of() {
-  local a b c d rest IFS=/
-  read -r a b c d rest <<<"$1"
+  local a b c d rest path="$1"
+  a=${path%%/*}; path=${path#*/}
+  b=${path%%/*}; path=${path#*/}
+  c=${path%%/*}; path=${path#*/}
+  d=${path%%/*}; rest=${path#*/}
+  [[ $rest != "$path" ]] || return 0
   [ "$a" = plugins ] || return 0
   [ "$c" = skills ] || return 0
   [ -n "$b" ] && [ -n "$d" ] && [ -n "$rest" ] || return 0
@@ -139,25 +146,9 @@ upstream_at_base() {
   listing=$(git_at ls-tree "$BASE_SHA" -- "${skill_dir}/SKILL.md" 2>/dev/null) || return 2
   [ -n "$listing" ] || return 1
   blob="$(git_at show "${BASE_SHA}:${skill_dir}/SKILL.md" 2>/dev/null)" || return 2
-  # The provenance line must sit INSIDE the metadata: block, so a top-level
-  # github-repo: cannot satisfy it.
-  #
-  # ⚠️ This is deliberately NOT byte-identical to validate-manifests.sh's
-  # `validate_skill_provenance`, and the difference matters in one direction: that one
-  # accepts a literal `null` as valid provenance, while this treats it as "no upstream
-  # recorded" and therefore lets the edit through. A skill carrying `github-repo: null`
-  # is consequently green there and unguarded here. Reconciling the two into one shared
-  # parser is worth doing; until then, do not describe them as the same rule.
-  printf '%s\n' "$blob" | awk '
-    /^metadata:[[:space:]]*$/ { in_meta = 1; next }
-    /^[^[:space:]]/           { in_meta = 0 }
-    in_meta && /^[[:space:]]+github-repo:[[:space:]]*/ {
-      v = $0
-      sub(/^[[:space:]]+github-repo:[[:space:]]*/, "", v)
-      gsub(/^[\"'"'"']|[\"'"'"']$/, "", v)
-      if (v != "" && v != "null") { print v; exit }
-    }
-  '
+  # The shared observer scopes metadata to a complete header. Invalid or
+  # ambiguous owners are UNKNOWN; an absent owner in a valid header is local.
+  printf '%s\n' "$blob" | frontmatter_repository
 }
 
 main() {

@@ -246,6 +246,59 @@ mkdir -p "${dir}/plugins/p/scripts"
 printf '%s\n' '.[] | select(.state == "MERGED") | .number' > "${dir}/plugins/p/scripts/flow.jq"
 expect 0 "a clean jq program is a scanned, passing surface" "${dir}"
 
+# Go is examined as source: comments and decoded literals, never surveyed execution.
+dir="$(fixture good-go-source)"
+printf '%s\n' 'package helper' 'func dangerous() { panic("never execute") }' > "$dir/plugins/p/helper.go"
+expect 0 'a Go support file is examined without executing it' "$dir"
+dir="$(fixture bad-go-comment)"
+printf '%s\n' 'package helper' '// gh pr view 42 --json state,merged' > "$dir/plugins/p/helper.go"
+expect 1 'a Go comment prescribing merged fails' "$dir"
+dir="$(fixture bad-go-escaped-string)"
+printf '%s\n' 'package helper' 'const instruction = "gh pr view 42 --json state,mer\u0067ed"' > "$dir/plugins/p/helper.go"
+expect 1 'escaped Go literals are decoded before scanning' "$dir"
+dir="$(fixture bad-go-command)"
+printf '%s\n' 'package helper' 'import "os/exec"' 'var command = exec.Command("gh", "pr", "view", "--json", "state,merged")' > "$dir/plugins/p/helper.go"
+expect 1 'literal Go command arguments are examined together' "$dir"
+dir="$(fixture good-go-command)"
+printf '%s\n' 'package helper' 'import "os/exec"' 'var command = exec.Command("gh", "pr", "view", "--json", "state,mergedAt")' > "$dir/plugins/p/helper.go"
+expect 0 'valid Go command fields remain accepted' "$dir"
+dir="$(fixture bad-go-argv)"
+printf '%s\n' 'package helper' 'var args = []string{"pr", "view", "--json", "merged"}' > "$dir/plugins/p/helper.go"
+expect 1 'literal Go argv slices are examined together' "$dir"
+dir="$(fixture unknown-go-dynamic-fields)"
+printf '%s\n' 'package helper' 'var args = []string{"--json", fields}' > "$dir/plugins/p/helper.go"
+expect 2 'a Go argv list with unresolved fields is UNKNOWN' "$dir"
+dir="$(fixture unknown-go-malformed)"
+printf '%s\n' 'package helper' 'func broken(' > "$dir/plugins/p/helper.go"
+expect 2 'malformed Go source remains UNKNOWN' "$dir"
+
+# A parser build or decoder can fail after producing plausible text; neither is clean.
+go_fault_bin="$work/go-fault-bin"
+mkdir -p "$go_fault_bin"
+cat > "$go_fault_bin/go" <<'STUB'
+#!/usr/bin/env bash
+[[ $GO_FAULT != build ]] || exit 74
+output=
+previous=
+for argument; do
+  [[ $previous != -o ]] || output=$argument
+  previous=$argument
+done
+[[ -n $output ]] || exit 74
+cat > "$output" <<'DECODER'
+#!/usr/bin/env bash
+[[ $GO_FAULT != partial ]] || printf 'gh pr view --json state,mergedAt\n%%\n'
+exit 74
+DECODER
+chmod +x "$output"
+STUB
+chmod +x "$go_fault_bin/go"
+for fault in build empty partial; do
+  dir="$(fixture "unknown-go-$fault")"
+  printf '%s\n' 'package helper' > "$dir/plugins/p/helper.go"
+  GO_FAULT=$fault PATH="$go_fault_bin:$PATH" expect 2 "a $fault Go decoder failure is UNKNOWN" "$dir"
+done
+
 # A file name containing a newline is still ONE surface: split in two, neither half exists and the
 # bad request inside would go unread.
 dir="$(fixture bad-newline-name)"

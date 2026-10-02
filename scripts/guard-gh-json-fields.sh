@@ -12,9 +12,13 @@
 # the definitions are authored (and where synced skills arrive), stops it before it ships.
 #
 # Usage: guard-gh-json-fields.sh [ROOT]      (ROOT defaults to this repository)
-# Scans every *.md, *.txt, *.json and *.jq under ROOT/plugins; any other non-script file is UNKNOWN. Shell
+# Scans every *.md, *.txt, *.json, *.jq and *.go under ROOT/plugins; any other non-script file is UNKNOWN. Shell
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
 # silently misleads every agent that reads it.
+# Go needs Go 1.22+: only the installed syntax decoder is built. It reads comments, decoded literal
+# strings and literal Command/CommandContext or composite argument blocks. Unresolved groupings beside
+# a known JSON flag, malformed source, or the 8 MiB source / 4 MiB decoded-work / 262144-step budgets
+# are UNKNOWN. This does not evaluate arbitrary Go programs.
 #
 # A surface that legitimately contains the request (a skill warning against it) is exempted by a
 # reviewed line in scripts/gh-json-fields-allowlist.tsv — path, TAB, the file's sha256, TAB, the
@@ -28,6 +32,7 @@
 set -euo pipefail
 
 root="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+helper_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 unknown() {
   echo "guard-gh-json-fields: UNKNOWN — $*" >&2
@@ -40,6 +45,16 @@ unknown() {
 # list, so two unrelated values cannot join into `--json merged`.
 decode_surface() {
   case "$1" in
+    # Parse retained source and decode comments/literals, including literal command argv.
+    # Only this installed decoder is built, never the inspected Go package.
+    *.go)
+      if [[ ! -x $go_decoder ]]; then
+        command -v go >/dev/null || return 2
+        GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
+          GOOS='' GOARCH='' GOCACHEPROG='' GOTMPDIR="$observation_dir" \
+          go build -o "$go_decoder" "$helper_dir/gh-json-go/main.go" || return 2
+      fi
+      "$go_decoder" "$2" ;;
     # Object KEYS are scanned as well as values. An argv list (an all-string array under an `args`,
     # `argv`, `cmd` or `command` key, e.g. ["pr","view","--json","state,merged"]) is ALSO emitted
     # joined, as the one command it is; any other array keeps its elements apart.
@@ -139,7 +154,8 @@ allowed_used=""
 [ -d "${root}/plugins" ] || unknown "no plugins/ directory under ${root}"
 
 # Every file an agent may read is a surface: Markdown, plain-text references and assets, JSON, and jq
-# programs (read as text: a jq filter that expects a nonexistent field yields null rather than failing).
+# programs (read as text: a jq filter that expects a nonexistent field yields null rather than failing),
+# and Go comments/literal guidance (decoded by the installed parser without executing the surface).
 # Scripts are skipped (see the header). Any OTHER file type is UNKNOWN rather than skipped, so a new
 # kind of definition cannot ship unscanned while this check stays green — extend the list instead.
 # NUL-delimited, so a file name containing a newline stays one surface instead of two that do not exist.
@@ -153,19 +169,20 @@ umask 077
 observation_dir="$(mktemp -d)" || unknown 'could not create the private observation directory'
 discovered="${observation_dir}/paths"
 snapshot="${observation_dir}/surface"
-trap 'rm -f "${discovered}" "${snapshot}"; rmdir "${observation_dir}"' EXIT
+go_decoder="${observation_dir}/go-decoder"
+trap 'rm -f "${discovered}" "${snapshot}" "${go_decoder}"; rmdir "${observation_dir}"' EXIT
 find "${root}/plugins" ! -type d -print0 2>/dev/null | LC_ALL=C sort -z > "${discovered}" ||
   unknown "could not list the files under ${root}/plugins, so the scan would cover an unknown subset"
 
 surfaces=()
 while IFS= read -r -d '' f; do
   case "$f" in
-    *.md|*.txt|*.json|*.jq) surfaces+=("$f") ;;
+    *.md|*.txt|*.json|*.jq|*.go) surfaces+=("$f") ;;
     *.sh) ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
 done < "${discovered}"
-[ "${#surfaces[@]}" -gt 0 ] || unknown "found no *.md, *.txt or *.json under ${root}/plugins"
+[ "${#surfaces[@]}" -gt 0 ] || unknown "found no supported text surfaces under ${root}/plugins"
 
 scanned=0
 lists=0
@@ -178,8 +195,12 @@ for surface in "${surfaces[@]}"; do
   [ -r "${surface}" ] || unknown "${surface#"${root}/"} cannot be read, so any field it prescribes would go unseen"
   # Read the original once. Extraction, syntax checks and exemption hashing share these
   # private bytes, so a later source change cannot authorize a different observation.
-  cat "${surface}" > "${snapshot}" ||
-    unknown "${surface#"${root}/"} could not be completely read"
+  if [[ $surface == *.go ]]; then
+    # Retain at most the decoder bound plus one byte, so oversize source cannot fill temp storage.
+    head -c 8388609 "${surface}" > "${snapshot}" || unknown "${surface#"${root}/"} could not be completely read"
+  else
+    cat "${surface}" > "${snapshot}" || unknown "${surface#"${root}/"} could not be completely read"
+  fi
   case "${surface}" in
     *.json) jq empty "${snapshot}" >/dev/null 2>&1 ||
               unknown "${surface#"${root}/"} does not parse, so any field it prescribes would go unseen" ;;

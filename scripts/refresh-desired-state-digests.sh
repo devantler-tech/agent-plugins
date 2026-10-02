@@ -58,6 +58,14 @@ if ! command -v sha256sum > /dev/null 2>&1 && ! command -v shasum > /dev/null 2>
   exit 2
 fi
 
+umask 077
+work=$(mktemp -d) || exit 2
+trap 'rm -rf "$work"' EXIT
+if ! find plugins -type f -path '*/resources/*.desired-state.json' -print0 > "$work/resources"; then
+  echo '::error::desired-state resource inventory failed; refusing all writes.' >&2
+  exit 2
+fi
+: > "$work/changes"
 drift=0
 missing=0
 seen=0
@@ -71,10 +79,13 @@ digest_for() {
     echo "::error::$resource: $field pins a file that does not exist: $target" >&2
     return 1
   fi
-  sha256_file "$target"
+  local digest
+  digest=$(sha256_file "$target") || return 1
+  [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::$resource: invalid $field digest" >&2; return 1; }
+  printf '%s\n' "$digest"
 }
 
-while IFS= read -r resource; do
+while IFS= read -r -d '' resource; do
   seen=$((seen + 1))
   [ -n "$resource" ] || continue
   if ! jq -e . "$resource" > /dev/null 2>&1; then
@@ -111,25 +122,7 @@ while IFS= read -r resource; do
   # without an edit. skillSha256 is deliberately not generalized: validate-manifests.sh
   # resolves it to one hard-coded bundled skill, and a generator that guessed a
   # different path would write a digest that gate never reads.
-  while IFS=$'\t' read -r role field relative; do
-    [ -n "$role" ] || continue
-    if [ "$relative" = "!UNMAPPED" ]; then
-      # The validator resolves each digest field to one specific bundled path. A field
-      # this generator cannot map to that same path would be written with a value the
-      # gate never checks, so refuse rather than write a plausible wrong digest.
-      echo "::error::$resource: $role.$field has no known source path in this generator — teach it the mapping validate-manifests.sh uses" >&2
-      missing=1
-      continue
-    fi
-    if value=$(digest_for "$plugin_dir/$relative" "$resource" "$role.$field"); then
-      key="role_${role//-/_}_$field"
-      args+=(--arg "$key" "$value")
-      program="$program | .spec.roles[\"$role\"].$field = \$$key"
-    else
-      missing=1
-    fi
-  done < <(
-    jq -r '
+  if ! jq -r '
       (.spec.roles // {})
       | to_entries[]
       | . as $entry
@@ -144,13 +137,40 @@ while IFS= read -r resource; do
              else empty end)
         )
       | @tsv
-    ' "$resource"
-  )
+    ' "$resource" > "$work/roles"; then
+    echo "::error::$resource: role inventory failed; refusing all writes." >&2
+    exit 1
+  fi
+  role_number=0
+  while IFS=$'\t' read -r role field relative; do
+    [ -n "$role" ] || continue
+    if [ "$relative" = "!UNMAPPED" ]; then
+      # The validator resolves each digest field to one specific bundled path. A field
+      # this generator cannot map to that same path would be written with a value the
+      # gate never checks, so refuse rather than write a plausible wrong digest.
+      echo "::error::$resource: $role.$field has no known source path in this generator — teach it the mapping validate-manifests.sh uses" >&2
+      missing=1
+      continue
+    fi
+    if value=$(digest_for "$plugin_dir/$relative" "$resource" "$role.$field"); then
+      role_number=$((role_number + 1))
+      key="digest_$role_number"
+      role_key="role_$role_number"
+      args+=(--arg "$key" "$value" --arg "$role_key" "$role")
+      program="$program | .spec.roles[\$$role_key].$field = \$$key"
+    else
+      missing=1
+    fi
+  done < "$work/roles"
 
   # Runtime assets are hashed as exact bytes: they are executed from the checkout, so a
   # checkout-only CRLF change must invalidate the digest rather than be normalized away.
+  if ! jq -j '.spec.source.requiredRuntimeAssets[]? | (.path // "") + "\u0000"' "$resource" > "$work/assets"; then
+    echo "::error::$resource: runtime asset inventory failed; refusing all writes." >&2
+    exit 1
+  fi
   asset_map='{}'
-  while IFS= read -r asset_path; do
+  while IFS= read -r -d '' asset_path; do
     if [ -z "$asset_path" ]; then
       # An entry with a declared digest and no path is unverifiable, so filtering it out would
       # again exit 0 over something never examined.
@@ -163,11 +183,15 @@ while IFS= read -r resource; do
       missing=1
       continue
     fi
+    if ! value=$(sha256_bytes "$plugin_dir/$asset_path") || [[ ! "$value" =~ ^[0-9a-f]{64}$ ]]; then
+      echo "::error::$resource: runtime asset digest could not be observed; refusing all writes." >&2
+      exit 1
+    fi
     asset_map=$(
-      jq -c --arg p "$asset_path" --arg s "$(sha256_bytes "$plugin_dir/$asset_path")" \
+      jq -c --arg p "$asset_path" --arg s "$value" \
         '.[$p] = $s' <<< "$asset_map"
     )
-  done < <(jq -r '.spec.source.requiredRuntimeAssets[]? | .path // ""' "$resource")
+  done < "$work/assets"
 
   if [ "$asset_map" != '{}' ]; then
     args+=(--argjson assetDigests "$asset_map")
@@ -190,9 +214,9 @@ while IFS= read -r resource; do
     continue
   fi
 
-  printf '%s\n' "$updated" > "$resource"
-  echo "✓ refreshed $resource"
-done < <(find plugins -type f -path '*/resources/*.desired-state.json' | sort)
+  printf '%s\n' "$updated" > "$work/update-$seen"
+  printf '%s\0%s\0' "$resource" "$work/update-$seen" >> "$work/changes"
+done < "$work/resources"
 
 # Zero resources is never a legitimate clean run: this repository always declares at least one.
 # Without this, an enumeration that matched nothing is indistinguishable from one that matched
@@ -208,6 +232,15 @@ fi
 
 if [ "$mode" = "check" ] && [ "$drift" -ne 0 ]; then
   exit 1
+fi
+
+# All producers and targets are proven before the first generated resource changes.
+if [ "$mode" = "write" ]; then
+  while IFS= read -r -d '' resource; do
+    IFS= read -r -d '' staged <&0 || exit 1
+    cat "$staged" > "$resource"
+    echo "✓ refreshed $resource"
+  done < "$work/changes"
 fi
 
 if [ "$mode" = "write" ] && [ "$drift" -eq 0 ]; then

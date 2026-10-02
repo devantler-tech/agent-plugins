@@ -2030,6 +2030,33 @@ for header in unclosed duplicate-name duplicate-description null bool number seq
   mv "$d/table" "$d/docs/plugins.md"
   check_fail "agent $header header is refused" 'must declare a non-empty' "$d"
 done
+# Escaped agent identities must be valid text after YAML escape interpretation.
+for field in name description; do
+  for value in '"\n"' '"\t\r "' '"\x20"' '"\u0020"' '"\U00000020"' '"\q"' '"\xG0"' '"\u123"' '"\U00110000"' '"\uD800"'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
+    # Replace the field, rather than introduce a duplicate that fails for another reason.
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s\n' "$field: $value" '---' body >> "$f"
+    # shellcheck disable=SC2016 # Backticks are literal catalogue markup.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_fail "escaped $field $value is refused" "must declare a non-empty '$field'" "$d"
+  done
+  for value in '"A \"quoted\" identity"' '"\\n"' '"\u0041"' '"Text\nwith a line break"'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s\n' "$field: $value" '---' body >> "$f"
+    # shellcheck disable=SC2016 # Backticks are literal catalogue markup.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_pass "supported escaped $field $value remains usable" "$d"
+  done
+done
+
 for owner in null malformed nested duplicate-owner duplicate-metadata unclosed; do
   d=$(fresh)
   f="$d/plugins/alpha/skills/example-skill/SKILL.md"

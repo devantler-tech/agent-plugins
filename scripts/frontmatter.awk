@@ -1,5 +1,33 @@
 # Observe the supported scalar/mapping header shape, never claim full YAML validation.
 function trim(s) { sub(/^[[:space:]]+/,"",s); sub(/[[:space:]]+$/,"",s); return s }
+# A presence observer, not a general YAML decoder: normalize escaped whitespace,
+# decode printable ASCII, and retain valid non-ASCII escapes as nonblank text.
+function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
+  quoted_ok=0; out=""
+  if (q == "\047") { gsub(/\047\047/,"\047",s); quoted_ok=1; return s }
+  for (i=1;i<=length(s);i++) {
+    c=substr(s,i,1)
+    if (c != "\\") { out=out c; continue }
+    c=substr(s,++i,1)
+    if (c == "\\" || c == "\"" || c == "/") { out=out c; continue }
+    if (c ~ /^[0abe]$/) { out=out "\\" c; continue }
+    if (c ~ /^[tnvfrN_LP ]$/ || c == "\t") { out=out " "; continue }
+    if (c != "x" && c != "u" && c != "U") return ""
+    n=(c == "x" ? 2 : (c == "u" ? 4 : 8)); hex=substr(s,i+1,n)
+    if (length(hex) != n || hex ~ /[^0-9a-fA-F]/) return ""
+    code=0
+    for (j=1;j<=n;j++) { d=index("0123456789abcdef",tolower(substr(hex,j,1)))-1; code=code*16+d }
+    if (code > 1114111 || (code >= 55296 && code <= 57343)) return ""
+    if ((code >= 9 && code <= 13) || code == 32 || code == 133 || code == 160 ||
+        code == 5760 || (code >= 8192 && code <= 8202) || code == 8232 || code == 8233 ||
+        code == 8239 || code == 8287 || code == 12288) out=out " "
+    else if (code < 32 || (code >= 127 && code <= 159)) out=out "\\" c hex
+    else if (code < 127) out=out sprintf("%c",code)
+    else out=out "\\" c hex
+    i+=n
+  }
+  quoted_ok=1; return out
+}
 function scalar(s, q,i,c,escaped,tail) {
   s=trim(s); scalar_ok=0
   q=substr(s,1,1)
@@ -11,7 +39,8 @@ function scalar(s, q,i,c,escaped,tail) {
         if (q == "\047" && substr(s,i+1,1) == q) { i++; continue }
         tail=trim(substr(s,i+1))
         if (tail != "" && substr(tail,1,1) != "#") return ""
-        s=substr(s,2,i-2); scalar_ok=(trim(s) != ""); return s
+        s=quoted_text(substr(s,2,i-2),q)
+        scalar_ok=(quoted_ok && trim(s) != ""); return s
       }
       escaped=0
     }

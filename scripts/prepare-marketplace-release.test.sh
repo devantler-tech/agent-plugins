@@ -264,4 +264,30 @@ if [[ ! -f $out/release.json || -e $work/outside/candidate || -e $outside/candid
 fi
 passed=$((passed + 1))
 [[ $census_failed == 0 ]] || fail "$census_failed worktree boundary regressions"
+# Empty/prefix failures are not a successful no-match config observation.
+real_git=$(command -v git)
+mkdir "$work/config-fault"
+cat > "$work/config-fault/git" <<'STUB'
+#!/usr/bin/env bash
+if [ "$1" = config ] && [[ "$*" == *"$CONFIG_QUERY"* ]]; then
+  if [ "$CONFIG_OUTPUT" = partial ]; then
+    if [ "$CONFIG_QUERY" = extensions.partialClone ]; then printf 'origin\n'; else printf 'remote.origin.promisor false\n'; fi
+  fi
+  exit 2
+fi
+exec "$REAL_GIT" "$@"
+STUB
+chmod +x "$work/config-fault/git"
+for query in extensions.partialClone promisor; do
+  for output in empty partial; do
+    new_repo; git -C "$repo" tag v1.2.3; commit "fix: complete history"
+    out="$work/config-candidate-$query-$output"
+    if PATH="$work/config-fault:$PATH" REAL_GIT="$real_git" CONFIG_QUERY="$query" CONFIG_OUTPUT="$output" run v1.2.3 "$out" > "$work/result" 2> "$work/error"; then
+      fail "failed $query $output configuration was accepted"
+    fi
+    grep -q 'unreadable partial-clone configuration' "$work/error" || fail "failed configuration misdiagnosed"
+    test ! -e "$out" || fail "failed configuration left a candidate"
+    passed=$((passed+1))
+  done
+done
 printf 'marketplace release preparation: PASS (%s cases)\n' "$passed"

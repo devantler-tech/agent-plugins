@@ -52,6 +52,7 @@ mkdir -p "$FIXTURE"
 git -C "$FIXTURE" init -q -b main
 git -C "$FIXTURE" config user.email t@example.invalid
 git -C "$FIXTURE" config user.name test
+git -C "$FIXTURE" config commit.gpgsign false
 
 mkdir -p "$FIXTURE/plugins/github/skills/github-issues/references"
 mkdir -p "$FIXTURE/plugins/agentic-engineering/agents"
@@ -352,6 +353,19 @@ else
     check_wiring 'pull_request.head.sha' "the diff targets the PR's own head, not the merge ref"
   fi
 fi
+
+# A readable commit/tree can refer to a blob absent from a partial object store.
+blob=$(git -C "$FIXTURE" rev-parse "$BASE:plugins/github/skills/github-issues/SKILL.md")
+git -C "$FIXTURE" show "$BASE:plugins/github/skills/github-issues/SKILL.md" > "$WORK/base-skill"
+rm "$FIXTURE/.git/objects/${blob:0:2}/${blob:2}"
+if git -C "$FIXTURE" cat-file -e "$BASE^{commit}" &&
+   [ -n "$(git -C "$FIXTURE" ls-tree "$BASE" -- plugins/github/skills/github-issues/SKILL.md)" ] &&
+   ! git -C "$FIXTURE" show "$BASE:plugins/github/skills/github-issues/SKILL.md" >/dev/null 2>&1; then
+  note_ok "base commit and tree remain readable while the listed skill blob is absent"
+else note_fail "missing-blob fixture did not isolate unreadable provenance"; fi
+run "$REF"
+expect 2 'cannot read' 'a listed unreadable skill cannot receive the new-skill exemption'
+git -C "$FIXTURE" hash-object -w "$WORK/base-skill" >/dev/null
 
 echo
 if [ "$fail" -gt 0 ]; then

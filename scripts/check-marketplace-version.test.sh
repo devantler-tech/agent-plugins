@@ -108,4 +108,29 @@ fixture; head=0000000000000000000000000000000000000000; reject 'missing commit'
 fixture; head=$(printf 'orphan\n' | git -C "$repo" commit-tree "$base^{tree}"); reject 'unrelated histories'
 fixture; git -C "$repo" rev-parse HEAD > "$repo/.git/shallow"; reject 'shallow unchanged history'
 fixture; git -C "$repo" config remote.origin.promisor true; reject 'partial unchanged history'
+# Empty/prefix failures are not a successful no-match config observation.
+real_git=$(command -v git)
+mkdir "$work/config-fault"
+cat > "$work/config-fault/git" <<'STUB'
+#!/usr/bin/env bash
+if [ "$1" = config ] && [[ "$*" == *"$CONFIG_QUERY"* ]]; then
+  if [ "$CONFIG_OUTPUT" = partial ]; then
+    if [ "$CONFIG_QUERY" = extensions.partialClone ]; then printf 'origin\n'; else printf 'remote.origin.promisor false\n'; fi
+  fi
+  exit 2
+fi
+exec "$REAL_GIT" "$@"
+STUB
+chmod +x "$work/config-fault/git"
+for query in extensions.partialClone promisor; do
+  for output in empty partial; do
+    fixture
+    if PATH="$work/config-fault:$PATH" REAL_GIT="$real_git" CONFIG_QUERY="$query" CONFIG_OUTPUT="$output" run > "$work/result" 2> "$work/error"; then
+      fail "failed $query $output configuration was accepted"
+    fi
+    grep -q 'unreadable partial-clone configuration' "$work/error" || fail "failed configuration misdiagnosed"
+    test ! -s "$work/result" || fail "failed configuration emitted a success record"
+    passed=$((passed+1))
+  done
+done
 printf 'PASS %s marketplace version gate cases\n' "$passed"

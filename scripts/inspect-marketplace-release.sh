@@ -23,18 +23,10 @@ trap 'rm -rf "$temp"' EXIT
 [ "$(git -C "$original" rev-parse --is-shallow-repository)" = false ] || fail 'complete Git history is required'
 grafts=$(git -C "$original" rev-parse --path-format=absolute --git-path info/grafts)
 [ ! -s "$grafts" ] || fail 'grafted history is unsupported'
-if git -C "$original" config --get extensions.partialClone > "$temp/partial"; then
-  [ ! -s "$temp/partial" ] || fail 'partial clones are unsupported'
-else
-  [ "$?" -eq 1 ] || fail 'partial-clone configuration is unreadable'
-fi
-if git -C "$original" config --type=bool --get-regexp '^remote\..*\.promisor$' > "$temp/promisors"; then
-  while IFS= read -r promisor; do
-    [ "${promisor##* }" != true ] || fail 'partial clones are unsupported'
-  done < "$temp/promisors"
-else
-  [ "$?" -eq 1 ] || fail 'promisor configuration is unreadable'
-fi
+# Observe the original configuration; the private clone does not retain it.
+# shellcheck source=scripts/complete-clone.lib.sh
+. "$here/complete-clone.lib.sh"
+(cd "$original" && assert_complete_clone_config) || fail 'incomplete Git configuration; offline history is required'
 for commit in "$source" "$release"; do
   [ "$(git -C "$original" cat-file -t "$commit")" = commit ] || fail 'selected commits must be available locally'
 done

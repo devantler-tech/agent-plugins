@@ -2,7 +2,9 @@
 # A successful no-match is distinct from an unreadable config query.
 clone_config_observation() {
   local result status=0
-  result=$(git config "$@") || status=$?
+  # Retain even newline-only output on a failed no-match query.
+  result=$(observation_status=0; git config "$@" || observation_status=$?; printf '.'; exit "$observation_status") || status=$?
+  result=${result%.}
   case "$status" in
     0) printf '%s\n' "$result"; return 0 ;;
     1) [ -z "$result" ] && return 1 ;;

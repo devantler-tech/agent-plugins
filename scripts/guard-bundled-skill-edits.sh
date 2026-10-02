@@ -102,7 +102,7 @@ skill_dir_of() {
   [ "$a" = plugins ] || return 0
   [ "$c" = skills ] || return 0
   [ -n "$b" ] && [ -n "$d" ] && [ -n "$rest" ] || return 0
-  printf '%s/%s/%s/%s\n' "$a" "$b" "$c" "$d"
+  printf '%s/%s/%s/%s' "$a" "$b" "$c" "$d"
 }
 
 # sync_slug_of SKILL_DIR -> the branch suffix the updater's per-skill mode gives this skill:
@@ -174,7 +174,10 @@ main() {
             echo "  re-run the producer with -z (or core.quotePath=false) and pass --null"
             exit 2 ;;
     esac
-    skill_dir="$(skill_dir_of "$line")"
+    # A non-newline sentinel prevents command substitution from trimming bytes
+    # belonging to the directory itself. Remove only that final sentinel.
+    skill_dir="$(skill_dir_of "$line" && printf '.')"
+    skill_dir=${skill_dir%.}
     [ -n "$skill_dir" ] || continue
     touched+=("$skill_dir")
   done

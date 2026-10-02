@@ -369,6 +369,16 @@ SHA="$NEW_BASE" run_z plugins/github/skills/body-only/SKILL.md
 expect 0 'new or locally-authored' 'body metadata cannot turn an authored skill into a synced skill'
 SHA="$NEW_BASE" run_z "$newline_dir/SKILL.md"
 expect 1 'fix it upstream' 'a newline-containing skill directory is fully protected'
+for suffix in $'\n' $'\n\n'; do
+  suffix_dir="plugins/github/skills/suffix${suffix}"
+  mkdir -p "$FIXTURE/$suffix_dir"
+  cp "$FIXTURE/plugins/github/skills/github-issues/SKILL.md" "$FIXTURE/$suffix_dir/SKILL.md"
+  git -C "$FIXTURE" add "$suffix_dir/SKILL.md"
+  git -C "$FIXTURE" commit -qm 'trailing newline directory fixture'
+  NEW_BASE=$(git -C "$FIXTURE" rev-parse HEAD)
+  SHA="$NEW_BASE" run_z "$suffix_dir/SKILL.md"
+  expect 1 'fix it upstream' "a skill directory ending in ${#suffix} newline byte(s) is protected"
+done
 for owner in null malformed nested duplicate unclosed; do
   f="$FIXTURE/plugins/github/skills/invalid-owner/SKILL.md"
   mkdir -p "$(dirname "$f")"

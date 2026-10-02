@@ -146,6 +146,7 @@ case "\$verb" in
     ;;
   "pr merge")
     printf '%s\n' "pr merge \$*" >> "\$log"
+    [ ! -f "\$db/merge-noop" ] || exit 0
     if [ "\$fail_verb" = "merge" ] && [ ! -f "\$db/failed-merge" ]; then
       : > "\$db/failed-merge"; exit 1
     fi
@@ -556,6 +557,13 @@ for mode in no-new-run reopen-noop moved moved-author moved-base moved-boundary 
     ok "unarmed $mode reopen cannot report completion"
   else bad "unarmed $mode reopen cannot report completion" "exit $rc: $out"; fi
 done
+d="$WORK/rearm-noop"
+make_gh "$d" $'11\tfirst\n' '' 11
+: > "$d/db/merge-noop"
+out=$(run_script "$d"); rc=$?
+if [ "$rc" -eq 1 ] && [[ "$out" == *"0 of 1 current-base refreshes completed"* ]] && [ ! -f "$d/db/am-11" ]; then
+  ok "an acknowledged re-arm without matching state cannot report completion"
+else bad "an acknowledged re-arm without matching state cannot report completion" "exit $rc: $out"; fi
 for method in UNKNOWN ''; do
   d="$WORK/method-$method"
   make_gh "$d" $'11\tfirst\n' '' 11

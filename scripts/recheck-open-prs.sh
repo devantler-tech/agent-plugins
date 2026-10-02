@@ -207,6 +207,19 @@ verify_reopened() {
     .author.login==$before.author.login and .isCrossRepository==$before.isCrossRepository' >/dev/null
 }
 
+verify_rearmed() {
+  local n=$1 before=$2 current
+  current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) || return 1
+  printf '%s' "$current" | jq -e --argjson before "$before" '
+    type=="object" and .number==$before.number and .headRefOid==$before.headRefOid and
+    .baseRefName==$before.baseRefName and .author.login==$before.author.login and
+    .isCrossRepository==$before.isCrossRepository and
+    (.state=="MERGED" or (.state=="OPEN" and .baseRefOid==$before.baseRefOid and
+      .autoMergeRequest.mergeMethod==$before.autoMergeRequest.mergeMethod and
+      (.autoMergeRequest.commitHeadline // "")==($before.autoMergeRequest.commitHeadline // "") and
+      (.autoMergeRequest.commitBody // "")==($before.autoMergeRequest.commitBody // "")))' >/dev/null
+}
+
 # Re-arm auto-merge exactly as it was: the same strategy, and the same commit metadata.
 # Recreating it as a default squash would silently change both the merge behaviour and the
 # message someone chose deliberately.
@@ -487,7 +500,8 @@ while IFS=$'\t' read -r number title; do
     method=$(cat "$state/rearm/$number/method" 2> /dev/null) || method=""
     headline=$(cat "$state/rearm/$number/headline" 2> /dev/null) || headline=""
     body=$(cat "$state/rearm/$number/body" 2> /dev/null) || body=""
-    if ! rearm "$number" "$method" "$headline" "$body" "$head_sha" > /dev/null; then
+    if ! rearm "$number" "$method" "$headline" "$body" "$head_sha" > /dev/null ||
+       ! verify_rearmed "$number" "$snapshot"; then
       # Left in the rearm set on purpose: once the close has cleared the request, a later run
       # cannot tell that this PR ever had auto-merge armed, so the obligation has to survive
       # here or it is lost for good. The trap retries it.

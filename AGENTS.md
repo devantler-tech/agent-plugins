@@ -49,6 +49,7 @@ scripts/
 ├── check-plugin-version-bump.test.sh # Self-test for the gate above
 ├── plugin-changelog.sh             # Write skill-sync release notes and check changed-version entries
 ├── plugin-changelog.test.sh        # Offline Git fixtures for release-note generation and checks
+├── plugin-changelog-boundaries.test.sh # Exact objects, complete observations and failed-write recovery
 ├── changelog-headings.cjs          # CommonMark release-heading inventory used by writer and gate
 ├── guard-bundled-skill-edits.sh      # Gate: refuse a hand-edit to a synced skill tree, naming its upstream
 ├── guard-bundled-skill-edits.test.sh # Self-test for the gate above

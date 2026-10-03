@@ -356,16 +356,13 @@ validate_plugin_json() {
     elif ! validate_json_parity "$pj" "$claude_pj" "$claude_pj differs from $pj"; then
       ok=0
     fi
-    # Component-path fields (skills/agents), when present, MUST be arrays. Claude Code rejects
-    # the bare-string form ('"skills": "skills/"' → 'skills: Invalid input'), which breaks
-    # 'claude plugin install' even though Copilot CLI tolerates it. Both tools auto-discover
-    # the default skills/ and agents/ dirs when the field is omitted, so omitting it is the
-    # portable form and what these plugins do — this guard just stops the broken string form
-    # from returning.
+    # This marketplace's portable component-path contract requires arrays when
+    # skills/agents are declared. Omission retains default directory discovery.
+    # This is a packaging policy; individual consumers may support other forms.
     for field in skills agents; do
       if [ "$(jq -e --arg f "$field" 'has($f)' "$pj")" = "true" ] \
         && [ "$(jq -r --arg f "$field" '.[$f] | type' "$pj")" != "array" ]; then
-        echo "::error::$pj: '$field' must be an array of paths, or omitted to auto-discover $field/ (Claude Code rejects the bare-string form)"
+        echo "::error::$pj: '$field' must be an array of paths, or omitted to auto-discover $field/ (portable marketplace contract)"
         ok=0
       fi
     done

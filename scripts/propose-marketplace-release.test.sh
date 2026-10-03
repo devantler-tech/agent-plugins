@@ -60,6 +60,10 @@ if [ "$endpoint" = repos/example/catalogue ]; then
   jq -n '{id:123,node_id:"R_fixture",full_name:"example/catalogue",archived:false,default_branch:"main"}' > "$FORGE_STATE/repo"
   case "$mode" in repo-foreign) jq '.full_name="other/catalogue"' "$FORGE_STATE/repo";; repo-node) jq '.node_id="R_other"' "$FORGE_STATE/repo";; repo-missing) printf '{}\n';; *) cat "$FORGE_STATE/repo";; esac
 elif [[ "$endpoint" == repos/example/catalogue/actions/workflows/ci.yaml/runs\?* ]]; then
+  case "$mode" in
+    latest-text-count) printf '{"total_count":"unknown","workflow_runs":[{"id":42}]}\n'; exit 0 ;;
+    latest-fractional-count) printf '{"total_count":1.5,"workflow_runs":[{"id":42}]}\n'; exit 0 ;;
+  esac
   if [ "$mode" = duplicate-latest ]; then
     printf '{"total_count":1,"workflow_runs":[{"id":99}],"workflow_runs":[{"id":42}]}\n'; exit 0
   fi
@@ -270,7 +274,7 @@ for fault in rename-prev-missing rename-rest-path rename-rest-status rename-rest
   run_case "$fault is refused" "$fault" true REFUSED
 done
 run_case 'local tags changing during assessment is refused' local-tags-changed false REFUSED
-for fault in duplicate-ci duplicate-latest duplicate-occupancy duplicate-rename; do
+for fault in duplicate-ci duplicate-latest duplicate-occupancy duplicate-rename latest-text-count latest-fractional-count; do
   run_case "$fault is refused" "$fault" false REFUSED
 done
 for fault in duplicate-writer ref-duplicate commit-duplicate signature-duplicate pr-duplicate readback-rest-duplicate readback-gql-duplicate; do

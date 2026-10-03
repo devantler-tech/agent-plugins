@@ -68,7 +68,7 @@ ci_snapshot() {
   if [ "$selection" = latest ]; then
     gh api --hostname github.com "repos/$repo/actions/workflows/ci.yaml/runs?branch=main&event=push&head_sha=$source&per_page=1" > "$temp/latest"
     json_object_unique "$temp/latest" || fail 'ambiguous latest CI observation'
-    latest=$(jq -esr 'if length==1 and (.[0]|.total_count>0 and (.workflow_runs|length==1) and (.workflow_runs[0].id|type=="number" and .>0 and floor==.)) then .[0].workflow_runs[0].id else error("latest CI identity incomplete") end' "$temp/latest")
+    latest=$(jq -esr 'if length==1 and (.[0]|(.total_count|type=="number" and isfinite and .>0 and floor==.) and (.workflow_runs|type=="array" and length==1) and (.workflow_runs[0].id|type=="number" and .>0 and .<1000000000000000 and floor==.)) then .[0].workflow_runs[0].id else error("latest CI identity incomplete") end' "$temp/latest")
     if [ "$ci" = latest ]; then ci=$latest; else [ "$ci" = "$latest" ] || fail 'latest CI identity changed'; fi
   fi
   gh api --hostname github.com "repos/$repo/actions/runs/$ci" > "$temp/ci"

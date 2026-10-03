@@ -26,6 +26,7 @@ count=$(awk -v endpoint="$endpoint" '$0==endpoint {n++} END {print n+0}' "$CALLS
 if [ "$file" = latest ]; then
   case "$FAULT:$count" in
     duplicate-latest:*) printf '{"total_count":1,"workflow_runs":[{"id":99}],"workflow_runs":[{"id":42}]}\n' ;;
+    latest-fractional-count:*) printf '{"total_count":1.5,"workflow_runs":[{"id":42}]}\n' ;;
     latest-empty:*) printf '{"total_count":0,"workflow_runs":[]}\n' ;;
     latest-malformed:*) printf '{}\n' ;;
     latest-trailing:*) printf '{}\n{}\n' ;;
@@ -155,7 +156,7 @@ if run > "$work/result" 2> "$work/error"; then fail 'pre-existing candidate dire
 if [ -s "$work/result" ] || [ "$(cat "$output/owned")" != preserve ]; then fail 'pre-existing output changed'; fi
 passed=$((passed+1))
 fixture; CI_SELECTION=latest; accept 'latest exact main CI' VERIFIED
-for fault in latest-empty latest-malformed latest-trailing latest-invalid-id latest-moved; do
+for fault in latest-empty latest-malformed latest-trailing latest-invalid-id latest-moved latest-fractional-count; do
   fixture; CI_SELECTION=latest; FAULT=$fault; reject "$fault"
 done
 fixture; CI_SELECTION=latest; FAULT=running; reject 'latest CI is pending'

@@ -52,7 +52,7 @@ snapshot() {
     # Demand the newest run, including a pending/failed one; never filter down to an older green.
     gh api --hostname github.com "repos/$repo/actions/workflows/ci.yaml/runs?branch=main&event=push&head_sha=$release&per_page=1" > "$temp/latest"
     json_object_unique "$temp/latest" || fail 'ambiguous latest CI observation'
-    latest=$(jq -esr 'if length==1 and (.[0] | (.total_count|type=="number" and .>0)
+    latest=$(jq -esr 'if length==1 and (.[0] | (.total_count|type=="number" and isfinite and .>0 and floor==.)
       and (.workflow_runs|type=="array" and length==1)
       and (.workflow_runs[0].id|type=="number" and .>0 and .<1000000000000000 and floor==.))
       then .[0].workflow_runs[0].id else error("no complete latest CI run identity") end' "$temp/latest")

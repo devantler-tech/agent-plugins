@@ -350,7 +350,7 @@ check_fail "missing plugin.json version fails" "missing or empty 'version'" "$d"
 # identical so Claude and Copilot consume one plugin contract rather than drifting copies.
 d=$(fresh); rm -f "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "missing strict Claude plugin manifest fails" \
-  "plugins/alpha requires .claude-plugin/plugin.json for strict Claude marketplace ingestion" "$d"
+  "plugins/alpha: every package requires its own regular canonical manifests" "$d"
 
 d=$(fresh); printf '%s\n' 'not json' > "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "malformed strict Claude plugin manifest fails" \
@@ -379,7 +379,7 @@ check_pass "array 'skills' field passes" "$d"
 
 # A skills/ dir present but holding no <skill>/SKILL.md is a broken bundle.
 d=$(fresh); rm -f "$d/plugins/alpha/skills/example-skill/SKILL.md"
-check_fail "skills/ dir with no SKILL.md fails" "'skills/' present but contains no <skill>/SKILL.md" "$d"
+check_fail "skills/ dir with no SKILL.md fails" "skill directory requires its own regular SKILL.md" "$d"
 
 # A plugin declaring no resource at all (no skills/, no .mcp.json, no agents/) is invalid.
 d=$(fresh); rm -rf "$d/plugins/alpha/skills"
@@ -405,7 +405,7 @@ check_fail "plugin.json version drift vs manifest fails" "version differs from m
 
 d=$(fresh); jq '.name = "alpha2"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
 sync_claude_plugin_manifest "$d" alpha
-check_fail "plugin.json name drift vs manifest fails" "name does not match manifest entry 'alpha'" "$d"
+check_fail "plugin.json name drift vs manifest fails" "name differs from manifest entry 'alpha'" "$d"
 
 d=$(fresh); make_plugin "$d" gamma "Orphan plugin" "1.0.0"
 check_fail "orphan plugin not in manifest fails" "plugins/gamma is not listed in" "$d"
@@ -430,13 +430,13 @@ mkdir -p "$d/plugins/gamma/skills/example-skill"
 printf 'Ghost skill.\n' > "$d/plugins/gamma/skills/example-skill/SKILL.md"
 # shellcheck disable=SC2016
 printf '| [`gamma`](plugins/gamma/) | `example-skill` | Ghost plugin |\n' >> "$d/docs/plugins.md"
-check_fail "README row for dir without plugin.json fails" "docs/plugins.md lists plugin 'gamma' with no plugins/gamma/plugin.json on disk" "$d"
+check_fail "README row for dir without plugin.json fails" "plugins/gamma: every package requires its own regular canonical manifests" "$d"
 
-# A stray skill directory with no SKILL.md is still counted, so the README Resources
-# column drifts out of lockstep and the guard fails (it is not silently hidden).
+# A stray skill directory must contain its own SKILL.md before catalogue parity.
+# Its absence cannot be hidden by adding the directory name to the catalogue.
 d=$(fresh)
 mkdir -p "$d/plugins/alpha/skills/half-added-skill"
-check_fail "skill dir without SKILL.md still counted (drift caught)" "docs/plugins.md Resources for 'alpha'" "$d"
+check_fail "skill dir without SKILL.md still counted (drift caught)" "skill directory requires its own regular SKILL.md" "$d"
 
 # A skill added on disk but not reflected in the README Resources column.
 d=$(fresh)
@@ -638,6 +638,17 @@ description: >-
 Body.
 EOF
 check_fail "agent with an empty block-scalar description fails" "must declare a non-empty 'description'" "$d"
+
+# Canonical desired-state checks need a complete valid package before resource mutation.
+make_catalogued_plugin() {
+  local root=$1 name=$2
+  make_plugin "$root" "$name" "Canonical fixture" "1.0.0"
+  jq --arg name "$name" '.plugins += [{name:$name,description:"Canonical fixture",version:"1.0.0",source:("./plugins/"+$name)}]' "$root/.claude-plugin/marketplace.json" > "$root/new"
+  mv "$root/new" "$root/.claude-plugin/marketplace.json"
+  cp "$root/.claude-plugin/marketplace.json" "$root/.github/plugin/marketplace.json"
+  # shellcheck disable=SC2016 # Literal catalogue markup.
+  printf '| [`%s`](plugins/%s/) | `example-skill` | Canonical fixture |\n' "$name" "$name" >> "$root/docs/plugins.md"
+}
 
 # --- check 9: provider-neutral desired-state resources ---
 # A plugin may ship an ancillary copy-paste desired-state resource under resources/. It is
@@ -1212,13 +1223,13 @@ check_fail "unsupported desired-state kind fails closed" \
 
 d=$(fresh); make_desired_state "$d" typo
 check_fail "desired-state resource outside a manifested plugin fails" \
-  "plugins/typo has no plugin.json" "$d"
+  "plugins/typo: every package requires its own regular canonical manifests" "$d"
 
-d=$(fresh); mkdir -p "$d/plugins/agentic-engineering"
+d=$(fresh); make_catalogued_plugin "$d" agentic-engineering
 check_fail "missing canonical agentic desired-state resource fails" \
   "missing canonical agentic desired-state resource" "$d"
 
-d=$(fresh); mkdir -p "$d/plugins/agentic-engineering/resources"
+d=$(fresh); make_catalogued_plugin "$d" agentic-engineering; mkdir -p "$d/plugins/agentic-engineering/resources"
 printf '%s\n' '{"apiVersion":"agent-plugins.devantler.tech/v1alpha1","kind":"OtherDesiredState"}' \
   > "$d/plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
 check_fail "canonical desired-state resource with the wrong kind fails" \
@@ -1749,7 +1760,9 @@ check_fail "Agent Improver rejects a stale procedure-skill digest" \
   "agent-improvement skill digest must match the bundled skill" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-rm "$d/plugins/alpha/skills/agent-improvement/SKILL.md"
+rm -r "$d/plugins/alpha/skills/agent-improvement"
+# shellcheck disable=SC2016 # Literal catalogue markup.
+sed 's/`agent-improvement`, //' "$d/docs/plugins.md" > "$d/new"; mv "$d/new" "$d/docs/plugins.md"
 check_fail "Agent Improver digest requires the bundled procedure skill" \
   "agent-improvement skill digest must resolve to the bundled skill" "$d"
 
@@ -1900,7 +1913,7 @@ cat > "$WORK/inventory-bin/jq" <<'EOF'
 expression=${2:-}
 selected=false
 case "$INVENTORY_SCOPE" in
-  marketplace) [[ "$expression" == '.plugins[] | [.name, .description, .version, .source] | @tsv' ]] && selected=true ;;
+  marketplace) [[ "$expression" == '.plugins[]' ]] && selected=true ;;
   assets) [[ "$expression" == *'.spec.source.requiredRuntimeAssets[]?'* ]] && selected=true ;;
   schedules) [[ "$expression" == *'.spec.runtime.scheduler.schedules[]?.definitionFrom'* ]] && selected=true ;;
 esac

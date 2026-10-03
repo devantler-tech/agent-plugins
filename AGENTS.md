@@ -196,8 +196,9 @@ plugin membership) is authored here.
    skill directory and agent file uses the canonical `skills/` or `agents/` layout. The shipped manifests omit component
    fields for automatic discovery. This marketplace's portable contract accepts optional arrays of
    literal relative `skills/` directories or `agents/<name>.agent.md` files in that same layout,
-   with an optional `./` prefix;
-   every target must exist, retain its resource kind, and use regular files without symlinks or parent
+   with an optional `./` prefix.
+   Every package and canonical manifest is a regular file or directory, including their parents.
+   Every target must exist, retain its resource kind, and use regular files without symlinks or parent
    traversal. Alternate layouts require extending discovery, catalogue and provenance validation
    together. Explicit agent arrays determine the catalogue's selected agents; an empty array selects
    none. Skill paths add to the default skill inventory, as described in the
@@ -205,19 +206,23 @@ plugin membership) is authored here.
    The package gate rejects repeated decoded JSON keys in both marketplace manifests and plugin
    manifests, rename history and desired-state resources before parity checks. Marketplace names are text identifiers and plugin
    entries have unique names, visible descriptions and stable cache versions.
+   Run `bash scripts/package-discovery.test.sh` for regular-file, complete-package and selection cases.
    Run `bash scripts/package-boundaries.test.sh` with the manifest tests. Skill dirs sit at
    `plugins/<plugin>/skills/<skill>/` and each holds a conformant `SKILL.md` (CI discovers them at
    depth 4). A bundled `.mcp.json` is a `{ "mcpServers": { … } }` map whose every server carries a
    `command` (stdio) or `url` (remote).
+   Server names retain underscores, dots and Unicode; whitespace, controls, backticks and table
+   delimiters are refused because the catalogue cannot represent them unambiguously.
    MCP configuration is one unambiguous JSON object with a nonempty named server map.
    Each server selects a nonblank string command (omitted type or `stdio`) or a nonblank URL
    with type `http` or `sse`. Optional arguments are string arrays; environment and header
    values are named string maps. Literal variable references are retained without expansion.
    Run `bash scripts/mcp-boundaries.test.sh` with the manifest tests.
-   A bundled `agents/` directory holds ≥1 `agents/*.agent.md` —
+   An automatically discovered `agents/` directory holds ≥1 `agents/*.agent.md` —
    the `.agent.md` suffix is REQUIRED (VS Code/Copilot discover agents by it; a bare `.md` is
    invisible there, and CI's suffix guard rejects it) — each with
-   YAML frontmatter carrying a non-empty `name` and `description` (the neutral cross-tool core). See
+   YAML frontmatter carrying a non-empty `name` and `description` (the neutral cross-tool core).
+   Other ancillary files do not contribute agent catalogue tokens. See
    [ADR 0001](docs/adr/0001-bundling-mcp-servers-and-custom-agents.md) for the cross-tool delivery model.
    A plugin may additionally carry ancillary `resources/*.desired-state.json` documents for human
    copy-paste onboarding. They do not satisfy the minimum auto-discovered-resource requirement and must

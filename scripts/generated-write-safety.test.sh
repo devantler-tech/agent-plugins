@@ -6,7 +6,9 @@ trap 'rm -rf "$work"' EXIT
 digest="$plugins/scripts/refresh-desired-state-digests.sh"
 bump="$plugins/scripts/bump-plugin-version.sh"
 fail=0
+# Evaluate one labeled behavior and retain failures so all boundaries are exercised.
 check() { if "$@"; then printf 'PASS %s\n' "$label"; else printf 'FAIL %s\n' "$label"; fail=$((fail+1)); fi; }
+# Create a fresh minimal plugin whose resource and definition are real files.
 fixture() {
   root=$(mktemp -d "$work/case.XXXXXX")
   mkdir -p "$root/plugins/alpha/resources" "$root/plugins/alpha/agents"
@@ -14,6 +16,7 @@ fixture() {
   printf '{"spec":{"source":{"entrypoint":"alpha","entrypointSha256":"stale"}}}\n' > "$root/plugins/alpha/resources/a.desired-state.json"
   resource="$root/plugins/alpha/resources/a.desired-state.json"
 }
+# Invoke the installed generator and capture its status and diagnostics for assertions.
 run_digest() { rc=0; (cd "$root" && bash "$digest" "$@") > "$work/out" 2>&1 || rc=$?; }
 fixture
 printf '{}\n' >> "$resource"
@@ -49,6 +52,7 @@ rc=0
 (cd "$root" && PATH="$root/bin:$PATH" BAD_READ=plugins/alpha/resources/a.desired-state.json REAL_CAT="$real_cat" bash "$digest" --check) > "$work/out" 2>&1 || rc=$?
 label='failed original-byte read cannot report CURRENT'; check test "$rc" -ne 0
 
+# Inject a one-shot second-commit failure at the filesystem boundary only.
 faults() {
   mkdir -p "$root/bin"
   real_cat=$(command -v cat); real_mv=$(command -v mv)
@@ -85,6 +89,7 @@ rc=0; (cd "$root" && PATH="$root/bin:$PATH" bash "$digest") > "$work/out" 2>&1 |
 label='failed resource commit reports failure'; check test "$rc" -ne 0
 label='failed resource commit restores the whole batch'; check diff -rq "$work/before-digests" "$root/plugins"
 
+# Prepare a plugin with all four version manifests in parity, without a Git history.
 version_fixture() {
   root=$(mktemp -d "$work/version.XXXXXX")
   mkdir -p "$root/plugins/alpha/.claude-plugin" "$root/.github/plugin" "$root/.claude-plugin"

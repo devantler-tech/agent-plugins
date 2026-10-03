@@ -87,12 +87,13 @@ jobs:
         # plugin, a new plugin, a deleted plugin, an unrelated change) and FAILS every
         # drift it exists to catch — including a second unbumped plugin in the same
         # change, which an early-exit refactor would silently hide.
-        # Run both suites even when the first fails, retaining a failed job result.
+        # Run every suite even when the first fails, retaining a failed job result.
         # This exposes guard and updater regressions together without masking either.
         run: |
           result=0
           ./scripts/check-plugin-version-bump.test.sh || result=1
           ./scripts/bump-plugin-version.test.sh || result=1
+          bash scripts/plugin-version-boundaries.test.sh || result=1
           exit "$result"
 
       - name: 🧪 Self-test validator installation recovery

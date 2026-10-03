@@ -47,6 +47,8 @@ scripts/
 ├── validate-manifests.test.sh  # Self-test: PASS a consistent fixture, FAIL each drift scenario the guard catches
 ├── check-plugin-version-bump.sh      # Gate: a plugin whose shipped content changed must move its version
 ├── check-plugin-version-bump.test.sh # Self-test for the gate above
+├── plugin-version-boundaries.test.sh # Original Git identity, complete inventories and contained writes
+├── plugin-version.lib.sh       # Shared canonical manifest versions and original-history observations
 ├── plugin-changelog.sh             # Write skill-sync release notes and check changed-version entries
 ├── plugin-changelog.test.sh        # Offline Git fixtures for release-note generation and checks
 ├── plugin-changelog-boundaries.test.sh # Exact objects, complete observations and failed-write recovery
@@ -141,6 +143,13 @@ Each entry's `source` is a **relative path** (`./plugins/<name>`), so the repo r
 (`copilot-plugins` → `agent-plugins`, see [#7](https://github.com/devantler-tech/agent-plugins/issues/7)) and any
 future move stay link-safe. Keep the manifest `name` and per-plugin wording **tool-neutral** — the
 marketplace is cross-tool, so avoid Copilot-only framing where the capability isn't.
+
+Cache version checks and changed-since bumps observe original commits in a complete, ungrafted
+repository. Inherited Git repository selectors cannot redirect those reads. Plugin directory
+inventories preserve NUL-delimited names and refuse incomplete records or unsupported identities.
+Existing version manifests require one unambiguous identity and canonical version; a missing
+baseline remains unknown. Local version writes require real manifest directories inside the
+checkout. Run `bash scripts/plugin-version-boundaries.test.sh` with the existing version-tool tests.
 
 ## Skills come from upstream — no lockfile
 

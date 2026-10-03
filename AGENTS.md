@@ -301,6 +301,7 @@ bash scripts/plugin-changelog.test.sh
 #     The writer completes every inventory and digest before its first resource write;
 #     failed observations or missing targets leave all resources unchanged.
 ./scripts/refresh-desired-state-digests.sh --check
+bash scripts/generated-write-safety.test.sh # resource refusal and failed batch-write recovery
 
 # 1d. Offline marketplace candidate preparation: real Git histories, no publication.
 bash scripts/prepare-marketplace-release.test.sh

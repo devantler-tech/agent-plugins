@@ -108,6 +108,19 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || steps.app-token-dry.outputs.token }}
           DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
+          RECHECK_RECOVERY_ROOT: ${{ runner.temp }}/recheck-recovery
         run: |
           # shellcheck disable=SC2086  # DRY_RUN is a single optional flag or empty
           ./scripts/recheck-open-prs.sh --repo "${GITHUB_REPOSITORY}" --base main $DRY_RUN
+
+      - name: 📦 Preserve unresolved PR recovery settings
+        if: ${{ always() }}
+        # Only saved PR settings are collected; never upload tokens, environment or inventories.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: recheck-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/recheck-recovery/**/rearm/**
+            ${{ runner.temp }}/recheck-recovery/**/closed/**
+          if-no-files-found: ignore
+          retention-days: 14

@@ -104,7 +104,19 @@ fi
 # This repository's automation always addresses github.com, including recovery.
 export GH_HOST=github.com
 
-state=$(mktemp -d) || exit 2
+# A hosted caller supplies a collection root to upload unresolved settings after this process.
+# Snapshot fields are PR metadata only; credentials and environment values are never journaled.
+umask 077
+if [ -n "${RECHECK_RECOVERY_ROOT:-}" ]; then
+  case "$RECHECK_RECOVERY_ROOT" in /*) ;; *) echo "recheck-open-prs: recovery root must be absolute" >&2; exit 2 ;; esac
+  if [ -L "$RECHECK_RECOVERY_ROOT" ] || ! mkdir -p "$RECHECK_RECOVERY_ROOT"; then
+    echo "recheck-open-prs: recovery root could not be prepared" >&2
+    exit 2
+  fi
+  state=$(mktemp -d "$RECHECK_RECOVERY_ROOT/recheck.XXXXXX") || exit 2
+else
+  state=$(mktemp -d) || exit 2
+fi
 mkdir -p "$state/closed" "$state/rearm" || exit 2
 held_recovery=""
 
@@ -229,7 +241,8 @@ newest_pr_run() {
         ($runs|length)==$pages[0].total_count and
         all($runs[]; type=="object" and (.id|integer and .>0) and
           .event=="pull_request" and .head_sha==$sha and
-          .path==".github/workflows/ci.yaml" and .repository.full_name==$repo) and
+          (.path|type=="string" and test("^\\.github/workflows/ci\\.yaml(@.+)?$")) and
+          .repository.full_name==$repo) and
         ($runs|map(.id)|unique|length)==($runs|length)
       then ($runs|map(.id)|max // 0) else error("incomplete or mismatched CI runs") end
     else error("invalid CI run observation") end'

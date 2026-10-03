@@ -45,6 +45,9 @@ if [ "$1" = api ]; then
       count=0; id=10; path=.github/workflows/ci.yaml; head=$(printf '%040d' 0 | tr 0 1)
       if "$fresh"; then count=1; id=20; fi
       if "$fresh" && [ "$mode" = wrong-workflow ]; then path=.github/workflows/other.yaml; fi
+      if "$fresh" && [ "$mode" = workflow-ref ]; then path=.github/workflows/ci.yaml@refs/pull/11/merge; fi
+      if "$fresh" && [ "$mode" = wrong-workflow-ref ]; then path=.github/workflows/other.yaml@main; fi
+      if "$fresh" && [ "$mode" = empty-workflow-ref ]; then path=.github/workflows/ci.yaml@; fi
       if "$fresh" && [ "$mode" = wrong-head ]; then head=$(printf '%040d' 0 | tr 0 3); fi
       if "$fresh" && [ "$mode" = incomplete-runs ]; then count=2; fi
       if "$fresh" && [ "$mode" = fractional-count ]; then count=1.000000000000000001; fi
@@ -150,10 +153,13 @@ for mode in wrong-repository wrong-base nonpositive-number; do
   check "$mode inventory prevents all PR mutations" no_mutations "$d"
 done
 
-for mode in wrong-workflow wrong-head incomplete-runs fractional-count; do
+for mode in wrong-workflow wrong-workflow-ref empty-workflow-ref wrong-head incomplete-runs fractional-count; do
   d="$WORK/$mode"; make_case "$d" "$mode"; run_case "$d"
   check "$mode cannot authorize auto-merge" held_without_rearm "$d"
 done
+
+d="$WORK/workflow-ref"; make_case "$d" workflow-ref; run_case "$d"
+check 'documented workflow path with a ref suffix can certify a fresh CI event' test "$rc" -eq 0
 
 d="$WORK/pagination"; make_case "$d" paginated-runs; run_case "$d"
 check 'fresh CI on a complete multi-page run inventory succeeds' test "$rc" -eq 0
@@ -179,11 +185,21 @@ check 'acknowledged recovery reopen is read back before reporting recovery' awk 
 # Verify unresolved recovery keeps the operator's original settings on disk.
 retained_recovery() {
   local before
-  before=$(find "$1/temp" -name before -type f) || return 1
+  before=$(find "${2:-$1/temp}" -name before -type f) || return 1
   [ -n "$before" ] && jq -e '.autoMergeRequest.commitBody=="Chosen body"' "$before" >/dev/null
 }
 check 'unresolved recovery retains the original merge settings for the operator' retained_recovery "$d"
 check 'incomplete CI observations retain the original merge settings for the operator' retained_recovery "$WORK/incomplete-runs"
+
+d="$WORK/collection"; make_case "$d" incomplete-runs
+collection=${RECHECK_OBSERVATION_ARTIFACT_DIR:-$WORK/collected-records}
+RECHECK_RECOVERY_ROOT="$collection" run_case "$d"
+check 'held settings survive the process in the caller-designated artifact directory' retained_recovery "$d" "$collection"
+
+d="$WORK/collection-failure"; make_case "$d" good
+: > "$d/not-a-directory"
+RECHECK_RECOVERY_ROOT="$d/not-a-directory" run_case "$d"
+check 'unwritable recovery collection rejects the sweep before any forge request' test ! -e "$d/calls"
 
 printf 'recheck observations: %s failure(s)\n' "$fail"
 [ "$fail" -eq 0 ]

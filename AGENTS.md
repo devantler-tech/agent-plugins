@@ -193,7 +193,7 @@ plugin membership) is authored here.
    top-level file serves Copilot/CLI consumers, while strict Claude remote ingestion requires the
    nested canonical path. The plugin declares **at least one resource**:
    a `skills/` subdirectory, a bundled `.mcp.json` (MCP servers), and/or an `agents/` directory. Every
-   resource uses the canonical `skills/` or `agents/` layout. The shipped manifests omit component
+   skill directory and agent file uses the canonical `skills/` or `agents/` layout. The shipped manifests omit component
    fields for automatic discovery. This marketplace's portable contract accepts optional arrays of
    literal relative `skills/` directories or `agents/<name>.agent.md` files in that same layout,
    with an optional `./` prefix;
@@ -202,8 +202,8 @@ plugin membership) is authored here.
    together. Explicit agent arrays determine the catalogue's selected agents; an empty array selects
    none. Skill paths add to the default skill inventory, as described in the
    [Claude manifest reference](https://code.claude.com/docs/en/plugins-reference).
-   The package gate rejects repeated decoded JSON keys in either manifest, rename history and
-   desired-state resources before parity checks. Marketplace names are text identifiers and plugin
+   The package gate rejects repeated decoded JSON keys in both marketplace manifests and plugin
+   manifests, rename history and desired-state resources before parity checks. Marketplace names are text identifiers and plugin
    entries have unique names, visible descriptions and stable cache versions.
    Run `bash scripts/package-boundaries.test.sh` with the manifest tests. Skill dirs sit at
    `plugins/<plugin>/skills/<skill>/` and each holds a conformant `SKILL.md` (CI discovers them at

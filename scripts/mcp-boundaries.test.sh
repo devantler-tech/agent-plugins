@@ -5,6 +5,7 @@ here=${MCP_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
+# Build a complete portable package fixture with matching manifests and resource inventory.
 fixture() {
   local root=$1 resource=$2
   mkdir -p "$root/.github/plugin" "$root/.claude-plugin" "$root/scripts" "$root/docs" "$root/plugins/alpha/.claude-plugin" "$root/plugins/alpha/skills/example"
@@ -17,6 +18,7 @@ fixture() {
   # shellcheck disable=SC2016 # Backticks are literal Markdown, not shell substitutions.
   printf '| Plugin | Resources | Description |\n|---|---|---|\n| [`alpha`](plugins/alpha/) | `example`, `%s` | Alpha |\n' "$resource" > "$root/docs/plugins.md"
 }
+# Run the production package gate and assert its result for one MCP configuration.
 check() {
   local name=$1 expected=$2 payload=$3 resource=${4:-test-mcp} root rc=0
   root="$work/$name"; fixture "$root" "$resource"

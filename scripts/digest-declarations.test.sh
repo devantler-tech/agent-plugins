@@ -6,6 +6,7 @@ refresh="$here/refresh-desired-state-digests.sh"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
+# Accumulate behavioral failures so every independent refusal is exercised.
 check() { if "$@"; then printf 'PASS %s\n' "$label"; else printf 'FAIL %s\n' "$label"; fail=$((fail+1)); fi; }
 # A valid resource gives each refusal case a writable sibling to preserve.
 fixture() {
@@ -18,10 +19,13 @@ fixture() {
   printf '%s\n' '{"spec":{"source":{"entrypoint":"alpha","entrypointSha256":"stale","requiredRuntimeAssets":[{"path":"scripts/asset.sh","sha256":"stale","executable":true}]},"roles":{}}}' > "$resource"
   cp -R "$root/plugins/alpha" "$root/plugins/beta"
 }
+# Capture the actual generator's result without terminating the remaining cases.
 run() { rc=0; (cd "$root" && PATH="$root/bin:$PATH" bash "$refresh" "$@") > "$root/out" 2>&1 || rc=$?; }
 # Mutate only a declaration; retain independent original bytes for both resources.
 mutate() { jq "$1" "$resource" > "$root/new"; cp "$root/new" "$resource"; }
+# Snapshot both the defective resource and its writable sibling independently.
 save() { cp "$resource" "$root/alpha-before"; cp "$root/plugins/beta/resources/a.desired-state.json" "$root/beta-before"; }
+# Verify that refusal protected the entire batch, including a linked backing file.
 preserved() { cmp -s "$resource" "$root/alpha-before" && cmp -s "$root/plugins/beta/resources/a.desired-state.json" "$root/beta-before"; }
 for mode in write check; do
   args=(); [[ $mode != check ]] || args=(--check)

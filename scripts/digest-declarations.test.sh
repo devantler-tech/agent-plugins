@@ -29,7 +29,7 @@ save() { cp "$resource" "$root/alpha-before"; cp "$root/plugins/beta/resources/a
 preserved() { cmp -s "$resource" "$root/alpha-before" && cmp -s "$root/plugins/beta/resources/a.desired-state.json" "$root/beta-before"; }
 for mode in write check; do
   args=(); [[ $mode != check ]] || args=(--check)
-  for fault in prefix linked-root repeated-leaf repeated-container shape repeated-asset executable; do
+  for fault in prefix linked-root repeated-leaf repeated-container shape later-invalid repeated-asset executable; do
     fixture
     case $fault in
       prefix)
@@ -46,6 +46,14 @@ EOF
       repeated-container)
         printf '%s\n' '{"spec":{"source":{"requiredRuntimeAssets":[{"path":"missing","sha256":"stale","executable":true}]},"source":{"entrypoint":"alpha","entrypointSha256":"stale"},"roles":{}}}' > "$resource" ;;
       shape) mutate '.spec.source.requiredRuntimeAssets = "not-an-inventory"' ;;
+      later-invalid)
+        mutate '.spec.source.requiredRuntimeAssets = "not-an-inventory"'
+        # Visit the writable sibling first, before discovering the invalid declaration.
+        cat > "$root/bin/find" <<'EOF'
+#!/bin/sh
+printf 'plugins/beta/resources/a.desired-state.json\000plugins/alpha/resources/a.desired-state.json\000'
+EOF
+        chmod +x "$root/bin/find" ;;
       repeated-asset) mutate '.spec.source.requiredRuntimeAssets += .spec.source.requiredRuntimeAssets' ;;
       executable) chmod -x "$root/plugins/alpha/scripts/asset.sh" ;;
     esac

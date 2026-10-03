@@ -154,19 +154,42 @@ validate_marketplace_renames() {
 # non-empty '.mcpServers' object, each server carrying a 'command' (stdio transport)
 # or a 'url' (remote transport).
 validate_mcp_json() {
-  local mcp="$1" bad
-  if ! jq -e . "$mcp" > /dev/null 2>&1; then
+  local mcp="$1" document
+  if ! document=$(cat "$mcp") || ! jq -es 'length == 1 and (.[0] | type == "object")' <<< "$document" > /dev/null 2>&1; then
     echo "::error::$mcp: not valid JSON"
     return 1
   fi
-  if [ "$(jq -r '(.mcpServers // {}) | length' "$mcp")" -eq 0 ]; then
+  # Streaming paths preserve repeated keys that an ordinary JSON decode discards.
+  if ! jq --stream -es '
+    reduce .[] as $event ({complete:{}, valid:true};
+      if ($event|length)==2 then
+        .complete as $complete | $event[0] as $path |
+        .valid = (.valid and (any(range(0;($path|length)+1);
+          $complete[($path[0:.]|tojson)]==true)|not)) |
+        .complete[($path|tojson)] = true
+      else .complete[($event[0][0:-1]|tojson)] = true end) | .valid
+  ' <<< "$document" > /dev/null; then
+    echo "::error::$mcp: repeated JSON declarations are ambiguous"
+    return 1
+  fi
+  if ! jq -e '.mcpServers | type == "object" and length > 0' <<< "$document" > /dev/null; then
     echo "::error::$mcp: '.mcpServers' must be a non-empty object"
     return 1
   fi
-  bad=$(jq -r '.mcpServers | to_entries[]
-    | select((.value.command // "") == "" and (.value.url // "") == "") | .key' "$mcp")
-  if [ -n "$bad" ]; then
-    echo "::error::$mcp: server(s) missing a 'command' (stdio) or 'url' (remote): ${bad//$'\n'/ }"
+  if ! jq -e '
+    def nonblank: type == "string" and test("[^[:space:]]");
+    def string_map: type == "object" and all(to_entries[]; (.key|nonblank) and (.value|type)=="string");
+    all(.mcpServers | to_entries[];
+      (.key | nonblank) and (.value | type == "object" and
+        (if has("command") then
+          (.command | nonblank) and (has("url") | not) and
+          (if has("type") then .type == "stdio" else true end)
+         else (.url | nonblank) and (.type == "http" or .type == "sse") end) and
+        (if has("args") then (.args | type == "array" and all(.[]; type == "string")) else true end) and
+        (if has("env") then (.env | string_map) else true end) and
+        (if has("headers") then (.headers | string_map) else true end)))
+  ' <<< "$document" > /dev/null; then
+    echo "::error::$mcp: invalid or missing a 'command' (stdio) or 'url' (remote), transport, arguments, environment or headers"
     return 1
   fi
   return 0

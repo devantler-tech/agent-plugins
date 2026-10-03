@@ -50,9 +50,69 @@ capture_inventory() {
   fi
 }
 
+# Refuse truncated or empty NUL records before any inventory consumer can skip them.
+capture_nul_inventory() {
+  local destination=$1 description=$2 record=''
+  capture_inventory "$@" || return 1
+  while IFS= read -r -d '' record; do
+    [ -n "$record" ] || { echo "::error::Empty record in $description"; return 1; }
+  done < "$inventory_dir/$destination"
+  [ -z "$record" ] || { echo "::error::Incomplete record in $description"; return 1; }
+}
+
+# A package cannot rely on a linked manifest or a linked parent outside its bytes.
+regular_packaged_file() {
+  local path=$1 parent
+  [ -f "$path" ] && [ ! -L "$path" ] || return 1
+  parent=$(dirname "$path")
+  while [ "$parent" != . ]; do
+    [ -d "$parent" ] && [ ! -L "$parent" ] || return 1
+    parent=$(dirname "$parent")
+  done
+}
+# Retain the complete direct package census, including packages without manifests.
+validate_package_boundaries() {
+  local package name
+  if [ ! -d plugins ] || [ -L plugins ]; then
+    echo '::error::plugins/ must be a regular packaged directory'; return 1
+  fi
+  capture_nul_inventory packages 'direct plugin packages' find plugins -mindepth 1 -maxdepth 1 \
+    \( -type d -o -type l \) -print0 || return 1
+  while IFS= read -r -d '' package; do
+    name=${package##*/}
+    if ! [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+      echo "::error::$package: package names must be kebab-case"; return 1
+    fi
+    if [ -L "$package" ] ||
+       ! regular_packaged_file "$package/plugin.json" ||
+       ! regular_packaged_file "$package/.claude-plugin/plugin.json"; then
+      echo "::error::$package: every package requires its own regular canonical manifests"; return 1
+    fi
+  done < "$inventory_dir/packages"
+}
+# Default skill discovery includes every direct directory, not just complete matches.
+validate_skill_dir() {
+  local dir=$1 child count=0
+  [ -d "$dir" ] && [ ! -L "$dir" ] || { echo "::error::$dir: skills require regular packaged directories"; return 1; }
+  if [ -e "$dir/SKILL.md" ] || [ -L "$dir/SKILL.md" ]; then
+    echo "::error::$dir: skills/ must contain canonical skill directories, not a root SKILL.md"; return 1
+  fi
+  capture_nul_inventory skills 'default skill directories' find "$dir" -mindepth 1 -maxdepth 1 -print0 || return 1
+  while IFS= read -r -d '' child; do
+    if [ -L "$child" ]; then echo "::error::$child: skills require regular packaged directories"; return 1; fi
+    [ -d "$child" ] || continue
+    if ! regular_packaged_file "$child/SKILL.md"; then
+      echo "::error::$child: skill directory requires its own regular SKILL.md"; return 1
+    fi
+    count=$((count+1))
+  done < "$inventory_dir/skills"
+  [ "$count" -gt 0 ] || { echo "::error::$dir: 'skills/' present but contains no <skill>/SKILL.md"; return 1; }
+}
+
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
   local manifest="$1"
+  if ! regular_packaged_file "$manifest"; then echo "::error::$manifest: manifest must be a regular packaged file"; return 1; fi
   if ! json_object_unique "$manifest" || ! jq -e -L "$validator_dir" '
     include "marketplace-release";
     def visible: type == "string" and test("\\S") and (test("[[:cntrl:]]") | not);
@@ -188,6 +248,11 @@ validate_mcp_json() {
     echo "::error::$mcp: '.mcpServers' must be a non-empty object"
     return 1
   fi
+  # Catalogue identifiers are literal inline-code tokens, not restricted slugs.
+  # Delimiters and whitespace cannot be represented faithfully in this table.
+  if ! jq -e 'all(.mcpServers | keys[]; test("[[:space:][:cntrl:]`|]") | not)' <<< "$document" >/dev/null; then
+    echo "::error::$mcp: MCP server names must be unambiguous catalogue tokens"; return 1
+  fi
   if ! jq -e '
     def nonblank: type == "string" and test("[^[:space:]]");
     def string_map: type == "object" and all(to_entries[]; (.key|nonblank) and (.value|type)=="string");
@@ -226,7 +291,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/frontmatter.lib.sh"
 validate_agent_dir() {
   local dir="$1" md count=0 failed=0
   for md in "$dir"/*.md; do
-    [ -e "$md" ] || continue
+    [ -e "$md" ] || [ -L "$md" ] || continue
+    if ! regular_packaged_file "$md"; then echo "::error::$md: agent must be a regular packaged file"; failed=1; continue; fi
     count=$((count + 1))
     case "$md" in
       *.agent.md) ;;
@@ -373,31 +439,25 @@ validate_plugin_json() {
       fi
     done
     if ! validate_component_paths "$pj" "$plugin_dir"; then ok=0; fi
-    # Skills resource (ADR 0001 §D3): auto-discovered from the on-disk skills/ directory —
-    # both tools default to skills/ when the manifest omits the field — so detection is
-    # directory-based, not field-based. A skills/ dir must hold >=1 <skill>/SKILL.md to count.
-    if find "$plugin_dir/skills" -mindepth 2 -maxdepth 2 -name SKILL.md -print -quit 2>/dev/null | grep -q .; then
-      resource_count=$((resource_count + 1))
-    elif [ -d "$plugin_dir/skills" ]; then
-      echo "::error::$plugin_dir: 'skills/' present but contains no <skill>/SKILL.md"
-      ok=0
+    # Skills always participate in default discovery; explicit paths add to it.
+    if [ -e "$plugin_dir/skills" ] || [ -L "$plugin_dir/skills" ]; then
+      if validate_skill_dir "$plugin_dir/skills"; then resource_count=$((resource_count+1)); else ok=0; fi
     fi
-    # MCP resource: a bundled .mcp.json at the plugin root must validate.
-    if [ -f "$plugin_dir/.mcp.json" ]; then
-      if validate_mcp_json "$plugin_dir/.mcp.json"; then
-        resource_count=$((resource_count + 1))
-      else
-        ok=0
-      fi
+    if [ -e "$plugin_dir/.mcp.json" ] || [ -L "$plugin_dir/.mcp.json" ]; then
+      if ! regular_packaged_file "$plugin_dir/.mcp.json"; then
+        echo "::error::$plugin_dir/.mcp.json: MCP configuration must be a regular packaged file"; ok=0
+      elif validate_mcp_json "$plugin_dir/.mcp.json"; then resource_count=$((resource_count+1)); else ok=0; fi
     fi
-    # Custom-agents resource: an agents/ directory with at least one valid agents/*.md
-    # (each carrying name + description frontmatter — ADR 0001 §D3).
-    if { ! jq -e 'has("agents")' "$pj" >/dev/null || jq -e '.agents | type == "array" and length > 0' "$pj" >/dev/null; } &&
-       find "$plugin_dir/agents" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
-      if validate_agent_dir "$plugin_dir/agents"; then
-        resource_count=$((resource_count + 1))
-      else
-        ok=0
+    # Explicit agent declarations are the consumer's selection. Their files have
+    # already been validated by validate_component_paths; unselected files stay ancillary.
+    if jq -e 'has("agents")' "$pj" >/dev/null; then
+      if jq -e '.agents | type == "array" and length > 0' "$pj" >/dev/null; then resource_count=$((resource_count+1)); fi
+    elif [ -e "$plugin_dir/agents" ] || [ -L "$plugin_dir/agents" ]; then
+      if [ ! -d "$plugin_dir/agents" ] || [ -L "$plugin_dir/agents" ]; then
+        echo "::error::$plugin_dir/agents: agents require a regular packaged directory"; ok=0
+      elif ! capture_nul_inventory agents 'default agent entries' find "$plugin_dir/agents" -mindepth 1 -maxdepth 1 -print0; then ok=0
+      elif [ -s "$inventory_dir/agents" ]; then
+        if validate_agent_dir "$plugin_dir/agents"; then resource_count=$((resource_count+1)); else ok=0; fi
       fi
     fi
     if [ "$resource_count" -eq 0 ]; then
@@ -415,50 +475,33 @@ validate_plugin_json() {
 
 # 5. Manifest entries and on-disk plugins are in lockstep.
 validate_marketplace_plugins_parity() {
-  local failed=0
-  local manifest="$CLAUDE_MANIFEST"
-  local name description version source ok pj
-  capture_inventory marketplace 'marketplace plugins' \
-    jq -r '.plugins[] | [.name, .description, .version, .source] | @tsv' "$manifest" || return 1
-  # Every plugin entry in the manifest resolves to a matching plugins/<name>/ on disk.
-  while IFS=$'\t' read -r name description version source; do
+  local failed=0 manifest="$CLAUDE_MANIFEST" entry name source ok pj field
+  capture_inventory marketplace 'marketplace plugins' jq -c '.plugins[]' "$manifest" || return 1
+  while IFS= read -r entry; do
+    name=$(jq -r '.name' <<< "$entry"); source=$(jq -r '.source' <<< "$entry")
     ok=1
     if [ "$source" != "./plugins/$name" ]; then
       echo "::error::$manifest: plugin '$name' source '$source' must be './plugins/$name'"
       ok=0
     fi
     pj="plugins/$name/plugin.json"
-    if [ ! -f "$pj" ]; then
-      echo "::error::$manifest: plugin '$name' has no $pj on disk"
-      failed=1
-      continue
+    if ! regular_packaged_file "$pj"; then
+      echo "::error::$manifest: plugin '$name' has no $pj on disk"; failed=1; continue
     fi
-    if [ "$(jq -r '.name' "$pj")" != "$name" ]; then
-      echo "::error::$pj: name does not match manifest entry '$name'"
-      ok=0
-    fi
-    if [ "$(jq -r '.description' "$pj")" != "$description" ]; then
-      echo "::error::$pj: description differs from manifest entry '$name'"
-      ok=0
-    fi
-    if [ "$(jq -r '.version' "$pj")" != "$version" ]; then
-      echo "::error::$pj: version differs from manifest entry '$name'"
-      ok=0
-    fi
-    if [ "$ok" -eq 1 ]; then
-      echo "✓ $name ↔ $pj"
-    else
-      failed=1
-    fi
+    for field in name description version; do
+      # shellcheck disable=SC2016 # jq variables are supplied through structured arguments.
+      if ! jq -e --arg field "$field" --argjson entry "$entry" '.[$field] == $entry[$field]' "$pj" >/dev/null; then
+        echo "::error::$pj: $field differs from manifest entry '$name'"; ok=0
+      fi
+    done
+    if [ "$ok" -eq 1 ]; then echo "✓ $name ↔ $pj"; else failed=1; fi
   done < "$inventory_dir/marketplace"
-  # Every plugins/<name>/ on disk appears in the manifest (no orphan plugin).
-  for pj in plugins/*/plugin.json; do
-    name=$(jq -r '.name' "$pj")
-    if ! jq -e --arg n "$name" '.plugins[] | select(.name == $n)' "$manifest" > /dev/null; then
-      echo "::error::plugins/$name is not listed in $manifest"
-      failed=1
+  while IFS= read -r -d '' pj; do
+    name=${pj##*/}
+    if ! jq -e --arg n "$name" '.plugins[] | select(.name == $n)' "$manifest" >/dev/null; then
+      echo "::error::plugins/$name is not listed in $manifest"; failed=1
     fi
-  done
+  done < "$inventory_dir/packages"
   return "$failed"
 }
 
@@ -485,7 +528,7 @@ plugin_disk_resources() {
     if jq -e 'has("agents")' "plugins/$name/plugin.json" >/dev/null; then
       jq -r '.agents[] | split("/")[-1] | sub("\\.agent\\.md$"; "")' "plugins/$name/plugin.json"
     else
-    for d in "plugins/$name/agents"/*; do
+    for d in "plugins/$name/agents"/*.agent.md; do
       [ -e "$d" ] || continue
       b="$(basename "$d" .md)"
       printf '%s\n' "${b%.agent}"
@@ -523,7 +566,7 @@ validate_readme_parity() {
     [ -z "$name" ] && continue
     readme_names+=("$name")
     readme_resources=$(printf '%s' "$line" | awk -F'|' '{print $3}' \
-      | grep -oE '`[a-z0-9-]+`' | tr -d '`' | sort | tr '\n' ' ')
+      | grep -oE '`[^`][^`]*`' | tr -d '`' | sort | tr '\n' ' ')
     # Require the manifest, not just the directory: a stray plugins/<name>/ without a
     # plugin.json would otherwise pass here yet stay invisible to the orphan scan below
     # (which only iterates plugins/*/plugin.json).
@@ -1483,6 +1526,7 @@ validate_skill_provenance() {
 }
 
 main() {
+  validate_package_boundaries
   validate_marketplace_json "$COPILOT_MANIFEST"
   validate_marketplace_json "$CLAUDE_MANIFEST"
   validate_marketplace_parity

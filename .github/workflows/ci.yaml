@@ -170,6 +170,9 @@ jobs:
       - name: 🧪 Self-test changelog generation and publication checks
         run: bash scripts/plugin-changelog.test.sh
 
+      - name: 🧪 Verify changelog observation and recovery boundaries
+        run: bash scripts/plugin-changelog-boundaries.test.sh
+
       - name: 🧪 Self-test the manifest guard
         # Proves validate-manifests.sh PASSES a consistent fixture and FAILS each
         # drift scenario it exists to catch (malformed/desynced manifests, every

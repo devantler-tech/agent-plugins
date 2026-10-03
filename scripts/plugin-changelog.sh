@@ -4,7 +4,10 @@
 #        bash scripts/plugin-changelog.sh check <base-ref> <head-ref>
 # The writer reads working-tree versions after bump-plugin-version.sh. The gate reads commits.
 set -euo pipefail
+export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/atomic-write.lib.sh
+source "$here/atomic-write.lib.sh"
 mode=${1:-}
 base_ref=${2:-}
 fail() { printf 'plugin-changelog: %s\n' "$*" >&2; exit 1; }
@@ -17,6 +20,13 @@ else
   head=$(git rev-parse --verify HEAD)
   release_date=${3:-$(date -u +%F)}
   [[ "$release_date" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[0-1])$ ]] || fail 'invalid date'
+  year=$((10#${release_date:0:4})); month=$((10#${release_date:5:2})); day=$((10#${release_date:8:2}))
+  days=31
+  case "$month" in
+    4|6|9|11) days=30 ;;
+    2) days=28; if (( year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) )); then days=29; fi ;;
+  esac
+  (( year > 0 && day <= days )) || fail 'invalid calendar date'
 fi
 # Compare only this branch's changes, including when main advances during preparation.
 base=$(git merge-base "$base" "$head") || fail 'no merge base'
@@ -36,15 +46,23 @@ provenance() {
   awk -v key="$2" '
     NR==1 { if ($0 !~ /^---\r?$/) exit 1; next }
     /^---\r?$/ { closed=1; exit }
-    /^metadata:[[:space:]]*$/ { metadata=1; next }
+    /^metadata:[[:space:]]*$/ { metadata=1; child_indent=0; next }
     /^[^[:space:]]/ { metadata=0 }
-    metadata && $1==key ":" {
+    metadata && /^ +[^[:space:]#]/ {
+      indent=match($0,/[^ ]/)-1
+      if (!child_indent) child_indent=indent
+      if (indent!=child_indent || $1!=key ":") next
       sub(/^[[:space:]]*[^:]+:[[:space:]]*/, ""); sub(/\r$/, "")
       if (($0 ~ /^".*"$/) || ($0 ~ /^\047.*\047$/)) $0=substr($0,2,length($0)-2)
       value=$0; count++
     }
     END { if (!closed || count!=1 || value=="") exit 1; print value }
   ' "$1"
+}
+
+# Require one complete manifest object before accepting its scalar version.
+manifest_version() {
+  jq -ser 'if length == 1 and (.[0] | type == "object") then .[0].version | strings else error("expected one manifest object") end' "$@"
 }
 
 changed=0
@@ -56,12 +74,13 @@ while IFS= read -r dir; do
   base_entry=$(git ls-tree "$base" -- "$manifest") || fail "unreadable base manifest tree: $name"
   if [ -n "$base_entry" ]; then
     base_manifest=$(git show "$base:$manifest") || fail "unreadable base manifest: $name"
-    old=$(jq -er '.version | strings' <<< "$base_manifest") || fail "invalid base manifest: $name"
+    old=$(manifest_version <<< "$base_manifest") || fail "invalid base manifest: $name"
+    [[ "$old" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "invalid base version for $name"
   fi
   if [ "$mode" = check ]; then
-    version=$(git show "$head:$manifest" | jq -er '.version | strings')
+    version=$(git show "$head:$manifest" | manifest_version) || fail "invalid head manifest: $name"
   else
-    version=$(jq -er '.version | strings' "$manifest")
+    version=$(manifest_version "$manifest") || fail "invalid working manifest: $name"
   fi
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "invalid version for $name"
   [ "$version" != "$old" ] || continue
@@ -70,7 +89,8 @@ while IFS= read -r dir; do
   snapshot="$work/$name.old"
   if [ "$mode" = check ]; then
     git show "$head:$log" > "$snapshot" 2>/dev/null || fail "$name $version has no changelog"
-    [ "$(headings "$snapshot" "$version")" -eq 1 ] || fail "$name $version needs exactly one changelog heading"
+    count=$(headings "$snapshot" "$version") || fail "unreadable changelog headings: $name"
+    [ "$count" -eq 1 ] || fail "$name $version needs exactly one changelog heading"
     continue
   fi
   [ ! -L "$log" ] || fail "refusing symlink: $log"
@@ -83,8 +103,16 @@ while IFS= read -r dir; do
   count=$(headings "$snapshot" "$version")
   [ "$count" -le 1 ] || fail "$name $version has duplicate headings"
   [ "$count" -eq 0 ] || continue # Preserve the entire hand-written entry byte for byte.
-  paths=$(git diff --name-only --no-renames "$base" "$head" -- "$dir/skills/")
-  skills=$(printf '%s\n' "$paths" | sed -nE 's|^(plugins/[^/]+/skills/[^/]+)/.*|\1|p' | LC_ALL=C sort -u)
+  git diff --name-only -z --no-renames "$base" "$head" -- "$dir/skills/" > "$work/paths" || fail "unreadable changed paths: $name"
+  : > "$work/skills"
+  path=''
+  while IFS= read -r -d '' path; do
+    relative=${path#"$dir/skills/"}
+    [[ "$relative" == */* ]] || fail "unsupported skill resource path: $path"
+    printf '%s\n' "$dir/skills/${relative%%/*}" >> "$work/skills"
+  done < "$work/paths"
+  [ -z "$path" ] || fail "unterminated changed path inventory: $name"
+  skills=$(LC_ALL=C sort -u "$work/skills") || fail "unreadable changed skills: $name"
   [ -n "$skills" ] || fail "$name has no synced skills; write its changelog manually"
   entry="$work/$name.entry"
   printf '## %s — %s\n\n' "$version" "$release_date" > "$entry"
@@ -92,11 +120,15 @@ while IFS= read -r dir; do
     [[ "$skill" =~ ^plugins/[a-z0-9-]+/skills/[a-z0-9-]+$ ]] || fail "unsupported skill path: $skill"
     metadata="$skill/SKILL.md"
     removed=false
-    if ! git cat-file -e "$head:$metadata" 2>/dev/null; then
-      [ -z "$(git ls-tree -r --name-only "$head" -- "$skill/")" ] || fail "incomplete skill removal: $skill"
+    tree=$(git ls-tree "$head" -- "$metadata") || fail "unreadable skill tree: $skill"
+    if [ -z "$tree" ]; then
+      remaining=$(git ls-tree -r --name-only "$head" -- "$skill/") || fail "unreadable removed skill tree: $skill"
+      [ -z "$remaining" ] || fail "incomplete skill removal: $skill"
       removed=true
       metadata="$work/removed-skill.md"
       git show "$base:$skill/SKILL.md" > "$metadata" 2>/dev/null || fail "missing previous skill: $skill"
+    else
+      git cat-file -e "$head:$metadata" 2>/dev/null || fail "unreadable skill object: $skill"
     fi
     source=$(provenance "$metadata" github-repo) || fail "missing source for $skill"
     ref=$(provenance "$metadata" github-ref) || fail "missing upstream ref for $skill"
@@ -117,15 +149,17 @@ while IFS= read -r dir; do
     { print }
     END { if (!inserted) { while ((getline line < entry)>0) print line; close(entry) } }
   ' "$snapshot" > "$work/$name.new"
-  [ "$(headings "$work/$name.new" "$version")" -eq 1 ] || fail "$name generated no visible release heading"
+  count=$(headings "$work/$name.new" "$version") || fail "unreadable generated headings: $name"
+  [ "$count" -eq 1 ] || fail "$name generated no visible release heading"
 done <<< "$plugins"
 # Validate every planned entry before changing any file.
 if [ "$mode" = write ]; then
+  : > "$work/plan"
   for planned in "$work/"*.new; do
     [ -f "$planned" ] || continue
     name=${planned##*/}; name=${name%.new}
-    mv "$planned" "plugins/$name/CHANGELOG.md"
-    printf 'Wrote %s changelog\n' "$name"
+    printf '%s\0%s\0' "plugins/$name/CHANGELOG.md" "$planned" >> "$work/plan"
   done
+  atomic_write_batch "$work/plan" true || fail 'changelog batch replacement failed'
 fi
 printf 'plugin changelog: %s checked %s changed version(s)\n' "$mode" "$changed"

@@ -183,6 +183,7 @@ retained_recovery() {
   [ -n "$before" ] && jq -e '.autoMergeRequest.commitBody=="Chosen body"' "$before" >/dev/null
 }
 check 'unresolved recovery retains the original merge settings for the operator' retained_recovery "$d"
+check 'incomplete CI observations retain the original merge settings for the operator' retained_recovery "$WORK/incomplete-runs"
 
 printf 'recheck observations: %s failure(s)\n' "$fail"
 [ "$fail" -eq 0 ]

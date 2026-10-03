@@ -106,6 +106,7 @@ export GH_HOST=github.com
 
 state=$(mktemp -d) || exit 2
 mkdir -p "$state/closed" "$state/rearm" || exit 2
+held_recovery=""
 
 # How long to wait for the reopened event's own workflow run before declining to re-arm.
 # Overridable so the self-test does not sleep.
@@ -153,6 +154,13 @@ settle() {
   for f in "$state/rearm"/*; do
     [ -e "$f" ] || continue
     n=${f##*/}
+    # An explicit CI hold stays manual; keep the saved settings without retrying a merge.
+    case " $held_recovery " in
+      *" $n "*)
+        echo "::error::#$n auto-merge remains held; original settings retained for the operator" >&2
+        recovery_failed=1
+        continue ;;
+    esac
     if ! before=$(cat "$state/rearm/$n/before"); then
       echo "::error::#$n recovery record is unreadable; inspect auto-merge by hand" >&2
       recovery_failed=1
@@ -584,7 +592,7 @@ while IFS=$'\t' read -r number title; do
   fi
   if ! await_fresh_check "$head_sha" "$check_baseline" || ! verify_reopened "$number" "$snapshot"; then
     echo "::error::#$number reopen is unverified: no fresh PR event or matching OPEN readback; auto-merge was NOT restored, because it could merge the PR on the pre-gate result."
-    rm -rf "$state/rearm/$number"
+    held_recovery="$held_recovery $number"
     failed=$((failed + 1))
     continue
   fi

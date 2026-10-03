@@ -94,6 +94,8 @@ command -v jq > /dev/null 2>&1 || {
   echo "recheck-open-prs: jq is required" >&2
   exit 2
 }
+# This repository's automation always addresses github.com, including recovery.
+export GH_HOST=github.com
 
 state=$(mktemp -d) || exit 2
 mkdir -p "$state/closed" "$state/rearm" || exit 2
@@ -112,46 +114,77 @@ CHECK_POLL_SECONDS=${RECHECK_CHECK_POLL_SECONDS:-3}
 # while older versions — including the one CI installs — report every line of its body as
 # unreachable, SC2317. A directive naming only one version's code passes here and fails there.
 settle() {
-  local f n st method headline body sha baseline
+  local original_status=$? f n st method headline body sha baseline before current recovery_failed=0
   for f in "$state/closed"/*; do
     [ -e "$f" ] || continue
     n=${f##*/}
-    st=$(gh pr view "$n" --repo "$repo" --json state --jq '.state' 2> /dev/null) || st=UNKNOWN
-    # UNKNOWN reopens too: an unreadable state is not evidence the PR is open, and reopening an
-    # already-open pull request costs nothing.
+    if ! before=$(cat "$f") || ! current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) \
+      || ! printf '%s' "$current" | jq -e --argjson before "$before" '
+        type=="object" and .number==$before.number and .headRefOid==$before.headRefOid and
+        .baseRefName==$before.baseRefName and .author.login==$before.author.login and
+        .isCrossRepository==$before.isCrossRepository and
+        (.state=="OPEN" or .state=="CLOSED" or .state=="MERGED")' >/dev/null; then
+      echo "::error::#$n recovery identity is unverified; inspect and reopen it by hand" >&2
+      recovery_failed=1
+      continue
+    fi
+    st=$(printf '%s' "$current" | jq -r '.state')
     if [ "$st" = "OPEN" ] || [ "$st" = "MERGED" ]; then
+      rm -f "$f"
       continue
     fi
     echo "recheck-open-prs: reopening #$n, left closed (state=$st)" >&2
-    gh pr reopen "$n" --repo "$repo" > /dev/null 2>&1 \
-      || echo "::error::#$n could not be reopened; reopen it by hand" >&2
+    # An ambiguous acknowledgement may have applied; only readback proves recovery.
+    gh pr reopen "$n" --repo "$repo" > /dev/null 2>&1 || true
+    if ! verify_reopened "$n" "$before"; then
+      echo "::error::#$n recovery reopen is unverified; reopen it by hand" >&2
+      recovery_failed=1
+    else
+      rm -f "$f"
+    fi
   done
   for f in "$state/rearm"/*; do
     [ -e "$f" ] || continue
     n=${f##*/}
-    st=$(gh pr view "$n" --repo "$repo" --json autoMergeRequest \
-      --jq 'if .autoMergeRequest == null then "none" else "armed" end' 2> /dev/null) || st=none
-    [ "$st" = "armed" ] && continue
-    method=$(cat "$state/rearm/$n/method" 2> /dev/null) || method=""
-    headline=$(cat "$state/rearm/$n/headline" 2> /dev/null) || headline=""
-    body=$(cat "$state/rearm/$n/body" 2> /dev/null) || body=""
-    sha=$(cat "$state/rearm/$n/sha" 2> /dev/null) || sha=""
-    baseline=$(cat "$state/rearm/$n/baseline" 2> /dev/null) || baseline=0
+    if ! before=$(cat "$state/rearm/$n/before"); then
+      echo "::error::#$n recovery record is unreadable; inspect auto-merge by hand" >&2
+      recovery_failed=1
+      continue
+    fi
+    # Already armed is insufficient: it must still match the original settings.
+    if verify_rearmed "$n" "$before"; then rm -rf "$f"; continue; fi
+    if ! verify_reopened "$n" "$before" || ! read_recovery "$n"; then
+      echo "::error::#$n auto-merge recovery state is unverified; inspect it by hand" >&2
+      recovery_failed=1
+      continue
+    fi
     # The same wait the main path performs, and for the same reason: arming auto-merge while the
     # pre-gate green is still the newest result can merge the PR before the new run exists.
     if ! await_fresh_check "$sha" "$baseline"; then
       echo "::error::#$n auto-merge was NOT restored: no pull_request run from the reopen appeared, and arming it now could merge the PR on the pre-gate result. Re-arm it by hand once its checks are running." >&2
+      recovery_failed=1
       continue
     fi
     echo "recheck-open-prs: restoring auto-merge on #$n" >&2
-    if ! verify_reopened "$n" "$(cat "$state/rearm/$n/before")"; then
+    if ! verify_reopened "$n" "$before"; then
       echo "::error::#$n auto-merge was NOT restored: reopened state moved or is unreadable." >&2
+      recovery_failed=1
       continue
     fi
-    rearm "$n" "$method" "$headline" "$body" "$sha" > /dev/null 2>&1 \
-      || echo "::error::#$n auto-merge could not be restored; re-arm it by hand" >&2
+    rearm "$n" "$method" "$headline" "$body" "$sha" > /dev/null 2>&1 || true
+    if ! verify_rearmed "$n" "$before"; then
+      echo "::error::#$n auto-merge recovery is unverified; re-arm it by hand" >&2
+      recovery_failed=1
+    else
+      rm -rf "$f"
+    fi
   done
-  rm -rf "$state"
+  if [ "$recovery_failed" -eq 0 ]; then
+    rm -rf "$state"
+  else
+    echo "::error::Unverified recovery; original settings retained in private records at $state" >&2
+  fi
+  [ "$original_status" -ne 0 ] || [ "$recovery_failed" -eq 0 ] || exit 1
 }
 
 # The highest WORKFLOW RUN id for a `pull_request` event at a commit, or 0 when it has none.
@@ -168,9 +201,47 @@ settle() {
 # "unknown". The parameters are GET fields rather than query text for the same reason as the
 # listing: a value spliced into the path could change which runs are counted.
 newest_pr_run() {
-  gh api --method GET "repos/${repo}/actions/runs" \
-    -f event=pull_request -f head_sha="$1" -F per_page=100 \
-    --jq '[.workflow_runs[].id] | max // 0' 2> /dev/null
+  local sha=$1 observation
+  observation=$(gh api --paginate --slurp --method GET "repos/${repo}/actions/workflows/ci.yaml/runs" \
+    -f event=pull_request -f head_sha="$sha" -F per_page=100) || return 1
+  printf '%s' "$observation" | jq -er --arg sha "$sha" --arg repo "$repo" '
+    def integer: type=="number" and .==floor and .>=0 and .<=9007199254740991;
+    if type=="array" and length>0 and all(.[];
+      type=="object" and (.total_count|integer) and (.workflow_runs|type=="array")) then
+      . as $pages | [.[].workflow_runs[]] as $runs |
+      if all($pages[]; .total_count==$pages[0].total_count) and
+        ($runs|length)==$pages[0].total_count and
+        all($runs[]; type=="object" and (.id|integer and .>0) and
+          .event=="pull_request" and .head_sha==$sha and
+          .path==".github/workflows/ci.yaml" and .repository.full_name==$repo) and
+        ($runs|map(.id)|unique|length)==($runs|length)
+      then ($runs|map(.id)|max // 0) else error("incomplete or mismatched CI runs") end
+    else error("invalid CI run observation") end'
+}
+
+# Every journal write is checked before close can clear the original merge request.
+save_recovery() {
+  local n=$1 before=$2 baseline=$3
+  mkdir -p "$state/rearm/$n" || return 1
+  printf '%s' "$before" > "$state/rearm/$n/before" || return 1
+  printf '%s' "$before" | jq -jr '.autoMergeRequest.mergeMethod // ""' > "$state/rearm/$n/method" || return 1
+  printf '%s' "$before" | jq -jr '.autoMergeRequest.commitHeadline // ""' > "$state/rearm/$n/headline" || return 1
+  printf '%s' "$before" | jq -jr '.autoMergeRequest.commitBody // ""' > "$state/rearm/$n/body" || return 1
+  printf '%s' "$before" | jq -jr '.headRefOid' > "$state/rearm/$n/sha" || return 1
+  printf '%s' "$baseline" > "$state/rearm/$n/baseline" || return 1
+}
+
+# Sentinel reads retain trailing newlines; cat's failure still propagates.
+# Dynamic caller locals are intentional: both main and recovery use these values.
+read_recovery() {
+  local n=$1
+  method=$(cat "$state/rearm/$n/method") || return 1
+  headline=$(cat "$state/rearm/$n/headline" && printf x) || return 1
+  headline=${headline%x}
+  body=$(cat "$state/rearm/$n/body" && printf x) || return 1
+  body=${body%x}
+  sha=$(cat "$state/rearm/$n/sha") || return 1
+  baseline=$(cat "$state/rearm/$n/baseline") || return 1
 }
 
 # Block until a `pull_request` workflow run newer than $2 exists at commit $1. Auto-merge means "merge once the
@@ -235,8 +306,7 @@ rearm() {
   set -- "$n" --repo "$repo" --auto "$flag" --match-head-commit "$sha"
   # A rebase carries no commit message of its own, so those flags apply to the other two only.
   if [ "$flag" != "--rebase" ]; then
-    [ -z "$headline" ] || set -- "$@" --subject "$headline"
-    [ -z "$body" ] || set -- "$@" --body "$body"
+    set -- "$@" --subject "$headline" --body "$body"
   fi
   gh pr merge "$@"
 }
@@ -358,10 +428,20 @@ trap settle EXIT
 # Auto-merge is deliberately NOT read here. A snapshot taken now could be minutes old by the time
 # a given PR is processed, and re-arming from it would restore an auto-merge someone disabled in
 # between — a merge nobody asked for. It is read per PR, immediately before closing.
-if ! prs=$(gh api --paginate --method GET "repos/${repo}/pulls" \
-  -f state=open -f base="$base" -F per_page=100 \
-  --jq '.[]|[(.number|tostring), (.title // "")]|@tsv'); then
+if ! gh api --paginate --slurp --method GET "repos/${repo}/pulls" \
+  -f state=open -f base="$base" -F per_page=100 > "$state/inventory"; then
   echo "recheck-open-prs: could not list open pull requests" >&2
+  exit 2
+fi
+if ! jq -es --arg repo "$repo" --arg base "$base" '
+  length==1 and (.[0] | type=="array" and length>0 and all(.[]; type=="array") and
+  ([.[][]] | all(.[]; type=="object" and
+    (.number|type=="number" and .>0 and .==floor and .<=9007199254740991) and
+    (.title|type=="string") and .state=="open" and
+    .base.ref==$base and .base.repo.full_name==$repo) and
+    (map(.number)|unique|length)==length))' "$state/inventory" >/dev/null \
+  || ! prs=$(jq -r '.[][]|[(.number|tostring),.title]|@tsv' "$state/inventory"); then
+  echo "recheck-open-prs: open pull request inventory is malformed or contradictory; no PR was changed" >&2
   exit 2
 fi
 
@@ -426,7 +506,8 @@ while IFS=$'\t' read -r number title; do
     (.baseRefOid | type=="string" and test("^[0-9a-f]{40}$")) and
     (.autoMergeRequest==null or (.autoMergeRequest | type=="object" and
       (.mergeMethod=="MERGE" or .mergeMethod=="REBASE" or .mergeMethod=="SQUASH") and
-      (.commitHeadline | .==null or type=="string") and (.commitBody | .==null or type=="string")))' >/dev/null; then
+      (.commitHeadline | .==null or (type=="string" and (contains("\u0000")|not))) and
+      (.commitBody | .==null or (type=="string" and (contains("\u0000")|not)))))' >/dev/null; then
     echo "::error::#$number identity or auto-merge strategy is unknown; left untouched"
     failed=$((failed + 1))
     continue
@@ -462,21 +543,25 @@ while IFS=$'\t' read -r number title; do
   if [ "$automerge" = "armed" ]; then
     # Capture the strategy and commit metadata before the close clears the request, so the
     # restore puts back what was there rather than a default squash.
-    mkdir -p "$state/rearm/$number"
-    printf '%s' "$snapshot" > "$state/rearm/$number/before"
-    printf '%s' "$snapshot" | jq -r '.autoMergeRequest.mergeMethod // ""' > "$state/rearm/$number/method"
-    printf '%s' "$snapshot" | jq -r '.autoMergeRequest.commitHeadline // ""' > "$state/rearm/$number/headline"
-    printf '%s' "$snapshot" | jq -r '.autoMergeRequest.commitBody // ""' > "$state/rearm/$number/body"
-    head_sha=$(printf '%s' "$snapshot" | jq -r '.headRefOid // ""')
-    printf '%s' "$head_sha" > "$state/rearm/$number/sha"
-    printf '%s' "$check_baseline" > "$state/rearm/$number/baseline"
+    if ! save_recovery "$number" "$snapshot" "$check_baseline"; then
+      echo "::error::#$number recovery record could not be saved; left untouched"
+      rm -rf "$state/rearm/$number"
+      failed=$((failed + 1))
+      continue
+    fi
   fi
 
   # Close and reopen produce the `reopened` event that resolves a fresh merge ref. The head is
   # untouched, so a green review at the current head stays current. The record is written first
   # and is NOT removed when the close reports failure: a close can be applied and still report
   # one, and only the trap's read of the real state can tell those apart.
-  : > "$state/closed/$number"
+  if ! printf '%s' "$snapshot" > "$state/closed/$number"; then
+    echo "::error::#$number close recovery record could not be saved; left untouched"
+    rm -f "$state/closed/$number"
+    rm -rf "$state/rearm/$number"
+    failed=$((failed + 1))
+    continue
+  fi
   if ! gh pr close "$number" --repo "$repo" > /dev/null; then
     echo "::error::#$number could not be closed; skipped without re-triggering"
     failed=$((failed + 1))
@@ -497,10 +582,7 @@ while IFS=$'\t' read -r number title; do
   rm -f "$state/closed/$number"
 
   if [ "$automerge" = "armed" ]; then
-    method=$(cat "$state/rearm/$number/method" 2> /dev/null) || method=""
-    headline=$(cat "$state/rearm/$number/headline" 2> /dev/null) || headline=""
-    body=$(cat "$state/rearm/$number/body" 2> /dev/null) || body=""
-    if ! rearm "$number" "$method" "$headline" "$body" "$head_sha" > /dev/null ||
+    if ! read_recovery "$number" || ! rearm "$number" "$method" "$headline" "$body" "$head_sha" > /dev/null ||
        ! verify_rearmed "$number" "$snapshot"; then
       # Left in the rearm set on purpose: once the close has cleared the request, a later run
       # cannot tell that this PR ever had auto-merge armed, so the obligation has to survive

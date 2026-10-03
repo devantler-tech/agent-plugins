@@ -147,6 +147,9 @@ jobs:
         # stubbed on PATH, so nothing reaches the network or touches a real pull request.
         run: ./scripts/recheck-open-prs.test.sh
 
+      - name: 🧪 Verify PR recheck observations and recovery
+        run: bash scripts/recheck-open-prs-observations.test.sh
+
       - name: 🧪 Self-test head-checked PR base refreshes
         run: bash scripts/recheck-open-prs-base-refresh.test.sh
 

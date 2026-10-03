@@ -52,19 +52,26 @@ verb="\$1 \$2"
 # The paginated listing. Asserted on shape as well as content: the query must be passed as GET
 # fields, never spliced into the path, or a branch name containing & or # would select something
 # else entirely.
-if [ "\$1" = "api" ] && case "\$*" in *actions/runs*) true;; *) false;; esac; then
+if [ "\$1" = "api" ] && case "\$*" in *actions/*runs*) true;; *) false;; esac; then
   printf '%s\n' "api actions/runs \$*" >> "\$log"
   [ -f "\$db/checkfail" ] && exit 1
   # A NEW pull_request workflow run id. A rerun of an existing run would not move this, which is
   # exactly the distinction the script relies on.
-  printf '%s\n' "\$(cat "\$db/checkbump" 2>/dev/null || printf '0')"
+  id=\$(cat "\$db/checkbump" 2>/dev/null || printf '0')
+  sha=""
+  for arg in "\$@"; do case "\$arg" in head_sha=*) sha=\${arg#head_sha=} ;; esac; done
+  jq -nc --arg sha "\$sha" --argjson id "\$id" \
+    '[{total_count:(if \$id==0 then 0 else 1 end),workflow_runs:(if \$id==0 then [] else [{id:\$id,event:"pull_request",head_sha:\$sha,path:".github/workflows/ci.yaml",repository:{full_name:"owner/name"}}] end)}]'
   exit 0
 fi
 
 if [ "\$verb" = "api --paginate" ]; then
   printf '%s\n' "api \$*" >> "\$log"
   [ -f "$dir/listing-fails" ] && exit 1
-  cat "$dir/listing.tsv"
+  query_base=main
+  for arg in "\$@"; do case "\$arg" in base=*) query_base=\${arg#base=} ;; esac; done
+  jq -Rn --arg base "\$query_base" \
+    '[inputs|select(length>0)|split("\\t")|.[0] as \$n|{number:(\$n|try tonumber catch \$n),title:.[1],state:"open",base:{ref:\$base,repo:{full_name:"owner/name"}}}]|if length==0 then [[]] else [_nwise(100)] end' < "$dir/listing.tsv"
   exit 0
 fi
 
@@ -164,7 +171,8 @@ EOF
 run_script() {
   local dir="$1"
   shift
-  env PATH="$dir/bin:$PATH" RECHECK_CHECK_WAIT_SECONDS=2 RECHECK_CHECK_POLL_SECONDS=1 \
+  mkdir -p "$dir/temp"
+  env PATH="$dir/bin:$PATH" TMPDIR="$dir/temp" RECHECK_CHECK_WAIT_SECONDS=2 RECHECK_CHECK_POLL_SECONDS=1 \
     "$SCRIPT" --repo owner/name "$@" 2>&1
 }
 
@@ -172,7 +180,8 @@ run_script() {
 run_raw() {
   local dir="$1"
   shift
-  env PATH="$dir/bin:$PATH" RECHECK_CHECK_WAIT_SECONDS=2 RECHECK_CHECK_POLL_SECONDS=1 \
+  mkdir -p "$dir/temp"
+  env PATH="$dir/bin:$PATH" TMPDIR="$dir/temp" RECHECK_CHECK_WAIT_SECONDS=2 RECHECK_CHECK_POLL_SECONDS=1 \
     "$SCRIPT" "$@" 2>&1
 }
 

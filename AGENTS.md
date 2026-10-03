@@ -309,6 +309,9 @@ bash scripts/plugin-changelog.test.sh
 #     Those digests have a writer: refresh them rather than hand-editing, or the next
 #     agent-skills sync force-pushes the hand edit away. --check reports without writing.
 #     The writer completes every inventory and digest before its first resource write;
+#     independently verifies the direct resource inventory, refuses linked roots and
+#     repeated declaration paths, checks declaration shapes and unique asset paths,
+#     and binds each runtime asset's executable permission to its declaration.
 #     failed observations or missing targets leave all resources unchanged.
 ./scripts/refresh-desired-state-digests.sh --check
 bash scripts/generated-write-safety.test.sh # resource refusal and failed batch-write recovery

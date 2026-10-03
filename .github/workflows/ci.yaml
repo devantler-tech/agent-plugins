@@ -189,7 +189,11 @@ jobs:
         # a copy of this tree, keeps the two hashing rules distinct (definition files
         # normalize CRLF, executed runtime assets do not), and proves every unresolvable
         # digest fails closed rather than being written wrong.
-        run: ./scripts/refresh-desired-state-digests.test.sh
+        run: |
+          result=0
+          ./scripts/refresh-desired-state-digests.test.sh || result=1
+          bash scripts/digest-declarations.test.sh || result=1
+          exit "$result"
 
       - name: 🧪 Verify generated-write recovery
         run: bash scripts/generated-write-safety.test.sh

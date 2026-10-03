@@ -45,7 +45,7 @@ if [ "$#" -gt 1 ]; then
   exit 2
 fi
 
-for tool in jq perl awk; do
+for tool in jq perl awk sort cmp; do
   command -v "$tool" > /dev/null 2>&1 || {
     echo "::error::refresh-desired-state-digests: required tool not found: $tool" >&2
     exit 2
@@ -67,6 +67,35 @@ if ! find plugins \( -type f -o -type l \) -path '*/resources/*.desired-state.js
   echo '::error::desired-state resource inventory failed; refusing all writes.' >&2
   exit 2
 fi
+# Shell expansion supplies an independent, direct-layout inventory. A successful
+# prefix from find is not proof that every desired-state resource was observed.
+: > "$work/expected"
+shopt -s nullglob
+[ -d plugins ] && [ ! -L plugins ] || { echo '::error::linked or missing plugin root.' >&2; exit 2; }
+for plugin_root in plugins/*; do
+  [ -d "$plugin_root" ] || [ -L "$plugin_root" ] || continue
+  [ ! -L "$plugin_root" ] && [[ ${plugin_root#plugins/} =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || {
+    echo '::error::linked or invalid plugin root; refusing all writes.' >&2; exit 2;
+  }
+  [ ! -L "$plugin_root/resources" ] || { echo '::error::linked resource directory; refusing all writes.' >&2; exit 2; }
+  for expected_resource in "$plugin_root"/resources/*.desired-state.json; do
+    [[ $expected_resource != *[[:cntrl:]]* ]] || { echo '::error::invalid resource inventory path.' >&2; exit 2; }
+    printf '%s\n' "$expected_resource" >> "$work/expected"
+  done
+done
+shopt -u nullglob
+: > "$work/observed"
+resource=''
+while IFS= read -r -d '' resource; do
+  [[ $resource != *[[:cntrl:]]* ]] || { echo '::error::invalid resource inventory path.' >&2; exit 2; }
+  printf '%s\n' "$resource" >> "$work/observed"
+done < "$work/resources"
+[ -z "$resource" ] || { echo '::error::unterminated desired-state resource inventory.' >&2; exit 2; }
+LC_ALL=C sort "$work/expected" > "$work/expected-sorted" || exit 2
+LC_ALL=C sort "$work/observed" > "$work/observed-sorted" || exit 2
+cmp -s "$work/expected-sorted" "$work/observed-sorted" || {
+  echo '::error::desired-state resource inventory is incomplete or inconsistent; refusing all writes.' >&2; exit 2;
+}
 : > "$work/changes"
 drift=0
 missing=0
@@ -110,6 +139,39 @@ while IFS= read -r -d '' resource; do
     echo "::error::$resource: not valid JSON — refusing to rewrite" >&2
     missing=1
     continue
+  fi
+  # Completed streaming paths catch repeated values and containers before
+  # normal object decoding can collapse their declarations.
+  if ! jq --stream -es '
+      reduce .[] as $event ({complete:{}, valid:true};
+        if ($event|length)==2 then
+          .complete as $complete | $event[0] as $path |
+          .valid = (.valid and (any(range(0;($path|length)+1);
+            $complete[($path[0:.]|tojson)]==true)|not)) |
+          .complete[($path|tojson)] = true
+        else .complete[($event[0][0:-1]|tojson)] = true end) | .valid
+    ' "$resource" >/dev/null ||
+     ! jq -e '
+       def digest_fields: all(to_entries[]; if (.key|endswith("Sha256")) then (.value|type)=="string" else true end);
+       (.spec|type)=="object" and
+       (if .spec|has("source") then
+          (.spec.source|type)=="object" and (.spec.source|digest_fields) and
+          (if .spec.source|has("entrypoint") then (.spec.source.entrypoint|type)=="string" else true end) and
+          (if .spec.source|has("requiredRuntimeAssets") then
+             (.spec.source.requiredRuntimeAssets|type)=="array" and
+             all(.spec.source.requiredRuntimeAssets[]; type=="object" and
+               ((.path // "")|type)=="string" and (.sha256|type)=="string" and (.executable|type)=="boolean")
+           else true end)
+        else true end) and
+       (if .spec|has("roles") then (.spec.roles|type)=="object" and
+          all(.spec.roles[]; type=="object" and digest_fields) else true end)
+     ' "$resource" >/dev/null; then
+    echo "::error::$resource: invalid or duplicate digest declaration; refusing all writes." >&2
+    exit 1
+  fi
+  if ! jq -e '(.spec.source.requiredRuntimeAssets // []) | map(.path) | length == (unique|length)' "$resource" >/dev/null; then
+    echo "::error::$resource: duplicate runtime asset declaration; refusing all writes." >&2
+    exit 1
   fi
 
   # plugins/<name>/resources/<file>.desired-state.json -> plugins/<name>
@@ -205,6 +267,12 @@ while IFS= read -r -d '' resource; do
       missing=1
       continue
     fi
+    executable=$(jq -r --arg path "$asset_path" '.spec.source.requiredRuntimeAssets[] | select(.path==$path) | .executable' "$resource") || exit 1
+    if { [ "$executable" = true ] && [ ! -x "$plugin_dir/$asset_path" ]; } ||
+       { [ "$executable" = false ] && [ -x "$plugin_dir/$asset_path" ]; }; then
+      echo "::error::$resource: runtime asset executable permissions differ from its declaration; refusing all writes." >&2
+      exit 1
+    fi
     if ! value=$(sha256_bytes "$plugin_dir/$asset_path") || [[ ! "$value" =~ ^[0-9a-f]{64}$ ]]; then
       echo "::error::$resource: runtime asset digest could not be observed; refusing all writes." >&2
       exit 1
@@ -272,7 +340,7 @@ fi
 if [ "$mode" = "write" ]; then
   atomic_write_batch "$work/changes" || exit 1
   while IFS= read -r -d '' resource; do
-    IFS= read -r -d '' staged <&0 || exit 1
+    IFS= read -r -d '' _staged <&0 || exit 1
     echo "✓ refreshed $resource"
   done < "$work/changes"
 fi

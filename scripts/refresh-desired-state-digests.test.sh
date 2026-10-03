@@ -197,7 +197,7 @@ else ko "a runtime asset with a digest but no path fails closed (rc=$rc)"; fi
 # A missing hasher is an environment failure (exit 2), not a claim that a present file is absent.
 d=$(fresh); make_fixture "$d"
 mkdir -p "$d/onlybin"
-for t in bash env jq perl awk find sort dirname; do
+for t in bash env jq perl awk find sort cmp dirname; do
   real=$(command -v "$t" 2> /dev/null) && ln -sf "$real" "$d/onlybin/$t"
 done
 ( cd "$d" && PATH="$d/onlybin" "$REFRESH" > "$d/out" 2>&1 ); rc=$?

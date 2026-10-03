@@ -13,10 +13,12 @@ SCRIPT="$HERE/recheck-open-prs.sh"
 pass=0
 fail=0
 
+# Record a successful behavioral assertion.
 ok() {
   echo "  ✓ $1"
   pass=$((pass + 1))
 }
+# Record a failed assertion and its diagnostic output without ending the suite.
 bad() {
   echo "  ✗ $1"
   shift
@@ -168,6 +170,7 @@ EOF
   : > "$dir/calls.log"
 }
 
+# Run the production entrypoint against one stateful fixture repository.
 run_script() {
   local dir="$1"
   shift
@@ -185,6 +188,7 @@ run_raw() {
     "$SCRIPT" "$@" 2>&1
 }
 
+# Count forge requests recorded by the fixture.
 calls() { awk 'END { print NR }' "$1/calls.log"; }
 # Left closed? The stub's own state, not an inference from the call log.
 count_state() {
@@ -194,7 +198,9 @@ count_state() {
   done
   printf '%s' "$c"
 }
+# Count fixture PRs that remain closed after the entrypoint exits.
 left_closed() { count_state "$1/db" closed-; }
+# Count fixture PRs whose auto-merge request remains armed.
 armed_count() { count_state "$1/db" am-; }
 
 TWO_PRS=$'11\tfirst\n22\tsecond\n'

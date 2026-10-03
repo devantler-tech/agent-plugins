@@ -112,6 +112,7 @@ exit 3
 EOF
 chmod +x "$work/bin/gh"
 export FIXTURE="$work" BASE="$base" HEAD="$head" UPDATED="$updated" LATER="$later" ORIGINAL="$original"
+# Exercise branch refresh with real Git ancestry and verify the resulting PR state.
 run_case() {
   local mode=$1 expected=$2 rc=0
   export MODE="$mode"

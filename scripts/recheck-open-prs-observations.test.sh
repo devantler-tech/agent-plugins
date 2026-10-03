@@ -6,6 +6,7 @@ SCRIPT=${RECHECK_SCRIPT:-$HERE/recheck-open-prs.sh}
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 fail=0
+# Create an isolated, stateful forge fixture for one observation or recovery case.
 make_case() {
   local dir=$1 mode=$2
   mkdir -p "$dir/bin" "$dir/db" "$dir/temp"
@@ -26,6 +27,7 @@ for arg in "$@"; do
   previous=$arg
 done
 if "$slurp" && ! "$paginate"; then exit 2; fi
+# Return the same raw or projected response shape requested from the fixture.
 emit() {
   if [ -n "$filter" ]; then jq -r "$filter"; elif "$slurp"; then jq -s .; else cat; fi
 }
@@ -90,6 +92,7 @@ exit 2
 STUB
   chmod +x "$dir/bin/gh"
 }
+# Run the production entrypoint with fixture-only dependencies and capture its status.
 run_case() {
   local dir=$1
   shift
@@ -98,14 +101,31 @@ run_case() {
     RECHECK_REAL_MKDIR="$(command -v mkdir)" RECHECK_CHECK_WAIT_SECONDS=1 RECHECK_CHECK_POLL_SECONDS=1 \
     bash "$SCRIPT" --repo owner/name "$@" 2>&1) || rc=$?
 }
+# Record each behavioral assertion without stopping later independent cases.
 check() {
   local name=$1
   shift
   if "$@"; then printf 'PASS %s\n' "$name"; else printf 'FAIL %s (exit=%s)\n%s\n' "$name" "$rc" "$out"; fail=$((fail+1)); fi
 }
+# Prove an invalid observation caused no forge mutations.
 no_mutations() { [ ! -s "$1/mutations" ]; }
+# Prove every request used this automation's designated forge.
 github_host_only() { ! grep -v '^github.com ' "$1/calls"; }
+# Prove an uncertain run observation refused to restore auto-merge.
 held_without_rearm() { [ "$rc" -ne 0 ] && ! jq -e '.autoMergeRequest!=null' "$1/db/pr.json" >/dev/null; }
+
+d="$WORK/imprecise-jq"; make_case "$d" good
+cat > "$d/bin/jq" <<'STUB'
+#!/usr/bin/env bash
+# Model a valid jq executable whose numeric parser rounds fractional counts.
+case "$*" in *1.000000000000000001*) printf 'false\n'; exit 1 ;; esac
+exec "$RECHECK_REAL_JQ" "$@"
+STUB
+chmod +x "$d/bin/jq"
+RECHECK_REAL_JQ=$(command -v jq); export RECHECK_REAL_JQ
+run_case "$d" --dry-run
+check 'imprecise jq is rejected before any forge request' test "$rc" -eq 2
+check 'imprecise jq cannot read or mutate any PR' test ! -e "$d/calls"
 
 d="$WORK/host"; make_case "$d" good; run_case "$d" --dry-run
 check 'github.com is the explicit forge for every request' github_host_only "$d"
@@ -156,6 +176,7 @@ check 'failed recovery journal prevents closing the PR' no_mutations "$d"
 d="$WORK/recovery"; make_case "$d" recovery-noop; run_case "$d"
 check 'acknowledged recovery reopen is read back before reporting recovery' awk \
   '/pr reopen/ {seen=1; verified=0} seen && /pr view .*--json state/ {verified=1} END {exit !verified}' "$d/calls"
+# Verify unresolved recovery keeps the operator's original settings on disk.
 retained_recovery() {
   local before
   before=$(find "$1/temp" -name before -type f) || return 1

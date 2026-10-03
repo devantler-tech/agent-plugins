@@ -44,6 +44,7 @@
 # be, 2 on a usage or environment error.
 set -uo pipefail
 
+# Explain the supported invocation and report a usage error.
 usage() {
   cat >&2 <<'EOF'
 usage: recheck-open-prs.sh --repo OWNER/NAME [--base BRANCH] [--dry-run]
@@ -94,6 +95,12 @@ command -v jq > /dev/null 2>&1 || {
   echo "recheck-open-prs: jq is required" >&2
   exit 2
 }
+# Probe the needed behavior rather than a version: Apple jq 1.7 preserves decimals
+# but does not expose have_decnum. Rounded input cannot safely validate run counts.
+if ! jq -ner '1.000000000000000001|tojson=="1.000000000000000001"' > /dev/null 2>&1; then
+  echo "recheck-open-prs: jq must preserve decimal-number spelling" >&2
+  exit 2
+fi
 # This repository's automation always addresses github.com, including recovery.
 export GH_HOST=github.com
 
@@ -279,6 +286,7 @@ verify_reopened() {
     .author.login==$before.author.login and .isCrossRepository==$before.isCrossRepository' >/dev/null
 }
 
+# Verify the original merge strategy and metadata from a fresh identity-bound read.
 verify_rearmed() {
   local n=$1 before=$2 current
   current=$(gh pr view "$n" --repo "$repo" --json state,autoMergeRequest,headRefOid,baseRefOid,baseRefName,number,author,isCrossRepository) || return 1

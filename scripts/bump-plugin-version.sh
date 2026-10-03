@@ -24,6 +24,7 @@ COPILOT_MANIFEST=".github/plugin/marketplace.json"
 
 # shellcheck source=scripts/plugin-version.lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/plugin-version.lib.sh"
+plugin_version_git_context
 # shellcheck source=scripts/atomic-write.lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/atomic-write.lib.sh"
 
@@ -31,20 +32,27 @@ COPILOT_MANIFEST=".github/plugin/marketplace.json"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 : > "$work/changes"
+for directory in .claude-plugin .github .github/plugin; do
+  if [ ! -d "$directory" ] || [ -L "$directory" ]; then
+    echo '::error::Manifest parent must be a real checkout directory.' >&2; exit 1
+  fi
+done
 for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
   [ -f "$manifest" ] && [ ! -L "$manifest" ] || exit 1
   jq -es 'length==1 and (.[0] | type == "object" and (.plugins | type == "array"))' "$manifest" >/dev/null || exit 1
   cp "$manifest" "$work/$(basename "$(dirname "$manifest")").json"
 done
 
+# Validate one plugin's four-manifest parity and stage its increment without changing the checkout.
 plan_one() {
-  local name="$1" level="$2" dir="plugins/$1" current new manifest staged entry
+  local name="$1" level="$2" dir="plugins/$1" current new manifest staged entry observed
   [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { echo '::error::Invalid plugin identity.' >&2; return 1; }
-  current=$(jq -er '.version | select(type == "string")' "$dir/.claude-plugin/plugin.json") || return 1
-  plugin_version_valid "$current" || { echo '::error::Invalid cache version.' >&2; return 1; }
+  plugin_version_local_parents "$name" || return 1
+  current=$(plugin_version_read "$dir/.claude-plugin/plugin.json" "$name") || return 1
   for manifest in "$dir/plugin.json" "$dir/.claude-plugin/plugin.json"; do
     [ -f "$manifest" ] && [ ! -L "$manifest" ] || return 1
-    jq -es --arg n "$name" --arg v "$current" 'length==1 and (.[0] | .name == $n and .version == $v)' "$manifest" >/dev/null || {
+    observed=$(plugin_version_read "$manifest" "$name") || return 1
+    [ "$observed" = "$current" ] || {
       echo "::error::$manifest: plugin identity or version parity is invalid; no manifests were changed." >&2
       return 1
     }
@@ -81,22 +89,27 @@ main() {
   if [ "${1:-}" = "--changed-since" ]; then
     local base="${2:?--changed-since needs a base ref}"
     level="${3:-patch}"
-    local base_sha
-    if ! base_sha=$(git merge-base "$base" HEAD 2>/dev/null); then
+    local base_sha head_sha
+    plugin_version_history || return 1
+    head_sha=$(git rev-parse --verify 'HEAD^{commit}') || return 1
+    if ! base_sha=$(git merge-base --all "$base" "$head_sha" 2>/dev/null) ||
+       ! [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]]; then
       echo "::error::Cannot resolve a merge base for '$base'...HEAD." >&2
       exit 1
     fi
     # Complete all observations before bump_one writes any manifest. A failed
     # producer may have emitted a plausible prefix; that prefix is not a census.
-    local plugin_dirs changed
-    if ! plugin_dirs=$(git ls-tree -d --name-only HEAD plugins/); then
+    local changed plugin_dir=''
+    if ! git ls-tree -d --name-only -z "$head_sha" plugins/ > "$work/inventory"; then
       echo "::error::Cannot enumerate plugins at HEAD; no versions were changed." >&2
       return 1
     fi
     plugins=""
-    while IFS= read -r plugin_dir; do
-      [ -n "$plugin_dir" ] || continue
-      if ! changed=$(git diff --name-only "$base_sha" HEAD -- "$plugin_dir/"); then
+    while IFS= read -r -d '' plugin_dir; do
+      [[ "$plugin_dir" =~ ^plugins/[a-z0-9]+(-[a-z0-9]+)*$ ]] || {
+        echo '::error::Unsupported plugin directory identity.' >&2; return 1;
+      }
+      if ! changed=$(git diff --no-ext-diff --no-textconv --no-relative --name-only "$base_sha" "$head_sha" -- "$plugin_dir/"); then
         echo "::error::Cannot inspect changed content for '$plugin_dir'; no versions were changed." >&2
         return 1
       fi
@@ -114,8 +127,9 @@ main() {
         echo "✓ ${plugin_dir#plugins/} is new — keeping its initial version"
         continue
       fi
-      base_v=$(git show "$base_sha:$plugin_dir/$manifest_rel" 2>/dev/null | jq -r '.version // empty') || return 1
-      head_v=$(jq -r '.version // empty' "$plugin_dir/$manifest_rel" 2>/dev/null)
+      base_v=$(plugin_version_at "$base_sha" "${plugin_dir#plugins/}") || return 1
+      plugin_version_local_parents "${plugin_dir#plugins/}" || return 1
+      head_v=$(plugin_version_read "$plugin_dir/$manifest_rel" "${plugin_dir#plugins/}") || return 1
       if [ -n "$base_v" ] && [ "$base_v" != "$head_v" ]; then
         plugin_version_increases "$base_v" "$head_v" || { echo '::error::Cache versions must increase.' >&2; return 1; }
         plan_one "${plugin_dir#plugins/}" keep || return 1
@@ -123,7 +137,8 @@ main() {
         continue
       fi
       plugins="$plugins ${plugin_dir#plugins/}"
-    done <<< "$plugin_dirs"
+    done < "$work/inventory"
+    [ -z "$plugin_dir" ] || { echo '::error::Unterminated plugin inventory.' >&2; return 1; }
     if [ -z "${plugins// /}" ]; then
       echo "✓ No plugin content changed since $base — nothing to bump"
       return 0

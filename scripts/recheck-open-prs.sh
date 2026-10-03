@@ -205,7 +205,8 @@ newest_pr_run() {
   observation=$(gh api --paginate --slurp --method GET "repos/${repo}/actions/workflows/ci.yaml/runs" \
     -f event=pull_request -f head_sha="$sha" -F per_page=100) || return 1
   printf '%s' "$observation" | jq -er --arg sha "$sha" --arg repo "$repo" '
-    def integer: type=="number" and .==floor and .>=0 and .<=9007199254740991;
+    # Keep the original numeric spelling: floor/equality can round a fraction.
+    def integer: type=="number" and (tojson|test("^(0|[1-9][0-9]*)$")) and .<=9007199254740991;
     if type=="array" and length>0 and all(.[];
       type=="object" and (.total_count|integer) and (.workflow_runs|type=="array")) then
       . as $pages | [.[].workflow_runs[]] as $runs |
@@ -436,7 +437,7 @@ fi
 if ! jq -es --arg repo "$repo" --arg base "$base" '
   length==1 and (.[0] | type=="array" and length>0 and all(.[]; type=="array") and
   ([.[][]] | all(.[]; type=="object" and
-    (.number|type=="number" and .>0 and .==floor and .<=9007199254740991) and
+    (.number|type=="number" and (tojson|test("^[1-9][0-9]*$")) and .<=9007199254740991) and
     (.title|type=="string") and .state=="open" and
     .base.ref==$base and .base.repo.full_name==$repo) and
     (map(.number)|unique|length)==length))' "$state/inventory" >/dev/null \

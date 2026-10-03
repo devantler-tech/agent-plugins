@@ -25,6 +25,7 @@ for arg in "$@"; do
   [ "$arg" != --paginate ] || paginate=true
   previous=$arg
 done
+if "$slurp" && ! "$paginate"; then exit 2; fi
 emit() {
   if [ -n "$filter" ]; then jq -r "$filter"; elif "$slurp"; then jq -s .; else cat; fi
 }
@@ -44,6 +45,7 @@ if [ "$1" = api ]; then
       if "$fresh" && [ "$mode" = wrong-workflow ]; then path=.github/workflows/other.yaml; fi
       if "$fresh" && [ "$mode" = wrong-head ]; then head=$(printf '%040d' 0 | tr 0 3); fi
       if "$fresh" && [ "$mode" = incomplete-runs ]; then count=2; fi
+      if "$fresh" && [ "$mode" = fractional-count ]; then count=1.000000000000000001; fi
       if "$fresh"; then
         jq -nc --arg path "$path" --arg head "$head" --argjson id "$id" --argjson count "$count" \
           '{total_count:$count,workflow_runs:[{id:$id,event:"pull_request",head_sha:$head,path:$path,repository:{full_name:"owner/name"}}]}' | emit
@@ -128,7 +130,7 @@ for mode in wrong-repository wrong-base nonpositive-number; do
   check "$mode inventory prevents all PR mutations" no_mutations "$d"
 done
 
-for mode in wrong-workflow wrong-head incomplete-runs; do
+for mode in wrong-workflow wrong-head incomplete-runs fractional-count; do
   d="$WORK/$mode"; make_case "$d" "$mode"; run_case "$d"
   check "$mode cannot authorize auto-merge" held_without_rearm "$d"
 done

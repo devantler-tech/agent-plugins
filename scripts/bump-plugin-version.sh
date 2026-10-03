@@ -33,9 +33,9 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 : > "$work/changes"
 for directory in .claude-plugin .github .github/plugin; do
-  [ -d "$directory" ] && [ ! -L "$directory" ] || {
-    echo '::error::Manifest parent must be a real checkout directory.' >&2; exit 1;
-  }
+  if [ ! -d "$directory" ] || [ -L "$directory" ]; then
+    echo '::error::Manifest parent must be a real checkout directory.' >&2; exit 1
+  fi
 done
 for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
   [ -f "$manifest" ] && [ ! -L "$manifest" ] || exit 1

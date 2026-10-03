@@ -11,7 +11,9 @@ plugin_version_history() {
   shallow=$(git rev-parse --is-shallow-repository) || return 1
   [ "$shallow" = false ] || { echo '::error::Complete Git history is required.' >&2; return 1; }
   grafts=$(git rev-parse --git-path info/grafts) || return 1
-  [ -n "$grafts" ] && [ ! -s "$grafts" ] || { echo '::error::Grafted history is unsupported.' >&2; return 1; }
+  if [ -z "$grafts" ] || [ -s "$grafts" ]; then
+    echo '::error::Grafted history is unsupported.' >&2; return 1
+  fi
   # shellcheck source=scripts/complete-clone.lib.sh
   . "$plugin_version_library_dir/complete-clone.lib.sh"
   assert_complete_clone_config
@@ -33,9 +35,9 @@ plugin_version_read() {
 plugin_version_local_parents() {
   local name=$1 directory
   for directory in plugins "plugins/$name" "plugins/$name/.claude-plugin"; do
-    [ -d "$directory" ] && [ ! -L "$directory" ] || {
-      echo '::error::Manifest parent must be a real checkout directory.' >&2; return 1;
-    }
+    if [ ! -d "$directory" ] || [ -L "$directory" ]; then
+      echo '::error::Manifest parent must be a real checkout directory.' >&2; return 1
+    fi
   done
 }
 plugin_version_at() {

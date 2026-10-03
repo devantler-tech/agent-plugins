@@ -43,6 +43,7 @@ for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
   cp "$manifest" "$work/$(basename "$(dirname "$manifest")").json"
 done
 
+# Validate one plugin's four-manifest parity and stage its increment without changing the checkout.
 plan_one() {
   local name="$1" level="$2" dir="plugins/$1" current new manifest staged entry observed
   [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { echo '::error::Invalid plugin identity.' >&2; return 1; }

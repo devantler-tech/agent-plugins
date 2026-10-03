@@ -7,7 +7,9 @@ trap 'rm -rf "$work"' EXIT
 real_git=$(command -v git)
 export REAL_GIT="$real_git"
 fail=0
+# Accumulate a labelled assertion without hiding later failures in the same suite.
 check() { if "$@"; then printf 'PASS %s\n' "$label"; else printf 'FAIL %s\n' "$label"; fail=$((fail+1)); fi; }
+# Create an independent two-plugin repository with a complete, ordinary baseline.
 fresh() {
   d=$(mktemp -d "$work/repo.XXXXXX")
   git -C "$d" init -q --initial-branch=main
@@ -26,9 +28,21 @@ fresh() {
   git -C "$d" commit -qm base
   git -C "$d" checkout -qb feature
 }
+# Commit only the fixture's plugin and marketplace paths at the current branch.
 commit() { git -C "$d" add plugins .claude-plugin .github; git -C "$d" commit -qm change; }
+# Capture the real guard's status and output against this fixture's main and HEAD.
 run_gate() { rc=0; (cd "$d" && bash "$here/check-plugin-version-bump.sh" main HEAD) > "$work/out" 2> "$work/err" || rc=$?; }
+# Capture the real changed-since writer's status and output without exiting the test.
 run_writer() { rc=0; (cd "$d" && bash "$here/bump-plugin-version.sh" --changed-since main) > "$work/out" 2> "$work/err" || rc=$?; }
+# Snapshot actual preservation evidence independently of Git's index and ancestry.
+preservation_snapshot() {
+  {
+    find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec shasum {} +
+    find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type l \
+      -exec bash -c 'printf "%s -> %s\n" "$1" "$(readlink "$1")"' _ {} \;
+    if [ -f "$d/alternate.json" ]; then shasum "$d/alternate.json"; fi
+  } | LC_ALL=C sort
+}
 for tool in gate writer; do
   fresh; printf 'changed\n' > "$d/plugins/alpha/body.md"; commit
   replacement=$(printf 'replacement\n' | git -C "$d" commit-tree "$(git -C "$d" rev-parse 'main^{tree}')" -p main)
@@ -120,9 +134,18 @@ for mode in repeated-head multi-head symlink-head shallow promisor; do
   esac
   run_gate; label="$mode evidence refuses gate clearance"; check test "$rc" -ne 0
   # Capture actual files independently of Git's ancestry and index interpretation.
-  before=$(find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec shasum {} + | LC_ALL=C sort)
+  before=$(preservation_snapshot)
+  if [ "$mode" = symlink-head ]; then
+    cp "$d/alternate.json" "$work/alternate-before"
+    printf 'changed target\n' > "$d/alternate.json"
+    label='preservation evidence detects changed symlink target contents'; check test "$before" != "$(preservation_snapshot)"
+    cp "$work/alternate-before" "$d/alternate.json"
+    ln -sf ../../../different.json "$d/plugins/alpha/.claude-plugin/plugin.json"
+    label='preservation evidence detects a changed symlink destination'; check test "$before" != "$(preservation_snapshot)"
+    ln -sf ../../../alternate.json "$d/plugins/alpha/.claude-plugin/plugin.json"
+  fi
   run_writer; label="$mode evidence refuses the writer"; check test "$rc" -ne 0
-  after=$(find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec shasum {} + | LC_ALL=C sort)
+  after=$(preservation_snapshot)
   label="$mode refusal preserves every manifest"; check test "$before" = "$after"
 done
 printf 'plugin version boundary regressions: %s failure(s)\n' "$fail"

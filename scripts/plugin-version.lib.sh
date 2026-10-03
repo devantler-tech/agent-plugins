@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Cache versions use the same bounded, canonical stable syntax as marketplace releases.
 plugin_version_library_dir=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+# Observe the current checkout without inherited repository selectors or object substitutions.
 plugin_version_git_context() {
   unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
     GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_NAMESPACE
   export GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 }
+# Require complete, original ancestry before computing a changed-content baseline.
 plugin_version_history() {
   local shallow grafts
   shallow=$(git rev-parse --is-shallow-repository) || return 1
@@ -18,6 +20,7 @@ plugin_version_history() {
   . "$plugin_version_library_dir/complete-clone.lib.sh"
   assert_complete_clone_config
 }
+# Print one canonical version only when the manifest has one identity and version key.
 plugin_version_read() {
   local file=$1 name=$2
   if ! jq -es -L "$plugin_version_library_dir" --arg n "$name" '
@@ -32,6 +35,7 @@ plugin_version_read() {
   fi
   jq -er '.version' "$file"
 }
+# Refuse parent-directory symlinks before planning any local manifest write.
 plugin_version_local_parents() {
   local name=$1 directory
   for directory in plugins "plugins/$name" "plugins/$name/.claude-plugin"; do
@@ -40,6 +44,7 @@ plugin_version_local_parents() {
     fi
   done
 }
+# Read a regular manifest blob from the specified original commit and retain read failures.
 plugin_version_at() {
   local commit=$1 name=$2 path="plugins/$2/.claude-plugin/plugin.json" entry file status=0
   entry=$(git ls-tree "$commit" -- "$path") || return 1
@@ -55,15 +60,18 @@ plugin_version_at() {
   rm -f "$file"
   return "$status"
 }
+# Return success only for the marketplace's supported stable version syntax.
 plugin_version_valid() {
   jq -en -L "$plugin_version_library_dir" --arg v "$1" 'include "marketplace-release"; $v | stable_version' >/dev/null
 }
+# Compare valid stable versions numerically; equal or decreasing versions fail.
 plugin_version_increases() {
   jq -en -L "$plugin_version_library_dir" --arg old "$1" --arg new "$2" '
     include "marketplace-release";
     ($old | stable_version) and ($new | stable_version)
     and (($new | split(".") | map(tonumber)) > ($old | split(".") | map(tonumber)))' >/dev/null
 }
+# Print the requested semantic increment only when the result remains in the supported range.
 plugin_version_next() {
   jq -ern -L "$plugin_version_library_dir" --arg v "$1" --arg level "$2" '
     include "marketplace-release";

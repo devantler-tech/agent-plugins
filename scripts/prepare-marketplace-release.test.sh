@@ -290,4 +290,18 @@ for query in extensions.partialClone promisor; do
     passed=$((passed+1))
   done
 done
+new_repo
+jq -c . "$repo/.github/plugin/marketplace.json" | sed 's/"version":/"version":"9.9.9","version":/' > "$work/duplicate"
+cp "$work/duplicate" "$repo/.github/plugin/marketplace.json"; cp "$work/duplicate" "$repo/.claude-plugin/marketplace.json"
+git -C "$repo" add -- .github/plugin/marketplace.json .claude-plugin/marketplace.json
+git -C "$repo" commit -qm 'chore: ambiguous manifest'
+reject 'repeated manifest version is ambiguous' initial
+for version in $'1.2.3\n' $'1.2.3\r\n'; do
+  new_repo
+  jq --arg version "$version" '.metadata.version=$version' "$repo/.github/plugin/marketplace.json" > "$work/change"
+  cp "$work/change" "$repo/.github/plugin/marketplace.json"; cp "$work/change" "$repo/.claude-plugin/marketplace.json"
+  git -C "$repo" add -- .github/plugin/marketplace.json .claude-plugin/marketplace.json
+  git -C "$repo" commit -qm 'chore: malformed cache version'
+  reject 'release version contains line terminator' initial
+done
 printf 'marketplace release preparation: PASS (%s cases)\n' "$passed"

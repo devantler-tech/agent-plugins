@@ -3,6 +3,8 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/json-object.lib.sh
+. "$here/json-object.lib.sh"
 # Refuse incomplete or unsafe input without reporting a delivered proposal.
 fail() { printf 'marketplace proposal: %s\n' "$*" >&2; exit 1; }
 repo='' source='' ci='' output='' armed=false
@@ -65,10 +67,12 @@ query='query($owner:String!,$name:String!,$baseline:String!,$tag:String!,$branch
 ci_snapshot() {
   if [ "$selection" = latest ]; then
     gh api --hostname github.com "repos/$repo/actions/workflows/ci.yaml/runs?branch=main&event=push&head_sha=$source&per_page=1" > "$temp/latest"
+    json_object_unique "$temp/latest" || fail 'ambiguous latest CI observation'
     latest=$(jq -esr 'if length==1 and (.[0]|.total_count>0 and (.workflow_runs|length==1) and (.workflow_runs[0].id|type=="number" and .>0 and floor==.)) then .[0].workflow_runs[0].id else error("latest CI identity incomplete") end' "$temp/latest")
     if [ "$ci" = latest ]; then ci=$latest; else [ "$ci" = "$latest" ] || fail 'latest CI identity changed'; fi
   fi
   gh api --hostname github.com "repos/$repo/actions/runs/$ci" > "$temp/ci"
+  json_object_unique "$temp/ci" || fail 'ambiguous CI observation'
   jq -es --arg repo "$repo" --arg source "$source" --argjson ci "$ci" 'length==1 and (.[0]|.id==$ci and .path==".github/workflows/ci.yaml" and .event=="push" and .status=="completed" and .conclusion=="success" and .head_branch=="main" and .head_sha==$source and .repository.full_name==$repo and .head_repository.full_name==$repo)' "$temp/ci" >/dev/null || fail 'exact successful main CI is required'
 }
 # Refuse any local tag-object change since candidate preparation.
@@ -82,12 +86,15 @@ snapshot() {
   local owned=${1:-}
   local_tags_unchanged
   gh api --hostname github.com "repos/$repo" > "$temp/repo"
+  json_object_unique "$temp/repo" || fail 'ambiguous repository observation'
   gh api graphql --hostname github.com --paginate --slurp -f query="$query" -f owner="${repo%%/*}" -f name="${repo#*/}" -f baseline="$base_tag" -f tag="$(if [ -n "$version" ]; then printf '%s' "$tag"; else printf '%s' '__no_candidate__'; fi)" -f branch="refs/heads/$branch" > "$temp/pages"
+  json_value_unique "$temp/pages" || fail 'ambiguous proposal page observation'
   jq -es 'length==1 and (.[0]|type=="array")' "$temp/pages" >/dev/null || fail 'incomplete page stream'
   jq -e -L "$here" 'include "marketplace-proposal"; length>0 and all(.[]; .errors==null and (.data.repository.pullRequests|proposal_pr_inventory))' "$temp/pages" >/dev/null || fail 'complete PR file identities are required'
   jq -r '[.[].data.repository.pullRequests.nodes[]|select(any(.files.nodes[];.changeType=="RENAMED"))|.number]|unique|.[]' "$temp/pages" > "$temp/rename-requests"
   while IFS= read -r number; do
     gh api --hostname github.com --paginate --slurp "repos/$repo/pulls/$number/files?per_page=100" > "$temp/rename-files"
+    json_value_unique "$temp/rename-files" || fail 'ambiguous rename observation'
     jq -e -L "$here" --argjson number "$number" --slurpfile files "$temp/rename-files" 'include "marketplace-proposal"; proposal_rename_metadata($number;$files)' "$temp/pages" > "$temp/enriched-pages"
     mv "$temp/enriched-pages" "$temp/pages"
   done < "$temp/rename-requests"
@@ -114,6 +121,7 @@ writer_proof() {
   jq -e -L "$here" 'include "marketplace-permissions"; all(.[]; .data.repository|compatible_user_role)' "$temp/pages" >/dev/null || fail 'writer role projection is missing or incompatible'
   jq -n --arg tag "$tag" --arg source "$source" '{tag_name:$tag,target_commitish:$source}' > "$temp/proof-request"
   gh api --hostname github.com --method POST "repos/$repo/releases/generate-notes" --input "$temp/proof-request" > "$temp/proof"
+  json_object_unique "$temp/proof" || fail 'ambiguous writer capability observation'
   jq -es -L "$here" --arg repo "$repo" --slurpfile permission "$temp/repo" --slurpfile observation "$temp/before" 'include "marketplace-permissions"; .[0] as $proof | length==1 and ($permission|length==1) and ($permission[0]|native_writer_repository($repo;"main";$observation[0].repositoryId;$proof))' "$temp/proof" >/dev/null || fail 'native contents-write capability is unproven'
 }
 snapshot > "$temp/prewrite"
@@ -122,6 +130,7 @@ writer_proof
 jq -n --arg branch "$branch" --arg source "$source" '{ref:("refs/heads/"+$branch),sha:$source}' > "$temp/ref-request"
 attempted=true
 gh api --hostname github.com --method POST "repos/$repo/git/refs" --input "$temp/ref-request" > "$temp/ref-response"
+json_object_unique "$temp/ref-response" || fail 'ambiguous branch reservation response'
 jq -es --arg branch "$branch" --arg source "$source" 'length==1 and (.[0]|.ref==("refs/heads/"+$branch) and .object.type=="commit" and .object.sha==$source)' "$temp/ref-response" >/dev/null || fail 'branch reservation readback failed'
 snapshot "$source" > "$temp/reserved"
 cmp -s "$temp/before" "$temp/reserved" || fail 'remote state changed after branch reservation'
@@ -132,8 +141,10 @@ title="chore(release): prepare marketplace $version"
 mutation='mutation($input:CreateCommitOnBranchInput!) { createCommitOnBranch(input:$input) { commit { oid signature {isValid state} } } }'
 jq -n --arg query "$mutation" --arg repo "$repo" --arg branch "$branch" --arg source "$source" --arg title "$title" --rawfile a "$temp/reproduced/.github/plugin/marketplace.json" --rawfile b "$temp/reproduced/.claude-plugin/marketplace.json" '{query:$query,variables:{input:{branch:{repositoryNameWithOwner:$repo,branchName:$branch},expectedHeadOid:$source,message:{headline:$title},fileChanges:{additions:[{path:".github/plugin/marketplace.json",contents:($a|@base64)},{path:".claude-plugin/marketplace.json",contents:($b|@base64)}]}}}}' > "$temp/commit-request"
 gh api graphql --hostname github.com --method POST --input "$temp/commit-request" > "$temp/commit-response"
+json_object_unique "$temp/commit-response" || fail 'ambiguous signed commit response'
 commit=$(jq -esr 'if length==1 and (.[0]|.errors==null and (.data.createCommitOnBranch.commit|(.oid|test("^[0-9a-f]{40}$")) and .signature.isValid==true and .signature.state=="VALID")) then .[0].data.createCommitOnBranch.commit.oid else error("signed commit response missing") end' "$temp/commit-response")
 gh api --hostname github.com "repos/$repo/commits/$commit" > "$temp/commit-readback"
+json_object_unique "$temp/commit-readback" || fail 'ambiguous signature readback'
 jq -es --arg commit "$commit" 'length==1 and (.[0]|.sha==$commit and .commit.verification.verified==true and .commit.verification.reason=="valid")' "$temp/commit-readback" >/dev/null || fail 'independent signature readback failed'
 fetched_ref="refs/marketplace-proposal/$(basename "$temp")"
 git -c credential.helper= -c 'credential.helper=!gh auth git-credential' fetch --no-write-fetch-head "https://github.com/$repo.git" "+refs/heads/$branch:$fetched_ref" >&2
@@ -146,10 +157,13 @@ writer_proof
 printf '> 🤖 Generated by the Agentic Engineer\n\n## Why\n\nConsumers need a named marketplace version they can install and return to.\n\n## What\n\nPrepare the next marketplace release while keeping individual plugin versions independent. Review and publication remain separate steps.\n\nPart of #101\n' > "$temp/body"
 jq -n --arg title "$title" --arg branch "$branch" --rawfile body "$temp/body" '{title:$title,head:$branch,base:"main",draft:true,body:$body}' > "$temp/pr-request"
 gh api --hostname github.com --method POST "repos/$repo/pulls" --input "$temp/pr-request" > "$temp/pr-response"
+json_object_unique "$temp/pr-response" || fail 'ambiguous draft creation response'
 number=$(jq -esr 'if length==1 and (.[0].number|type=="number" and .>0 and floor==.) then .[0].number else error("draft identity missing") end' "$temp/pr-response")
 # shellcheck disable=SC2016 # GraphQL variables remain literal and are supplied separately.
 readback='query($owner:String!,$name:String!,$branch:String!,$number:Int!) { repository(owner:$owner,name:$name) { id nameWithOwner isArchived defaultBranchRef {name target {oid}} ref(qualifiedName:$branch) {name target {oid}} pullRequest(number:$number) {id number state isDraft author {login __typename ... on Bot {id}} headRefName headRefOid baseRefName baseRefOid headRepository {nameWithOwner} url title body} } }'
 gh api --hostname github.com "repos/$repo/pulls/$number" > "$temp/pr-native"
+json_object_unique "$temp/pr-native" || fail 'ambiguous native draft readback'
 gh api graphql --hostname github.com -f query="$readback" -f owner="${repo%%/*}" -f name="${repo#*/}" -f branch="refs/heads/$branch" -F number="$number" > "$temp/pr-readback"
+json_object_unique "$temp/pr-readback" || fail 'ambiguous draft readback'
 jq -es -L "$here" --arg repo "$repo" --arg node "$(jq -r .repositoryId "$temp/before")" --arg source "$source" --arg branch "$branch" --arg commit "$commit" --argjson number "$number" --arg title "$title" --rawfile body "$temp/body" --slurpfile native "$temp/pr-native" 'include "marketplace-proposal"; length==1 and (.[0]|proposal_readback($repo;$node;$source;$branch;$commit;$number;$title;$body;$native))' "$temp/pr-readback" >/dev/null || fail 'exact draft readback failed'
 jq -n --arg repo "$repo" --arg source "$source" --arg commit "$commit" --arg branch "$branch" --arg version "$version" --argjson number "$number" --argjson ci "$ci" '{status:"CREATED",sourceCommit:$source,proposalCommit:$commit,branch:$branch,version:$version,proposalNumber:$number,url:("https://github.com/"+$repo+"/pull/"+($number|tostring)),ciRunId:$ci,proposal:"DRAFT_READBACK_VERIFIED",publication:"NOT_AUTHORIZED"}'

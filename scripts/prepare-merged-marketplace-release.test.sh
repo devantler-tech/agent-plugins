@@ -25,6 +25,7 @@ count=$(awk -v endpoint="$endpoint" '$0==endpoint {n++} END {print n+0}' "$CALLS
 [ "$FAULT" != transport ] || exit 92
 if [ "$file" = latest ]; then
   case "$FAULT:$count" in
+    duplicate-latest:*) printf '{"total_count":1,"workflow_runs":[{"id":99}],"workflow_runs":[{"id":42}]}\n' ;;
     latest-empty:*) printf '{"total_count":0,"workflow_runs":[]}\n' ;;
     latest-malformed:*) printf '{}\n' ;;
     latest-trailing:*) printf '{}\n{}\n' ;;
@@ -34,6 +35,11 @@ if [ "$file" = latest ]; then
   esac
   exit 0
 fi
+case "$FAULT:$file" in
+  duplicate-repo:repo) jq -c . "$FORGE/$file" | sed 's/^{/{"full_name":"other\/catalogue",/'; exit 0 ;;
+  duplicate-ref:ref) jq -c . "$FORGE/$file" | sed 's/^{/{"object":{"type":"tag","sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},/'; exit 0 ;;
+  duplicate-ci:run) jq -c . "$FORGE/$file" | sed 's/^{/{"conclusion":"failure",/'; exit 0 ;;
+esac
 change=.
 case "$FAULT:$file:$count" in
   wrong-ci:run:*|ci-after:run:2) change='.head_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' ;;
@@ -154,4 +160,7 @@ for fault in latest-empty latest-malformed latest-trailing latest-invalid-id lat
 done
 fixture; CI_SELECTION=latest; FAULT=running; reject 'latest CI is pending'
 fixture; CI_SELECTION=latest; FAULT=wrong-ci; reject 'latest list cannot bless unrelated CI'
+for fault in duplicate-repo duplicate-ref duplicate-ci duplicate-latest; do
+  fixture; CI_SELECTION=latest; FAULT=$fault; reject "$fault"
+done
 printf 'PASS %s merged marketplace preparation cases\n' "$passed"

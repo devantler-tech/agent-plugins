@@ -188,4 +188,13 @@ setup
 if run --repo unexpected/repo > "$work/result" 2> "$work/error"; then fail 'duplicate repo accepted'; fi
 [ ! -s "$CALLS" ] || fail 'invalid arguments reached forge'
 passed=$((passed+1))
+setup incremental
+jq -c . "$PERMISSION_FIXTURE" | sed 's/^{/{"archived":true,/' > "$work/change"; mv "$work/change" "$PERMISSION_FIXTURE"
+reject 'contradictory native repository identity'
+setup incremental
+jq -c . "$WRITER_FIXTURE" | sed 's/^{/{"body":false,/' > "$work/change"; mv "$work/change" "$WRITER_FIXTURE"
+reject 'contradictory native writer capability'
+setup incremental
+jq -c . "$REMOTE_FIXTURE" | sed 's/"release":null/"release":{"tagName":"occupied"},"release":null/' > "$work/change"; mv "$work/change" "$REMOTE_FIXTURE"
+reject 'contradictory candidate release absence'
 printf 'PASS: %s remote release assessment cases\n' "$passed"

@@ -3,6 +3,8 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/json-object.lib.sh
+. "$here/json-object.lib.sh"
 # Never emit a ready record for incomplete or conflicting evidence.
 fail() { printf 'merged marketplace preparation: %s\n' "$*" >&2; exit 1; }
 repo='' release='' ci='' output=''
@@ -41,12 +43,15 @@ trap cleanup EXIT
 # Read native repository, ref and workflow-run identities, never caller artifacts or checkout URLs.
 snapshot() {
   gh api --hostname github.com "repos/$repo" > "$temp/repo"
+  json_object_unique "$temp/repo" || fail 'ambiguous repository observation'
   jq -es --arg repo "$repo" 'length==1 and (.[0] | .full_name==$repo and .archived==false and .default_branch=="main")' "$temp/repo" >/dev/null || fail 'repository identity, archive state or default branch is invalid'
   gh api --hostname github.com "repos/$repo/git/ref/heads/main" > "$temp/ref"
+  json_object_unique "$temp/ref" || fail 'ambiguous main observation'
   jq -es --arg release "$release" 'length==1 and (.[0] | .ref=="refs/heads/main" and .object.type=="commit" and .object.sha==$release)' "$temp/ref" >/dev/null || fail 'remote main is not the selected release commit'
   if [ "$selection" = latest ]; then
     # Demand the newest run, including a pending/failed one; never filter down to an older green.
     gh api --hostname github.com "repos/$repo/actions/workflows/ci.yaml/runs?branch=main&event=push&head_sha=$release&per_page=1" > "$temp/latest"
+    json_object_unique "$temp/latest" || fail 'ambiguous latest CI observation'
     latest=$(jq -esr 'if length==1 and (.[0] | (.total_count|type=="number" and .>0)
       and (.workflow_runs|type=="array" and length==1)
       and (.workflow_runs[0].id|type=="number" and .>0 and .<1000000000000000 and floor==.))
@@ -54,6 +59,7 @@ snapshot() {
     if [ "$ci" = latest ]; then ci=$latest; else [ "$ci" = "$latest" ] || fail 'latest CI run changed during verification'; fi
   fi
   gh api --hostname github.com "repos/$repo/actions/runs/$ci" > "$temp/run"
+  json_object_unique "$temp/run" || fail 'ambiguous CI observation'
   jq -es --arg repo "$repo" --arg release "$release" --argjson ci "$ci" '
     length==1 and (.[0] | .id==$ci and (.path==".github/workflows/ci.yaml" or .path==".github/workflows/ci.yaml@main" or .path==".github/workflows/ci.yaml@refs/heads/main") and .event=="push"
       and .status=="completed" and .conclusion=="success" and .head_branch=="main" and .head_sha==$release

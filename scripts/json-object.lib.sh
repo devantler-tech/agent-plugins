@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Observe one complete JSON object without erasing repeated decoded keys.
-json_object_unique() {
+# Observe one complete JSON value without erasing repeated decoded keys.
+json_value_unique() {
   local file=$1
-  jq -es 'length == 1 and (.[0] | type == "object")' "$file" >/dev/null 2>&1 &&
+  jq -es 'length == 1' "$file" >/dev/null 2>&1 &&
     jq --stream -es '
       reduce .[] as $event ({complete:{}, valid:true};
         if ($event|length)==2 then
@@ -12,4 +12,12 @@ json_object_unique() {
           .complete[($path|tojson)] = true
         else .complete[($event[0][0:-1]|tojson)] = true end) | .valid
     ' "$file" >/dev/null 2>&1
+}
+
+# Object-only boundaries retain their shape requirement; paginated observations
+# use json_value_unique before their own complete-array shape checks.
+json_object_unique() {
+  local file=$1
+  jq -es 'length == 1 and (.[0] | type == "object")' "$file" >/dev/null 2>&1 &&
+    json_value_unique "$file"
 }

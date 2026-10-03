@@ -3,6 +3,8 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/json-object.lib.sh
+. "$here/json-object.lib.sh"
 fail() { printf 'release preparation: %s\n' "$*" >&2; exit 1; }
 usage() { printf 'usage: prepare-marketplace-release.sh --base-tag <initial|vX.Y.Z> --output <new-directory> [--head <full-commit>]\n'; }
 base_tag='' output='' head=''
@@ -79,6 +81,7 @@ read_manifest() {
   mode=$(git ls-tree "$commit" -- "$path")
   [[ "$mode" == '100644 blob '* || "$mode" == '100755 blob '* ]] || fail "manifest is not a regular tracked file: $path"
   git cat-file blob "$commit:$path" > "$destination"
+  json_object_unique "$destination" || fail "ambiguous marketplace manifest: $path"
   jq -es -L "$here" 'include "marketplace-release"; length==1 and (.[0] | valid_marketplace)' "$destination" >/dev/null || fail "invalid marketplace manifest: $path"
 }
 read_pair() {

@@ -8,6 +8,13 @@ Preparation is opt-in and offline. It does not publish, create tags, change the 
 installed plugins. A candidate is not an installable marketplace snapshot: it contains manifest
 proposals and identifies the source commit containing the plugins.
 
+Versions are complete canonical stable SemVer strings, without whitespace or line terminators.
+Source manifests and native API observations must contain exactly one complete JSON value with
+unique decoded object keys, including nested objects and paginated arrays. Contradictory fields
+are refused before candidate, readiness, occupancy or writer decisions. An ambiguous response
+after a write leaves any created remote objects intact and reports uncertainty for explicit recovery;
+it never establishes completed publication or a verified draft.
+
 ## Prepare locally
 
 Use Bash, Git, and jq 1.6 or later from a complete repository clone. Configuration queries must

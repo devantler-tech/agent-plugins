@@ -1,6 +1,6 @@
 # Stable marketplace release preparation; the publishing boundary is deliberately absent.
 def stable_syntax:
-  type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$");
+  type == "string" and test("\\A(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\z");
 def stable_version: stable_syntax and (split(".") | all(.[]; length <= 9));
 def nonblank: type == "string" and test("\\S");
 def valid_marketplace:

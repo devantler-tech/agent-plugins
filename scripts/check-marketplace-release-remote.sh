@@ -5,7 +5,9 @@ export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=scripts/json-object.lib.sh
 . "$here/json-object.lib.sh"
+# Stop without emitting a successful remote assessment.
 fail() { printf 'remote release assessment: %s\n' "$*" >&2; exit 1; }
+# Describe the candidate and exact source/release commit selectors.
 usage() { printf 'usage: check-marketplace-release-remote.sh --repo <owner/name> --candidate <directory> --source <full-commit> --release <full-commit>\n'; }
 repo='' candidate='' source='' release=''
 while [ "$#" -gt 0 ]; do

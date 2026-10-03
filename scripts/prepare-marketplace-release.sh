@@ -5,7 +5,9 @@ export GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=scripts/json-object.lib.sh
 . "$here/json-object.lib.sh"
+# Stop preparation without emitting a prepared candidate.
 fail() { printf 'release preparation: %s\n' "$*" >&2; exit 1; }
+# Describe offline preparation and the explicit Git head selector.
 usage() { printf 'usage: prepare-marketplace-release.sh --base-tag <initial|vX.Y.Z> --output <new-directory> [--head <full-commit>]\n'; }
 base_tag='' output='' head=''
 while [ "$#" -gt 0 ]; do
@@ -70,12 +72,14 @@ trap - EXIT
 if [ -e "$output" ] || [ -L "$output" ]; then fail 'output already exists'; fi
 temp=$(mktemp -d "$parent/.marketplace-release.XXXXXX")
 owned_output=false
+# Remove private scratch and only the candidate output owned by this invocation.
 cleanup() {
   rm -rf "$temp"
   if [ "$owned_output" = true ]; then rm -rf "$output"; fi
 }
 trap cleanup EXIT
 mkdir "$temp/data" "$temp/candidate"
+# Read one unambiguous regular tracked manifest at the explicitly selected commit.
 read_manifest() {
   local commit=$1 path=$2 destination=$3 mode
   mode=$(git ls-tree "$commit" -- "$path")
@@ -84,6 +88,7 @@ read_manifest() {
   json_object_unique "$destination" || fail "ambiguous marketplace manifest: $path"
   jq -es -L "$here" 'include "marketplace-release"; length==1 and (.[0] | valid_marketplace)' "$destination" >/dev/null || fail "invalid marketplace manifest: $path"
 }
+# Require both marketplace adapter manifests at a commit to validate and agree.
 read_pair() {
   local commit=$1 prefix=$2
   read_manifest "$commit" .github/plugin/marketplace.json "$temp/data/$prefix-copilot.json"

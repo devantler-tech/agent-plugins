@@ -33,6 +33,9 @@ README="docs/plugins.md"
 # scripts/sha256.lib.sh.
 # shellcheck source=scripts/sha256.lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sha256.lib.sh"
+validator_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/json-object.lib.sh
+source "$validator_dir/json-object.lib.sh"
 
 # Consumers read only a retained complete inventory. Process substitutions hide
 # producer failures from their loops, including failures after valid partial output.
@@ -50,8 +53,17 @@ capture_inventory() {
 # 1. A marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
   local manifest="$1"
-  if ! jq -e '.name and .plugins' "$manifest" > /dev/null 2>&1; then
-    echo "::error::Invalid $manifest"
+  if ! json_object_unique "$manifest" || ! jq -e -L "$validator_dir" '
+    include "marketplace-release";
+    def visible: type == "string" and test("\\S") and (test("[[:cntrl:]]") | not);
+    (.name | type == "string" and test("\\A[a-z0-9]+(-[a-z0-9]+)*\\z"))
+    and (.plugins | type == "array" and length > 0
+      and (map(.name) | length == (unique | length))
+      and all(.[]; type == "object"
+        and (.name | type == "string" and test("\\A[a-z0-9]+(-[a-z0-9]+)*\\z"))
+        and (.description | visible) and (.version | stable_version)))
+  ' "$manifest" > /dev/null 2>&1; then
+    echo "::error::Invalid $manifest: names must be kebab-case, entries unique, descriptions visible text, and versions stable"
     return 1
   fi
   echo "✓ $manifest is valid"
@@ -97,7 +109,7 @@ validate_marketplace_renames() {
     return 1
   fi
 
-  if ! jq -e 'type == "object" and length > 0' "$RENAME_HISTORY" > /dev/null 2>&1; then
+  if ! json_object_unique "$RENAME_HISTORY" || ! jq -e 'type == "object" and length > 0' "$RENAME_HISTORY" > /dev/null 2>&1; then
     echo "::error::$RENAME_HISTORY: persisted plugin rename history must be a non-empty object"
     return 1
   fi
@@ -240,6 +252,73 @@ validate_agent_dir() {
   return "$failed"
 }
 
+# Declared paths stay within the canonical layout that every supported consumer
+# and the shared catalogue/provenance inventories examine. Custom layouts require
+# extending those inventories together; an unchecked alternate path is refused.
+validate_component_paths() {
+  local manifest=$1 root=$2 field path relative part current found
+  local components=()
+  if [ ! -d plugins ] || [ -L plugins ] || [ ! -d "$root" ] || [ -L "$root" ]; then
+    echo "::error::$manifest: component parents must be regular packaged directories"; return 1
+  fi
+  for field in skills agents; do
+    jq -e --arg field "$field" 'has($field)' "$manifest" >/dev/null || continue
+    if ! jq -e --arg field "$field" '.[$field] | type == "array" and all(.[];
+      type == "string" and test("\\A(\\./)?[A-Za-z0-9_./-]+\\z"))' "$manifest" >/dev/null; then
+      echo "::error::$manifest: '$field' requires literal relative component paths"; return 1
+    fi
+    # shellcheck disable=SC2016 # $field is a jq variable supplied through --arg.
+    capture_inventory "components-$field" 'declared component paths' jq -r --arg field "$field" '.[$field][]' "$manifest" || return 1
+    while IFS= read -r path; do
+      relative=${path#./}; relative=${relative%/}
+      IFS=/ read -r -a components <<< "$relative"
+      current=$root
+      for part in "${components[@]}"; do
+        if [ -z "$part" ] || [ "$part" = . ] || [ "$part" = .. ]; then
+          echo "::error::$manifest: component path escapes or ambiguously names the plugin"; return 1
+        fi
+        current="$current/$part"
+        if [ -L "$current" ]; then
+          echo "::error::$manifest: component path must use regular packaged resources"; return 1
+        fi
+      done
+      case "$field:$relative" in
+        skills:skills|skills:skills/[A-Za-z0-9_-]*)
+          if [[ "$relative" != skills && "$relative" != skills/* ]] ||
+             [[ "${relative#skills/}" == */* ]] || [ ! -d "$current" ]; then
+            echo "::error::$manifest: skill component must name an existing canonical directory"; return 1
+          fi
+          found=0
+          if [ "$relative" = skills ]; then
+            if [ -e "$current/SKILL.md" ] || [ -L "$current/SKILL.md" ]; then
+              echo "::error::$manifest: skills/ must contain canonical skill directories, not a root SKILL.md"; return 1
+            fi
+            for part in "$current"/*; do
+              [ -e "$part" ] || [ -L "$part" ] || continue
+              if [ -L "$part" ] || { [ -d "$part" ] && { [ -L "$part/SKILL.md" ] || [ ! -f "$part/SKILL.md" ]; }; }; then
+                echo "::error::$manifest: skill components require complete regular skill directories"; return 1
+              fi
+              if [ -d "$part" ]; then found=1; fi
+            done
+          elif [ -f "$current/SKILL.md" ] && [ ! -L "$current/SKILL.md" ]; then
+            found=1
+          else
+            echo "::error::$manifest: skill component must contain its own regular SKILL.md"; return 1
+          fi
+          [ "$found" -eq 1 ] || { echo "::error::$manifest: skill component contains no regular SKILL.md"; return 1; }
+          ;;
+        agents:agents/*.agent.md)
+          if [[ "${relative#agents/}" == */* ]] || [ ! -f "$current" ] ||
+             ! frontmatter_has_value "$current" name || ! frontmatter_has_value "$current" description; then
+            echo "::error::$manifest: agent component must name a valid existing canonical agent file"; return 1
+          fi
+          ;;
+        *) echo "::error::$manifest: unsupported component layout; use canonical skills/ or agents/ paths"; return 1 ;;
+      esac
+    done < "$inventory_dir/components-$field"
+  done
+}
+
 # 4. Every plugins/<name>/plugin.json is complete and well-shaped, has an equivalent
 #    .claude-plugin/plugin.json for strict Claude marketplace ingestion, and declares
 #    at least one recognized resource (skills/, a bundled .mcp.json, or agents/) —
@@ -252,22 +331,22 @@ validate_plugin_json() {
     claude_pj="$plugin_dir/.claude-plugin/plugin.json"
     ok=1
     resource_count=0
-    if ! jq -e 'type == "object"' "$pj" > /dev/null 2>&1; then
+    if ! json_object_unique "$pj"; then
       echo "::error::Invalid $pj"
       failed=1
       continue
     fi
     plugin_name=$(jq -r '.name // ""' "$pj")
-    if ! echo "$plugin_name" | grep -qE '^[a-z0-9-]+$'; then
+    if ! jq -e '.name | type == "string" and test("\\A[a-z0-9]+(-[a-z0-9]+)*\\z")' "$pj" >/dev/null; then
       echo "::error::$pj: name '$plugin_name' must be kebab-case (a-z, 0-9, hyphens)"
       ok=0
     fi
-    if [ "$(jq -r '.description // "" | length' "$pj")" -eq 0 ]; then
+    if ! jq -e '.description | type == "string" and test("\\S") and (test("[[:cntrl:]]") | not)' "$pj" >/dev/null; then
       echo "::error::$pj: missing or empty 'description' field"
       ok=0
     fi
-    if [ "$(jq -r '.version // "" | length' "$pj")" -eq 0 ]; then
-      echo "::error::$pj: missing or empty 'version' field"
+    if ! jq -e -L "$validator_dir" 'include "marketplace-release"; .version | stable_version' "$pj" >/dev/null; then
+      echo "::error::$pj: missing or empty 'version', or not a canonical stable cache version"
       ok=0
     fi
     # Claude Desktop's remote marketplace service validates sourced plugins in strict
@@ -277,25 +356,23 @@ validate_plugin_json() {
     if [ ! -f "$claude_pj" ]; then
       echo "::error::$plugin_dir requires .claude-plugin/plugin.json for strict Claude marketplace ingestion"
       ok=0
-    elif ! jq -e 'type == "object"' "$claude_pj" > /dev/null 2>&1; then
+    elif ! json_object_unique "$claude_pj"; then
       echo "::error::Invalid $claude_pj"
       ok=0
     elif ! validate_json_parity "$pj" "$claude_pj" "$claude_pj differs from $pj"; then
       ok=0
     fi
-    # Component-path fields (skills/agents), when present, MUST be arrays. Claude Code rejects
-    # the bare-string form ('"skills": "skills/"' → 'skills: Invalid input'), which breaks
-    # 'claude plugin install' even though Copilot CLI tolerates it. Both tools auto-discover
-    # the default skills/ and agents/ dirs when the field is omitted, so omitting it is the
-    # portable form and what these plugins do — this guard just stops the broken string form
-    # from returning.
+    # This marketplace's portable component-path contract requires arrays when
+    # skills/agents are declared. Omission retains default directory discovery.
+    # This is a packaging policy; individual consumers may support other forms.
     for field in skills agents; do
       if [ "$(jq -e --arg f "$field" 'has($f)' "$pj")" = "true" ] \
         && [ "$(jq -r --arg f "$field" '.[$f] | type' "$pj")" != "array" ]; then
-        echo "::error::$pj: '$field' must be an array of paths, or omitted to auto-discover $field/ (Claude Code rejects the bare-string form)"
+        echo "::error::$pj: '$field' must be an array of paths, or omitted to auto-discover $field/ (portable marketplace contract)"
         ok=0
       fi
     done
+    if ! validate_component_paths "$pj" "$plugin_dir"; then ok=0; fi
     # Skills resource (ADR 0001 §D3): auto-discovered from the on-disk skills/ directory —
     # both tools default to skills/ when the manifest omits the field — so detection is
     # directory-based, not field-based. A skills/ dir must hold >=1 <skill>/SKILL.md to count.
@@ -315,7 +392,8 @@ validate_plugin_json() {
     fi
     # Custom-agents resource: an agents/ directory with at least one valid agents/*.md
     # (each carrying name + description frontmatter — ADR 0001 §D3).
-    if find "$plugin_dir/agents" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
+    if { ! jq -e 'has("agents")' "$pj" >/dev/null || jq -e '.agents | type == "array" and length > 0' "$pj" >/dev/null; } &&
+       find "$plugin_dir/agents" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
       if validate_agent_dir "$plugin_dir/agents"; then
         resource_count=$((resource_count + 1))
       else
@@ -404,11 +482,15 @@ plugin_disk_resources() {
     if [ -f "$mcp" ]; then
       jq -r '.mcpServers // {} | keys[]' "$mcp"
     fi
+    if jq -e 'has("agents")' "plugins/$name/plugin.json" >/dev/null; then
+      jq -r '.agents[] | split("/")[-1] | sub("\\.agent\\.md$"; "")' "plugins/$name/plugin.json"
+    else
     for d in "plugins/$name/agents"/*; do
       [ -e "$d" ] || continue
       b="$(basename "$d" .md)"
       printf '%s\n' "${b%.agent}"
     done
+    fi
   } | sort | tr '\n' ' '
 }
 
@@ -527,7 +609,7 @@ validate_desired_state_resources() {
 
   while IFS= read -r -d '' resource; do
     resource_failed=0
-    if ! jq -e . "$resource" > /dev/null 2>&1; then
+    if ! json_object_unique "$resource"; then
       echo "::error::$resource: not valid JSON"
       failed=1
       resource_failed=1

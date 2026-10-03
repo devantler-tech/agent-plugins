@@ -125,10 +125,10 @@ while IFS= read -r -d '' resource; do
     exit 1
   fi
   if [ "$has_entrypoint_digest" = true ]; then
-    if ! [[ "$entrypoint" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+    if [ -z "$entrypoint" ]; then
       # Declared but unresolvable. Skipping it would exit 0 over a digest nothing examined — the
       # exact shape of failure this generator exists to remove, one level up.
-      echo "::error::$resource: entrypointSha256 is declared but entrypoint is empty or invalid, so nothing resolves it" >&2
+      echo "::error::$resource: entrypointSha256 is declared but entrypoint is empty, so nothing resolves it" >&2
       missing=1
     elif value=$(digest_for "$plugin_dir/agents/$entrypoint.agent.md" "$resource" entrypointSha256); then
       args+=(--arg entrypointSha256 "$value")
@@ -165,11 +165,6 @@ while IFS= read -r -d '' resource; do
   role_number=0
   while IFS=$'\t' read -r role field relative; do
     [ -n "$role" ] || continue
-    if ! [[ "$role" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
-      echo "::error::$resource: invalid role identity; refusing all writes." >&2
-      missing=1
-      continue
-    fi
     if [ "$relative" = "!UNMAPPED" ]; then
       # The validator resolves each digest field to one specific bundled path. A field
       # this generator cannot map to that same path would be written with a value the

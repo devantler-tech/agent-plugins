@@ -123,6 +123,7 @@ accept() {
 }
 fixture; FAULT=wrong-ci; reject 'green CI at an unrelated commit'
 fixture; accept 'exact merged proposal' VERIFIED
+fixture; jq '.path=".github/workflows/ci.yaml@refs/heads/main"' "$FORGE/run" > "$work/run"; cp "$work/run" "$FORGE/run"; accept 'qualified native CI workflow path' VERIFIED
 for fault in running failed neutral pr branch workflow run-id foreign-run fork-run missing-run moved tag-ref wrong-ref foreign-repo archived default-branch malformed empty trailing transport ci-after running-after moved-after; do
   fixture; FAULT=$fault; reject "$fault"
 done

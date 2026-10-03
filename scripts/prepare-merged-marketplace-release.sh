@@ -55,7 +55,7 @@ snapshot() {
   fi
   gh api --hostname github.com "repos/$repo/actions/runs/$ci" > "$temp/run"
   jq -es --arg repo "$repo" --arg release "$release" --argjson ci "$ci" '
-    length==1 and (.[0] | .id==$ci and .path==".github/workflows/ci.yaml" and .event=="push"
+    length==1 and (.[0] | .id==$ci and (.path==".github/workflows/ci.yaml" or .path==".github/workflows/ci.yaml@refs/heads/main") and .event=="push"
       and .status=="completed" and .conclusion=="success" and .head_branch=="main" and .head_sha==$release
       and .repository.full_name==$repo and .head_repository.full_name==$repo)' "$temp/run" >/dev/null || fail 'CI must be the exact successful main push run of the repository CI workflow'
 }

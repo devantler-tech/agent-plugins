@@ -28,6 +28,8 @@ set -euo pipefail
 
 # shellcheck source=scripts/sha256.lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sha256.lib.sh"
+# shellcheck source=scripts/atomic-write.lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/atomic-write.lib.sh"
 
 mode="write"
 case "${1-}" in
@@ -61,7 +63,7 @@ fi
 umask 077
 work=$(mktemp -d) || exit 2
 trap 'rm -rf "$work"' EXIT
-if ! find plugins -type f -path '*/resources/*.desired-state.json' -print0 > "$work/resources"; then
+if ! find plugins \( -type f -o -type l \) -path '*/resources/*.desired-state.json' -print0 > "$work/resources"; then
   echo '::error::desired-state resource inventory failed; refusing all writes.' >&2
   exit 2
 fi
@@ -70,12 +72,27 @@ drift=0
 missing=0
 seen=0
 
+# Resolve only regular files under this plugin, without following any linked
+# component. Identity and relative-path checks precede every digest read.
+contained_file() {
+  local relative=$2 component current=$1
+  [[ "$relative" != /* && "$relative" != */ && "$relative" != *//* && "$relative" != *[[:cntrl:]]* ]] || return 1
+  local parts=()
+  IFS=/ read -r -a parts <<<"$relative"
+  for component in "${parts[@]}"; do
+    [[ -n "$component" && "$component" != . && "$component" != .. && "$component" != *[[:cntrl:]]* ]] || return 1
+    current="$current/$component"
+    [ ! -L "$current" ] || return 1
+  done
+  [ -f "$current" ]
+}
+
 # Resolve one declared digest against the file it pins. Emits nothing and returns 1
 # when the target is absent, so a missing file fails closed here instead of being
 # papered over with a digest of nothing.
 digest_for() {
   local target="$1" resource="$2" field="$3"
-  if [ ! -f "$target" ]; then
+  if ! contained_file "$plugin_dir" "${target#"$plugin_dir"/}"; then
     echo "::error::$resource: $field pins a file that does not exist: $target" >&2
     return 1
   fi
@@ -89,7 +106,7 @@ resource=''
 while IFS= read -r -d '' resource; do
   seen=$((seen + 1))
   [ -n "$resource" ] || continue
-  if ! jq -e . "$resource" > /dev/null 2>&1; then
+  if [ -L "$resource" ] || ! jq -es 'length==1 and (.[0]|type=="object")' "$resource" > /dev/null 2>&1; then
     echo "::error::$resource: not valid JSON — refusing to rewrite" >&2
     missing=1
     continue
@@ -108,10 +125,10 @@ while IFS= read -r -d '' resource; do
     exit 1
   fi
   if [ "$has_entrypoint_digest" = true ]; then
-    if [ -z "$entrypoint" ]; then
+    if ! [[ "$entrypoint" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
       # Declared but unresolvable. Skipping it would exit 0 over a digest nothing examined — the
       # exact shape of failure this generator exists to remove, one level up.
-      echo "::error::$resource: entrypointSha256 is declared but entrypoint is empty, so nothing resolves it" >&2
+      echo "::error::$resource: entrypointSha256 is declared but entrypoint is empty or invalid, so nothing resolves it" >&2
       missing=1
     elif value=$(digest_for "$plugin_dir/agents/$entrypoint.agent.md" "$resource" entrypointSha256); then
       args+=(--arg entrypointSha256 "$value")
@@ -148,6 +165,11 @@ while IFS= read -r -d '' resource; do
   role_number=0
   while IFS=$'\t' read -r role field relative; do
     [ -n "$role" ] || continue
+    if ! [[ "$role" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+      echo "::error::$resource: invalid role identity; refusing all writes." >&2
+      missing=1
+      continue
+    fi
     if [ "$relative" = "!UNMAPPED" ]; then
       # The validator resolves each digest field to one specific bundled path. A field
       # this generator cannot map to that same path would be written with a value the
@@ -183,7 +205,7 @@ while IFS= read -r -d '' resource; do
       missing=1
       continue
     fi
-    if [ ! -f "$plugin_dir/$asset_path" ]; then
+    if ! contained_file "$plugin_dir" "$asset_path"; then
       echo "::error::$resource: requiredRuntimeAssets pins a file that does not exist: $asset_path" >&2
       missing=1
       continue
@@ -213,7 +235,11 @@ while IFS= read -r -d '' resource; do
 
   updated=$(jq "${args[@]}" "$program" "$resource")
 
-  if [ "$updated" = "$(cat "$resource")" ]; then
+  if ! original=$(cat "$resource"); then
+    echo "::error::$resource: original bytes could not be read; refusing all writes." >&2
+    exit 1
+  fi
+  if [ "$updated" = "$original" ]; then
     continue
   fi
 
@@ -249,9 +275,9 @@ fi
 
 # All producers and targets are proven before the first generated resource changes.
 if [ "$mode" = "write" ]; then
+  atomic_write_batch "$work/changes" || exit 1
   while IFS= read -r -d '' resource; do
     IFS= read -r -d '' staged <&0 || exit 1
-    cat "$staged" > "$resource"
     echo "✓ refreshed $resource"
   done < "$work/changes"
 fi

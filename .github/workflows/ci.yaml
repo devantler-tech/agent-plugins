@@ -187,6 +187,9 @@ jobs:
         # digest fails closed rather than being written wrong.
         run: ./scripts/refresh-desired-state-digests.test.sh
 
+      - name: 🧪 Verify generated-write recovery
+        run: bash scripts/generated-write-safety.test.sh
+
       - name: 🧪 Self-test the bundled-skill edit guard
         # Proves the guard FAILS a hand-edit to a synced skill tree and names its
         # upstream, PASSES the programmed sync (actor AND branch), passes a wholly

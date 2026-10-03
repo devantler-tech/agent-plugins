@@ -71,12 +71,16 @@ fi
 # prefix from find is not proof that every desired-state resource was observed.
 : > "$work/expected"
 shopt -s nullglob
-[ -d plugins ] && [ ! -L plugins ] || { echo '::error::linked or missing plugin root.' >&2; exit 2; }
+if [ ! -d plugins ] || [ -L plugins ]; then
+  echo '::error::linked or missing plugin root.' >&2
+  exit 2
+fi
 for plugin_root in plugins/*; do
   [ -d "$plugin_root" ] || [ -L "$plugin_root" ] || continue
-  [ ! -L "$plugin_root" ] && [[ ${plugin_root#plugins/} =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || {
-    echo '::error::linked or invalid plugin root; refusing all writes.' >&2; exit 2;
-  }
+  if [ -L "$plugin_root" ] || [[ ! ${plugin_root#plugins/} =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+    echo '::error::linked or invalid plugin root; refusing all writes.' >&2
+    exit 2
+  fi
   [ ! -L "$plugin_root/resources" ] || { echo '::error::linked resource directory; refusing all writes.' >&2; exit 2; }
   for expected_resource in "$plugin_root"/resources/*.desired-state.json; do
     [[ $expected_resource != *[[:cntrl:]]* ]] || { echo '::error::invalid resource inventory path.' >&2; exit 2; }

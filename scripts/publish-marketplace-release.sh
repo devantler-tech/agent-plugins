@@ -3,6 +3,8 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/json-object.lib.sh
+. "$here/json-object.lib.sh"
 # Report a validation failure on stderr and stop without a success assessment.
 fail() { printf 'marketplace publication: %s\n' "$*" >&2; exit 1; }
 # Describe the safe default and the explicit write operation.
@@ -68,10 +70,13 @@ release_id=0
 # Read and validate one publication phase against the frozen repository and release identities.
 snapshot() {
   gh api --hostname github.com "repos/$repo" > "$temp/permission"
+  json_object_unique "$temp/permission" || fail 'ambiguous repository observation'
   gh api --hostname github.com --method POST "repos/$repo/releases/generate-notes" \
     --input "$temp/writer-request" > "$temp/writer"
+  json_object_unique "$temp/writer" || fail 'ambiguous writer capability observation'
   gh api graphql --hostname github.com -f query="$query" -f owner="${repo%%/*}" -f name="${repo#*/}" \
     -f tag="$tag" -f qualifiedRef="refs/tags/$tag" > "$temp/snapshot"
+  json_object_unique "$temp/snapshot" || fail "ambiguous $1 publication observation"
   jq -es -L "$here" --arg phase "$1" --arg repo "$repo" --arg release "$release" --arg tag "$tag" \
     --arg node "$node" --arg branch "$branch" --argjson id "$release_id" --rawfile notes "$temp/notes" \
     --slurpfile permission "$temp/permission" \
@@ -84,10 +89,12 @@ snapshot absent
 # Each write is attempted once. A transport error can mean it succeeded remotely.
 write_attempted=true
 gh api --hostname github.com --method POST "repos/$repo/git/refs" --input "$temp/tag-request" > "$temp/created-tag"
+json_object_unique "$temp/created-tag" || fail 'ambiguous tag creation response'
 jq -es --arg tag "$tag" --arg release "$release" 'length==1 and (.[0] | .ref==("refs/tags/"+$tag) and .object.type=="commit" and .object.sha==$release)' \
   "$temp/created-tag" >/dev/null || fail 'invalid tag creation response'
 snapshot reserved
 gh api --hostname github.com --method POST "repos/$repo/releases" --input "$temp/release-request" > "$temp/created-release"
+json_object_unique "$temp/created-release" || fail 'ambiguous release creation response'
 jq -es --arg repo "$repo" --arg tag "$tag" --arg release "$release" --rawfile notes "$temp/notes" \
   'length==1 and (.[0] | (.id|type=="number" and .>0 and floor==.) and .tag_name==$tag and .target_commitish==$release
     and .name==$tag and .body==$notes and .draft==false and .prerelease==false

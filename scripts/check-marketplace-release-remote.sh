@@ -3,7 +3,11 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/json-object.lib.sh
+. "$here/json-object.lib.sh"
+# Stop without emitting a successful remote assessment.
 fail() { printf 'remote release assessment: %s\n' "$*" >&2; exit 1; }
+# Describe the candidate and exact source/release commit selectors.
 usage() { printf 'usage: check-marketplace-release-remote.sh --repo <owner/name> --candidate <directory> --source <full-commit> --release <full-commit>\n'; }
 repo='' candidate='' source='' release=''
 while [ "$#" -gt 0 ]; do
@@ -53,11 +57,14 @@ local_tags() {
 remote_snapshot() {
   # Bind repository identity and positively exercise contents-write without saving notes.
   gh api --hostname github.com "repos/$repo" > "$temp/permission"
+  json_object_unique "$temp/permission" || fail 'ambiguous repository observation'
   gh api --hostname github.com --method POST "repos/$repo/releases/generate-notes" \
     --input "$temp/writer-request" > "$temp/writer"
+  json_object_unique "$temp/writer" || fail 'ambiguous writer capability observation'
   # Variables remain data; neither candidate content nor configured Git transports choose the host.
   gh api graphql --hostname github.com --paginate --slurp -f query="$query" \
     -f owner="${repo%%/*}" -f name="${repo#*/}" -f tag="$tag" > "$temp/pages"
+  json_value_unique "$temp/pages" || fail 'ambiguous remote page observation'
   # --slurp must return exactly one array. Do not accept trailing JSON or a partial API result.
   jq -es 'length == 1 and (.[0] | type == "array")' "$temp/pages" >/dev/null || fail 'invalid page stream'
   jq -e -L "$here" --arg repo "$repo" --arg release "$release" --slurpfile permission "$temp/permission" \

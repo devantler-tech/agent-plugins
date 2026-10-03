@@ -329,6 +329,10 @@ bash scripts/plugin-changelog.test.sh
 bash scripts/generated-write-safety.test.sh # resource refusal and failed batch-write recovery
 
 # 1d. Offline marketplace candidate preparation: real Git histories, no publication.
+# Source manifests and every native release/proposal observation require unique decoded
+# object keys before semantic checks, including objects inside paginated arrays. Stable
+# versions contain no whitespace or line terminators. Partial-write ambiguity remains
+# uncertain and preserves remote objects for explicit recovery.
 bash scripts/prepare-marketplace-release.test.sh
 bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exact release-tree binding
 bash scripts/inspect-marketplace-release.test.sh # historical content, occupied tags and caller-state preservation

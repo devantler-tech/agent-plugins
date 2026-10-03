@@ -106,7 +106,9 @@ elif [ "$endpoint" = graphql ]; then
       unpublished-readback:published) change='.data.repository.release.publishedAt=null' ;;
       url-readback:published) change='.data.repository.release.url="https://other.invalid/release"' ;;
     esac
-    jq "$change" "$FORGE_STATE/readback"
+    if [ "$mode" = duplicate-snapshot ]; then
+      jq -c . "$FORGE_STATE/readback" | sed 's/^{/{"errors":[{"message":"partial failure"}],"errors":null,/'
+    else jq "$change" "$FORGE_STATE/readback"; fi
     [ "$mode" != trailing-json ] || printf '{}\n'
   fi
 elif [ "$endpoint" = repos/example/catalogue/git/refs ] && [ "$method" = POST ]; then
@@ -120,6 +122,7 @@ elif [ "$endpoint" = repos/example/catalogue/git/refs ] && [ "$method" = POST ];
     bad-tag-response) jq '.object.sha="wrong"' "$FORGE_STATE/response" ;;
     malformed-tag-response) printf 'not json\n' ;;
     trailing-tag-response) cat "$FORGE_STATE/response"; printf '{}\n' ;;
+    duplicate-tag-response) jq -c . "$FORGE_STATE/response" | sed 's/^{/{"object":{"type":"tag","sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},/' ;;
     *) cat "$FORGE_STATE/response" ;;
   esac
 elif [ "$endpoint" = repos/example/catalogue/releases ] && [ "$method" = POST ]; then
@@ -137,6 +140,7 @@ elif [ "$endpoint" = repos/example/catalogue/releases ] && [ "$method" = POST ];
     bad-release-response) jq '.id=null' "$FORGE_STATE/response" ;;
     malformed-release-response) printf 'not json\n' ;;
     trailing-release-response) cat "$FORGE_STATE/response"; printf '{}\n' ;;
+    duplicate-release-response) jq -c . "$FORGE_STATE/response" | sed 's/^{/{"draft":true,/' ;;
     *) cat "$FORGE_STATE/response" ;;
   esac
 else
@@ -250,4 +254,11 @@ setup; source=abc; reject 'abbreviated source' --publish
 setup; bash "$tool" --help > "$work/help"
 [ ! -s "$CALLS" ] || fail 'help reached forge'
 passed=$((passed+1))
+setup; export FAULT=duplicate-snapshot; reject 'contradictory publication snapshot' --publish
+[ ! -e "$FORGE_STATE/tag" ] || fail 'contradictory snapshot reserved a tag'
+for fault in duplicate-tag-response duplicate-release-response; do
+  setup; export FAULT=$fault; reject "$fault" --publish
+  [ -e "$FORGE_STATE/tag" ] || fail "$fault removed the reserved tag"
+  grep -q 'remote objects may exist' "$work/error" || fail "$fault omitted recovery warning"
+done
 printf 'publish-marketplace-release: %s passed\n' "$passed"

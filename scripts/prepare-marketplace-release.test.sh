@@ -8,7 +8,9 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
 passed=0
+# Stop the suite when an observable preparation contract fails.
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
+# Initialize an independent real Git history with matching marketplace manifests.
 new_repo() {
   repo=$(mktemp -d "$work/repo.XXXXXX")
   git -C "$repo" init -q
@@ -20,8 +22,11 @@ new_repo() {
   git -C "$repo" add .github/plugin/marketplace.json .claude-plugin/marketplace.json
   git -C "$repo" commit -qm 'Initial legacy import'
 }
+# Append the selected Conventional Commit to the independent fixture history.
 commit() { git -C "$repo" commit --allow-empty -qm "$1"; }
+# Invoke production preparation from the fixture's actual Git context.
 run() { (cd "$repo" && bash "$tool" --base-tag "$1" --output "$2"); }
+# Require the prepared artifact to carry the expected marketplace version.
 expect_version() {
   local name=$1 want=$2 base=${3:-v1.2.3} out
   out=$(mktemp -u "$work/out.XXXXXX")
@@ -34,6 +39,7 @@ expect_version() {
   test "$(git -C "$repo" status --porcelain | wc -l | tr -d ' ')" = 0 || fail "$name changed checkout"
   passed=$((passed + 1))
 }
+# Require malformed input to fail without creating a candidate output.
 reject() {
   local name=$1 base=${2:-v1.2.3} out
   out=$(mktemp -u "$work/rejected.XXXXXX")
@@ -289,5 +295,19 @@ for query in extensions.partialClone promisor; do
     test ! -e "$out" || fail "failed configuration left a candidate"
     passed=$((passed+1))
   done
+done
+new_repo
+jq -c . "$repo/.github/plugin/marketplace.json" | sed 's/"version":/"version":"9.9.9","version":/' > "$work/duplicate"
+cp "$work/duplicate" "$repo/.github/plugin/marketplace.json"; cp "$work/duplicate" "$repo/.claude-plugin/marketplace.json"
+git -C "$repo" add -- .github/plugin/marketplace.json .claude-plugin/marketplace.json
+git -C "$repo" commit -qm 'chore: ambiguous manifest'
+reject 'repeated manifest version is ambiguous' initial
+for version in $'1.2.3\n' $'1.2.3\r\n'; do
+  new_repo
+  jq --arg version "$version" '.metadata.version=$version' "$repo/.github/plugin/marketplace.json" > "$work/change"
+  cp "$work/change" "$repo/.github/plugin/marketplace.json"; cp "$work/change" "$repo/.claude-plugin/marketplace.json"
+  git -C "$repo" add -- .github/plugin/marketplace.json .claude-plugin/marketplace.json
+  git -C "$repo" commit -qm 'chore: malformed cache version'
+  reject 'release version contains line terminator' initial
 done
 printf 'marketplace release preparation: PASS (%s cases)\n' "$passed"

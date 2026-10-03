@@ -48,6 +48,8 @@ if [ "$1" = api ]; then
       if "$fresh" && [ "$mode" = workflow-ref ]; then path=.github/workflows/ci.yaml@refs/pull/11/merge; fi
       if "$fresh" && [ "$mode" = wrong-workflow-ref ]; then path=.github/workflows/other.yaml@main; fi
       if "$fresh" && [ "$mode" = empty-workflow-ref ]; then path=.github/workflows/ci.yaml@; fi
+      if "$fresh" && [ "$mode" = newline-workflow ]; then path=$'.github/workflows/ci.yaml\n'; fi
+      if "$fresh" && [ "$mode" = newline-workflow-ref ]; then path=$'.github/workflows/ci.yaml@main\n'; fi
       if "$fresh" && [ "$mode" = wrong-head ]; then head=$(printf '%040d' 0 | tr 0 3); fi
       if "$fresh" && [ "$mode" = incomplete-runs ]; then count=2; fi
       if "$fresh" && [ "$mode" = fractional-count ]; then count=1.000000000000000001; fi
@@ -153,7 +155,7 @@ for mode in wrong-repository wrong-base nonpositive-number; do
   check "$mode inventory prevents all PR mutations" no_mutations "$d"
 done
 
-for mode in wrong-workflow wrong-workflow-ref empty-workflow-ref wrong-head incomplete-runs fractional-count; do
+for mode in wrong-workflow wrong-workflow-ref empty-workflow-ref newline-workflow newline-workflow-ref wrong-head incomplete-runs fractional-count; do
   d="$WORK/$mode"; make_case "$d" "$mode"; run_case "$d"
   check "$mode cannot authorize auto-merge" held_without_rearm "$d"
 done

@@ -241,7 +241,7 @@ newest_pr_run() {
         ($runs|length)==$pages[0].total_count and
         all($runs[]; type=="object" and (.id|integer and .>0) and
           .event=="pull_request" and .head_sha==$sha and
-          (.path|type=="string" and test("^\\.github/workflows/ci\\.yaml(@.+)?$")) and
+          (.path|type=="string" and test("^\\.github/workflows/ci\\.yaml(@[^\\r\\n]+)?\\z")) and
           .repository.full_name==$repo) and
         ($runs|map(.id)|unique|length)==($runs|length)
       then ($runs|map(.id)|max // 0) else error("incomplete or mismatched CI runs") end

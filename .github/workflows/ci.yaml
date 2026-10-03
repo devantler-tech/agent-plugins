@@ -147,6 +147,23 @@ jobs:
         # stubbed on PATH, so nothing reaches the network or touches a real pull request.
         run: ./scripts/recheck-open-prs.test.sh
 
+      - name: 🧪 Verify PR recheck observations and recovery
+        env:
+          RECHECK_OBSERVATION_ARTIFACT_DIR: ${{ runner.temp }}/recheck-observation-recovery
+        run: bash scripts/recheck-open-prs-observations.test.sh
+
+      - name: 📦 Verify hosted recovery artifact collection
+        if: ${{ always() }}
+        # Synthetic PR settings from the hermetic test exercise the same collection as the caller.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: recheck-recovery-test-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/recheck-observation-recovery/**/rearm/**
+            ${{ runner.temp }}/recheck-observation-recovery/**/closed/**
+          if-no-files-found: error
+          retention-days: 14
+
       - name: 🧪 Self-test head-checked PR base refreshes
         run: bash scripts/recheck-open-prs-base-refresh.test.sh
 

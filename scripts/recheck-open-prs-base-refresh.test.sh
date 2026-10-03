@@ -5,6 +5,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY G
 here=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+mkdir -p "$work/temp"
+export TMPDIR="$work/temp"
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
 git init -q "$work/repo"
 git -C "$work/repo" config user.name Fixture
@@ -33,11 +35,15 @@ cat > "$work/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$FIXTURE/calls"
-if [[ "$*" == *'/actions/runs'* ]]; then
-  [[ "$MODE" != no-check ]] || { printf '0\n'; exit; }
+if [[ "$*" == *'/actions/'*'/runs'* ]]; then
   if [[ "$MODE" == late-movement ]]; then printf '%s' "$LATER" > "$FIXTURE/current"; fi
   if [[ "$MODE" == late-base ]]; then : > "$FIXTURE/later-base"; fi
-  if [ -f "$FIXTURE/reopened" ]; then printf '92\n'; else printf '91\n'; fi
+  sha=""
+  for arg in "$@"; do case "$arg" in head_sha=*) sha=${arg#head_sha=} ;; esac; done
+  if [ -f "$FIXTURE/reopened" ]; then id=92; else id=91; fi
+  [ "$MODE" != no-check ] || id=0
+  jq -nc --arg sha "$sha" --argjson id "$id" \
+    '[{total_count:(if $id==0 then 0 else 1 end),workflow_runs:(if $id==0 then [] else [{id:$id,event:"pull_request",head_sha:$sha,path:".github/workflows/ci.yaml",repository:{full_name:"owner/name"}}] end)}]'
   exit
 fi
 if [[ "$*" == *'/branches/'* ]]; then
@@ -66,7 +72,10 @@ if [[ "$*" == *'/update-branch'* ]]; then
   printf '%s' "$UPDATED" > "$FIXTURE/current"
   exit
 fi
-if [[ "$*" == *'api --paginate'* ]]; then printf '11\twanted update\n'; exit; fi
+if [[ "$*" == *'api --paginate'* ]]; then
+  jq -nc '[[{number:11,title:"wanted update",state:"open",base:{ref:"main",repo:{full_name:"owner/name"}}}]]'
+  exit
+fi
 if [[ "$*" == *'pr view'* ]]; then
   [[ "$MODE" != unreadable-after-update || ! -f "$FIXTURE/current" ]] || exit 1
   current=$(cat "$FIXTURE/current" 2>/dev/null || printf '%s' "$HEAD")
@@ -103,6 +112,7 @@ exit 3
 EOF
 chmod +x "$work/bin/gh"
 export FIXTURE="$work" BASE="$base" HEAD="$head" UPDATED="$updated" LATER="$later" ORIGINAL="$original"
+# Exercise branch refresh with real Git ancestry and verify the resulting PR state.
 run_case() {
   local mode=$1 expected=$2 rc=0
   export MODE="$mode"
@@ -114,7 +124,7 @@ run_case() {
   ! grep -Eq '^pr (close|reopen|merge)' "$work/calls" || { echo "FAIL $mode: changed open/merge state"; exit 1; }
   if [ "$expected" -eq 0 ]; then
     grep -q '/update-branch' "$work/calls"
-    grep -q '/actions/runs' "$work/calls"
+    grep -q '/actions/workflows/ci.yaml/runs' "$work/calls"
     test "$(git -C "$work/repo" show "$UPDATED:adaptation")" = adaptation
   else
     if grep -q '1 of 1 current-base refreshes completed' "$work/output"; then

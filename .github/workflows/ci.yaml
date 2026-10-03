@@ -182,6 +182,9 @@ jobs:
         # plugin reaching consumers. Self-contained: throwaway fixtures, no network.
         run: ./scripts/validate-manifests.test.sh
 
+      - name: 🧪 Verify bundled MCP configuration boundaries
+        run: bash scripts/mcp-boundaries.test.sh
+
       - name: 🧪 Self-test the desired-state digest generator
         # Proves the generator writes exactly what validate-manifests.sh demands — a
         # generator that disagreed with the gate would leave a sync branch just as

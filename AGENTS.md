@@ -202,7 +202,13 @@ plugin membership) is authored here.
    any `plugin.json` that sets `skills`/`agents` to a non-array. Skill dirs sit at
    `plugins/<plugin>/skills/<skill>/` and each holds a conformant `SKILL.md` (CI discovers them at
    depth 4). A bundled `.mcp.json` is a `{ "mcpServers": { … } }` map whose every server carries a
-   `command` (stdio) or `url` (remote). A bundled `agents/` directory holds ≥1 `agents/*.agent.md` —
+   `command` (stdio) or `url` (remote).
+   MCP configuration is one unambiguous JSON object with a nonempty named server map.
+   Each server selects a nonblank string command (omitted type or `stdio`) or a nonblank URL
+   with type `http` or `sse`. Optional arguments are string arrays; environment and header
+   values are named string maps. Literal variable references are retained without expansion.
+   Run `bash scripts/mcp-boundaries.test.sh` with the manifest tests.
+   A bundled `agents/` directory holds ≥1 `agents/*.agent.md` —
    the `.agent.md` suffix is REQUIRED (VS Code/Copilot discover agents by it; a bare `.md` is
    invisible there, and CI's suffix guard rejects it) — each with
    YAML frontmatter carrying a non-empty `name` and `description` (the neutral cross-tool core). See

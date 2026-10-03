@@ -289,8 +289,10 @@ validate_component_paths() {
             echo "::error::$manifest: skill component must name an existing canonical directory"; return 1
           fi
           found=0
-          if [ -f "$current/SKILL.md" ] && [ ! -L "$current/SKILL.md" ]; then found=1
-          else
+          if [ "$relative" = skills ]; then
+            if [ -e "$current/SKILL.md" ] || [ -L "$current/SKILL.md" ]; then
+              echo "::error::$manifest: skills/ must contain canonical skill directories, not a root SKILL.md"; return 1
+            fi
             for part in "$current"/*; do
               [ -e "$part" ] || [ -L "$part" ] || continue
               if [ -L "$part" ] || { [ -d "$part" ] && { [ -L "$part/SKILL.md" ] || [ ! -f "$part/SKILL.md" ]; }; }; then
@@ -298,6 +300,10 @@ validate_component_paths() {
               fi
               if [ -d "$part" ]; then found=1; fi
             done
+          elif [ -f "$current/SKILL.md" ] && [ ! -L "$current/SKILL.md" ]; then
+            found=1
+          else
+            echo "::error::$manifest: skill component must contain its own regular SKILL.md"; return 1
           fi
           [ "$found" -eq 1 ] || { echo "::error::$manifest: skill component contains no regular SKILL.md"; return 1; }
           ;;

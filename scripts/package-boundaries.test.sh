@@ -26,7 +26,7 @@ gate() {
     printf 'PASS %s\n' "$name"
   else printf 'FAIL %s exit=%s\n' "$name" "$rc"; cat "$root/out"; fail=$((fail+1)); fi
 }
-for scenario in healthy unicode-description marketplace-name-number marketplace-name-blank duplicate-entries numeric-description blank-description numeric-version unstable-version leading-zero-version oversized-version component-number component-blank component-outside component-absolute component-missing component-wrong-kind component-valid-root component-valid-skill component-symlink component-root-symlink duplicate-marketplace duplicate-plugin duplicate-renames nested-duplicate escaped-duplicate multiple-objects plugin-parent-symlink; do
+for scenario in healthy unicode-description marketplace-name-number marketplace-name-blank duplicate-entries numeric-description blank-description numeric-version unstable-version leading-zero-version oversized-version component-number component-blank component-outside component-absolute component-missing component-wrong-kind component-valid-root component-valid-skill component-symlink component-root-symlink component-nested-layout component-root-skill-layout duplicate-marketplace duplicate-plugin duplicate-renames nested-duplicate escaped-duplicate multiple-objects plugin-parent-symlink; do
   root="$work/$scenario"; fixture "$root"
   m="$root/.claude-plugin/marketplace.json"; p="$root/plugins/alpha/plugin.json"
   case $scenario in
@@ -37,6 +37,15 @@ for scenario in healthy unicode-description marketplace-name-number marketplace-
       case $scenario in unicode-description) expr='.description="Déploiement"' ;; numeric-description) expr='.description=7' ;; blank-description) expr='.description=" "' ;; numeric-version) expr='.version=7' ;; unstable-version) expr='.version="tomorrow"' ;; leading-zero-version) expr='.version="01.0.0"' ;; oversized-version) expr='.version="1000000000.0.0"' ;; esac
       jq "$expr" "$p" > "$root/new"; mv "$root/new" "$p"
       jq --slurpfile p "$p" '.plugins[0].description=$p[0].description | .plugins[0].version=$p[0].version' "$m" > "$root/new"; mv "$root/new" "$m" ;;
+    component-nested-layout)
+      mkdir -p "$root/plugins/alpha/skills/container/nested"
+      cp "$root/plugins/alpha/skills/example/SKILL.md" "$root/plugins/alpha/skills/container/nested/SKILL.md"
+      jq '.skills=["./skills/container/"]' "$p" > "$root/new"; mv "$root/new" "$p"
+      # shellcheck disable=SC2016 # Backticks are literal catalogue markup.
+      sed 's/`example` |/`example`, `container` |/' "$root/docs/plugins.md" > "$root/new"; mv "$root/new" "$root/docs/plugins.md" ;;
+    component-root-skill-layout)
+      cp "$root/plugins/alpha/skills/example/SKILL.md" "$root/plugins/alpha/skills/SKILL.md"
+      jq '.skills=["./skills/"]' "$p" > "$root/new"; mv "$root/new" "$p" ;;
     component-*)
       case $scenario in component-number) value='[7]' ;; component-blank) value='[" "]' ;; component-outside) value='["../../outside"]' ;; component-absolute) value='["/tmp/outside"]' ;; component-missing) value='["./skills/absent"]' ;; component-wrong-kind) value='["./skills/example/SKILL.md"]' ;; component-valid-root) value='["./skills/"]' ;; component-valid-skill) value='["./skills/example/"]' ;; component-symlink|component-root-symlink) value='["./skills/link"]'; [ "$scenario" != component-root-symlink ] || value='["./skills/"]'; ln -s "$root/elsewhere" "$root/plugins/alpha/skills/link"; mkdir -p "$root/elsewhere"; cp "$root/plugins/alpha/skills/example/SKILL.md" "$root/elsewhere/SKILL.md" ;; esac
       jq --argjson v "$value" '.skills=$v' "$p" > "$root/new"; mv "$root/new" "$p" ;;

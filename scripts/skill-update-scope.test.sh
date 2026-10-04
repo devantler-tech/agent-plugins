@@ -6,12 +6,12 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 for event in schedule workflow_dispatch; do
   bash "$here/skill-update-scope.sh" "$event" > "$work/out"
-  [[ $(cat "$work/out") == dir=plugins ]]
+  [[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update' ]]
 done
 bash "$here/skill-update-scope.sh" workflow_dispatch all > "$work/out"
-[[ $(cat "$work/out") == dir=plugins ]]
+[[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update' ]]
 bash "$here/skill-update-scope.sh" workflow_dispatch agentic-engineering > "$work/out"
-[[ $(cat "$work/out") == dir=plugins/agentic-engineering/skills ]]
+[[ $(cat "$work/out") == $'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills' ]]
 for scope in unknown ../outside $'agentic-engineering\ndir=plugins'; do
   rc=0
   bash "$here/skill-update-scope.sh" workflow_dispatch "$scope" > "$work/out" 2> "$work/err" || rc=$?

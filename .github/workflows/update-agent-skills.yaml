@@ -25,6 +25,7 @@ jobs:
       contents: read
     outputs:
       dir: ${{ steps.scope.outputs.dir }}
+      branch: ${{ steps.scope.outputs.branch }}
     steps:
       - name: 📄 Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -42,6 +43,7 @@ jobs:
     uses: devantler-tech/actions/.github/workflows/update-agent-skills.yaml@da153eb43b8333f13094abb151a48dc11e431988 # v13.7.4
     with:
       dir: ${{ needs.scope.outputs.dir }}
+      pr-branch: ${{ needs.scope.outputs.branch }}
       # One PR per changed skill, from `deps/agent-skills-update-<slug>`, so a skill whose
       # update is blocked (a review finding, a failing check) holds back only itself instead
       # of every other skill's update (#175). The bundled-skill edit guard exempts each such
@@ -69,7 +71,7 @@ jobs:
   # version; the next daily run rebuilds its branch from the new main and bumps it again.
   bump-versions:
     name: Refresh digests and release notes for ${{ matrix.skill.path }}
-    needs: update
+    needs: [scope, update]
     if: ${{ needs.update.outputs.skills != '' && needs.update.outputs.skills != '[]' }}
     runs-on: ubuntu-latest
     strategy:
@@ -90,7 +92,7 @@ jobs:
       - name: 📄 Checkout the update branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: deps/agent-skills-update-${{ matrix.skill.slug }}
+          ref: ${{ needs.scope.outputs.branch }}-${{ matrix.skill.slug }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
           # This job must push, so credentials stay on the checkout.
@@ -113,7 +115,7 @@ jobs:
       - name: 🔐 Refresh the desired-state digests the sync moved
         if: steps.checkout.outcome == 'success'
         env:
-          SKILL_SLUG: ${{ matrix.skill.slug }}
+          SKILL_BRANCH: ${{ needs.scope.outputs.branch }}-${{ matrix.skill.slug }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -126,12 +128,12 @@ jobs:
           # change could never ride along in this commit.
           git add -- '*.desired-state.json'
           git commit -m "chore(deps): refresh desired-state digests for synced content"
-          git push origin "HEAD:deps/agent-skills-update-${SKILL_SLUG}"
+          git push origin "HEAD:${SKILL_BRANCH}"
 
       - name: 🔢 Bump every plugin whose content changed
         if: steps.checkout.outcome == 'success'
         env:
-          SKILL_SLUG: ${{ matrix.skill.slug }}
+          SKILL_BRANCH: ${{ needs.scope.outputs.branch }}-${{ matrix.skill.slug }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -147,4 +149,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore(deps): bump plugin versions and record skill updates"
-          git push origin "HEAD:deps/agent-skills-update-${SKILL_SLUG}"
+          git push origin "HEAD:${SKILL_BRANCH}"

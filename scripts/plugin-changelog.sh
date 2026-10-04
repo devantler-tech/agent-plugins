@@ -82,7 +82,9 @@ while IFS= read -r dir; do
   name=${dir#plugins/}
   if [ "$mode" = write ]; then
     for parent in plugins "$dir"; do
-      [ -d "$parent" ] && [ ! -L "$parent" ] || fail 'changelog parent must be a real checkout directory'
+      if [ ! -d "$parent" ] || [ -L "$parent" ]; then
+        fail 'changelog parent must be a real checkout directory'
+      fi
     done
   fi
   manifest="$dir/plugin.json"

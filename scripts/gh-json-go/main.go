@@ -179,6 +179,29 @@ func guidance(source []byte) ([]string, error) {
 	return d.parts, nil
 }
 
+// markdownDelimiter observes the unmatched code-span delimiter before a field flag.
+// Markdown closes a span only with a run matching the opening run's length.
+func markdownDelimiter(prefix string) int {
+	delimiter := 0
+	for i := 0; i < len(prefix); {
+		if prefix[i] != '`' {
+			i++
+			continue
+		}
+		end := i
+		for end < len(prefix) && prefix[end] == '`' {
+			end++
+		}
+		if delimiter == 0 {
+			delimiter = end - i
+		} else if delimiter == end-i {
+			delimiter = 0
+		}
+		i = end
+	}
+	return delimiter
+}
+
 // normalizeShellFields joins only adjacent literal fragments of advertised field words.
 // Markdown delimiters end a word; expansions and unresolved quoting never establish a clean scan.
 func normalizeShellFields(source string) (string, error) {
@@ -229,7 +252,11 @@ func normalizeShellFields(source string) (string, error) {
 					break // A following Markdown fence is not part of a field word.
 				}
 				line := strings.LastIndexByte(source[:flag], '\n') + 1
-				if strings.Count(source[line:flag], "`")%2 == 0 {
+				closing := end
+				for closing < len(source) && source[closing] == '`' {
+					closing++
+				}
+				if delimiter := markdownDelimiter(source[line:flag]); delimiter == 0 || closing-end != delimiter {
 					return "", fmt.Errorf("JSON field word contains unresolved command substitution")
 				}
 				break // Close the Markdown span that opened before this command.

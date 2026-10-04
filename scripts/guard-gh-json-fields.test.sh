@@ -172,6 +172,31 @@ dir="$(fixture good-closing-fence-after-empty-list)"
 printf '%s\n' '```bash' 'gh status --json' '```' > "${dir}/plugins/p/agents/case.md"
 expect 0 'a closing Markdown fence after --json with no field list' "${dir}"
 
+# Markdown spans close with a matching run, including after an earlier completed span.
+dir="$(fixture good-double-backtick-span)"
+printf '%s\n' 'Use ``gh pr view --json state,mergedAt``.' > "${dir}/plugins/p/agents/case.md"
+expect 0 'a literal field list inside a double-backtick span' "${dir}"
+
+dir="$(fixture good-triple-backtick-span)"
+printf '%s\n' 'Use ```gh pr view --json state,mergedAt```.' > "${dir}/plugins/p/agents/case.md"
+expect 0 'a literal field list inside a triple-backtick span' "${dir}"
+
+dir="$(fixture good-earlier-backtick-span)"
+printf '%s\n' 'A ``code`` span before ``gh pr view --json state,mergedAt``.' > "${dir}/plugins/p/agents/case.md"
+expect 0 'a completed earlier span does not change the command delimiter' "${dir}"
+
+dir="$(fixture bad-double-backtick-span)"
+printf '%s\n' 'Use ``gh pr view --json state,merged``.' > "${dir}/plugins/p/agents/case.md"
+expect 1 'a matching Markdown delimiter does not hide an invalid field' "${dir}"
+
+dir="$(fixture unknown-backtick-inside-span)"
+printf '%s\n' 'Use ``gh pr view --json state,mer`printf ged` ``.' > "${dir}/plugins/p/agents/case.md"
+expect 2 'an unresolved single-backtick expression inside a double span is UNKNOWN' "${dir}"
+
+dir="$(fixture unknown-mismatched-backtick-span)"
+printf '%s\n' 'Use ``gh pr view --json state,mergedAt`.' > "${dir}/plugins/p/agents/case.md"
+expect 2 'a mismatched closing Markdown delimiter is UNKNOWN' "${dir}"
+
 # A flag wrapped in shell quotes is still the flag: `gh pr view 42 '--json' state,merged`.
 dir="$(fixture bad-quoted-flag)"
 printf '%s\n' "gh pr view 42 '--json' state,merged" > "${dir}/plugins/p/agents/case.md"

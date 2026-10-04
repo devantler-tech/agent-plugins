@@ -37,7 +37,8 @@ incremental() {
   git -C "$repo" commit -qm 'chore(release): prepare 1.3.0'
   release=$(git -C "$repo" rev-parse HEAD)
 }
-run() { (cd "$repo" && bash "$tool" --candidate "$candidate" --source "$source" --release "$release"); }
+# Run from the selected fixture directory to exercise caller-relative observations.
+run() { (cd "${run_cwd:-$repo}" && bash "$tool" --candidate "$candidate" --source "$source" --release "$release"); }
 accept() {
   local name=$1 version=$2
   run > "$work/result" 2> "$work/error" || { cat "$work/error"; fail "$name rejected"; }
@@ -80,6 +81,17 @@ incremental; release=HEAD; reject 'symbolic release'
 incremental; release=$(git -C "$repo" rev-parse 'HEAD^{tree}'); reject 'tree object as release'
 incremental; release=$source; reject 'incremental version has not been committed'
 incremental; printf 'unrelated\n' > "$repo/content"; git -C "$repo" add content; git -C "$repo" commit --amend --no-edit -q; release=$(git -C "$repo" rev-parse HEAD); reject 'unrelated file update'
+# An unrelated root change must remain visible from a subdirectory even with relative diffs configured.
+incremental
+mkdir "$repo/subdirectory"
+git -C "$repo" config diff.relative true
+printf 'unrelated\n' > "$repo/content"
+git -C "$repo" add -- content
+git -C "$repo" commit --amend --no-edit -q
+release=$(git -C "$repo" rev-parse HEAD)
+run_cwd="$repo/subdirectory"
+reject 'subdirectory inventory rejects unrelated file'
+unset run_cwd
 incremental; chmod +x "$repo/content"; git -C "$repo" add content; git -C "$repo" commit --amend --no-edit -q; release=$(git -C "$repo" rev-parse HEAD); reject 'unrelated file mode update'
 incremental; chmod +x "$repo/.github/plugin/marketplace.json"; git -C "$repo" add .github/plugin/marketplace.json; git -C "$repo" commit --amend --no-edit -q; release=$(git -C "$repo" rev-parse HEAD); reject 'manifest mode update'
 incremental; git -C "$repo" commit --allow-empty -qm 'fix: later work'; release=$(git -C "$repo" rev-parse HEAD); reject 'stale source parent'

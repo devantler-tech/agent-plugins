@@ -104,6 +104,7 @@ func TestDecodedGuidanceBoundary(t *testing.T) {
 func TestHeadingGuidanceBoundaries(t *testing.T) {
 	for _, source := range []string{
 		"# Heading with a literal `\ngh pr view --json state,mer`printf ged`",
+		"Prior paragraph with a literal `\n# gh pr view --json state,mer`printf ged`",
 		"Heading with a literal `\n=======================\ngh pr view --json state,mer`printf ged`",
 		"Paragraph with a literal `\n---\ngh pr view --json state,mer`printf ged`",
 		"Paragraph with a literal `\n***\ngh pr view --json state,mer`printf ged`",

@@ -270,6 +270,7 @@ func (m *markdownObserver) delimiterAt(source string, stop int) int {
 					heading++
 				}
 				if heading > 0 && heading <= 6 && (heading == len(content) || strings.ContainsRune(" \t", rune(content[heading]))) {
+					delimiter = 0
 					m.blockEnd = lineEnd + 1 // A heading's inline content ends on this line.
 				}
 				if strings.Trim(content, "=") == "" || strings.Trim(content, "- \t") == "" ||

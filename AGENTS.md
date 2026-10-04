@@ -301,8 +301,9 @@ plugin membership) is authored here.
 Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:
 
-The JSON-field guard needs Go 1.22 or later when a plugin carries Go support source. It builds only
-its installed syntax decoder, reads comments and decoded literal strings/argument blocks, and never
+The JSON-field guard needs Go 1.22 or later for every scanned surface. It builds only
+its installed observer, joins adjacent literal shell quotes without evaluation, requires unique
+decoded JSON keys, reads Go comments and decoded literal strings/argument blocks, and never
 executes the inspected package. Unresolved groupings beside a known JSON flag, malformed source,
 incomplete decoding, or exhausted source/decoded-work budgets stay UNKNOWN. This is not analysis of
 arbitrary Go runtime behavior.

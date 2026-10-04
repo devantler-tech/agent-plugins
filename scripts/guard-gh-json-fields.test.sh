@@ -73,6 +73,37 @@ done < <(printf '%s\0' \
   'boundary: see `gh pr view <n> --json comments`, merged PRs need no polling' \
   'boundary: `gh pr view <n> --json state`, and merged ones are done')
 
+# Repeated decoded keys must be rejected before extraction can discard an earlier prescription.
+for document in \
+  '{"prompt":"gh pr view --json merged","prompt":"gh pr view --json mergedAt"}' \
+  '{"prompt":"gh pr view --json merged","pro\u006dpt":"gh pr view --json mergedAt"}' \
+  '{"nested":{"args":["--json","merged"],"args":["--json","mergedAt"]}}' \
+  '[{"prompt":"gh pr view --json merged","prompt":"safe"}]'; do
+  dir="$(fixture "unknown-duplicate-json-$passed")"
+  printf '%s\n' "$document" > "$dir/plugins/p/case.json"
+  expect 2 'duplicate decoded JSON keys are UNKNOWN' "$dir"
+done
+
+# Adjacent quotes belong to the same shell word; unresolved literal combinations remain UNKNOWN.
+for fields in 'state,mer""ged' "state,mer''ged" '"state,mer""ged"' "state,'mer'ged"; do
+  dir="$(fixture "bad-adjacent-literals-$passed")"
+  printf 'gh pr view --json %s\n' "$fields" > "$dir/plugins/p/agents/case.md"
+  expect 1 'adjacent literal field fragments still prescribe merged' "$dir"
+done
+for fields in 'state,mer""gedAt' "state,mer'gedBy'" '"state,mer""geCommit"'; do
+  dir="$(fixture "good-adjacent-literals-$passed")"
+  printf 'gh pr view --json %s\n' "$fields" > "$dir/plugins/p/agents/case.md"
+  expect 0 'adjacent valid literal fields remain valid' "$dir"
+done
+dir="$(fixture unknown-adjacent-expansion)"
+printf '%s\n' 'gh pr view --json state,mer"$fragment"ged' > "$dir/plugins/p/agents/case.md"
+expect 2 'unresolved adjacent field expansion is UNKNOWN' "$dir"
+for command in 'gh pr view --json state,mer${suffix}' 'gh pr view --json state,mer$(printf ged)' "gh pr view --json state,mer\$'ged'" "gh pr view --json \$'merged'"; do
+  dir="$(fixture "unknown-unquoted-expansion-$passed")"
+  printf '%s\n' "$command" > "$dir/plugins/p/agents/case.md"
+  expect 2 'unquoted or ANSI-C field expansion is UNKNOWN' "$dir"
+done
+
 # JSON surfaces are decoded: a \u-escaped letter is still that letter, so an escaped field name is caught.
 dir="$(fixture bad-json-escaped-name)"
 printf '{"prompt":"gh pr view <n> --json state,\x5cu006derged,mergedAt"}\n' > "${dir}/plugins/p/plugin.json"

@@ -117,6 +117,25 @@ func TestAssess(t *testing.T) {
 		{"wrong assessment plan", "HOLD", func(m map[string]any) {
 			nested(m, "observation", "proof", "assessment")["planSha256"] = strings.Repeat("e", 64)
 		}},
+
+		{"expired unknown evidence", "HOLD", func(m map[string]any) {
+			e := nested(m, "observation", "proof")["evidence"].([]any)[0].(map[string]any)
+			e["result"] = "unknown"
+			e["expiresAt"] = "2026-10-04T00:00:00Z"
+			nested(m, "request")["currentRevision"] = strings.Repeat("5", 64)
+		}},
+		{"expired unknown assessment", "HOLD", func(m map[string]any) {
+			a := nested(m, "observation", "proof", "assessment")
+			a["result"] = "unknown"
+			a["expiresAt"] = "2026-10-04T00:00:00Z"
+			nested(m, "request")["currentRevision"] = strings.Repeat("5", 64)
+		}},
+		{"unknown assessment outcome failure", "HOLD", func(m map[string]any) {
+			nested(m, "observation", "proof", "assessment")["result"] = "unknown"
+			nested(m, "observation", "proof")["outcomes"].([]any)[1].(map[string]any)["result"] = "fail"
+			nested(m, "request")["currentRevision"] = strings.Repeat("5", 64)
+		}},
+
 		{"complete", "RECOMMEND_CANDIDATE", func(m map[string]any) {}},
 		{"disabled", "RETAIN_DEFAULT", func(m map[string]any) { nested(m, "contract")["enabled"] = false }},
 		{"agent owner", "INVALID", func(m map[string]any) { nested(m, "contract", "owner")["kind"] = "agent" }},

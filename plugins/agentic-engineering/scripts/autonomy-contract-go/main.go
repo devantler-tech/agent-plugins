@@ -332,7 +332,7 @@ func assess(in Input, now time.Time) Result {
 	ae, aek := stamp(a.Expires)
 	assessmentBound := planBound && bundleBound && exact(a.Record) && digest.MatchString(a.SHA256) && a.BundleSHA256 == p.Bundle.SHA256 && a.PlanSHA256 == p.Plan.SHA256 && aok && aek && ae.After(ao) && !ao.After(now) && !ao.Before(started) && (a.Result == "pass" || a.Result == "fail" || a.Result == "unknown")
 	failed := assessmentBound && a.Result == "fail"
-	expired := assessmentBound && !ae.After(now)
+	expired := assessmentBound && a.Result != "unknown" && !ae.After(now)
 	complete := assessmentBound && a.Result == "pass" && ae.After(now)
 	ids, observedKinds := map[string]bool{}, []string{}
 	for _, e := range p.Evidence {
@@ -347,7 +347,7 @@ func assess(in Input, now time.Time) Result {
 		if bound && e.Result == "fail" {
 			failed = true
 		}
-		if bound && !ex.After(now) {
+		if bound && e.Result != "unknown" && !ex.After(now) {
 			expired = true
 		}
 		if !bound || !fresh(e.Observed, e.Expires, now) || e.Result != "pass" {
@@ -363,7 +363,7 @@ func assess(in Input, now time.Time) Result {
 			return finish("INVALID", "", "ambiguous or invalid reported outcome")
 		}
 		ids[o.ID] = true
-		if assessmentBound && o.Result == "fail" {
+		if assessmentBound && a.Result != "unknown" && o.Result == "fail" {
 			failed = true
 		}
 		if o.Result != "pass" {

@@ -70,7 +70,7 @@ already have started. The assessment explicitly joins both `planSha256` and `bun
 and carries its result and observation/expiry times.
 
 Every required evidence stage needs a report with a distinct id, kind, record, result and times.
-Every required outcome needs exactly one reported result. Positive reports must be current,
+Every required outcome needs exactly one reported result. Replacement and runtime positive reports must be current,
 observed after the experiment started and no later than the assessment time. Runtime support
 requires a positive report and an intercepted-negative report of the same controls and complete
 paths, with different ids and records. These are reported assertions; a passing JSON assessment
@@ -82,7 +82,7 @@ and independently verify their hashes, scope and verdict before using this adapt
 does not parse the referenced calculator output or compute its measurements. Incomplete, unknown,
 future, foreign or unbound assertions yield a hold rather than replacement support.
 
-A bound failure remains negative after expiry. Loss of current evidence or runtime support can
+A bound failure remains negative after expiry. Unknown observations never establish support or its loss. Loss of current evidence or runtime support can
 recommend contraction when the candidate is current and scoped recovery is reported tested and
 already authorized. Pre-experiment and future observations cannot establish that loss. Missing
 recovery readiness yields a hold with the recovery owner; no fallback command is run.
@@ -100,7 +100,7 @@ recovery readiness yields a hold with the recovery owner; no fallback command is
 Every result retains `authority: assessment-only`, `executionAdmitted: false`,
 `mutationPerformed: false` and `reportedEvidenceAuthenticated: false`. Recommendation and hold
 results exit zero because assessment completed; consumers must read the status rather than treating
-exit zero as admission. Invalid input exits 2 without assessment output.
+exit zero as admission. Invalid input exits nonzero without assessment output.
 
 The consumer must separately authenticate classifications and evidence, enforce all runtime paths,
 resolve any actual permission changes through its governing process, and verify recovery through

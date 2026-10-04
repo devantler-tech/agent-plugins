@@ -71,6 +71,8 @@
 #     any gh segment; argv cannot carry that value (an env-prefixed command is
 #     denied). Deployments must export GH_TELEMETRY=0 in the runtime that
 #     invokes gh, the same way a TTY-attached host should set GIT_PAGER=cat.
+#   Local Git reads also require GIT_NO_LAZY_FETCH=1 in the shared process
+#     environment so partial clones cannot invoke a missing-object transport.
 #
 # Written for bash 3.2 so it runs on a stock macOS agent host as well as CI.
 #
@@ -1057,6 +1059,9 @@ classify_gh() {
 classify_git() {
   local sub i w name
   local n=${#WORDS[@]}
+  # Partial clones can fetch missing objects even for local read verbs.
+  # The guard and the admitted command must inherit the same process setting.
+  [ "${GIT_NO_LAZY_FETCH-}" = 1 ] || deny 'export GIT_NO_LAZY_FETCH=1 before a local Git read (prevents missing-object transport execution)'
 
   i=1
   while [ "$i" -lt "$n" ]; do

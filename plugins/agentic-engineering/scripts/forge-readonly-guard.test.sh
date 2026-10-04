@@ -47,6 +47,12 @@ expect_deny() {
   fi
 }
 
+# A local read must not lazily contact a configured object transport.
+GIT_NO_LAZY_FETCH='' expect_deny 'local Git reads require lazy fetching to be disabled' 'git log --oneline -5'
+GIT_NO_LAZY_FETCH=0 expect_deny 'zero does not disable Git lazy fetching' 'git show --no-ext-diff --no-textconv HEAD:file.txt'
+export GIT_NO_LAZY_FETCH=1
+expect_allow 'a no-lazy-fetch local object read remains admitted' 'git show --no-ext-diff --no-textconv HEAD:file.txt'
+
 # Deny AND name the component: "fail with the fix" is only true when the message
 # points at the character to remove, not the whole word.
 expect_deny_names() {

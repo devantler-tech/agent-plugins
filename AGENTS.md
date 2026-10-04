@@ -266,6 +266,11 @@ plugin membership) is authored here.
    retroactive history invented for them. Hidden templates are preserved without suppressing a real entry.
    The gate uses the locked CommonMark parser with Node.js 22+ (`npm ci --ignore-scripts` at the
    repository root). These are repository maintenance dependencies, not bundled plugin resources.
+   The version, digest and changelog writers share a checkout-root generated-write lock through
+   destination backups, replacement and recovery. They refuse an existing lock rather than waiting
+   or stealing it; inspect an interrupted writer before retrying. Keep unrelated editors out of the
+   destinations during publication. Outside changes detected during rollback stay intact with the
+   original backup retained for recovery.
 9. **Catalogue and manifests stay in lockstep.** The [plugin catalogue table](docs/plugins.md) mirrors the manifests; update it
    in the same PR whenever the plugin set changes. CI enforces this: every plugin has a table row and
    vice versa, and each row's **Resources** column matches that plugin's bundled resources on disk — its

@@ -108,6 +108,70 @@ label='failed version commit restores both catalogues'; check diff -rq "$work/be
 label='failed version commit restores strict catalogue'; check diff -rq "$work/before-versions/.claude-plugin" "$root/.claude-plugin"
 label='failed version commit removes private staging files'; check test "$(find "$root" -name '*.next.*' -o -name '*.original.*' | wc -l | tr -d ' ')" = 0
 
+# A failed later write must preserve a concurrent edit and its original backup.
+version_fixture
+mkdir "$root/bin"
+cat > "$root/bin/mv" <<'STUB'
+#!/usr/bin/env bash
+last=${!#}
+if [[ $last == plugins/alpha/.claude-plugin/plugin.json && $2 == *.next.* && ! -e "$FAULT_ROOT/once" ]]; then
+  printf '{"name":"alpha","version":"1.2.4","description":"concurrent edit"}\n' > "$FAULT_ROOT/plugins/alpha/plugin.json"
+  cp "$FAULT_ROOT/plugins/alpha/plugin.json" "$FAULT_ROOT/concurrent-evidence.json"
+  touch "$FAULT_ROOT/once"
+  exit 1
+fi
+exec "$REAL_MV" "$@"
+STUB
+chmod +x "$root/bin/mv"
+rc=0
+(cd "$root" && PATH="$root/bin:$PATH" REAL_MV="$real_mv" FAULT_ROOT="$root" bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
+label='conflicting rollback reports failure'; check test "$rc" -ne 0
+label='conflicting rollback preserves concurrent bytes'; check cmp -s "$root/concurrent-evidence.json" "$root/plugins/alpha/plugin.json"
+label='conflicting rollback retains the original for recovery'; check test "$(find "$root" -name 'plugin.json.original.*' | wc -l | tr -d ' ')" = 1
+label='conflicting rollback explains operator recovery'; check grep -Fq 'Recovery required' "$work/out"
+
+# A second supported batch tries to write after the recovery comparison passes.
+# Its exact placement proves serialization covers the compare-to-restore gap.
+version_fixture
+mkdir "$root/bin"
+printf '{"name":"alpha","version":"1.2.4","description":"second writer"}\n' > "$root/second-source"
+printf '%s\0%s\0' plugins/alpha/plugin.json "$root/second-source" > "$root/second-plan"
+cat > "$root/bin/mv" <<'STUB'
+#!/usr/bin/env bash
+last=${!#}
+if [[ $last == plugins/alpha/.claude-plugin/plugin.json && $2 == *.next.* && ! -e "$FAULT_ROOT/failed-second" ]]; then
+  touch "$FAULT_ROOT/failed-second"
+  exit 1
+fi
+exec "$REAL_MV" "$@"
+STUB
+cat > "$root/bin/cmp" <<'STUB'
+#!/usr/bin/env bash
+rc=0; "$REAL_CMP" "$@" || rc=$?
+if [[ $rc == 0 && ${2:-} == plugins/alpha/plugin.json && -e "$FAULT_ROOT/failed-second" && ! -e "$FAULT_ROOT/probed" ]]; then
+  touch "$FAULT_ROOT/probed"
+  child_rc=0
+  bash -c '. "$ATOMIC_LIB"; atomic_write_batch "$FAULT_ROOT/second-plan"' > "$FAULT_ROOT/second-output" 2>&1 || child_rc=$?
+  printf '%s\n' "$child_rc" > "$FAULT_ROOT/second-status"
+fi
+exit "$rc"
+STUB
+chmod +x "$root/bin/mv" "$root/bin/cmp"
+rc=0
+(cd "$root" && PATH="$root/bin:$PATH" REAL_MV="$real_mv" REAL_CMP="$(command -v cmp)" FAULT_ROOT="$root" ATOMIC_LIB="$plugins/scripts/atomic-write.lib.sh" bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
+label='rollback interleaving reaches the supported second writer'; check test -f "$root/second-status"
+label='supported second writer cannot enter the recovery window'; check test "$(cat "$root/second-status")" -ne 0
+label='writer refusal identifies the shared lock'; check grep -Fq 'Generated writes are already locked' "$root/second-output"
+label='ordinary failed batch releases its own lock'; check test ! -e "$root/.agent-plugin-write.lock"
+
+version_fixture
+mkdir "$root/.agent-plugin-write.lock"
+cp "$root/plugins/alpha/plugin.json" "$work/locked-before"
+rc=0; (cd "$root" && bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
+label='a pre-existing writer lock refuses publication'; check test "$rc" -ne 0
+label='a pre-existing writer lock preserves destination bytes'; check cmp -s "$work/locked-before" "$root/plugins/alpha/plugin.json"
+label='a failed lock acquisition cannot remove another writer lock'; check test -d "$root/.agent-plugin-write.lock"
+
 version_fixture
 git -C "$root" init -q
 git -C "$root" config user.name Test; git -C "$root" config user.email test@example.invalid

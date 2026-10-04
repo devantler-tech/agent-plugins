@@ -17,9 +17,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 **Crossing a breaking release?** Apply the upgrade sections in ascending order —
 [2.0.0](#upgrading-to-200) → [3.0.0](#upgrading-to-300) → [4.0.0](#upgrading-to-400) →
-[5.0.0](#upgrading-to-500) — and complete every one that lies between the installed version and the
+[5.0.0](#upgrading-to-500) → [6.0.0](#upgrading-to-600) — and complete every one that lies between the installed version and the
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
+
+## 6.0.0 — 2026-10-04
+
+**Breaking** — guarded local Git reads require `GIT_NO_LAZY_FETCH=1` in the process environment
+shared by the guard and the admitted command. Missing objects fail locally and remain unknown.
+
+### Upgrading to 6.0.0
+
+Export `GIT_NO_LAZY_FETCH=1` in the runtime process that invokes both the guard and Git before
+resuming guarded reads. A missing or different value is denied. Keep the existing telemetry and
+pager settings, and verify the new environment with the bundled local-object behavior test before
+resuming unattended use. This release does not change installed runtime settings automatically.
+
+**Fixed** — review-thread counting rejects GraphQL errors even when a partial response includes
+plausible thread data. Remote default-branch CI reads require complete page envelopes; a bare array
+cannot establish that collection finished. Offline array inputs remain supported.
+
+**Fixed** — package validation rejects unterminated desired-state and provenance inventories.
+Generated-file helpers serialize destination backups, replacements and recovery under one checkout lock.
+Failed batches preserve outside edits detected during recovery and retain the original backup.
 
 ## 5.6.11 — 2026-10-04
 

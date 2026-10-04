@@ -13,17 +13,17 @@
       "requiredRuntimeAssets": [
         {
           "path": "scripts/classify-default-branch-ci-runs.sh",
-          "sha256": "cb177781f3d4b8276f4d5d5e165e4d3c6938fadff351fd65754b70a7ae7c37d2",
+          "sha256": "81d5b09351de120c62c656fb6a502245d66b16cad37a4289a7e25b370aedb8d5",
           "executable": true
         },
         {
           "path": "scripts/count-unresolved-review-threads.sh",
-          "sha256": "cb41182d440b38fa43b72920b16c23a7d8b27a279b935cd7e21b506c7b1373c1",
+          "sha256": "181157194dfa81ed2e1616314500444698f9cb29142e67c57e96b2ce82c2086a",
           "executable": true
         },
         {
           "path": "scripts/forge-readonly-guard.sh",
-          "sha256": "3cd4874be4211780108424aef01b1aa775dfbf38581cfbd3d586cdfe38118c63",
+          "sha256": "39e3ccd8c2a4a4f78bb2083425283525a36916fcc7d656d9413f54e0c42ebcb0",
           "executable": true
         },
         {
@@ -71,7 +71,7 @@
       "portfolio-surveyor": {
         "enabled": true,
         "mode": "delegated-read-only",
-        "definitionSha256": "115f9ff9907c1ef08fc8ca7ca983d8355a320ae51590135d855b9e43b699fccc"
+        "definitionSha256": "6fa191d8034ccfa68127f70496338365c455b43446da508413531b1d0b17443d"
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",

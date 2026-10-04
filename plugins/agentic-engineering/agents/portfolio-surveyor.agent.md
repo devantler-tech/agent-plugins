@@ -563,6 +563,9 @@ Invoke it from a process that already has `GH_TELEMETRY=0` (or `false`) in the e
 or rely on the helper's own export of `GH_TELEMETRY=0` before its remote `gh api` GET — GitHub CLI
 2.96.0 otherwise writes `gh/device-id` on a certified read. Do not prefix the helper with
 `GH_TELEMETRY=0` on the command line; the guard denies env-prefixed `gh`.
+The process running guarded local Git reads must also export `GIT_NO_LAZY_FETCH=1` before
+invocation. Missing partial-clone objects then fail locally rather than contacting a transport;
+that failed observation remains `QUERY-UNKNOWN`.
 
 The helper flattens all page envelopes before deciding and keeps only branch-level events (push,
 schedule, merge-group, manual dispatch, and GitHub-managed dynamic runs). Repository workflows are

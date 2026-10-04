@@ -174,6 +174,9 @@ jq_filter='
   if length == 0 then error("empty input") else . end
   | [.[] | page_envelopes[]] as $envelopes
   | [.[] | page_runs[]] as $runs
+  | if $expected_head_sha != "" and ($envelopes | length) == 0 then
+      error("remote runs result requires page envelopes")
+    else . end
   | (if ($envelopes | length) == 0 then
        $runs
      elif any($envelopes[];

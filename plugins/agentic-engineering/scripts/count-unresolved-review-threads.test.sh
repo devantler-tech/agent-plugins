@@ -157,6 +157,16 @@ page 1 false c1 false >"$TEST_TMP/pages/failed/page-1"
 : >"$TEST_TMP/pages/failed/fail"
 expect 'a failed read is UNKNOWN, not zero' "$COUNTER" failed 2 'UNKNOWN read-failed'
 
+# GraphQL partial data never overrides its error envelope, on any page.
+for position in first later; do
+  mkdir -p "$TEST_TMP/pages/graphql-errors-$position"
+  total=0
+  if [ "$position" = later ]; then total=1; page 1 true first true > "$TEST_TMP/pages/graphql-errors-$position/page-1"; fi
+  page "$total" false last | jq '.errors=[{message:"Review thread field failed"}]' > "$TEST_TMP/pages/graphql-errors-$position/page-2"
+  if [ "$position" = first ]; then mv "$TEST_TMP/pages/graphql-errors-$position/page-2" "$TEST_TMP/pages/graphql-errors-$position/page-1"; fi
+  expect "$position-page GraphQL errors cannot clear threads" "$COUNTER" "graphql-errors-$position" 2 'UNKNOWN malformed'
+done
+
 # Ablation 1: without --paginate the helper sees 100 of 103, and the truncation check must
 # catch it rather than report the first page's zero.
 sed 's/ --paginate//' "$COUNTER" >"$TEST_TMP/no-paginate.sh"

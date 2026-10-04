@@ -201,6 +201,7 @@ else
   # The guard admits certified gh reads only once telemetry is pinned off, so
   # supply it here: this block isolates read-vs-mutation, not the telemetry rule.
   export GH_TELEMETRY=0
+  export GIT_NO_LAZY_FETCH=1
   st="$(
     set +e
     run_wrapper "$(hook_stdin 'gh pr view 2786 --repo devantler-tech/monorepo --json number,state,headRefOid')" \

@@ -98,7 +98,8 @@ fi
 # shellcheck disable=SC2016 # jq program; dollar-prefixed names belong to jq
 if ! counts=$(printf '%s\n' "$pages" | jq -s -r --arg repo "$repo" --argjson pr "$pr" '
   [.[] | .data.repository.pullRequest.reviewThreads] as $t
-  | if ($t | length) == 0
+  | if any(.[]; type != "object" or (has("errors") and .errors != []))
+      or ($t | length) == 0
       or any($t[];
           (type != "object")
           or ((.totalCount | type) != "number")

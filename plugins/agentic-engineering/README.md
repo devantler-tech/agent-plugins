@@ -291,6 +291,9 @@ it never claimed:
   exists. The guard denies any `gh` segment unless a disabling value (`0` or `false`) is already in
   the process environment; argv cannot carry it. **`export GH_TELEMETRY=0` before any `gh` read.**
   The bundled classifier does that before its own `gh` call. Git-only commands do not need it.
+- **`GIT_NO_LAZY_FETCH`.** Partial clones can contact a configured transport during a local
+  object read. **Export `GIT_NO_LAZY_FETCH=1` in the runtime process before guarded Git reads.**
+  The guard requires that exact setting; a missing object then fails locally and stays unknown.
 
 Tools that implement this marketplace's plugin layout auto-discover the `agents/` and `skills/`
 directories. On surfaces without full plugin support, load the same canonical agent and skill files

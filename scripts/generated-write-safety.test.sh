@@ -108,6 +108,28 @@ label='failed version commit restores both catalogues'; check diff -rq "$work/be
 label='failed version commit restores strict catalogue'; check diff -rq "$work/before-versions/.claude-plugin" "$root/.claude-plugin"
 label='failed version commit removes private staging files'; check test "$(find "$root" -name '*.next.*' -o -name '*.original.*' | wc -l | tr -d ' ')" = 0
 
+# A failed later write must preserve a concurrent edit and its original backup.
+version_fixture
+mkdir "$root/bin"
+cat > "$root/bin/mv" <<'STUB'
+#!/usr/bin/env bash
+last=${!#}
+if [[ $last == plugins/alpha/.claude-plugin/plugin.json && $2 == *.next.* && ! -e "$FAULT_ROOT/once" ]]; then
+  printf '{"name":"alpha","version":"1.2.4","description":"concurrent edit"}\n' > "$FAULT_ROOT/plugins/alpha/plugin.json"
+  cp "$FAULT_ROOT/plugins/alpha/plugin.json" "$FAULT_ROOT/concurrent-evidence.json"
+  touch "$FAULT_ROOT/once"
+  exit 1
+fi
+exec "$REAL_MV" "$@"
+STUB
+chmod +x "$root/bin/mv"
+rc=0
+(cd "$root" && PATH="$root/bin:$PATH" REAL_MV="$real_mv" FAULT_ROOT="$root" bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
+label='conflicting rollback reports failure'; check test "$rc" -ne 0
+label='conflicting rollback preserves concurrent bytes'; check cmp -s "$root/concurrent-evidence.json" "$root/plugins/alpha/plugin.json"
+label='conflicting rollback retains the original for recovery'; check test "$(find "$root" -name 'plugin.json.original.*' | wc -l | tr -d ' ')" = 1
+label='conflicting rollback explains operator recovery'; check grep -Fq 'Recovery required' "$work/out"
+
 version_fixture
 git -C "$root" init -q
 git -C "$root" config user.name Test; git -C "$root" config user.email test@example.invalid

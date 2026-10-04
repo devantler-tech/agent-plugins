@@ -40,8 +40,8 @@ atomic_write_batch() {
         local j
         for j in "${!destinations[@]}"; do
           [ "$j" -le "$i" ] || continue
-          # Restore even the failing destination: a producer may have changed it
-          # before returning failure. A backup survives any failed restoration.
+          # Restore only this transaction's bytes. Another writer may have
+          # changed an earlier destination while a later replacement failed.
           if [ -z "${originals[$j]}" ]; then
             # Remove only a new file whose bytes still match this batch's staged source.
             if [ ! -e "${destinations[$j]}" ] && [ ! -L "${destinations[$j]}" ]; then continue; fi
@@ -49,6 +49,11 @@ atomic_write_batch() {
                ! rm -f "${destinations[$j]}"; then
               printf '::error::Recovery required; new destination retained at %s\n' "${destinations[$j]}" >&2
             fi
+          elif [ ! -L "${destinations[$j]}" ] && cmp -s "${destinations[$j]}" "${originals[$j]}"; then
+            continue
+          elif [ -L "${destinations[$j]}" ] || ! cmp -s "${destinations[$j]}" "${sources[$j]}"; then
+            printf '::error::Recovery required; conflicting destination preserved at %s; original retained at %s\n' "${destinations[$j]}" "${originals[$j]}" >&2
+            originals[j]=''
           elif ! mv -f "${originals[$j]}" "${destinations[$j]}"; then
             printf '::error::Recovery required; original retained at %s\n' "${originals[$j]}" >&2
             originals[j]=''

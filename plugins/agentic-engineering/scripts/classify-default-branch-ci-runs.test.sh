@@ -459,6 +459,17 @@ else
   record_failure 'an inherited host cannot retarget the CI collector'
 fi
 
+# Flat arrays remain an explicit offline format, never a remote endpoint result.
+remote_flat=$(printf '%s\n' "$base_run" | jq -c '.[0].head_sha="0123456789abcdef0123456789abcdef01234567" | .[0].head_branch="main"')
+for payload in '[]' "$remote_flat"; do
+  printf '%s\n' "$payload" > "$TEST_TMP/host-response"
+  out='' status=0
+  out=$(STUB_CI_RESPONSE="$TEST_TMP/host-response" PATH="$stub_dir:$PATH" "$CLASSIFIER" \
+    --repo devantler-tech/example --branch main --head-sha 0123456789abcdef0123456789abcdef01234567 2>"$TEST_TMP/stderr") || status=$?
+  if [ "$status" -eq 2 ] && [ -z "$out" ]; then pass=$((pass+1)); else record_failure 'remote flat run arrays cannot establish completeness'; fi
+done
+expect_output 'offline empty flat array remains supported' '[]' ''
+
 selector_bin="$TEST_TMP/selector-bin"
 mkdir -p "$selector_bin"
 cat > "$selector_bin/gh" <<'STUB'

@@ -105,7 +105,7 @@ for scenario in listed ancillary; do
 done
 # Even exit-zero producers must supply complete NUL frames, never a hidden last member.
 real_find=$(command -v find)
-for kind in packages skills agents; do
+for kind in packages skills agents desired-state provenance; do
   root="$work/unterminated-$kind"; fixture "$root"
   cp "$root/plugins/alpha/plugin.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
   mkdir "$root/bin"
@@ -116,11 +116,17 @@ case "$FRAME_KIND:${1:-}:${2:-}" in
   skills:plugins/alpha/skills:-mindepth) printf 'plugins/alpha/skills/example\0plugins/alpha/skills/incomplete'; exit 0 ;;
   agents:plugins/alpha/agents:-mindepth) printf 'plugins/alpha/agents/sample.agent.md\0plugins/alpha/agents/ghost.agent.md'; exit 0 ;;
 esac
+if [[ $FRAME_KIND == desired-state && "$*" == *'*/resources/*.desired-state.json'* ]]; then printf 'plugins/alpha/resources/invalid.desired-state.json'; exit 0; fi
+if [[ $FRAME_KIND == provenance && "$*" == *'*/skills/*/SKILL.md'* ]]; then printf 'plugins/alpha/skills/example/SKILL.md'; exit 0; fi
 exec "$REAL_FIND" "$@"
 STUB
   chmod +x "$root/bin/find"
   [ "$kind" != agents ] || mkdir "$root/plugins/alpha/agents"
-  case $kind in packages) frame='direct plugin packages' ;; skills) frame='default skill directories' ;; agents) frame='default agent entries' ;; esac
+  case $kind in
+    packages) frame='direct plugin packages' ;; skills) frame='default skill directories' ;; agents) frame='default agent entries' ;;
+    desired-state) mkdir -p "$root/plugins/alpha/resources"; printf '{"kind":"Unsupported"}\n' > "$root/plugins/alpha/resources/invalid.desired-state.json"; frame='desired-state resources' ;;
+    provenance) printf '%s\n' --- 'name: example' 'description: Example.' --- > "$root/plugins/alpha/skills/example/SKILL.md"; frame='skill provenance' ;;
+  esac
   PATH="$root/bin:$PATH" REAL_FIND="$real_find" FRAME_KIND="$kind" gate "unterminated-$kind" reject "$root" "Incomplete record in $frame"
 done
 printf 'package discovery: %s failures\n' "$fail"

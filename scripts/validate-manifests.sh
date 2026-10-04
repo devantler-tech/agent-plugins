@@ -615,7 +615,7 @@ validate_desired_state_resources() {
   local -a asset_components
   local entrypoint_sha256 actual_entrypoint_sha256
   local portfolio_surveyor_sha256 actual_portfolio_surveyor_sha256
-  capture_inventory desired-state 'desired-state resources' \
+  capture_nul_inventory desired-state 'desired-state resources' \
     find plugins -type f -path '*/resources/*.desired-state.json' -print0 || return 1
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
@@ -1514,7 +1514,7 @@ validate_desired_state_resources() {
 validate_skill_provenance() {
   local failed=0
   local skill
-  capture_inventory provenance 'skill provenance' \
+  capture_nul_inventory provenance 'skill provenance' \
     find plugins -type f -path '*/skills/*/SKILL.md' -print0 || return 1
   while IFS= read -r -d '' skill; do
     if owner=$(frontmatter_repository < "$skill") && [ -n "$owner" ]; then

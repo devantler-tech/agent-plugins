@@ -86,6 +86,7 @@ func TestKnownArgumentsAreDecodedOnce(t *testing.T) {
 	}
 }
 
+// TestManyMarkdownSpans preserves literal guidance across many successive code spans.
 func TestManyMarkdownSpans(t *testing.T) {
 	source := strings.Repeat("Use ``gh pr view --json state,mergedAt``. ", 10000)
 	text, err := normalizeShellFields(source)
@@ -94,6 +95,7 @@ func TestManyMarkdownSpans(t *testing.T) {
 	}
 }
 
+// TestDecodedGuidanceBoundary prevents one retained value from supplying another's opener.
 func TestDecodedGuidanceBoundary(t *testing.T) {
 	_, err := normalizeShellFields("An unmatched ` belongs to another decoded value.\n%\ngh pr view --json state,mer`printf ged`\n%\n")
 	if err == nil {
@@ -101,6 +103,7 @@ func TestDecodedGuidanceBoundary(t *testing.T) {
 	}
 }
 
+// TestHeadingGuidanceBoundaries refuses delimiter inheritance across separate Markdown blocks.
 func TestHeadingGuidanceBoundaries(t *testing.T) {
 	for _, source := range []string{
 		"# Heading with a literal `\ngh pr view --json state,mer`printf ged`",
@@ -117,8 +120,10 @@ func TestHeadingGuidanceBoundaries(t *testing.T) {
 	}
 }
 
+// BenchmarkMarkdownSpans measures normalization at two input sizes while preserving all text.
 func BenchmarkMarkdownSpans(b *testing.B) {
 	for _, count := range []int{1000, 10000} {
+		// Each size checks the full normalized output during every timed iteration.
 		b.Run(strconv.Itoa(count), func(b *testing.B) {
 			source := strings.Repeat("Use ``gh pr view --json state,mergedAt``. ", count)
 			b.SetBytes(int64(len(source)))

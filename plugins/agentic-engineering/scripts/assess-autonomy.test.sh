@@ -18,6 +18,15 @@ if PATH="$work/bin:$PATH" bash "$helper" --contract "$work/missing" --now 2026-1
 example="$plugin/resources/autonomy-contract.example.json"
 bash "$helper" --assess --contract "$example" --now 2026-10-04T00:00:00Z > "$work/result"
 jq -e '.status=="RECOMMEND_CANDIDATE" and .synthetic==true and .executionAdmitted==false and .mutationPerformed==false and .reportedEvidenceAuthenticated==false' "$work/result" >/dev/null
+jq '.observation.proof.evidence[0].observedAt="2026-10-03T12:00:00Z"' "$example" > "$work/later.json"
+bash "$helper" --assess --contract "$work/later.json" --now 2026-10-04T00:00:00Z > "$work/result"
+jq -e '.status=="HOLD" and .executionAdmitted==false' "$work/result" >/dev/null
+jq '.synthetic=null' "$example" > "$work/null.json"
+if bash "$helper" --assess --contract "$work/null.json" --now 2026-10-04T00:00:00Z > "$work/result" 2> "$work/error"; then exit 1; fi
+[ ! -s "$work/result" ]
+jq '.request.currentRevision=.contract.bindings.candidateRevision | .observation.proof.evidence[0].result="fail"' "$work/later.json" > "$work/later-failure.json"
+bash "$helper" --assess --contract "$work/later-failure.json" --now 2026-10-04T00:00:00Z > "$work/result"
+jq -e '.status=="RECOMMEND_CONTRACTION" and .executionAdmitted==false' "$work/result" >/dev/null
 jq '.contract.enabled=false' "$example" > "$work/off.json"
 bash "$helper" --assess --contract "$work/off.json" --now 2026-10-04T00:00:00Z > "$work/result"
 jq -e '.status=="RETAIN_DEFAULT"' "$work/result" >/dev/null

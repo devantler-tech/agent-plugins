@@ -80,7 +80,7 @@ jobs:
       - name: 🧪 Verify the optional offline autonomy consumer
         run: |
           GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
-            go test plugins/agentic-engineering/scripts/autonomy-contract-go/main.go plugins/agentic-engineering/scripts/autonomy-contract-go/main_test.go
+            go test plugins/agentic-engineering/scripts/autonomy-contract-go/main.go plugins/agentic-engineering/scripts/autonomy-contract-go/main_test.go plugins/agentic-engineering/scripts/autonomy-contract-go/assessment_boundaries_test.go
           bash plugins/agentic-engineering/scripts/assess-autonomy.test.sh
 
       - name: 🧪 Self-test the Go guidance decoder

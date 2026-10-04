@@ -21,6 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.1.6 — 2026-10-04
+
+**Fixed** — positive autonomy proof must exist by the assessment time, malformed synthetic
+declarations are refused, and incomplete pagination preserves unknown review counts. Installed
+evidence commands have integration coverage for valid inputs, malformed bytes and failed reads.
+Autonomy recommendations remain offline and advisory.
+
 ## 6.1.5 — 2026-10-04
 
 **Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.24`.

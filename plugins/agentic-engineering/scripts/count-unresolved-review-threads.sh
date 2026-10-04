@@ -121,8 +121,10 @@ if ! counts=$(printf '%s\n' "$pages" | jq -s -r --arg repo "$repo" --argjson pr 
     elif any($t[].nodes[]; (.id | type != "string" or length == 0))
         or ([$t[].nodes[].id] | unique | length) != ([$t[].nodes[]] | length) then "identity"
     elif any($t[]; (.pageInfo | type != "object")
+        or (.pageInfo | has("hasNextPage") and has("endCursor") | not)
         or (.pageInfo.hasNextPage | type != "boolean")
         or (.pageInfo.endCursor != null and (.pageInfo.endCursor | type != "string"))
+        or ((.nodes | length) == 0 and .pageInfo.endCursor != null)
         or ((.nodes | length) > 0 and (.pageInfo.endCursor | type != "string" or length == 0))
         or (.pageInfo.hasNextPage and ((.nodes | length) == 0)))
         or $t[-1].pageInfo.hasNextPage != false

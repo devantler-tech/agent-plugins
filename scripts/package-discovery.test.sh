@@ -17,12 +17,15 @@ fixture() {
   # shellcheck disable=SC2016 # Literal catalogue markup.
   printf '| Plugin | Resources | Description |\n|---|---|---|\n| [`alpha`](plugins/alpha/) | `example` | Alpha |\n' > "$root/docs/plugins.md"
 }
-# Preserve the gate result and require its failure to identify the tested boundary.
+# Preserve the gate result and require a rejection to carry the diagnostic of the tested boundary.
 gate() {
-  local name=$1 expected=$2 root=$3 rc=0
+  local name=$1 expected=$2 root=$3 diagnostic=${4:-} rc=0
+  if [ "$expected" = reject ] && [ -z "$diagnostic" ]; then
+    printf 'FAIL %s names no expected diagnostic\n' "$name"; fail=$((fail+1)); return
+  fi
   (cd "$root" && bash "$here/validate-manifests.sh") > "$root/out" 2>&1 || rc=$?
   if { [ "$expected" = pass ] && [ "$rc" -eq 0 ]; } ||
-     { [ "$expected" = reject ] && [ "$rc" -ne 0 ] && grep -q '::error::' "$root/out"; }; then
+     { [ "$expected" = reject ] && [ "$rc" -ne 0 ] && grep -Fq "::error::$diagnostic" "$root/out"; }; then
     printf 'PASS %s\n' "$name"
   else printf 'FAIL %s exit=%s\n' "$name" "$rc"; cat "$root/out"; fail=$((fail+1)); fi
 }
@@ -68,9 +71,19 @@ for scenario in healthy linked-skill linked-agent linked-mcp linked-plugin linke
     linked-marketplace) mv "$m" "$root/outside.json"; ln -s "$root/outside.json" "$m" ;;
     linked-strict-parent) path="$root/plugins/alpha/.claude-plugin"; mv "$path" "$root/outside"; ln -s "$root/outside" "$path" ;;
   esac
-  expected=reject
-  case $scenario in healthy|description-backslash|selected-*|mcp-underscore|mcp-dot|mcp-unicode) expected=pass ;; esac
-  gate "$scenario" "$expected" "$root"
+  expected=reject diagnostic=
+  case $scenario in
+    healthy|description-backslash|selected-*|mcp-underscore|mcp-dot|mcp-unicode) expected=pass ;;
+    linked-skill) diagnostic='plugins/alpha/skills/example: skill directory requires its own regular SKILL.md' ;;
+    linked-agent) diagnostic='plugins/alpha/agents/sample.agent.md: agent must be a regular packaged file' ;;
+    linked-mcp) diagnostic='plugins/alpha/.mcp.json: MCP configuration must be a regular packaged file' ;;
+    linked-plugin|linked-strict-plugin|linked-strict-parent) diagnostic='plugins/alpha: every package requires its own regular canonical manifests' ;;
+    linked-marketplace) diagnostic='.claude-plugin/marketplace.json: manifest must be a regular packaged file' ;;
+    incomplete-skill) diagnostic='plugins/alpha/skills/incomplete: skill directory requires its own regular SKILL.md' ;;
+    orphan-plugin) diagnostic='plugins/ghost: every package requires its own regular canonical manifests' ;;
+    mcp-space|mcp-backtick|mcp-pipe) diagnostic='plugins/alpha/.mcp.json: MCP server names must be unambiguous catalogue tokens' ;;
+  esac
+  gate "$scenario" "$expected" "$root" "$diagnostic"
 done
 # Ancillary non-agent files are not discovered or advertised as agent resources.
 for scenario in listed ancillary; do
@@ -88,7 +101,7 @@ for scenario in listed ancillary; do
   printf '| Plugin | Resources | Description |\n|---|---|---|\n| [`alpha`](plugins/alpha/) | `example`, `sample`%s | Alpha |\n' "$extra" > "$root/docs/plugins.md"
   cp "$root/plugins/alpha/plugin.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
   expected=pass; [ "$scenario" != listed ] || expected=reject
-  gate "agent-token-$scenario" "$expected" "$root"
+  gate "agent-token-$scenario" "$expected" "$root" "docs/plugins.md Resources for 'alpha' (example invisible.txt sample) differ from on-disk resources (example sample)"
 done
 # Even exit-zero producers must supply complete NUL frames, never a hidden last member.
 real_find=$(command -v find)
@@ -107,8 +120,8 @@ exec "$REAL_FIND" "$@"
 STUB
   chmod +x "$root/bin/find"
   [ "$kind" != agents ] || mkdir "$root/plugins/alpha/agents"
-  PATH="$root/bin:$PATH" REAL_FIND="$real_find" FRAME_KIND="$kind" gate "unterminated-$kind" reject "$root"
-  grep -q 'Incomplete record' "$root/out" || { printf 'FAIL framing diagnostic %s\n' "$kind"; fail=$((fail+1)); }
+  case $kind in packages) frame='direct plugin packages' ;; skills) frame='default skill directories' ;; agents) frame='default agent entries' ;; esac
+  PATH="$root/bin:$PATH" REAL_FIND="$real_find" FRAME_KIND="$kind" gate "unterminated-$kind" reject "$root" "Incomplete record in $frame"
 done
 printf 'package discovery: %s failures\n' "$fail"
 test "$fail" -eq 0

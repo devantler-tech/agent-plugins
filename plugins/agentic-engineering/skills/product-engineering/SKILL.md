@@ -3,9 +3,9 @@ description: 'The ADVANCE playbook for an autonomous AI engineer — how to move
 license: Apache-2.0
 metadata:
     github-path: product-engineering
-    github-ref: refs/tags/v1.21.16
+    github-ref: refs/tags/v1.21.24
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 0d5655d5254efd6ea16b7075d37cac5b41c441b1
+    github-tree-sha: 3e2178794f70776eaf8d6ba0f160d79830baf2e8
 name: product-engineering
 ---
 # Product engineering — moving products forward

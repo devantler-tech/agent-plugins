@@ -87,8 +87,11 @@ start and no later than evaluation time, and be covered by the referenced live a
 timestamp. Missing links or incomplete windows hold adoption. Verify that the source artifact actually
 covers the whole declared interval; a timestamp alone cannot prove continuous observation.
 
-Thresholds are absolute values in each measure's declared unit. Prefer scaled integer units such as
-microseconds or successful responses per million when decimal rounding could decide a boundary.
+Thresholds are absolute values in each measure's declared unit. Improvement and regression arithmetic
+compares exact decimal digit strings, including scientific notation, so binary floating-point rounding
+cannot move a threshold boundary. Inputs with more than 1024 coefficient digits or an exponent outside
+−1024…1024 fail evaluation explicitly. Prefer units such as microseconds or successful responses per
+million that make the preregistered thresholds easy to interpret.
 An interval is not automatically a confidence interval: its meaning, estimator, sample size and
 coverage must be established by the preregistered method and checked against the source artifacts.
 
@@ -109,7 +112,9 @@ still permits improvement remain inconclusive.
 
 ## Run the optional offline check
 
-Requires jq 1.6 or newer. Resolve paths relative to this installed skill, not the consuming repository.
+Requires decimal-preserving jq 1.7 or newer. Numeric repeat counts must be integers;
+fractional values fail validation before any adoption assessment. Resolve paths relative to this
+installed skill, not the consuming repository.
 The helper reads JSON, performs no network calls or writes, and is **not enabled as a runtime gate**.
 
 ```bash

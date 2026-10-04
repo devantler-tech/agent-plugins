@@ -96,6 +96,7 @@ for kind in missing prefix fenced nested-fence tilde-info indented duplicate; do
 fixture; bump
 sed '/github-ref:/d' "$dir/plugins/alpha/skills/example/SKILL.md" > "$dir/new"
 mv "$dir/new" "$dir/plugins/alpha/skills/example/SKILL.md"
+commit # Provenance is observed at the committed head, never from the working copy.
 cp "$dir/plugins/alpha/CHANGELOG.md" "$work/before"
 refuse write "$base" 2026-09-24
 cmp "$work/before" "$dir/plugins/alpha/CHANGELOG.md"

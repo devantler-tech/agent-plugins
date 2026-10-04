@@ -331,6 +331,7 @@ GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local go test ./plugins/agentic
 ./scripts/check-plugin-version-bump.sh origin/main HEAD
 bash scripts/plugin-changelog.sh check origin/main HEAD
 bash scripts/plugin-changelog.test.sh
+bash scripts/plugin-changelog-release-boundaries.test.sh # caller identity, committed provenance and safe release writes
 
 # 1c. Every content digest a desired-state resource pins must match the file it pins.
 #     Those digests have a writer: refresh them rather than hand-editing, or the next

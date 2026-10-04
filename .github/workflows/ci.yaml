@@ -81,7 +81,7 @@ jobs:
         run: |
           GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
             go test plugins/agentic-engineering/scripts/autonomy-contract-go/main.go plugins/agentic-engineering/scripts/autonomy-contract-go/main_test.go
-          bash scripts/autonomy-contract.test.sh
+          bash plugins/agentic-engineering/scripts/assess-autonomy.test.sh
 
       - name: 🧪 Self-test the Go guidance decoder
         run: |

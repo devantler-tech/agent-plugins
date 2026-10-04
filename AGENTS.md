@@ -320,7 +320,7 @@ npm ci --ignore-scripts --no-audit --no-fund
 #    "Validate manifests" job runs.
 ./scripts/validate-manifests.sh
 
-bash scripts/autonomy-contract.test.sh # optional copied consumer; always assessment-only
+bash plugins/agentic-engineering/scripts/assess-autonomy.test.sh # optional copied consumer; always assessment-only
 GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local go test ./plugins/agentic-engineering/scripts/autonomy-contract-go
 
 # 1b. Every plugin whose shipped content changed must also move its version, or the change

@@ -73,7 +73,8 @@ The snapshot requires:
 - `observedAt` (Unix seconds), `runtime`, `runtimeVersion`, runtime-reported resolved exact `model`
   or `null` (never populate it by copying the policy's intended model);
 - `billing` (`included`, `unknown`, `paygo`), `controls` (`verified`, `unverified`), `evidenceRef`
-  (a private verification record reference or `null`);
+  (a private verification record reference with visible content, or `null`; blank/control-only
+  references remain unverified);
 - `buckets.short` and `buckets.weekly`, each `null` or an object with `remainingPercent`,
   `estimatedChainPercent`, `reservedPercent`, and `unsettledPercent`. Each value is a percentage
   in 0–100 or `null`. Unknown is never zero.

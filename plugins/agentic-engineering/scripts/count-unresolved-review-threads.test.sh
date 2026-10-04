@@ -168,6 +168,7 @@ for position in first later; do
 done
 
 # Ablation 1: without --paginate the helper sees 100 of 103, and the truncation check must
+cp "$HERE/json-stream.lib.sh" "$TEST_TMP/json-stream.lib.sh"
 # catch it rather than report the first page's zero.
 sed 's/ --paginate//' "$COUNTER" >"$TEST_TMP/no-paginate.sh"
 expect 'ablation: no --paginate is caught as unfinished pagination' "$TEST_TMP/no-paginate.sh" paginated 2 \

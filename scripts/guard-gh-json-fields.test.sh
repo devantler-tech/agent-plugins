@@ -103,7 +103,7 @@ for command in 'gh pr view --json state,mer${suffix}' 'gh pr view --json state,m
   printf '%s\n' "$command" > "$dir/plugins/p/agents/case.md"
   expect 2 'unquoted or ANSI-C field expansion is UNKNOWN' "$dir"
 done
-for command in 'gh pr view --json state,mer\ged' 'gh pr view --json state,mer`printf ged`' 'gh pr view --json `printf merged`'; do
+for command in 'gh pr view --json state,mer\ged' 'gh pr view --json state,mer`printf ged`' 'gh pr view --json `printf merged`' 'gh pr view --json ```printf merged```'; do
   dir="$(fixture "unknown-unquoted-shell-syntax-$passed")"
   printf '%s\n' "$command" > "$dir/plugins/p/agents/case.md"
   expect 2 'unquoted shell syntax inside a field word is UNKNOWN' "$dir"

@@ -203,6 +203,7 @@ func normalizeShellFields(source string) (string, error) {
 			position = start
 			continue
 		}
+		separatorStart := start
 		for start < len(source) && (space(source[start]) || source[start] == '=' || source[start] == ',') {
 			start++
 		}
@@ -222,7 +223,9 @@ func normalizeShellFields(source string) (string, error) {
 				continue
 			}
 			if c == '`' {
-				if word.Len() == 0 && strings.HasPrefix(source[end:], "```") {
+				separator := source[separatorStart:end]
+				if word.Len() == 0 && strings.HasPrefix(source[end:], "```") &&
+					strings.Contains(separator, "\n") && strings.Trim(separator, " \t\r\n") == "" {
 					break // A following Markdown fence is not part of a field word.
 				}
 				line := strings.LastIndexByte(source[:flag], '\n') + 1

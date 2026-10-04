@@ -1,5 +1,9 @@
 # Evidence bundles for unfamiliar engineering methods
 
+Evidence source identities must be visible, exact strings without whitespace, controls, or
+Unicode default-ignorable characters. Encode spaces in URI paths. This prevents visually equivalent
+references from establishing independent measurement repeats; it does not authenticate a source.
+
 Use this protocol when deciding whether an unfamiliar method can replace a proven one. It works for
 an application design, infrastructure change, library implementation, or operational procedure.
 Scale the experiment to the consequence of being wrong. Routine repairs do not need a new ceremony.
@@ -112,18 +116,28 @@ still permits improvement remain inconclusive.
 
 ## Run the optional offline check
 
-Requires decimal-preserving jq 1.7 or newer. Numeric repeat counts must be integers;
+Requires decimal-preserving jq 1.7 or newer and `iconv`. Numeric repeat counts must be integers;
 fractional values fail validation before any adoption assessment. Resolve paths relative to this
 installed skill, not the consuming repository.
-The helper reads JSON, performs no network calls or writes, and is **not enabled as a runtime gate**.
+The installed entrypoint privately retains the input, strictly validates its raw UTF-8 bytes, and
+evaluates the same snapshot. It removes temporary files on exit, performs no network calls, and is
+**not enabled as a runtime gate**. Genuinely encoded replacement characters remain valid. Machine
+identities and artifact references must remain visibly exact, including revisions and diagnostic IDs.
+Unpaired UTF-16 surrogate escapes are refused before jq can replace them during decoding; valid
+surrogate pairs and escaped literal `\\u...` text remain supported.
 
 ```bash
-jq -s --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  -f /path/to/product-engineering/scripts/check-evidence.jq bundle.json > assessment.json
+bash /path/to/product-engineering/scripts/check-evidence.sh \
+  --now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" bundle.json > assessment.json
 ```
 
+The installed bundle carries executable checks beside the entrypoint and its raw-byte boundary. Run
+`bash scripts/check-evidence.test.sh` and
+`bash scripts/validate-json-unicode-escapes.test.sh` after synchronizing a new
+copy.
+
 Check the command's exit status first. Nonzero means invalid input or evaluation failure, never a
-decision. Slurp mode (`-s`) lets the evaluator reject empty or multiple input bundles.
+decision. Streaming and slurp mode (`--stream -s`) reject repeated decoded fields before reconstruction, as well as empty or multiple bundles. End the input file with a newline: before jq 1.8.0, a streamed file without one can be refused as incomplete.
 Successful evaluation emits `decision`, `reasons`, revisions, evaluation time and
 `authority: "assessment-only"`. It exits zero for all three decisions; inspect the JSON explicitly:
 

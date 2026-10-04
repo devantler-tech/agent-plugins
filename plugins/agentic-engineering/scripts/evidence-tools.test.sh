@@ -15,16 +15,23 @@ bash "$proof/scripts/accountability-brief.sh" --mode render "$proof/references/a
 grep -Fq 'Try faster search suggestions' "$work/render"
 bash "$flow/scripts/measure-flow.sh" "$flow/references/flow-example.json" > "$work/result"
 jq -e '.version==1 and (.selections|type)=="array"' "$work/result" >/dev/null
-printf '{"ignored":"\377"}\n' > "$work/invalid.json"
 for mode in proof brief-check brief-render flow; do
   case $mode in
-    proof) command=(bash "$proof/scripts/check-evidence.sh" --now 2026-09-24T00:00:00Z) ;;
-    brief-check|brief-render) command=(bash "$proof/scripts/accountability-brief.sh" --mode "${mode#brief-}") ;;
-    flow) command=(bash "$flow/scripts/measure-flow.sh") ;;
+    proof)
+      command=(bash "$proof/scripts/check-evidence.sh" --now 2026-09-24T00:00:00Z)
+      data=$(jq '.outcome="RAW_INVALID_SENTINEL"' "$proof/references/evidence-example.json") ;;
+    brief-check|brief-render)
+      command=(bash "$proof/scripts/accountability-brief.sh" --mode "${mode#brief-}")
+      data=$(jq '.model.explanation="RAW_INVALID_SENTINEL"' "$proof/references/accountability-product.json") ;;
+    flow)
+      command=(bash "$flow/scripts/measure-flow.sh")
+      data=$(jq '.run.id="RAW_INVALID_SENTINEL"' "$flow/references/flow-example.json") ;;
   esac
+  printf '%s\n' "${data/RAW_INVALID_SENTINEL/$'\377'}" > "$work/invalid.json"
   status=0
   "${command[@]}" "$work/invalid.json" > "$work/result" 2> "$work/error" || status=$?
   [[ $status == 2 && ! -s $work/result && -s $work/error ]]
+  grep -Fxq 'input is not valid UTF-8' "$work/error"
 done
 # A successful snapshot cannot compensate for a failed retained Unicode scan.
 mkdir "$work/bin"

@@ -103,7 +103,7 @@ for command in 'gh pr view --json state,mer${suffix}' 'gh pr view --json state,m
   printf '%s\n' "$command" > "$dir/plugins/p/agents/case.md"
   expect 2 'unquoted or ANSI-C field expansion is UNKNOWN' "$dir"
 done
-for command in 'gh pr view --json state,mer\ged' 'gh pr view --json state,mer`printf ged`'; do
+for command in 'gh pr view --json state,mer\ged' 'gh pr view --json state,mer`printf ged`' 'gh pr view --json `printf merged`'; do
   dir="$(fixture "unknown-unquoted-shell-syntax-$passed")"
   printf '%s\n' "$command" > "$dir/plugins/p/agents/case.md"
   expect 2 'unquoted shell syntax inside a field word is UNKNOWN' "$dir"
@@ -167,6 +167,10 @@ expect 1 "a nested skill reference file" "${dir}"
 dir="$(fixture good-closing-backtick)"
 printf '%s\n' 'The flag is `--json`' 'merged pull requests need no polling.' > "${dir}/plugins/p/agents/case.md"
 expect 0 "a closing backtick after --json, then 'merged' on the next line" "${dir}"
+
+dir="$(fixture good-closing-fence-after-empty-list)"
+printf '%s\n' '```bash' 'gh status --json' '```' > "${dir}/plugins/p/agents/case.md"
+expect 0 'a closing Markdown fence after --json with no field list' "${dir}"
 
 # A flag wrapped in shell quotes is still the flag: `gh pr view 42 '--json' state,merged`.
 dir="$(fixture bad-quoted-flag)"

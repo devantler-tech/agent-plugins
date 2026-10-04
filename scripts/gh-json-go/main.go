@@ -222,7 +222,7 @@ func normalizeShellFields(source string) (string, error) {
 				continue
 			}
 			if c == '`' {
-				if word.Len() == 0 {
+				if word.Len() == 0 && strings.HasPrefix(source[end:], "```") {
 					break // A following Markdown fence is not part of a field word.
 				}
 				line := strings.LastIndexByte(source[:flag], '\n') + 1

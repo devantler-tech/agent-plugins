@@ -265,8 +265,10 @@ under the guard:
   consistent totals and a pagination chain that ends with `hasNextPage=false`. Missing or
   contradictory evidence returns `UNKNOWN` (exit 2).
 
-Both remote helpers bind their GitHub CLI reads to `github.com`, independently of `GH_HOST`
-in the calling environment.
+Both remote helpers bind their GitHub CLI reads to `github.com`, independently of `GH_HOST` in the
+calling environment,
+and require the bundled `scripts/json-stream.lib.sh` asset. Before semantic parsing they refuse
+repeated decoded object keys across the complete retained JSON stream, including later pages.
 
 Each has a provider-neutral desired-state entry pinning its plugin-relative path, reviewed SHA-256,
 and executable requirement, and the guard accepts only the exact helper beside itself. Resolve the

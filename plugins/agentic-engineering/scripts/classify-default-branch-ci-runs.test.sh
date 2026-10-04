@@ -340,15 +340,22 @@ counter_sha=$(hash_file "$HERE/count-unresolved-review-threads.sh")
 guard_sha=$(hash_file "$HERE/forge-readonly-guard.sh")
 wrapper_sha=$(hash_file "$HERE/surveyor-forge-readonly.sh")
 routing_sha=$(hash_file "$HERE/evaluate-inference-routing.sh")
+json_stream_sha=$(hash_file "$HERE/json-stream.lib.sh")
 if grep -Fq 'referenced runtime assets' "$DESIRED_STATE" &&
   jq -e \
     --arg classifier_sha "$classifier_sha" \
     --arg counter_sha "$counter_sha" \
     --arg guard_sha "$guard_sha" \
     --arg wrapper_sha "$wrapper_sha" \
+    --arg json_stream_sha "$json_stream_sha" \
     --arg routing_sha "$routing_sha" '
     # The routing helper is independent of the surveyor, but shares the runtime asset pin set.
     .spec.source.requiredRuntimeAssets == [
+      {
+        path: "scripts/json-stream.lib.sh",
+        sha256: $json_stream_sha,
+        executable: true
+      },
       {
         path: "scripts/classify-default-branch-ci-runs.sh",
         sha256: $classifier_sha,
@@ -388,6 +395,7 @@ fi
 install_step=$(jq -r '.spec.onboarding.steps[] | select(contains("referenced runtime assets"))' "$DESIRED_STATE")
 missing=''
 for asset in scripts/classify-default-branch-ci-runs.sh scripts/count-unresolved-review-threads.sh \
+  scripts/json-stream.lib.sh \
   scripts/forge-readonly-guard.sh scripts/surveyor-forge-readonly.sh; do
   case "$install_step" in
   *"$asset"*) ;;

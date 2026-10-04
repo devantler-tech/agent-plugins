@@ -93,7 +93,7 @@ result=$(jq -sce --argjson now "$now" '
       if $s.model != $route.model then "MODEL_MISMATCH" else empty end,
       if $s.observedAt > $now or ($now - $s.observedAt) > $p.limits.snapshotMaxAgeSeconds then "SNAPSHOT_STALE" else empty end,
       if $s.billing != "included" then "BILLING_UNPROVEN" else empty end,
-      if $s.controls != "verified" or $s.evidenceRef == null then "CONTROLS_UNVERIFIED" else empty end,
+      if $s.controls != "verified" or ($s.evidenceRef == null) or ($s.evidenceRef | test("^[\\s\\p{Cc}]*$")) then "CONTROLS_UNVERIFIED" else empty end,
       (["short","weekly"][] as $name | $s.buckets[$name] as $b |
         if $b == null or any($b[]; . == null) then "QUOTA_UNKNOWN"
         elif ($b.estimatedChainPercent + $b.reservedPercent + $b.unsettledPercent + $p.limits.reservePercent[$name]) > $b.remainingPercent

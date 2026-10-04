@@ -91,6 +91,10 @@ if ! pages=$(gh api graphql --paginate \
   unknown read-failed
 fi
 [ -n "$pages" ] || unknown read-failed
+observer_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) || unknown malformed
+# shellcheck source=plugins/agentic-engineering/scripts/json-stream.lib.sh
+. "$observer_dir/json-stream.lib.sh" || unknown malformed
+printf '%s\n' "$pages" | json_stream_unique || unknown malformed
 
 # Every page must carry a reviewThreads object with an integer totalCount and a node array
 # whose every node has a boolean isResolved. A missing field is malformed, never "resolved":

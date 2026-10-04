@@ -240,15 +240,18 @@ jq_filter='
 ' 
 
 classification=""
+observer_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) || exit 2
+# shellcheck source=plugins/agentic-engineering/scripts/json-stream.lib.sh
+. "$observer_dir/json-stream.lib.sh" || exit 2
 if [ -n "$payload_path" ]; then
-  if ! classification=$(jq -rs \
-    --arg expected_head_sha "$head_sha" \
-    --arg expected_branch "$branch" \
-    "$jq_filter" "$payload_path"); then
-    echo "classify-default-branch-ci-runs: malformed or incomplete runs payload; health is unknown" >&2
-    exit 2
-  fi
-elif ! classification=$(printf '%s\n' "$payload" | jq -rs \
+  payload=$(cat "$payload_path") || exit 2
+  payload_path=""
+fi
+if ! printf '%s\n' "$payload" | json_stream_unique; then
+  echo 'classify-default-branch-ci-runs: ambiguous or incomplete raw observation; health is unknown' >&2
+  exit 2
+fi
+if ! classification=$(printf '%s\n' "$payload" | jq -rs \
   --arg expected_head_sha "$head_sha" \
   --arg expected_branch "$branch" \
   "$jq_filter"); then

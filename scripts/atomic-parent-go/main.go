@@ -58,24 +58,32 @@ func run(args []string) error {
 		}
 		dirs = append(dirs, d)
 	}
+	check := func() error {
+		for i, d := range dirs {
+			path := root
+			if i > 0 {
+				path = filepath.Join(root, filepath.Join(paths[1:i+1]...))
+			}
+			current, err := os.Lstat(path)
+			pinned, statErr := d.Stat()
+			if err != nil || statErr != nil || !current.IsDir() || !os.SameFile(current, pinned) {
+				return fmt.Errorf("parent moved; recovery retained: %s", path)
+			}
+		}
+		return nil
+	}
+	// Refuse before a cleanup side effect too: a post-only check would delete
+	// originals in a moved checkout while reporting that they were retained.
+	if err := check(); err != nil {
+		return err
+	}
 	cmd := exec.Command(args[3], args[4:]...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 	// A successful write to an anchored directory does not publish a moved path.
-	for i, d := range dirs {
-		path := root
-		if i > 0 {
-			path = filepath.Join(root, filepath.Join(paths[1:i+1]...))
-		}
-		current, err := os.Lstat(path)
-		pinned, statErr := d.Stat()
-		if err != nil || statErr != nil || !current.IsDir() || !os.SameFile(current, pinned) {
-			return fmt.Errorf("parent moved during operation; recovery retained: %s", path)
-		}
-	}
-	return nil
+	return check()
 }
 
 func main() {

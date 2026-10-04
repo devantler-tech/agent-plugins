@@ -45,6 +45,8 @@ atomic_write_batch() (
   local destinations=() replacements=() originals=() sources=()
   while IFS= read -r -d '' destination; do
     if ! IFS= read -r -d '' staged; then failed=1; break; fi
+    # Staged operands are relative to the caller, before entering any parent.
+    case "$staged" in /*) ;; *) staged="$atomic_root/$staged" ;; esac
     if atomic_at "$destination" test -L "$destination" || [ ! -f "$staged" ] ||
        { [ ! -f "$destination" ] && { [ "$allow_new" != true ] || [ -e "$destination" ]; }; }; then failed=1; break; fi
     original=''

@@ -172,6 +172,41 @@ label='a pre-existing writer lock refuses publication'; check test "$rc" -ne 0
 label='a pre-existing writer lock preserves destination bytes'; check cmp -s "$work/locked-before" "$root/plugins/alpha/plugin.json"
 label='a failed lock acquisition cannot remove another writer lock'; check test -d "$root/.agent-plugin-write.lock"
 
+# Relative staging names belong to the caller, never to a destination parent.
+version_fixture
+mkdir -p "$root/staging" "$root/plugins/alpha/staging"
+printf 'caller bytes\n' > "$root/staging/source"
+printf 'wrong parent bytes\n' > "$root/plugins/alpha/staging/source"
+printf '%s\0%s\0' plugins/alpha/plugin.json staging/source > "$root/relative-plan"
+rc=0
+(cd "$root" && bash -c '. "$1"; atomic_write_batch relative-plan' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
+label='relative staging source stays bound to caller root'; check test "$rc" -eq 0
+label='relative staging cannot publish a destination-parent impostor'; check cmp "$root/staging/source" "$root/plugins/alpha/plugin.json"
+
+# Cleanup must retain recovery files once the caller checkout path has moved.
+version_fixture
+mkdir "$root/bin"
+outside=$(mktemp -d "$work/moved-outside.XXXXXX")
+cp -R "$root/." "$outside/"
+printf 'replacement\n' > "$work/moved-source"
+printf '%s\0%s\0' plugins/alpha/plugin.json "$work/moved-source" > "$root/moved-plan"
+cat > "$root/bin/cp" <<'STUB'
+#!/usr/bin/env bash
+last=${!#}
+if [[ ${1:-} == -p && $last == *.original.* && ! -e "$RACE_FLAG" ]]; then
+  touch "$RACE_FLAG"
+  "$REAL_MV" "$RACE_ROOT" "$RACE_ROOT.owned"
+  ln -s "$RACE_OUTSIDE" "$RACE_ROOT"
+fi
+exec "$REAL_CP" "$@"
+STUB
+chmod +x "$root/bin/cp"
+rc=0
+(cd "$root" && PATH="$root/bin:$PATH" RACE_ROOT="$root" RACE_OUTSIDE="$outside" RACE_FLAG="$work/moved-flag" REAL_CP="$(command -v cp)" REAL_MV="$(command -v mv)" bash -c '. "$1"; atomic_write_batch moved-plan' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
+label='moved checkout refuses publication'; check test "$rc" -ne 0
+label='moved checkout leaves external destination untouched'; check cmp "$outside/plugins/alpha/plugin.json" "$root.owned/plugins/alpha/plugin.json"
+label='moved checkout retains its original for recovery'; check test "$(find "$root.owned" -name '*.original.*' | wc -l | tr -d ' ')" -eq 1
+
 version_fixture
 git -C "$root" init -q
 git -C "$root" config user.name Test; git -C "$root" config user.email test@example.invalid

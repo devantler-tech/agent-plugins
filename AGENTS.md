@@ -173,6 +173,10 @@ re-pulled. Fix it in the skill's **own** upstream (the repo named in its `metada
 let the update workflow pull it through. `validate-manifests.sh` enforces this mechanically: every
 bundled `SKILL.md` must carry a non-empty `metadata.github-repo` provenance line, so a hand-authored
 or provenance-stripped skill fails CI rather than reaching consumers.
+For a portfolio-owned repair, dispatch `update-agent-skills.yaml` with
+`scope=agentic-engineering` to update only that plugin's skills through the same programmed
+PRs. The default `all` scope and scheduled updates cover the full catalogue. Unsupported
+scope observations refuse before the updater starts.
 `guard-bundled-skill-edits.sh` covers the rest of the tree: a PR that changes any file inside a
 synced skill fails and names the upstream to fix it in, so the edit is refused at review instead of
 being silently reverted by the next sync. The programmed sync PR is exempt for its own skill, a wholly new skill

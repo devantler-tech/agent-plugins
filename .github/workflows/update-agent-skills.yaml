@@ -2,6 +2,14 @@ name: 🔄 Update Agent Skills
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: Skills to synchronize
+        type: choice
+        default: all
+        options:
+          - all
+          - agentic-engineering
   schedule:
     - cron: "0 6 * * *"
 
@@ -10,10 +18,30 @@ permissions:
   pull-requests: write
 
 jobs:
+  scope:
+    name: Resolve the requested skill scope
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      dir: ${{ steps.scope.outputs.dir }}
+    steps:
+      - name: 📄 Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Resolve the declared scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SKILL_SCOPE: ${{ inputs.scope }}
+        run: bash scripts/skill-update-scope.sh "$EVENT_NAME" "$SKILL_SCOPE" >> "$GITHUB_OUTPUT"
+
   update:
+    needs: scope
     uses: devantler-tech/actions/.github/workflows/update-agent-skills.yaml@da153eb43b8333f13094abb151a48dc11e431988 # v13.7.4
     with:
-      dir: plugins
+      dir: ${{ needs.scope.outputs.dir }}
       # One PR per changed skill, from `deps/agent-skills-update-<slug>`, so a skill whose
       # update is blocked (a review finding, a failing check) holds back only itself instead
       # of every other skill's update (#175). The bundled-skill edit guard exempts each such

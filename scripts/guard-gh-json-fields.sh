@@ -15,7 +15,9 @@
 # Scans every *.md, *.txt, *.json, *.jq and *.go under ROOT/plugins; any other non-script file is UNKNOWN. Shell
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
 # silently misleads every agent that reads it.
-# Go needs Go 1.22+: only the installed syntax decoder is built. It reads comments, decoded literal
+# Go 1.22+ is required: only the installed observer is built. Literal adjacent shell quotes are
+# joined without evaluating inspected text; expansions are UNKNOWN. JSON requires unique decoded
+# keys. Normalized text is bounded to 8 MiB. The Go decoder reads comments, decoded literal
 # strings and literal Command/CommandContext or composite argument blocks. Unresolved groupings beside
 # a known JSON flag, malformed source, or the 8 MiB source / 4 MiB decoded-work / 262144-step budgets
 # are UNKNOWN. This does not evaluate arbitrary Go programs.
@@ -30,6 +32,7 @@
 # which would make a 0 meaningless).
 
 set -euo pipefail
+export LC_ALL=C
 
 root="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 helper_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -37,6 +40,19 @@ helper_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 unknown() {
   echo "guard-gh-json-fields: UNKNOWN — $*" >&2
   exit 2
+}
+
+# shellcheck source=scripts/json-object.lib.sh
+. "$helper_dir/json-object.lib.sh" || unknown 'cannot load the complete JSON observer'
+
+# Build only the installed observer; inspected packages are never compiled or executed.
+ensure_decoder() {
+  if [[ ! -x $go_decoder ]]; then
+    command -v go >/dev/null || return 2
+    GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
+      GOOS='' GOARCH='' GOCACHEPROG='' GOTMPDIR="$observation_dir" \
+      go build -o "$go_decoder" "$helper_dir/gh-json-go/main.go" || return 2
+  fi
 }
 
 # Emit the retained surface as plain text. $1 selects its type; $2 contains its observed bytes.
@@ -48,12 +64,7 @@ decode_surface() {
     # Parse retained source and decode comments/literals, including literal command argv.
     # Only this installed decoder is built, never the inspected Go package.
     *.go)
-      if [[ ! -x $go_decoder ]]; then
-        command -v go >/dev/null || return 2
-        GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
-          GOOS='' GOARCH='' GOCACHEPROG='' GOTMPDIR="$observation_dir" \
-          go build -o "$go_decoder" "$helper_dir/gh-json-go/main.go" || return 2
-      fi
+      ensure_decoder || return 2
       "$go_decoder" "$2" ;;
     # Object KEYS are scanned as well as values. An argv list (an all-string array under an `args`,
     # `argv`, `cmd` or `command` key, e.g. ["pr","view","--json","state,merged"]) is ALSO emitted
@@ -78,9 +89,11 @@ decode_surface() {
 # in SHELL quotes ('--json') is unwrapped first — that is one argument to the shell — while a
 # backtick-wrapped one stays a Markdown code span.
 extract_lists() {
+  ensure_decoder || return 2
   decode_surface "$1" "$2" \
     | tr -d '\000' \
     | awk '{ if (sub(/\\$/, "")) { printf "%s", $0 } else { print } }' \
+    | "$go_decoder" --shell-fields \
     | sed -E -e 's/\\[nrt]/ /g' -e 's/\\/ /g' \
     | awk '{
         line = $0; sub(/[[:space:]]+$/, "", line)
@@ -202,8 +215,8 @@ for surface in "${surfaces[@]}"; do
     cat "${surface}" > "${snapshot}" || unknown "${surface#"${root}/"} could not be completely read"
   fi
   case "${surface}" in
-    *.json) jq empty "${snapshot}" >/dev/null 2>&1 ||
-              unknown "${surface#"${root}/"} does not parse, so any field it prescribes would go unseen" ;;
+    *.json) json_value_unique "${snapshot}" ||
+              unknown "${surface#"${root}/"} is incomplete or has repeated decoded keys" ;;
   esac
   scanned=$((scanned + 1))
   # Retain one complete observation. A failed stage may already have emitted valid-looking

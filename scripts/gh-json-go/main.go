@@ -179,8 +179,109 @@ func guidance(source []byte) ([]string, error) {
 	return d.parts, nil
 }
 
+// normalizeShellFields joins only adjacent literal fragments of advertised field words.
+// Markdown delimiters end a word; expansions and unresolved quoting never establish a clean scan.
+func normalizeShellFields(source string) (string, error) {
+	letter := func(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == ',' }
+	space := func(c byte) bool { return c == ' ' || c == '\t' || c == '\n' || c == '\r' }
+	var output strings.Builder
+	position := 0
+	for position < len(source) {
+		relative := strings.Index(source[position:], "--json")
+		if relative < 0 {
+			output.WriteString(source[position:])
+			break
+		}
+		flag := position + relative
+		start := flag + len("--json")
+		// A quoted flag is one argument, while a closing Markdown backtick is a boundary.
+		if start < len(source) && (source[start] == '\'' || source[start] == '"') && flag > 0 && source[flag-1] == source[start] {
+			start++
+		}
+		if start == len(source) || !(space(source[start]) || source[start] == '=' || source[start] == ',') {
+			output.WriteString(source[position:start])
+			position = start
+			continue
+		}
+		separatorStart := start
+		for start < len(source) && (space(source[start]) || source[start] == '=' || source[start] == ',') {
+			start++
+		}
+		end := start
+		var word strings.Builder
+		for end < len(source) {
+			c := source[end]
+			if c == '$' {
+				return "", fmt.Errorf("JSON field word contains unresolved expansion")
+			}
+			if c == '\\' {
+				return "", fmt.Errorf("JSON field word contains an unresolved escape")
+			}
+			if letter(c) {
+				word.WriteByte(c)
+				end++
+				continue
+			}
+			if c == '`' {
+				separator := source[separatorStart:end]
+				if word.Len() == 0 && strings.HasPrefix(source[end:], "```") &&
+					strings.Contains(separator, "\n") && strings.Trim(separator, " \t\r\n") == "" {
+					break // A following Markdown fence is not part of a field word.
+				}
+				line := strings.LastIndexByte(source[:flag], '\n') + 1
+				if strings.Count(source[line:flag], "`")%2 == 0 {
+					return "", fmt.Errorf("JSON field word contains unresolved command substitution")
+				}
+				break // Close the Markdown span that opened before this command.
+			}
+			if c != '\'' && c != '"' {
+				break
+			}
+			closing := strings.IndexByte(source[end+1:], c)
+			if closing < 0 {
+				line := strings.LastIndexByte(source[:flag], '\n') + 1
+				if strings.Count(source[line:flag], string(c))%2 == 0 ||
+					end+1 < len(source) && (letter(source[end+1]) || source[end+1] == '$') {
+					return "", fmt.Errorf("JSON field quoting is incomplete")
+				}
+				break // A surrounding prose quote can close after the final field.
+			}
+			closing += end + 1
+			fragment := source[end+1 : closing]
+			literal := true
+			for i := 0; i < len(fragment); i++ {
+				literal = literal && letter(fragment[i])
+			}
+			if !literal {
+				if strings.ContainsAny(fragment, "$`\\") {
+					return "", fmt.Errorf("JSON field quoting contains unresolved expansion")
+				}
+				break // Ordinary prose outside the literal field word remains a boundary.
+			}
+			word.WriteString(fragment)
+			end = closing + 1
+		}
+		output.WriteString(source[position:start])
+		output.WriteString(word.String())
+		position = end
+	}
+	return output.String(), nil
+}
+
 // run reads a bounded retained snapshot and publishes only complete decoded guidance.
 func run() error {
+	if len(os.Args) == 2 && os.Args[1] == "--shell-fields" {
+		input, err := io.ReadAll(io.LimitReader(os.Stdin, (8<<20)+1))
+		if err != nil || len(input) > 8<<20 {
+			return fmt.Errorf("guidance text exceeds the complete observation budget")
+		}
+		text, err := normalizeShellFields(string(input))
+		if err != nil {
+			return err
+		}
+		_, err = io.WriteString(os.Stdout, text)
+		return err
+	}
 	if len(os.Args) != 2 {
 		return fmt.Errorf("one retained source path is required")
 	}

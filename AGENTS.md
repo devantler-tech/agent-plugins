@@ -301,6 +301,11 @@ plugin membership) is authored here.
 Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:
 
+The generated version, digest and changelog writers also need Go 1.22 or later.
+Their shared writer pins each operation to a real checkout directory, so a concurrent
+ancestor replacement cannot redirect publication or recovery through a symlink.
+Moved directories retain their staging and original files for operator recovery.
+
 The JSON-field guard needs Go 1.22 or later for every scanned surface. It builds only
 its installed observer, joins adjacent literal shell quotes without evaluation, requires unique
 decoded JSON keys, reads Go comments and decoded literal strings/argument blocks, and never

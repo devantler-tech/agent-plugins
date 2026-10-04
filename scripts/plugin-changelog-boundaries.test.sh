@@ -89,7 +89,7 @@ mkdir "$dir/bin"; real_mv=$(command -v mv)
 cat > "$dir/bin/mv" <<'SH'
 #!/usr/bin/env bash
 last=${!#}
-if [[ $last == plugins/beta/CHANGELOG.md && ! -e $FAULT_ONCE ]]; then touch "$FAULT_ONCE"; exit 1; fi
+if [[ ${ATOMIC_DESTINATION:-} == plugins/beta/CHANGELOG.md && $last == CHANGELOG.md && ! -e $FAULT_ONCE ]]; then touch "$FAULT_ONCE"; exit 1; fi
 exec "$REAL_MV" "$@"
 SH
 chmod +x "$dir/bin/mv"

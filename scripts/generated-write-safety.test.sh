@@ -70,7 +70,7 @@ EOF
 #!/usr/bin/env bash
 last=${!#}
 case "$last" in
-  "$FAULT_ROOT"/*.json|plugins/*.json|.claude-plugin/marketplace.json|.github/plugin/marketplace.json)
+  *.json)
     count=0; [[ ! -f "$FAULT_COUNT" ]] || read -r count < "$FAULT_COUNT"
     count=$((count+1)); printf '%s\n' "$count" > "$FAULT_COUNT"
     [[ $count != 2 ]] || exit 1 ;;
@@ -114,7 +114,7 @@ mkdir "$root/bin"
 cat > "$root/bin/mv" <<'STUB'
 #!/usr/bin/env bash
 last=${!#}
-if [[ $last == plugins/alpha/.claude-plugin/plugin.json && $2 == *.next.* && ! -e "$FAULT_ROOT/once" ]]; then
+if [[ ${ATOMIC_DESTINATION:-} == plugins/alpha/.claude-plugin/plugin.json && $last == plugin.json && $* == *.next.* && ! -e "$FAULT_ROOT/once" ]]; then
   printf '{"name":"alpha","version":"1.2.4","description":"concurrent edit"}\n' > "$FAULT_ROOT/plugins/alpha/plugin.json"
   cp "$FAULT_ROOT/plugins/alpha/plugin.json" "$FAULT_ROOT/concurrent-evidence.json"
   touch "$FAULT_ROOT/once"
@@ -139,7 +139,7 @@ printf '%s\0%s\0' plugins/alpha/plugin.json "$root/second-source" > "$root/secon
 cat > "$root/bin/mv" <<'STUB'
 #!/usr/bin/env bash
 last=${!#}
-if [[ $last == plugins/alpha/.claude-plugin/plugin.json && $2 == *.next.* && ! -e "$FAULT_ROOT/failed-second" ]]; then
+if [[ ${ATOMIC_DESTINATION:-} == plugins/alpha/.claude-plugin/plugin.json && $last == plugin.json && $* == *.next.* && ! -e "$FAULT_ROOT/failed-second" ]]; then
   touch "$FAULT_ROOT/failed-second"
   exit 1
 fi
@@ -148,10 +148,10 @@ STUB
 cat > "$root/bin/cmp" <<'STUB'
 #!/usr/bin/env bash
 rc=0; "$REAL_CMP" "$@" || rc=$?
-if [[ $rc == 0 && ${2:-} == plugins/alpha/plugin.json && -e "$FAULT_ROOT/failed-second" && ! -e "$FAULT_ROOT/probed" ]]; then
+if [[ $rc == 0 && ${ATOMIC_DESTINATION:-} == plugins/alpha/plugin.json && ${2:-} == plugin.json && -e "$FAULT_ROOT/failed-second" && ! -e "$FAULT_ROOT/probed" ]]; then
   touch "$FAULT_ROOT/probed"
   child_rc=0
-  bash -c '. "$ATOMIC_LIB"; atomic_write_batch "$FAULT_ROOT/second-plan"' > "$FAULT_ROOT/second-output" 2>&1 || child_rc=$?
+  bash -c 'cd "$FAULT_ROOT"; . "$ATOMIC_LIB"; atomic_write_batch "$FAULT_ROOT/second-plan"' > "$FAULT_ROOT/second-output" 2>&1 || child_rc=$?
   printf '%s\n' "$child_rc" > "$FAULT_ROOT/second-status"
 fi
 exit "$rc"

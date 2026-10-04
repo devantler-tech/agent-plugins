@@ -42,7 +42,7 @@ run() { rc=0; (cd "$d" && "$@") > "$work/out" 2> "$work/err" || rc=$?; }
 # Commit only the fixture-owned plugin paths.
 commit() { git -C "$d" add -- plugins; git -C "$d" commit -qm change; }
 # Snapshot all publication files independently of the index.
-snapshot() { find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec shasum {} + | LC_ALL=C sort; }
+snapshot() { find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec cksum {} + | LC_ALL=C sort; }
 for mode in check write; do
   for selector in repository worktree index config; do
     fresh
@@ -61,6 +61,25 @@ for mode in check write; do
     else check bash -c '[[ $1 == 0 ]] && grep -Fq refs/tags/v2.0.0 "$2"' _ "$rc" "$d/plugins/alpha/CHANGELOG.md"; fi
   done
 done
+fresh
+outside=$(mktemp -d "$work/racing-external.XXXXXX")
+mkdir "$d/bin"
+cat > "$d/bin/mv" <<'STUB'
+#!/usr/bin/env bash
+if [[ $* == *CHANGELOG.md* && ! -e "$RACE_ROOT/raced" ]]; then
+  cp -R "$RACE_ROOT/plugins" "$RACE_OUTSIDE/plugins"
+  "$REAL_MV" "$RACE_ROOT/plugins" "$RACE_ROOT/owned-plugins"
+  ln -s "$RACE_OUTSIDE/plugins" "$RACE_ROOT/plugins"
+  touch "$RACE_ROOT/raced"
+fi
+exec "$REAL_MV" "$@"
+STUB
+chmod +x "$d/bin/mv"
+cp "$d/plugins/alpha/CHANGELOG.md" "$work/race-before"
+run env PATH="$d/bin:$PATH" RACE_ROOT="$d" RACE_OUTSIDE="$outside" REAL_MV="$(command -v mv)" bash "$here/plugin-changelog.sh" write "$base" 2026-10-04
+label='ancestor replacement at actual rename refuses publication'; check test "$rc" -ne 0
+label='ancestor replacement cannot alter the external changelog'; check cmp "$work/race-before" "$outside/plugins/alpha/CHANGELOG.md"
+label='ancestor replacement preserves the other external plugin'; check cmp "$d/owned-plugins/beta/CHANGELOG.md" "$outside/plugins/beta/CHANGELOG.md"
 for kind in root plugin destination; do
   fresh
   outside=$(mktemp -d "$work/external.XXXXXX")

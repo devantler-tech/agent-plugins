@@ -4,8 +4,14 @@
 #        bash scripts/plugin-changelog.sh check <base-ref> <head-ref>
 # The writer reads working-tree versions after bump-plugin-version.sh. The gate reads commits.
 set -euo pipefail
-export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/marketplace-git-context.lib.sh
+source "$here/marketplace-git-context.lib.sh"
+marketplace_git_context
+# shellcheck source=scripts/plugin-version.lib.sh
+source "$here/plugin-version.lib.sh"
+# shellcheck source=scripts/json-object.lib.sh
+source "$here/json-object.lib.sh"
 # shellcheck source=scripts/atomic-write.lib.sh
 source "$here/atomic-write.lib.sh"
 mode=${1:-}
@@ -29,7 +35,10 @@ else
   (( year > 0 && day <= days )) || fail 'invalid calendar date'
 fi
 # Compare only this branch's changes, including when main advances during preparation.
-base=$(git merge-base "$base" "$head") || fail 'no merge base'
+plugin_version_history || fail 'incomplete comparison history'
+bases=$(git merge-base --all "$base" "$head") || fail 'no merge base'
+[[ "$bases" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]] || fail 'comparison requires one merge base'
+base=$bases
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 plugins=$(git ls-tree -d --name-only "$head" plugins/)
@@ -62,13 +71,22 @@ provenance() {
 
 # Require one complete manifest object before accepting its scalar version.
 manifest_version() {
-  jq -ser 'if length == 1 and (.[0] | type == "object") then .[0].version | strings else error("expected one manifest object") end' "$@"
+  cat "$@" > "$work/manifest.json" || return 1
+  json_object_unique "$work/manifest.json" || return 1
+  jq -er '.version | strings' "$work/manifest.json"
 }
 
 changed=0
 while IFS= read -r dir; do
   [[ "$dir" =~ ^plugins/[a-z0-9-]+$ ]] || fail "unsupported plugin path: $dir"
   name=${dir#plugins/}
+  if [ "$mode" = write ]; then
+    for parent in plugins "$dir"; do
+      if [ ! -d "$parent" ] || [ -L "$parent" ]; then
+        fail 'changelog parent must be a real checkout directory'
+      fi
+    done
+  fi
   manifest="$dir/plugin.json"
   old=''
   base_entry=$(git ls-tree "$base" -- "$manifest") || fail "unreadable base manifest tree: $name"
@@ -126,9 +144,13 @@ while IFS= read -r dir; do
       [ -z "$remaining" ] || fail "incomplete skill removal: $skill"
       removed=true
       metadata="$work/removed-skill.md"
+      previous=$(git ls-tree "$base" -- "$skill/SKILL.md") || fail "unreadable previous skill tree: $skill"
+      [[ "$previous" == '100644 blob '* || "$previous" == '100755 blob '* ]] || fail "previous skill provenance is not a regular committed file: $skill"
       git show "$base:$skill/SKILL.md" > "$metadata" 2>/dev/null || fail "missing previous skill: $skill"
     else
-      git cat-file -e "$head:$metadata" 2>/dev/null || fail "unreadable skill object: $skill"
+      [[ "$tree" == '100644 blob '* || "$tree" == '100755 blob '* ]] || fail "skill provenance is not a regular committed file: $skill"
+      metadata="$work/committed-skill.md"
+      git cat-file blob "$head:$skill/SKILL.md" > "$metadata" || fail "unreadable skill object: $skill"
     fi
     source=$(provenance "$metadata" github-repo) || fail "missing source for $skill"
     ref=$(provenance "$metadata" github-ref) || fail "missing upstream ref for $skill"

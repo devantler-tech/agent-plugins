@@ -173,6 +173,10 @@ re-pulled. Fix it in the skill's **own** upstream (the repo named in its `metada
 let the update workflow pull it through. `validate-manifests.sh` enforces this mechanically: every
 bundled `SKILL.md` must carry a non-empty `metadata.github-repo` provenance line, so a hand-authored
 or provenance-stripped skill fails CI rather than reaching consumers.
+For a portfolio-owned repair, dispatch `update-agent-skills.yaml` with
+`scope=agentic-engineering` to update only that plugin's skills through the same programmed
+PRs. The default `all` scope and scheduled updates cover the full catalogue. Unsupported
+scope observations refuse before the updater starts.
 `guard-bundled-skill-edits.sh` covers the rest of the tree: a PR that changes any file inside a
 synced skill fails and names the upstream to fix it in, so the edit is refused at review instead of
 being silently reverted by the next sync. The programmed sync PR is exempt for its own skill, a wholly new skill
@@ -301,6 +305,11 @@ plugin membership) is authored here.
 Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:
 
+The generated version, digest and changelog writers also need Go 1.22 or later.
+Their shared writer pins each operation to a real checkout directory, so a concurrent
+ancestor replacement cannot redirect publication or recovery through a symlink.
+Moved directories retain their staging and original files for operator recovery.
+
 The JSON-field guard needs Go 1.22 or later for every scanned surface. It builds only
 its installed observer, joins adjacent literal shell quotes without evaluation, requires unique
 decoded JSON keys, reads Go comments and decoded literal strings/argument blocks, and never
@@ -331,6 +340,7 @@ GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local go test ./plugins/agentic
 ./scripts/check-plugin-version-bump.sh origin/main HEAD
 bash scripts/plugin-changelog.sh check origin/main HEAD
 bash scripts/plugin-changelog.test.sh
+bash scripts/plugin-changelog-release-boundaries.test.sh # caller identity, committed provenance and safe release writes
 
 # 1c. Every content digest a desired-state resource pins must match the file it pins.
 #     Those digests have a writer: refresh them rather than hand-editing, or the next

@@ -25,6 +25,8 @@ COPILOT_MANIFEST=".github/plugin/marketplace.json"
 # shellcheck source=scripts/plugin-version.lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/plugin-version.lib.sh"
 plugin_version_git_context
+# shellcheck source=scripts/json-object.lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/json-object.lib.sh"
 # shellcheck source=scripts/atomic-write.lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/atomic-write.lib.sh"
 
@@ -39,6 +41,7 @@ for directory in .claude-plugin .github .github/plugin; do
 done
 for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
   [ -f "$manifest" ] && [ ! -L "$manifest" ] || exit 1
+  json_object_unique "$manifest" || { echo '::error::Marketplace declarations must be unambiguous; no manifests were changed.' >&2; exit 1; }
   jq -es 'length==1 and (.[0] | type == "object" and (.plugins | type == "array"))' "$manifest" >/dev/null || exit 1
   cp "$manifest" "$work/$(basename "$(dirname "$manifest")").json"
 done
@@ -51,6 +54,7 @@ plan_one() {
   current=$(plugin_version_read "$dir/.claude-plugin/plugin.json" "$name") || return 1
   for manifest in "$dir/plugin.json" "$dir/.claude-plugin/plugin.json"; do
     [ -f "$manifest" ] && [ ! -L "$manifest" ] || return 1
+    json_object_unique "$manifest" || { echo '::error::Plugin declarations must be unambiguous; no manifests were changed.' >&2; return 1; }
     observed=$(plugin_version_read "$manifest" "$name") || return 1
     [ "$observed" = "$current" ] || {
       echo "::error::$manifest: plugin identity or version parity is invalid; no manifests were changed." >&2

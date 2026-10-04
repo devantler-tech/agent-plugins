@@ -265,6 +265,7 @@ func normalizeShellFields(source string) (string, error) {
 	return output.String(), nil
 }
 
+// run reads a bounded retained snapshot and publishes only complete decoded guidance.
 func run() error {
 	if len(os.Args) == 2 && os.Args[1] == "--shell-fields" {
 		input, err := io.ReadAll(io.LimitReader(os.Stdin, (8<<20)+1))

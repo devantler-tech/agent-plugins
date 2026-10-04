@@ -21,6 +21,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.1.1 — 2026-10-04
+
+**Fixed** — autonomy assessments require distinct stage records, bind protected requests before
+retaining the incumbent, and preserve independently bound runtime failures when their counterpart
+report is incomplete. Recommendations remain advisory and never admit execution or run recovery.
+
 ## 6.1.0 — 2026-10-04
 
 **Added** — optional offline autonomy assessments join consumer classifications, exact capability

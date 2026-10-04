@@ -316,10 +316,16 @@ func assess(in Input, now time.Time) Result {
 	if c.Owner.Kind != "human" || !exact(c.Owner.ID) || !exact(c.Owner.Record) || !exact(c.ClassificationRecord) || !scopeValid(c.Scope) || !bindingsValid(c.Bindings) || !exact(c.RecoveryOwner) || c.Fallback != c.Bindings.Baseline || !unique(c.Protected) || !covers(c.Protected, domains) || !unique(c.RequiredEvidence) || !covers(c.RequiredEvidence, kinds) || !unique(c.RequiredOutcomes) || !unique(c.ProtectedOutcomes) || !covers(c.RequiredOutcomes, c.ProtectedOutcomes) || !unique(c.RequiredPaths) || (c.Classification != "protected" && c.Classification != "replaceable-default") {
 		return finish("INVALID", "", "consumer classification, ownership, scope, required facts or fallback is incomplete")
 	}
-	if c.Classification == "protected" {
-		return finish("RETAIN_DEFAULT", in.Request.Current, "protected method cannot be replaced by this assessment")
+	if !scopeValid(in.Request.Scope) || !scopeEqual(c.Scope, in.Request.Scope) || in.Request.Bindings != c.Bindings || (in.Request.Current != c.Bindings.Baseline && in.Request.Current != c.Bindings.Candidate) {
+		return finish("HOLD", "", "request scope or immutable provenance does not match")
 	}
-	if !scopeValid(in.Request.Scope) || !scopeEqual(c.Scope, in.Request.Scope) || in.Request.Bindings != c.Bindings || !scopeValid(p.Scope) || !scopeEqual(c.Scope, p.Scope) || p.Bindings != c.Bindings || (in.Request.Current != c.Bindings.Baseline && in.Request.Current != c.Bindings.Candidate) {
+	if c.Classification == "protected" {
+		if in.Request.Current != c.Bindings.Baseline {
+			return finish("HOLD", "", "protected request does not name the incumbent")
+		}
+		return finish("RETAIN_DEFAULT", c.Bindings.Baseline, "protected method cannot be replaced by this assessment")
+	}
+	if !scopeValid(p.Scope) || !scopeEqual(c.Scope, p.Scope) || p.Bindings != c.Bindings {
 		return finish("HOLD", "", "capability, scope or immutable provenance does not match")
 	}
 	// Only observations bound to the declared experiment can establish support or its loss.
@@ -335,11 +341,13 @@ func assess(in Input, now time.Time) Result {
 	expired := assessmentBound && a.Result != "unknown" && !ae.After(now)
 	complete := assessmentBound && a.Result == "pass" && ae.After(now)
 	ids, observedKinds := map[string]bool{}, []string{}
+	records := map[string]bool{}
 	for _, e := range p.Evidence {
-		if !reportValid(e) || ids[e.ID] || !contains(c.RequiredEvidence, e.Kind) || e.Result == "intercepted" || len(e.Paths) != 0 {
+		if !reportValid(e) || ids[e.ID] || records[e.Record] || !contains(c.RequiredEvidence, e.Kind) || e.Result == "intercepted" || len(e.Paths) != 0 {
 			return finish("INVALID", "", "ambiguous or invalid proof evidence")
 		}
 		ids[e.ID] = true
+		records[e.Record] = true
 		observedKinds = append(observedKinds, e.Kind)
 		o, _ := stamp(e.Observed)
 		ex, _ := stamp(e.Expires)
@@ -375,16 +383,15 @@ func assess(in Input, now time.Time) Result {
 			complete = false
 		}
 	}
-	runtimeBound := planBound && scopeValid(r.Scope) && scopeEqual(c.Scope, r.Scope) && r.Revision == c.Bindings.Runtime && unique(r.Paths) && covers(r.Paths, c.RequiredPaths) && reportValid(r.Positive) && reportValid(r.Negative) && r.Positive.ID != r.Negative.ID && r.Positive.Record != r.Negative.Record && r.Positive.Kind == "runtime" && r.Negative.Kind == "runtime" && unique(r.Positive.Paths) && unique(r.Negative.Paths) && covers(r.Positive.Paths, c.RequiredPaths) && covers(r.Negative.Paths, c.RequiredPaths)
-	for _, e := range []Report{r.Positive, r.Negative} {
+	runtimeScopeBound := planBound && scopeValid(r.Scope) && scopeEqual(c.Scope, r.Scope) && r.Revision == c.Bindings.Runtime && unique(r.Paths) && covers(r.Paths, c.RequiredPaths)
+	reportBound := func(e Report) bool {
 		o, ok := stamp(e.Observed)
-		if !ok || o.After(now) || o.Before(started) {
-			runtimeBound = false
-		}
+		return runtimeScopeBound && reportValid(e) && e.Kind == "runtime" && unique(e.Paths) && covers(e.Paths, c.RequiredPaths) && ok && !o.After(now) && !o.Before(started)
 	}
+	runtimeBound := reportBound(r.Positive) && reportBound(r.Negative) && r.Positive.ID != r.Negative.ID && r.Positive.Record != r.Negative.Record
 	runtimeReady := runtimeBound && r.Positive.Result == "pass" && r.Negative.Result == "intercepted" && fresh(r.Positive.Observed, r.Positive.Expires, now) && fresh(r.Negative.Observed, r.Negative.Expires, now)
-	if runtimeBound {
-		for _, e := range []Report{r.Positive, r.Negative} {
+	for _, e := range []Report{r.Positive, r.Negative} {
+		if reportBound(e) {
 			ex, _ := stamp(e.Expires)
 			if e.Result == "fail" {
 				failed = true

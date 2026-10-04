@@ -82,7 +82,10 @@ and independently verify their hashes, scope and verdict before using this adapt
 does not parse the referenced calculator output or compute its measurements. Incomplete, unknown,
 future, foreign or unbound assertions yield a hold rather than replacement support.
 
-A bound failure remains negative after expiry. Unknown observations never establish support or its loss. Loss of current evidence or runtime support can
+A bound runtime failure remains negative even if its counterpart is missing or future-dated, and
+a bound failure remains negative after expiry. Both runtime reports must be complete for replacement
+support. Protected requests retain only the matching incumbent; foreign scope or an unsupported
+current revision produces no recommendation. Unknown observations never establish support or its loss. Loss of current evidence or runtime support can
 recommend contraction when the candidate is current and scoped recovery is reported tested and
 already authorized. Pre-experiment and future observations cannot establish that loss. Missing
 recovery readiness yields a hold with the recovery owner; no fallback command is run.

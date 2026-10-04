@@ -213,17 +213,32 @@ func normalizeShellFields(source string) (string, error) {
 			if c == '$' {
 				return "", fmt.Errorf("JSON field word contains unresolved expansion")
 			}
+			if c == '\\' {
+				return "", fmt.Errorf("JSON field word contains an unresolved escape")
+			}
 			if letter(c) {
 				word.WriteByte(c)
 				end++
 				continue
+			}
+			if c == '`' {
+				if word.Len() == 0 {
+					break // A following Markdown fence is not part of a field word.
+				}
+				line := strings.LastIndexByte(source[:flag], '\n') + 1
+				if strings.Count(source[line:flag], "`")%2 == 0 {
+					return "", fmt.Errorf("JSON field word contains unresolved command substitution")
+				}
+				break // Close the Markdown span that opened before this command.
 			}
 			if c != '\'' && c != '"' {
 				break
 			}
 			closing := strings.IndexByte(source[end+1:], c)
 			if closing < 0 {
-				if end+1 < len(source) && (letter(source[end+1]) || source[end+1] == '$') {
+				line := strings.LastIndexByte(source[:flag], '\n') + 1
+				if strings.Count(source[line:flag], string(c))%2 == 0 ||
+					end+1 < len(source) && (letter(source[end+1]) || source[end+1] == '$') {
 					return "", fmt.Errorf("JSON field quoting is incomplete")
 				}
 				break // A surrounding prose quote can close after the final field.

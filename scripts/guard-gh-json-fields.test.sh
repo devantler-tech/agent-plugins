@@ -103,6 +103,16 @@ for command in 'gh pr view --json state,mer${suffix}' 'gh pr view --json state,m
   printf '%s\n' "$command" > "$dir/plugins/p/agents/case.md"
   expect 2 'unquoted or ANSI-C field expansion is UNKNOWN' "$dir"
 done
+for command in 'gh pr view --json state,mer\ged' 'gh pr view --json state,mer`printf ged`'; do
+  dir="$(fixture "unknown-unquoted-shell-syntax-$passed")"
+  printf '%s\n' "$command" > "$dir/plugins/p/agents/case.md"
+  expect 2 'unquoted shell syntax inside a field word is UNKNOWN' "$dir"
+done
+for command in "gh pr view --json state,mer'" 'gh pr view --json state,mer"'; do
+  dir="$(fixture "unknown-incomplete-field-quote-$passed")"
+  printf '%s\n' "$command" > "$dir/plugins/p/agents/case.md"
+  expect 2 'an incomplete quote attached to a field word is UNKNOWN' "$dir"
+done
 
 # JSON surfaces are decoded: a \u-escaped letter is still that letter, so an escaped field name is caught.
 dir="$(fixture bad-json-escaped-name)"

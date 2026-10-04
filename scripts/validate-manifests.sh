@@ -93,7 +93,9 @@ validate_package_boundaries() {
 # Default skill discovery includes every direct directory, not just complete matches.
 validate_skill_dir() {
   local dir=$1 child count=0
-  [ -d "$dir" ] && [ ! -L "$dir" ] || { echo "::error::$dir: skills require regular packaged directories"; return 1; }
+  if [ ! -d "$dir" ] || [ -L "$dir" ]; then
+    echo "::error::$dir: skills require regular packaged directories"; return 1
+  fi
   if [ -e "$dir/SKILL.md" ] || [ -L "$dir/SKILL.md" ]; then
     echo "::error::$dir: skills/ must contain canonical skill directories, not a root SKILL.md"; return 1
   fi

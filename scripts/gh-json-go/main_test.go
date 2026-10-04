@@ -85,3 +85,55 @@ func TestKnownArgumentsAreDecodedOnce(t *testing.T) {
 		t.Fatalf("known argv was redundantly decoded: %v", d.err)
 	}
 }
+
+// TestManyMarkdownSpans preserves literal guidance across many successive code spans.
+func TestManyMarkdownSpans(t *testing.T) {
+	source := strings.Repeat("Use ``gh pr view --json state,mergedAt``. ", 10000)
+	text, err := normalizeShellFields(source)
+	if err != nil || text != source {
+		t.Fatalf("repeated literal guidance changed: %v", err)
+	}
+}
+
+// TestDecodedGuidanceBoundary prevents one retained value from supplying another's opener.
+func TestDecodedGuidanceBoundary(t *testing.T) {
+	_, err := normalizeShellFields("An unmatched ` belongs to another decoded value.\n%\ngh pr view --json state,mer`printf ged`\n%\n")
+	if err == nil {
+		t.Fatal("a separate decoded value supplied a misleading Markdown opener")
+	}
+}
+
+// TestHeadingGuidanceBoundaries refuses delimiter inheritance across separate Markdown blocks.
+func TestHeadingGuidanceBoundaries(t *testing.T) {
+	for _, source := range []string{
+		"# Heading with a literal `\ngh pr view --json state,mer`printf ged`",
+		"Prior paragraph with a literal `\n# gh pr view --json state,mer`printf ged`",
+		"Heading with a literal `\n=======================\ngh pr view --json state,mer`printf ged`",
+		"Paragraph with a literal `\n---\ngh pr view --json state,mer`printf ged`",
+		"Paragraph with a literal `\n***\ngh pr view --json state,mer`printf ged`",
+		">     echo `literal\n> gh pr view --json state,mer`printf ged`",
+		"<!-- Literal ` marker -->\ngh pr view --json state,mer`printf ged`",
+	} {
+		if _, err := normalizeShellFields(source); err == nil {
+			t.Errorf("a separate Markdown block supplied a misleading opener: %q", source)
+		}
+	}
+}
+
+// BenchmarkMarkdownSpans measures normalization at two input sizes while preserving all text.
+func BenchmarkMarkdownSpans(b *testing.B) {
+	for _, count := range []int{1000, 10000} {
+		// Each size checks the full normalized output during every timed iteration.
+		b.Run(strconv.Itoa(count), func(b *testing.B) {
+			source := strings.Repeat("Use ``gh pr view --json state,mergedAt``. ", count)
+			b.SetBytes(int64(len(source)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				text, err := normalizeShellFields(source)
+				if err != nil || text != source {
+					b.Fatalf("literal guidance changed: %v", err)
+				}
+			}
+		})
+	}
+}

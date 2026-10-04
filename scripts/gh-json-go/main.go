@@ -179,12 +179,169 @@ func guidance(source []byte) ([]string, error) {
 	return d.parts, nil
 }
 
+type markdownObserver struct {
+	position, delimiter, fenceLength, blockEnd int
+	fence                                      byte
+}
+
+// markdownContentStart skips quote/list markers only when their container syntax is complete.
+func markdownContentStart(source string, start, end int) (int, bool) {
+	for start < end {
+		markerEnd := start
+		switch source[start] {
+		case '>':
+			markerEnd++
+		case '-', '+', '*':
+			markerEnd++
+			if markerEnd == end || !strings.ContainsRune(" \t", rune(source[markerEnd])) {
+				return start, false
+			}
+		default:
+			for markerEnd < end && markerEnd-start < 9 && source[markerEnd] >= '0' && source[markerEnd] <= '9' {
+				markerEnd++
+			}
+			if markerEnd == start || markerEnd+1 >= end ||
+				(source[markerEnd] != '.' && source[markerEnd] != ')') ||
+				!strings.ContainsRune(" \t", rune(source[markerEnd+1])) {
+				return start, false
+			}
+			markerEnd++
+		}
+		start = markerEnd
+		if start < end && source[start] == ' ' {
+			start++ // Consume the container's optional/required separator only.
+		}
+		indent := start
+		for start < end && start-indent < 4 && source[start] == ' ' {
+			start++
+		}
+		if start-indent == 4 || start < end && source[start] == '\t' {
+			return start, true
+		}
+	}
+	return start, false
+}
+
+// delimiterAt advances once through source and observes the inline span before a field flag.
+// Matching runs close spans; escaped prose and fenced/indented blocks cannot open them.
+func (m *markdownObserver) delimiterAt(source string, stop int) int {
+	delimiter, fence, fenceLength := m.delimiter, m.fence, m.fenceLength
+	i := m.position
+	for i < stop {
+		if m.blockEnd > 0 && i >= m.blockEnd {
+			delimiter, m.blockEnd = 0, 0
+		}
+		if i == 0 || source[i-1] == '\n' {
+			lineEnd := strings.IndexByte(source[i:], '\n')
+			if lineEnd < 0 {
+				lineEnd = len(source)
+			} else {
+				lineEnd += i
+			}
+			start := i
+			for start < lineEnd && start-i < 4 && source[start] == ' ' {
+				start++
+			}
+			indented := start-i == 4 || start < lineEnd && source[start] == '\t'
+			if !indented {
+				var containerIndented bool
+				start, containerIndented = markdownContentStart(source, start, lineEnd)
+				if containerIndented {
+					indented, delimiter = true, 0
+				}
+			}
+			content := strings.Trim(source[start:lineEnd], " \t\r")
+			if content == "" || strings.Trim(source[i:lineEnd], " \t\r") == "%" {
+				delimiter = 0 // Paragraph and retained-value boundaries cannot supply an opener.
+			}
+			if fence == 0 && !indented && content != "" {
+				if strings.HasPrefix(source[start:], "<!--") {
+					delimiter = 0 // Raw HTML comments cannot open Markdown code spans.
+					closing := strings.Index(source[start+4:], "-->")
+					if closing < 0 {
+						i = len(source)
+					} else {
+						i = start + 4 + closing + 3
+					}
+					continue
+				}
+				heading := 0
+				for heading < len(content) && content[heading] == '#' {
+					heading++
+				}
+				if heading > 0 && heading <= 6 && (heading == len(content) || strings.ContainsRune(" \t", rune(content[heading]))) {
+					delimiter = 0
+					m.blockEnd = lineEnd + 1 // A heading's inline content ends on this line.
+				}
+				if strings.Trim(content, "=") == "" || strings.Trim(content, "- \t") == "" ||
+					strings.Trim(content, "* \t") == "" && strings.Count(content, "*") >= 3 ||
+					strings.Trim(content, "_ \t") == "" && strings.Count(content, "_") >= 3 {
+					delimiter = 0 // Setext headings and thematic breaks end the prior paragraph.
+					i = lineEnd + 1
+					continue
+				}
+			}
+			if !indented && start < lineEnd && (source[start] == '`' || source[start] == '~') {
+				end := start
+				for end < lineEnd && source[end] == source[start] {
+					end++
+				}
+				run := end - start
+				if fence == 0 && run >= 3 &&
+					(source[start] == '~' || !strings.Contains(source[end:lineEnd], "`")) {
+					fence, fenceLength = source[start], run
+					delimiter = 0
+				} else if fence == source[start] && run >= fenceLength &&
+					strings.Trim(source[end:lineEnd], " \t\r") == "" {
+					fence = 0
+					i = lineEnd + 1
+					continue
+				}
+			}
+			if fence != 0 || delimiter == 0 && indented {
+				i = lineEnd + 1 // Block contents are shell text, not inline-span openers.
+				continue
+			}
+		}
+		if delimiter == 0 && strings.HasPrefix(source[i:], "<!--") {
+			closing := strings.Index(source[i+4:], "-->")
+			if closing < 0 {
+				i = len(source)
+			} else {
+				i += 4 + closing + 3
+			}
+			continue
+		}
+		if delimiter == 0 && source[i] == '\\' && i+1 < stop {
+			i += 2 // An escaped prose backtick cannot open a code span.
+			continue
+		}
+		if source[i] != '`' {
+			i++
+			continue
+		}
+		end := i
+		for end < stop && source[end] == '`' {
+			end++
+		}
+		if delimiter == 0 {
+			delimiter = end - i
+		} else if delimiter == end-i {
+			delimiter = 0
+		}
+		i = end
+	}
+	m.position, m.delimiter, m.fence, m.fenceLength = i, delimiter, fence, fenceLength
+	return delimiter
+}
+
 // normalizeShellFields joins only adjacent literal fragments of advertised field words.
 // Markdown delimiters end a word; expansions and unresolved quoting never establish a clean scan.
 func normalizeShellFields(source string) (string, error) {
 	letter := func(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == ',' }
 	space := func(c byte) bool { return c == ' ' || c == '\t' || c == '\n' || c == '\r' }
 	var output strings.Builder
+	markdown := &markdownObserver{}
 	position := 0
 	for position < len(source) {
 		relative := strings.Index(source[position:], "--json")
@@ -228,8 +385,11 @@ func normalizeShellFields(source string) (string, error) {
 					strings.Contains(separator, "\n") && strings.Trim(separator, " \t\r\n") == "" {
 					break // A following Markdown fence is not part of a field word.
 				}
-				line := strings.LastIndexByte(source[:flag], '\n') + 1
-				if strings.Count(source[line:flag], "`")%2 == 0 {
+				closing := end
+				for closing < len(source) && source[closing] == '`' {
+					closing++
+				}
+				if delimiter := markdown.delimiterAt(source, flag); delimiter == 0 || closing-end != delimiter {
 					return "", fmt.Errorf("JSON field word contains unresolved command substitution")
 				}
 				break // Close the Markdown span that opened before this command.

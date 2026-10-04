@@ -107,6 +107,10 @@ jq '.permissions={pull:false,push:false}' "$PERMISSION_FIXTURE" > "$work/change"
 accept 'App null-role with provider-enforced writer capability'
 setup; accept 'initial snapshot'
 setup incremental; accept 'annotated baseline and manifest-only release'
+for errors in false null '{}' '"unavailable"'; do
+  setup incremental; mutate ".[0].errors=$errors"; reject "invalid GraphQL error envelope $errors"
+done
+setup incremental; mutate '.[0].errors=[]'; accept 'explicit empty GraphQL error envelope'
 git -C "$repo" show-ref > "$work/refs-before"
 printf 'local work\n' > "$repo/local"
 git -C "$repo" status --porcelain > "$work/status-before"

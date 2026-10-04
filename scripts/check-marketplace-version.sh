@@ -3,6 +3,9 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/marketplace-git-context.lib.sh
+. "$here/marketplace-git-context.lib.sh"
+marketplace_git_context
 # Refuse incomplete evidence without emitting a success record.
 fail() { printf 'marketplace version gate: %s\n' "$*" >&2; exit 1; }
 [ "$#" -eq 2 ] || fail 'usage: check-marketplace-version.sh <full-base-commit> <full-head-commit>'

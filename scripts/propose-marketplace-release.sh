@@ -3,6 +3,9 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/marketplace-git-context.lib.sh
+. "$here/marketplace-git-context.lib.sh"
+marketplace_git_context
 # shellcheck source=scripts/json-object.lib.sh
 . "$here/json-object.lib.sh"
 # Refuse incomplete or unsafe input without reporting a delivered proposal.

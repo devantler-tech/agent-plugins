@@ -3,6 +3,9 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/marketplace-git-context.lib.sh
+. "$here/marketplace-git-context.lib.sh"
+marketplace_git_context
 # Refuse invalid input without emitting a successful assessment.
 fail() { printf 'release verification: %s\n' "$*" >&2; exit 1; }
 # Describe the public verifier and its explicit historical inspection option.

@@ -6,7 +6,7 @@ def require($condition; $message): if $condition then . else error($message) end
 require(type == "array" and length > 0; "missing remote pages")
 | . as $pages
 | require(all(.[];
-    (.errors // []) == [] and
+    type == "object" and ((has("errors") | not) or .errors == []) and
     (.data.repository | type == "object" and
       .nameWithOwner == $repo and .isArchived == false and
       (.id | nonempty) and compatible_user_role and

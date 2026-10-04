@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "contract": {
+    "enabled": true,
+    "owner": {
+      "id": "operator",
+      "kind": "human",
+      "record": "artifact://owner-decision"
+    },
+    "scope": {
+      "capability": "offline-repository-analysis",
+      "repository": "devantler-tech/example",
+      "environment": "fixture",
+      "operations": [
+        "read"
+      ]
+    },
+    "bindings": {
+      "contractRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "roleRevision": "2222222222222222222222222222222222222222222222222222222222222222",
+      "runtimeRevision": "3333333333333333333333333333333333333333333333333333333333333333",
+      "baselineRevision": "4444444444444444444444444444444444444444444444444444444444444444",
+      "candidateRevision": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    "protected": [
+      "security",
+      "spend",
+      "production",
+      "destructive",
+      "lifecycle",
+      "disclosure",
+      "external-commitment",
+      "enforcement"
+    ],
+    "candidateClassification": "replaceable-default",
+    "classificationRecord": "artifact://classification",
+    "requiredEvidence": [
+      "measurement",
+      "static",
+      "behavior",
+      "deployment",
+      "live",
+      "review",
+      "holdout",
+      "rollback"
+    ],
+    "requiredOutcomes": [
+      "benefit",
+      "protected-floor"
+    ],
+    "protectedOutcomes": [
+      "protected-floor"
+    ],
+    "requiredPaths": [
+      "main",
+      "child",
+      "resume",
+      "fallback"
+    ],
+    "fallbackRevision": "4444444444444444444444444444444444444444444444444444444444444444",
+    "recoveryOwner": "operator"
+  },
+  "request": {
+    "scope": {
+      "capability": "offline-repository-analysis",
+      "repository": "devantler-tech/example",
+      "environment": "fixture",
+      "operations": [
+        "read"
+      ]
+    },
+    "bindings": {
+      "contractRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "roleRevision": "2222222222222222222222222222222222222222222222222222222222222222",
+      "runtimeRevision": "3333333333333333333333333333333333333333333333333333333333333333",
+      "baselineRevision": "4444444444444444444444444444444444444444444444444444444444444444",
+      "candidateRevision": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    "currentRevision": "4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "observation": {
+    "proof": {
+      "scope": {
+        "capability": "offline-repository-analysis",
+        "repository": "devantler-tech/example",
+        "environment": "fixture",
+        "operations": [
+          "read"
+        ]
+      },
+      "bindings": {
+        "contractRevision": "1111111111111111111111111111111111111111111111111111111111111111",
+        "roleRevision": "2222222222222222222222222222222222222222222222222222222222222222",
+        "runtimeRevision": "3333333333333333333333333333333333333333333333333333333333333333",
+        "baselineRevision": "4444444444444444444444444444444444444444444444444444444444444444",
+        "candidateRevision": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "plan": {
+        "record": "artifact://registered-plan",
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "registeredAt": "2026-10-01T00:00:00Z",
+      "startedAt": "2026-10-02T00:00:00Z",
+      "bundle": {
+        "record": "artifact://bundle",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "assessment": {
+        "record": "artifact://assessment",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "result": "pass",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "planSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "observedAt": "2026-10-03T00:00:00Z",
+        "expiresAt": "2026-10-05T00:00:00Z"
+      },
+      "evidence": [
+        {
+          "id": "measurement",
+          "kind": "measurement",
+          "record": "artifact://measurement",
+          "result": "pass",
+          "observedAt": "2026-10-03T00:00:00Z",
+          "expiresAt": "2026-10-05T00:00:00Z"
+        },
+        {
+          "id": "static",
+          "kind": "static",
+          "record": "artifact://static",
+          "result": "pass",
+          "observedAt": "2026-10-03T00:00:00Z",
+          "expiresAt": "2026-10-05T00:00:00Z"
+        },
+        {
+          "id": "behavior",
+          "kind": "behavior",
+          "record": "artifact://behavior",
+          "result": "pass",
+          "observedAt": "2026-10-03T00:00:00Z",
+          "expiresAt": "2026-10-05T00:00:00Z"
+        },
+        {
+          "id": "deployment",
+          "kind": "deployment",
+          "record": "artifact://deployment",
+          "result": "pass",
+          "observedAt": "2026-10-03T00:00:00Z",
+          "expiresAt": "2026-10-05T00:00:00Z"
+        },
+        {
+          "id": "live",
+          "kind": "live",
+          "record": "artifact://live",
+          "result": "pass",
+          "observedAt": "2026-10-03T00:00:00Z",
+          "expiresAt": "2026-10-05T00:00:00Z"
+        },
+        {
+          "id": "review",
+          "kind": "review",
+          "record": "artifact://review",
+          "result": "pass",
+          "observedAt": "2026-10-03T00:00:00Z",
+          "expiresAt": "2026-10-05T00:00:00Z"
+        },
+        {
+          "id": "holdout",
+          "kind": "holdout",
+          "record": "artifact://holdout",
+          "result": "pass",
+          "observedAt": "2026-10-03T00:00:00Z",
+          "expiresAt": "2026-10-05T00:00:00Z"
+        },
+        {
+          "id": "rollback",
+          "kind": "rollback",
+          "record": "artifact://rollback",
+          "result": "pass",
+          "observedAt": "2026-10-03T00:00:00Z",
+          "expiresAt": "2026-10-05T00:00:00Z"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "benefit",
+          "result": "pass"
+        },
+        {
+          "id": "protected-floor",
+          "result": "pass"
+        }
+      ]
+    },
+    "runtime": {
+      "scope": {
+        "capability": "offline-repository-analysis",
+        "repository": "devantler-tech/example",
+        "environment": "fixture",
+        "operations": [
+          "read"
+        ]
+      },
+      "revision": "3333333333333333333333333333333333333333333333333333333333333333",
+      "coveredPaths": [
+        "main",
+        "child",
+        "resume",
+        "fallback"
+      ],
+      "positive": {
+        "id": "positive",
+        "kind": "runtime",
+        "coveredPaths": [
+          "main",
+          "child",
+          "resume",
+          "fallback"
+        ],
+        "record": "artifact://positive",
+        "result": "pass",
+        "observedAt": "2026-10-03T00:00:00Z",
+        "expiresAt": "2026-10-05T00:00:00Z"
+      },
+      "interceptedNegative": {
+        "id": "negative",
+        "kind": "runtime",
+        "coveredPaths": [
+          "main",
+          "child",
+          "resume",
+          "fallback"
+        ],
+        "record": "artifact://negative",
+        "result": "intercepted",
+        "observedAt": "2026-10-03T00:00:00Z",
+        "expiresAt": "2026-10-05T00:00:00Z"
+      }
+    },
+    "recovery": {
+      "scope": {
+        "capability": "offline-repository-analysis",
+        "repository": "devantler-tech/example",
+        "environment": "fixture",
+        "operations": [
+          "read"
+        ]
+      },
+      "revision": "4444444444444444444444444444444444444444444444444444444444444444",
+      "runtimeRevision": "3333333333333333333333333333333333333333333333333333333333333333",
+      "record": "artifact://recovery",
+      "authorizationRecord": "artifact://existing-authorization",
+      "result": "pass",
+      "observedAt": "2026-10-03T00:00:00Z",
+      "expiresAt": "2026-10-05T00:00:00Z"
+    }
+  },
+  "synthetic": true
+}

@@ -69,6 +69,13 @@ schedule, or provider-specific setup. Those facts remain in the consumer's versi
 `AGENTS.md`; the manifest points to them so improvements land in one canonical place and future runs
 refresh the latest reviewed plugin definition before starting.
 
+## Optional offline autonomy assessment
+
+The [offline autonomy assessor](AUTONOMY.md) compares consumer-owned classifications and scoped
+replacement, runtime and recovery reports. It is disabled by default, makes advisory recommendations
+only and never grants execution or authenticates supplied evidence. Its packaged synthetic example
+and copied-installation tests demonstrate that boundary. Native admission remains consumer-owned.
+
 ## Consumer contract
 
 The consuming repository's canonical `AGENTS.md` must define five named sections. The agents and core

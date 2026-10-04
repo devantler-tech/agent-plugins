@@ -21,6 +21,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.1.0 — 2026-10-04
+
+**Added** — optional offline autonomy assessments join consumer classifications, exact capability
+scope, immutable plan/method/control identities, current replacement proof, per-report runtime path
+coverage and scoped recovery. The packaged command is disabled by default and always advisory: it
+never grants execution, authenticates supplied reports, changes runtime settings or runs recovery.
+See the [consumer guide](AUTONOMY.md) and synthetic example for the input contract and result meanings.
+
 ## 6.0.0 — 2026-10-04
 
 **Breaking** — guarded local Git reads require `GIT_NO_LAZY_FETCH=1` in the process environment

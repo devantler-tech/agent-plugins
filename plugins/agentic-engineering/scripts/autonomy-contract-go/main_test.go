@@ -223,6 +223,83 @@ func TestAssess(t *testing.T) {
 	}
 }
 
+func TestBoundRecommendations(t *testing.T) {
+	now := time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
+	baseline, candidate := strings.Repeat("4", 64), strings.Repeat("5", 64)
+	cases := []struct {
+		name, status, revision string
+		change                 func(map[string]any)
+	}{
+		{"distinct stage records", "RECOMMEND_CANDIDATE", candidate, func(m map[string]any) {}},
+		{"reused stage record", "INVALID", "", func(m map[string]any) {
+			for _, e := range nested(m, "observation", "proof")["evidence"].([]any) {
+				e.(map[string]any)["record"] = "artifact://one-report"
+			}
+		}},
+		{"protected incumbent", "RETAIN_DEFAULT", baseline, func(m map[string]any) { nested(m, "contract")["candidateClassification"] = "protected" }},
+		{"protected foreign scope", "HOLD", "", func(m map[string]any) {
+			nested(m, "contract")["candidateClassification"] = "protected"
+			nested(m, "request", "scope")["repository"] = "devantler-tech/foreign"
+		}},
+		{"protected unknown current", "HOLD", "", func(m map[string]any) {
+			nested(m, "contract")["candidateClassification"] = "protected"
+			nested(m, "request")["currentRevision"] = strings.Repeat("9", 64)
+		}},
+		{"protected candidate is not incumbent", "HOLD", "", func(m map[string]any) {
+			nested(m, "contract")["candidateClassification"] = "protected"
+			nested(m, "request")["currentRevision"] = candidate
+		}},
+		{"failure without counterpart", "RECOMMEND_CONTRACTION", baseline, func(m map[string]any) {
+			nested(m, "request")["currentRevision"] = candidate
+			nested(m, "observation", "runtime", "positive")["result"] = "fail"
+			delete(nested(m, "observation", "runtime"), "interceptedNegative")
+		}},
+		{"failure with future counterpart", "RECOMMEND_CONTRACTION", baseline, func(m map[string]any) {
+			nested(m, "request")["currentRevision"] = candidate
+			nested(m, "observation", "runtime", "positive")["result"] = "fail"
+			nested(m, "observation", "runtime", "interceptedNegative")["observedAt"] = "2026-10-05T00:00:00Z"
+			nested(m, "observation", "runtime", "interceptedNegative")["expiresAt"] = "2026-10-06T00:00:00Z"
+		}},
+		{"negative failure without positive", "RECOMMEND_CONTRACTION", baseline, func(m map[string]any) {
+			nested(m, "request")["currentRevision"] = candidate
+			nested(m, "observation", "runtime", "interceptedNegative")["result"] = "fail"
+			delete(nested(m, "observation", "runtime"), "positive")
+		}},
+		{"foreign failure", "HOLD", "", func(m map[string]any) {
+			nested(m, "request")["currentRevision"] = candidate
+			nested(m, "observation", "runtime", "positive")["result"] = "fail"
+			nested(m, "observation", "runtime", "scope")["repository"] = "devantler-tech/foreign"
+			delete(nested(m, "observation", "runtime"), "interceptedNegative")
+		}},
+		{"future failure", "HOLD", "", func(m map[string]any) {
+			nested(m, "request")["currentRevision"] = candidate
+			p := nested(m, "observation", "runtime", "positive")
+			p["result"] = "fail"
+			p["observedAt"] = "2026-10-05T00:00:00Z"
+			p["expiresAt"] = "2026-10-06T00:00:00Z"
+			delete(nested(m, "observation", "runtime"), "interceptedNegative")
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := inputFixture(t)
+			tc.change(m)
+			raw, _ := json.Marshal(m)
+			in, err := decode(strings.NewReader(string(raw)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := assess(in, now)
+			if got.Status != tc.status || got.RecommendedRevision != tc.revision {
+				t.Fatalf("got %+v, want %s/%s", got, tc.status, tc.revision)
+			}
+			if got.ExecutionAdmitted || got.MutationPerformed || got.ReportedEvidenceAuthenticated {
+				t.Fatal("assessment became authority")
+			}
+		})
+	}
+}
+
 func TestDecode(t *testing.T) {
 	for _, raw := range []string{fixture + fixture, `{"schemaVersion":1,"schemaVersion":1}`, `{"schemaVersion":1,"schem\u0061Version":1}`, `{"schemaVersion":1,"executionAdmitted":true}`, `null`, `[]`, "{", strings.Repeat(" ", 1<<20) + fixture, string([]byte{'{', '"', 'x', '"', ':', '"', 0xff, '"', '}'})} {
 		if _, err := decode(strings.NewReader(raw)); err == nil {

@@ -38,8 +38,8 @@ plausible thread data. Remote default-branch CI reads require complete page enve
 cannot establish that collection finished. Offline array inputs remain supported.
 
 **Fixed** — package validation rejects unterminated desired-state and provenance inventories.
-Failed generated writes preserve concurrent destination edits and retain the original backup for
-recovery instead of overwriting another writer's bytes.
+Generated-file helpers serialize destination backups, replacements and recovery under one checkout lock.
+Failed batches preserve outside edits detected during recovery and retain the original backup.
 
 ## 5.6.11 — 2026-10-04
 

@@ -31,6 +31,17 @@ git -C "$root" config remote.origin.url "ext::$work/transport"
 git -C "$root" config protocol.ext.allow always
 rm "$root/.git/objects/${blob:0:2}/${blob:2}"
 export FIXTURE_TRANSPORT_MARKER="$work/transport-called"
+# Prove this missing object would invoke the owned fixture transport without
+# protection, then clear that evidence before the guarded observation.
+probe_rc=0
+(
+  unset GIT_NO_LAZY_FETCH
+  git -C "$root" show --no-ext-diff --no-textconv HEAD:data.txt > "$work/probe-read" 2> "$work/probe-error"
+) || probe_rc=$?
+test "$probe_rc" -ne 0
+test -e "$FIXTURE_TRANSPORT_MARKER"
+rm "$FIXTURE_TRANSPORT_MARKER"
+test ! -e "$root/.git/objects/${blob:0:2}/${blob:2}"
 bash "$here/forge-readonly-guard.sh" --command "$command" > "$work/guard"
 rc=0
 git -C "$root" show --no-ext-diff --no-textconv HEAD:data.txt > "$work/read" 2> "$work/error" || rc=$?

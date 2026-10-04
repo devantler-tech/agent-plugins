@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 # Replace a validated NUL-paired (destination, staged source) batch without
-# truncating live files. Failed commits restore originals; failed recovery keeps
-# its backup beside the destination for the operator rather than deleting it.
+# truncating live files. Helpers share one checkout-root lock through snapshots,
+# replacement and recovery. Uncontended originals are restored; a conflict or
+# failed recovery keeps its backup beside the destination for the operator.
 # The optional second argument, true, permits creating previously absent destinations.
-atomic_write_batch() {
+atomic_write_batch() (
+  local lock=.agent-plugin-write.lock lock_rc=0
+  if ! mkdir "$lock" 2>/dev/null; then
+    echo '::error::Generated writes are already locked; inspect the existing writer before retrying.' >&2
+    return 1
+  fi
+  # The subshell keeps this cleanup independent of each caller's staging trap.
+  trap 'lock_rc=$?; if ! rmdir "$lock"; then echo "::error::Recovery required; generated-write lock retained." >&2; lock_rc=1; fi; exit "$lock_rc"' EXIT
   local plan=$1 allow_new=${2:-false} destination='' staged='' next original i failed=0
   local destinations=() replacements=() originals=() sources=()
   while IFS= read -r -d '' destination; do
@@ -40,8 +48,8 @@ atomic_write_batch() {
         local j
         for j in "${!destinations[@]}"; do
           [ "$j" -le "$i" ] || continue
-          # Restore only this transaction's bytes. Another writer may have
-          # changed an earlier destination while a later replacement failed.
+          # Supported helpers cannot interleave while this lock is held. Preserve
+          # any outside edit already visible before restoring our staged bytes.
           if [ -z "${originals[$j]}" ]; then
             # Remove only a new file whose bytes still match this batch's staged source.
             if [ ! -e "${destinations[$j]}" ] && [ ! -L "${destinations[$j]}" ]; then continue; fi
@@ -66,4 +74,4 @@ atomic_write_batch() {
   for next in ${replacements[@]+"${replacements[@]}"}; do rm -f "$next"; done
   for original in ${originals[@]+"${originals[@]}"}; do [ -z "$original" ] || rm -f "$original"; done
   [ "$failed" -eq 0 ] || { echo '::error::Batch replacement failed.' >&2; return 1; }
-}
+)

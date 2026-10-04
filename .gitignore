@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # Skill download staging area
 .agents/
+
+# Shared mutex for generated-file helper writes
+.agent-plugin-write.lock/

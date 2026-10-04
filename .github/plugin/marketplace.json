@@ -33,7 +33,7 @@
     {
       "name": "go",
       "description": "Go best practices, concurrency, generics, interfaces, and testing skills",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./plugins/go"
     },
     {

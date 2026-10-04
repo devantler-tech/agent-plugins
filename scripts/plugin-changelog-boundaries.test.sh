@@ -51,6 +51,7 @@ base=$(git -C "$dir" rev-parse HEAD)
 label='multiple base manifest documents'; expect_refusal write "$base" 2026-10-03
 fixture
 printf '%s\n' '---' 'name: example' 'metadata:' '  nested:' '    github-repo: https://github.com/devantler-tech/agent-plugins' '    github-ref: refs/tags/v9.9.9' '---' > "$dir/plugins/alpha/skills/example/SKILL.md"
+git -C "$dir" add -- plugins/alpha/skills/example/SKILL.md; git -C "$dir" commit -qm nested-provenance
 label='nested keys cannot impersonate provenance'; expect_refusal write "$base" 2026-10-03
 fixture
 mkdir "$dir/bin"
@@ -64,12 +65,12 @@ fixture
 mkdir "$dir/bin"; real_git=$(command -v git)
 cat > "$dir/bin/git" <<'SH'
 #!/usr/bin/env bash
-if [[ $1 == cat-file && $2 == -e ]]; then exit 128; fi
+if [[ $1 == cat-file && $2 == blob ]]; then exit 128; fi
 if [[ $1 == ls-tree && $2 == -r ]]; then exit 0; fi
 exec "$REAL_GIT" "$@"
 SH
 chmod +x "$dir/bin/git"
-label='failed existence read cannot invent a removed skill'
+label='failed committed provenance read cannot invent a removed skill'
 if (cd "$dir" && PATH="$dir/bin:$PATH" REAL_GIT="$real_git" bash "$script" write "$base" 2026-10-03) > "$work/out" 2>&1; then printf 'FAIL %s\n' "$label"; failed=$((failed+1)); else printf 'PASS %s\n' "$label"; fi
 fixture
 printf 'resource\n' > "$dir/plugins/alpha/skills/example/café.txt"
@@ -88,7 +89,7 @@ mkdir "$dir/bin"; real_mv=$(command -v mv)
 cat > "$dir/bin/mv" <<'SH'
 #!/usr/bin/env bash
 last=${!#}
-if [[ $last == plugins/beta/CHANGELOG.md && ! -e $FAULT_ONCE ]]; then touch "$FAULT_ONCE"; exit 1; fi
+if [[ ${ATOMIC_DESTINATION:-} == plugins/beta/CHANGELOG.md && $last == CHANGELOG.md && ! -e $FAULT_ONCE ]]; then touch "$FAULT_ONCE"; exit 1; fi
 exec "$REAL_MV" "$@"
 SH
 chmod +x "$dir/bin/mv"

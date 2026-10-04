@@ -288,6 +288,14 @@ func decode(r io.Reader) (Input, error) {
 	if err = d.Decode(&raw); err != nil {
 		return in, err
 	}
+	// Preserve optional-marker compatibility, but never decode explicit null as false.
+	if object, ok := raw.(map[string]any); ok {
+		if value, declared := object["synthetic"]; declared {
+			if _, boolean := value.(bool); !boolean {
+				return in, fmt.Errorf("synthetic must be a boolean when declared")
+			}
+		}
+	}
 	if err = canonical(raw, reflect.TypeOf(in)); err != nil {
 		return in, err
 	}
@@ -358,7 +366,7 @@ func assess(in Input, now time.Time) Result {
 		if bound && e.Result != "unknown" && !ex.After(now) {
 			expired = true
 		}
-		if !bound || !fresh(e.Observed, e.Expires, now) || e.Result != "pass" {
+		if !bound || !assessmentBound || o.After(ao) || !fresh(e.Observed, e.Expires, now) || e.Result != "pass" {
 			complete = false
 		}
 	}

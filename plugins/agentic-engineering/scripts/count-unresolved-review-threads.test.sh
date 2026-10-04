@@ -81,7 +81,9 @@ expect() {
   fi
 }
 
-page 0 false '' | scenario zero
+page 0 false '' | jq -c '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor=null' | scenario zero
+page 0 false '' | jq -c 'del(.data.repository.pullRequest.reviewThreads.pageInfo.endCursor)' | scenario zero-no-cursor
+page 0 false '' | scenario zero-text-cursor
 page 1 false c1 false | scenario unresolved
 page 2 false c1 true true | scenario resolved-only
 # 103 threads: 100 resolved on page 1, three on page 2 of which one is unresolved.
@@ -110,6 +112,8 @@ printf '%s\n' '{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCoun
 } | scenario inconsistent
 
 expect 'zero-thread PR' "$COUNTER" zero 0 'unresolved=0 total=0'
+expect 'empty page missing cursor remains unknown' "$COUNTER" zero-no-cursor 2 'UNKNOWN pagination'
+expect 'empty page requires a null cursor' "$COUNTER" zero-text-cursor 2 'UNKNOWN pagination'
 expect 'one unresolved thread' "$COUNTER" unresolved 1 'unresolved=1 total=1'
 expect 'resolved threads only' "$COUNTER" resolved-only 0 'unresolved=0 total=2'
 expect '103 threads across two pages' "$COUNTER" paginated 1 'unresolved=1 total=103'

@@ -34,6 +34,7 @@ fields, trailing documents, input above 1 MiB and nesting above 64 levels are re
 are `--contract` and `--now`, each exactly once; single-dash aliases are refused. Timestamps are
 exact UTC seconds in `YYYY-MM-DDTHH:MM:SSZ` form. Names and opaque artifact records use visible
 ASCII letters, digits and `:/@._-`, without spaces. Nothing opens those records.
+The optional `synthetic` marker accepts only a boolean when declared; explicit null is invalid.
 
 - `contract.enabled` is an explicit boolean. The declared owner has an id, `kind: human` and an
   ownership record. Those values are reports; this command cannot establish who wrote them.
@@ -68,6 +69,8 @@ The proof names an immutable preregistration plan, evidence bundle and assessmen
 opaque record and SHA-256 digest. `registeredAt` precedes `startedAt`, and the experiment must
 already have started. The assessment explicitly joins both `planSha256` and `bundleSha256`
 and carries its result and observation/expiry times.
+Positive replacement reports must already exist at `proof.assessment.observedAt`; a later report
+cannot establish that assessment's bundle. Independently bound failures still remain negative.
 
 Every required evidence stage needs a report with a distinct id, kind, record, result and times.
 Every required outcome needs exactly one reported result. Replacement and runtime positive reports must be current,

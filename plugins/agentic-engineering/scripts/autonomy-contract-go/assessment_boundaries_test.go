@@ -1,0 +1,82 @@
+package main
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+	"time"
+)
+
+// A report can establish the positive bundle only when it existed at assessment time.
+func TestAssessmentEvidenceChronology(t *testing.T) {
+	now := time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name, observed, result, want string
+		candidate                    bool
+	}{
+		{"earlier", "2026-10-02T12:00:00Z", "pass", "RECOMMEND_CANDIDATE", false},
+		{"equal", "2026-10-03T00:00:00Z", "pass", "RECOMMEND_CANDIDATE", false},
+		{"later", "2026-10-03T12:00:00Z", "pass", "HOLD", false},
+		{"later known failure", "2026-10-03T12:00:00Z", "fail", "RECOMMEND_CONTRACTION", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := inputFixture(t)
+			report := nested(m, "observation", "proof")["evidence"].([]any)[0].(map[string]any)
+			report["observedAt"], report["result"] = tc.observed, tc.result
+			if tc.candidate {
+				nested(m, "request")["currentRevision"] = nested(m, "contract", "bindings")["candidateRevision"]
+			}
+			raw, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			in, err := decode(strings.NewReader(string(raw)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := assess(in, now)
+			if got.Status != tc.want {
+				t.Fatalf("got %s, want %s", got.Status, tc.want)
+			}
+		})
+	}
+}
+
+// An explicit malformed provenance marker must not silently become false.
+func TestSyntheticDeclaration(t *testing.T) {
+	for _, value := range []any{nil, "false", 0, []any{}, map[string]any{}} {
+		m := inputFixture(t)
+		m["synthetic"] = value
+		raw, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = decode(strings.NewReader(string(raw))); err == nil {
+			t.Errorf("accepted malformed synthetic marker %v", value)
+		}
+	}
+	for _, value := range []bool{false, true} {
+		m := inputFixture(t)
+		m["synthetic"] = value
+		raw, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		in, err := decode(strings.NewReader(string(raw)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := assess(in, time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC))
+		if got.Synthetic != value || got.Status != "RECOMMEND_CANDIDATE" || got.Authority != "assessment-only" {
+			t.Fatalf("lost classification or authority: %+v", got)
+		}
+	}
+	// Existing consumers may omit the optional marker.
+	raw, err := json.Marshal(inputFixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = decode(strings.NewReader(string(raw))); err != nil {
+		t.Fatal(err)
+	}
+}

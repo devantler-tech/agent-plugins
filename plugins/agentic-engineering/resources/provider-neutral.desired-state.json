@@ -23,7 +23,7 @@
         },
         {
           "path": "scripts/count-unresolved-review-threads.sh",
-          "sha256": "c187dee4c3caa9d5c690d668f563fcf83e32594a53a38face39b6396ceda50a2",
+          "sha256": "a34388eb6d1ece6f96783e020a9959a112a950985a3438713b7a1a854ea3bae6",
           "executable": true
         },
         {

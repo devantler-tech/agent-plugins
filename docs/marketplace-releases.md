@@ -12,7 +12,7 @@ Versions are complete canonical stable SemVer strings, without whitespace or lin
 Source manifests and native API observations must contain exactly one complete JSON value with
 unique decoded object keys, including nested objects and paginated arrays. A GraphQL observation's
 error envelope must be absent or an empty array; false, null and other malformed values refuse
-remote release assessment. Contradictory fields
+proposal and publication observations, including signed-commit and draft readback responses. Contradictory fields
 are refused before candidate, readiness, occupancy or writer decisions. An ambiguous response
 after a write leaves any created remote objects intact and reports uncertainty for explicit recovery;
 it never establishes completed publication or a verified draft.

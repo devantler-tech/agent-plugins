@@ -1,3 +1,4 @@
+include "graphql-observation";
 # Normalize a complete paginated GitHub observation; absence is meaningful only in valid data.
 include "marketplace-permissions";
 def oid: type == "string" and test("^[0-9a-f]{40}$");
@@ -6,7 +7,7 @@ def require($condition; $message): if $condition then . else error($message) end
 require(type == "array" and length > 0; "missing remote pages")
 | . as $pages
 | require(all(.[];
-    type == "object" and ((has("errors") | not) or .errors == []) and
+    graphql_complete and
     (.data.repository | type == "object" and
       .nameWithOwner == $repo and .isArchived == false and
       (.id | nonempty) and compatible_user_role and

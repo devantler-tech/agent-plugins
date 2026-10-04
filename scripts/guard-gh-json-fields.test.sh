@@ -197,6 +197,74 @@ dir="$(fixture unknown-mismatched-backtick-span)"
 printf '%s\n' 'Use ``gh pr view --json state,mergedAt`.' > "${dir}/plugins/p/agents/case.md"
 expect 2 'a mismatched closing Markdown delimiter is UNKNOWN' "${dir}"
 
+dir="$(fixture good-multiline-backtick-span)"
+printf '%s\n' 'Use ``gh pr view' '--json state,mergedAt``.' > "${dir}/plugins/p/agents/case.md"
+expect 0 'an inline Markdown span can cross a newline' "${dir}"
+
+dir="$(fixture unknown-escaped-backtick-prefix)"
+printf '%s\n' 'Note \` is a literal marker. Run gh pr view --json state,mer`printf ged`' > "${dir}/plugins/p/agents/case.md"
+expect 2 'an escaped prose backtick cannot disguise unresolved command substitution' "${dir}"
+
+dir="$(fixture good-escaped-backtick-before-span)"
+printf '%s\n' 'Note \` is literal. Use ``gh pr view --json state,mergedAt``.' > "${dir}/plugins/p/agents/case.md"
+expect 0 'an escaped prose backtick does not change a later valid code span' "${dir}"
+
+dir="$(fixture unknown-fenced-matching-substitution)"
+printf '%s\n' '```bash' 'gh pr view --json state,mer```printf ged```' '```' > "${dir}/plugins/p/agents/case.md"
+expect 2 'a block fence cannot disguise a same-length shell expression' "${dir}"
+
+dir="$(fixture unknown-tilde-fenced-substitution)"
+printf '%s\n' '~~~bash' 'gh pr view --json state,mer`printf ged`' '~~~' > "${dir}/plugins/p/agents/case.md"
+expect 2 'a tilde-fenced unresolved shell expression is UNKNOWN' "${dir}"
+
+dir="$(fixture unknown-indented-substitution)"
+printf '%s\n' '    echo `gh pr view --json state,mer`printf ged`' > "${dir}/plugins/p/agents/case.md"
+expect 2 'an indented code block cannot supply a Markdown opener' "${dir}"
+
+dir="$(fixture unknown-tab-indented-substitution)"
+printf '\t%s\n' 'echo `gh pr view --json state,mer`printf ged`' > "${dir}/plugins/p/agents/case.md"
+expect 2 'a tab-indented code block cannot supply a Markdown opener' "${dir}"
+
+dir="$(fixture good-span-after-fences)"
+printf '%s\n' '```bash' 'echo `literal`' '````' 'Use ``gh pr view' '--json state,mergedAt``.' > "${dir}/plugins/p/agents/case.md"
+expect 0 'a completed fenced block does not change a later multiline span' "${dir}"
+
+dir="$(fixture unknown-opener-in-earlier-paragraph)"
+printf '%s\n' 'An unmatched ` belongs to this paragraph.' '' 'gh pr view --json state,mer`printf ged`' > "${dir}/plugins/p/agents/case.md"
+expect 2 'a prior paragraph cannot supply a code-span opener' "${dir}"
+
+dir="$(fixture unknown-opener-before-code-block)"
+printf '%s\n' 'An unmatched ` precedes a code block.' '```bash' 'gh pr view --json state,mer`printf ged`' '```' > "${dir}/plugins/p/agents/case.md"
+expect 2 'an interrupting fenced block cannot inherit an inline opener' "${dir}"
+
+dir="$(fixture unknown-quoted-fenced-substitution)"
+printf '%s\n' '> ```bash' '> gh pr view --json state,mer```printf ged```' '> ```' > "${dir}/plugins/p/agents/case.md"
+expect 2 'a blockquote fence cannot disguise unresolved command substitution' "${dir}"
+
+dir="$(fixture unknown-list-fenced-substitution)"
+printf '%s\n' '- ```bash' '  gh pr view --json state,mer```printf ged```' '  ```' > "${dir}/plugins/p/agents/case.md"
+expect 2 'a list fence cannot disguise unresolved command substitution' "${dir}"
+
+dir="$(fixture good-span-after-container-fences)"
+printf '%s\n' '> ```bash' '> echo `literal`' '> ```' '- ```bash' '  echo `literal`' '  ```' 'Use ``gh pr view --json state,mergedAt``.' > "${dir}/plugins/p/agents/case.md"
+expect 0 'completed blockquote and list fences preserve later literal guidance' "${dir}"
+
+dir="$(fixture unknown-heading-opener)"
+printf '%s\n' '# Heading with a literal `' 'gh pr view --json state,mer`printf ged`' > "${dir}/plugins/p/agents/case.md"
+expect 2 'a heading cannot supply an opener for the next paragraph' "${dir}"
+
+dir="$(fixture good-heading-command)"
+printf '%s\n' '# Use ``gh pr view --json state,mergedAt``.' > "${dir}/plugins/p/agents/case.md"
+expect 0 'a heading can contain its own complete literal command span' "${dir}"
+
+dir="$(fixture unknown-quoted-indented-opener)"
+printf '%s\n' '>     echo `literal' '> gh pr view --json state,mer`printf ged`' > "${dir}/plugins/p/agents/case.md"
+expect 2 'container-relative code indentation cannot supply an inline opener' "${dir}"
+
+dir="$(fixture unknown-html-comment-opener)"
+printf '%s\n' '<!-- Literal ` marker -->' 'gh pr view --json state,mer`printf ged`' > "${dir}/plugins/p/agents/case.md"
+expect 2 'an HTML comment cannot supply an inline opener' "${dir}"
+
 # A flag wrapped in shell quotes is still the flag: `gh pr view 42 '--json' state,merged`.
 dir="$(fixture bad-quoted-flag)"
 printf '%s\n' "gh pr view 42 '--json' state,merged" > "${dir}/plugins/p/agents/case.md"

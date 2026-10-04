@@ -72,7 +72,7 @@ else
   [ "$parents" = "$source" ] || fail 'release must have exactly the selected source as its only parent'
 fi
 # Only the marketplace manifests may change. Include mode changes, deletions and renames.
-git diff-tree --no-commit-id --name-only -r --no-renames --no-ext-diff -z "$source" "$release" > "$temp/changes"
+git diff-tree --no-relative --no-commit-id --name-only -r --no-renames --no-ext-diff -z "$source" "$release" > "$temp/changes"
 path=''
 while IFS= read -r -d '' path; do
   case "$path" in
@@ -82,8 +82,8 @@ while IFS= read -r -d '' path; do
 done < "$temp/changes"
 [ -z "$path" ] || fail 'release change inventory contains an unterminated record'
 for path in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
-  source_entry=$(git ls-tree "$source" -- "$path")
-  release_entry=$(git ls-tree "$release" -- "$path")
+  source_entry=$(git ls-tree --full-tree "$source" -- "$path")
+  release_entry=$(git ls-tree --full-tree "$release" -- "$path")
   [ "${source_entry%% *}" = "${release_entry%% *}" ] || fail "manifest mode changed: $path"
   git cat-file blob "$release:$path" > "$temp/release-manifest.json"
   # Byte comparison also catches duplicate keys hidden by JSON parsing. The first release

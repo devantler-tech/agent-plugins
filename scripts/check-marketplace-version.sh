@@ -30,7 +30,7 @@ version_at() {
   local commit=$1 path mode n=0
   for path in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
     n=$((n+1))
-    mode=$(git ls-tree "$commit" -- "$path")
+    mode=$(git ls-tree --full-tree "$commit" -- "$path")
     [[ "$mode" == '100644 blob '* || "$mode" == '100755 blob '* ]] || fail "manifest is not a regular tracked file: $path"
     git cat-file blob "$commit:$path" > "$temp/manifest-$n.json"
     jq -es -L "$here" 'include "marketplace-release"; length==1 and (.[0] | valid_marketplace)' "$temp/manifest-$n.json" >/dev/null || fail "invalid marketplace manifest: $path"

@@ -85,7 +85,7 @@ mkdir "$temp/data" "$temp/candidate"
 # Read one unambiguous regular tracked manifest at the explicitly selected commit.
 read_manifest() {
   local commit=$1 path=$2 destination=$3 mode
-  mode=$(git ls-tree "$commit" -- "$path")
+  mode=$(git ls-tree --full-tree "$commit" -- "$path")
   [[ "$mode" == '100644 blob '* || "$mode" == '100755 blob '* ]] || fail "manifest is not a regular tracked file: $path"
   git cat-file blob "$commit:$path" > "$destination"
   json_object_unique "$destination" || fail "ambiguous marketplace manifest: $path"

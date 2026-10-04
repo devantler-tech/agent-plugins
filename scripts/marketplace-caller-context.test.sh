@@ -26,5 +26,18 @@ failed=0
 if ! jq -e --arg head "$head" '.sourceCommit==$head' "$work/candidate/release.json" >/dev/null; then printf 'FAIL redirected source\n';failed=$((failed+1));fi
 if (cd "$work/intended" && bash "$root/scripts/prepare-marketplace-release.sh" --base-tag initial --output "$work/intended/forbidden") > "$work/result" 2> "$work/error"; then printf 'FAIL wrote inside caller\n';failed=$((failed+1));fi
 if ! (cd "$work/intended" && bash "$root/scripts/verify-marketplace-release.sh" --candidate "$work/candidate" --source "$head" --release "$head") > "$work/result" 2> "$work/error"; then printf 'FAIL redirected verifier\n';failed=$((failed+1));fi
+
+mkdir -p "$work/intended/subdirectory"
+if ! (cd "$work/intended/subdirectory" && GIT_CEILING_DIRECTORIES="$work/intended" bash "$root/scripts/prepare-marketplace-release.sh" --base-tag initial --output "$work/subdirectory-candidate") > "$work/result" 2> "$work/error"; then
+  cat "$work/error" >&2
+  printf 'FAIL inherited ceiling hides caller root\n'; failed=$((failed+1))
+elif ! jq -e --arg head "$head" '.sourceCommit==$head' "$work/subdirectory-candidate/release.json" >/dev/null; then
+  printf 'FAIL subdirectory caller source differs\n'; failed=$((failed+1))
+fi
+
+
+if ! (cd "$work/intended/subdirectory" && GIT_CEILING_DIRECTORIES="$work/intended" bash "$root/scripts/verify-marketplace-release.sh" --candidate "$work/subdirectory-candidate" --source "$head" --release "$head") > "$work/result" 2> "$work/error"; then cat "$work/error" >&2; printf 'FAIL subdirectory verifier\n'; failed=$((failed+1)); fi
+if ! (cd "$work/intended/subdirectory" && GIT_CEILING_DIRECTORIES="$work/intended" bash "$root/scripts/check-marketplace-version.sh" "$head" "$head") > "$work/result" 2> "$work/error"; then cat "$work/error" >&2; printf 'FAIL subdirectory version gate\n'; failed=$((failed+1)); fi
+
 printf 'caller context: %s failures\n' "$failed"
 [ "$failed" -eq 0 ]

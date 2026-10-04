@@ -3,9 +3,9 @@ description: How an autonomous AI engineer improves its OWN definition (its engi
 license: Apache-2.0
 metadata:
     github-path: self-improvement
-    github-ref: refs/tags/v1.17.1
+    github-ref: refs/tags/v1.21.22
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 6200f1a961b5f8dbfc192c85bd12f952b518a1f2
+    github-tree-sha: ad7db7806bd30577a4b0cc9d27d00cf5ca4590d0
 name: self-improvement
 ---
 # Self-improvement loop

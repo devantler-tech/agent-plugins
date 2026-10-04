@@ -64,6 +64,7 @@ scripts/
 ├── bump-plugin-version.test.sh # Self-test for the bump helper
 ├── prepare-marketplace-release.sh # Offline version proposal, manifests and release notes from Git objects
 ├── marketplace-release.jq      # Candidate validation, version calculation and notes rendering
+├── graphql-observation.jq      # Shared successful-envelope shape for proposal/publication observations
 ├── prepare-marketplace-release.test.sh # Real-history release and refusal cases
 ├── inspect-marketplace-release.sh # Read-only historical inspection behind --inspect-existing
 ├── inspect-marketplace-release.test.sh # Occupied tags, immutable caller state and refusal cases
@@ -346,6 +347,7 @@ bash scripts/generated-write-safety.test.sh # resource refusal and failed batch-
 # object keys before semantic checks, including objects inside paginated arrays. Stable
 # versions contain no whitespace or line terminators. Partial-write ambiguity remains
 # uncertain and preserves remote objects for explicit recovery.
+bash scripts/marketplace-caller-context.test.sh # inherited Git selectors cannot redirect caller evidence
 bash scripts/prepare-marketplace-release.test.sh
 bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exact release-tree binding
 bash scripts/inspect-marketplace-release.test.sh # historical content, occupied tags and caller-state preservation

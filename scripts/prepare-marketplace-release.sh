@@ -3,6 +3,9 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/marketplace-git-context.lib.sh
+. "$here/marketplace-git-context.lib.sh"
+marketplace_git_context
 # shellcheck source=scripts/json-object.lib.sh
 . "$here/json-object.lib.sh"
 # Stop preparation without emitting a prepared candidate.
@@ -82,7 +85,7 @@ mkdir "$temp/data" "$temp/candidate"
 # Read one unambiguous regular tracked manifest at the explicitly selected commit.
 read_manifest() {
   local commit=$1 path=$2 destination=$3 mode
-  mode=$(git ls-tree "$commit" -- "$path")
+  mode=$(git ls-tree --full-tree "$commit" -- "$path")
   [[ "$mode" == '100644 blob '* || "$mode" == '100755 blob '* ]] || fail "manifest is not a regular tracked file: $path"
   git cat-file blob "$commit:$path" > "$destination"
   json_object_unique "$destination" || fail "ambiguous marketplace manifest: $path"

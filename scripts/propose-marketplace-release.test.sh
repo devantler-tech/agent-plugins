@@ -117,6 +117,8 @@ elif [ "$endpoint" = graphql ] && [ "$paginated" = true ]; then
     writer-other-user) change='.[0].data.viewer.login="devantler"';;
     writer-role-missing) change='del(.[0].data.repository.viewerPermission)';;
     writer-read-role) change='.[0].data.repository.viewerPermission="READ"';;
+    null-errors) change='.[0].errors=null';;
+    empty-errors) change='.[0].errors=[]';;
     malformed) change='{}';;
   esac
   if [ "$mode" = duplicate-occupancy ]; then
@@ -179,6 +181,7 @@ elif [ "$endpoint" = graphql ] && [ "$method" = POST ]; then
   valid=true; [ "$mode" != unsigned ] || valid=false
   jq -n --arg commit "$commit" --argjson valid "$valid" '{data:{createCommitOnBranch:{commit:{oid:$commit,signature:{isValid:$valid,state:"VALID"}}}}}' > "$FORGE_STATE/commit-response"
   if [ "$mode" = commit-duplicate ]; then jq -c . "$FORGE_STATE/commit-response" | sed 's/"isValid":true/"isValid":false,"isValid":true/'
+  elif [ "$mode" = commit-null-errors ]; then jq '.errors=null' "$FORGE_STATE/commit-response"
   else cat "$FORGE_STATE/commit-response"; fi
 elif [[ "$endpoint" == repos/example/catalogue/commits/* ]]; then
   commit=$(cat "$FORGE_STATE/commit")
@@ -211,6 +214,7 @@ elif [ "$endpoint" = graphql ]; then
   # Native GitHub represents this author as Bot github-actions in GraphQL, with the REST bot node ID.
   jq -n --arg source "$SOURCE" --arg commit "$(cat "$FORGE_STATE/commit")" --slurpfile pr "$FORGE_STATE/pr-input" '{data:{repository:{id:"R_fixture",nameWithOwner:"example/catalogue",isArchived:false,defaultBranchRef:{name:"main",target:{oid:$source}},ref:{name:$pr[0].head,target:{oid:$commit}},pullRequest:{id:"PR_fixture",number:17,state:"OPEN",isDraft:true,author:{login:"github-actions",__typename:"Bot",id:"Bot_fixture"},headRefName:$pr[0].head,headRefOid:$commit,baseRefName:"main",baseRefOid:$source,headRepository:{nameWithOwner:"example/catalogue"},url:"https://github.com/example/catalogue/pull/17",title:$pr[0].title,body:$pr[0].body}}}}' > "$FORGE_STATE/readback"
   case "$mode" in
+    readback-null-errors) jq '.errors=null' "$FORGE_STATE/readback";;
     readback-not-draft) jq '.data.repository.pullRequest.isDraft=false' "$FORGE_STATE/readback";;
     readback-wrong-head) jq '.data.repository.pullRequest.headRefOid="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$FORGE_STATE/readback";;
     readback-gql-login) jq '.data.repository.pullRequest.author.login="github-actions[bot]"' "$FORGE_STATE/readback";;
@@ -245,6 +249,12 @@ run_case() {
   if [ "$expected" = REFUSED ]; then
     [ "$code" -ne 0 ] || fail "$name unexpectedly succeeded"
     ! grep -Eq '"status": "(CREATED|PREPARED)"' "$work/result" || fail "$name emitted success"
+    if [[ "$fault" == commit-null-errors || "$fault" == readback-null-errors ]]; then
+      if [ ! -e "$FORGE_STATE/branch" ] || [ ! -e "$FORGE_STATE/commit" ]; then fail "$name lost created objects"; fi
+      grep -q "No automatic retry or rollback" "$work/error" || fail "$name omitted recovery warning"
+      ! grep -Eq "^(PATCH|DELETE) " "$CALLS" || fail "$name altered created objects"
+      [ "$(grep -c '^POST graphql' "$CALLS" || true)" -eq 1 ] || fail "$name retried commit creation"
+    fi
     if [[ "$fault" != unsigned && "$fault" != ref-race && "$fault" != ref-duplicate && "$fault" != commit-* && "$fault" != signature-readback && "$fault" != signature-duplicate && "$fault" != main-after-ref && "$fault" != writer-after-* && "$fault" != pr-fails && "$fault" != pr-duplicate && "$fault" != readback-* ]]; then
       ! grep -Eq 'POST (repos/example/catalogue/git/refs|graphql|repos/example/catalogue/pulls)' "$CALLS" || fail "$name wrote before refusal"
     fi
@@ -262,6 +272,8 @@ run_case() {
 }
 run_case 'read-only preparation' none false PREPARED
 run_case 'explicit signed draft creation' none true CREATED
+run_case 'explicit empty GraphQL errors remain valid' empty-errors true CREATED
+for fault in null-errors commit-null-errors readback-null-errors; do run_case "$fault is refused" "$fault" true REFUSED; done
 for fault in readback-rest-denied readback-rest-user readback-rest-type readback-rest-node-missing readback-pr-node-missing readback-rest-head readback-rest-repo readback-rest-trailing readback-gql-login readback-gql-type readback-gql-node readback-pr-node; do
   run_case "$fault is refused" "$fault" true REFUSED
 done

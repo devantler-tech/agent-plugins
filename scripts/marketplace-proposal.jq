@@ -1,3 +1,4 @@
+include "graphql-observation";
 # Complete repository-bound observations; content fields are compared only as data.
 include "marketplace-release";
 # Demand a complete, uniquely identified PR/file inventory before resolving rename sources.
@@ -40,7 +41,7 @@ def proposal_snapshot($repo;$source;$baseline;$tags;$permission;$branch;$owned):
      ($permission[0] | type!="object" or .full_name!=$repo or .archived!=false or
        .default_branch!="main" or (.id|type!="number" or .<=0 or floor!=.) or (.node_id|nonblank|not)) or
      type!="array" or length==0 then error("repository identity or page stream is incomplete") else . end |
-  if all(.[]; .errors==null and (.data.repository |
+  if all(.[]; graphql_complete and (.data.repository |
     type=="object" and .id==$permission[0].node_id and .nameWithOwner==$repo and .isArchived==false and
     .defaultBranchRef.name=="main" and .defaultBranchRef.target.__typename=="Commit" and
     .defaultBranchRef.target.oid==$source and
@@ -80,7 +81,7 @@ def proposal_readback($repo;$node;$source;$branch;$commit;$number;$title;$body;$
     .head.ref==$branch and .head.sha==$commit and .head.repo.full_name==$repo and
     .base.ref=="main" and .base.sha==$source and .base.repo.full_name==$repo and
     .title==$title and .body==$body and .html_url==("https://github.com/"+$repo+"/pull/"+($number|tostring))) and
-  .errors==null and (.data.repository |
+  graphql_complete and (.data.repository |
     .id==$node and .nameWithOwner==$repo and .isArchived==false and
     .defaultBranchRef.name=="main" and .defaultBranchRef.target.oid==$source and
     .ref.name==$branch and .ref.target.oid==$commit and

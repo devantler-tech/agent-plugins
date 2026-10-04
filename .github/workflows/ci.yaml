@@ -105,6 +105,9 @@ jobs:
       - name: 🧪 Self-test validator installation recovery
         run: bash scripts/install-skills-ref.test.sh
 
+      - name: 🧪 Verify marketplace caller checkout isolation
+        run: bash scripts/marketplace-caller-context.test.sh
+
       - name: 🧪 Self-test marketplace release preparation
         run: bash scripts/prepare-marketplace-release.test.sh
 

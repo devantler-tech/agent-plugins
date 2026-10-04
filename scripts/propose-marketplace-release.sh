@@ -3,6 +3,9 @@
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/marketplace-git-context.lib.sh
+. "$here/marketplace-git-context.lib.sh"
+marketplace_git_context
 # shellcheck source=scripts/json-object.lib.sh
 . "$here/json-object.lib.sh"
 # Refuse incomplete or unsafe input without reporting a delivered proposal.
@@ -90,7 +93,7 @@ snapshot() {
   gh api graphql --hostname github.com --paginate --slurp -f query="$query" -f owner="${repo%%/*}" -f name="${repo#*/}" -f baseline="$base_tag" -f tag="$(if [ -n "$version" ]; then printf '%s' "$tag"; else printf '%s' '__no_candidate__'; fi)" -f branch="refs/heads/$branch" > "$temp/pages"
   json_value_unique "$temp/pages" || fail 'ambiguous proposal page observation'
   jq -es 'length==1 and (.[0]|type=="array")' "$temp/pages" >/dev/null || fail 'incomplete page stream'
-  jq -e -L "$here" 'include "marketplace-proposal"; length>0 and all(.[]; .errors==null and (.data.repository.pullRequests|proposal_pr_inventory))' "$temp/pages" >/dev/null || fail 'complete PR file identities are required'
+  jq -e -L "$here" 'include "marketplace-proposal"; include "graphql-observation"; length>0 and all(.[]; graphql_complete and (.data.repository.pullRequests|proposal_pr_inventory))' "$temp/pages" >/dev/null || fail 'complete PR file identities are required'
   jq -r '[.[].data.repository.pullRequests.nodes[]|select(any(.files.nodes[];.changeType=="RENAMED"))|.number]|unique|.[]' "$temp/pages" > "$temp/rename-requests"
   while IFS= read -r number; do
     gh api --hostname github.com --paginate --slurp "repos/$repo/pulls/$number/files?per_page=100" > "$temp/rename-files"
@@ -142,7 +145,7 @@ mutation='mutation($input:CreateCommitOnBranchInput!) { createCommitOnBranch(inp
 jq -n --arg query "$mutation" --arg repo "$repo" --arg branch "$branch" --arg source "$source" --arg title "$title" --rawfile a "$temp/reproduced/.github/plugin/marketplace.json" --rawfile b "$temp/reproduced/.claude-plugin/marketplace.json" '{query:$query,variables:{input:{branch:{repositoryNameWithOwner:$repo,branchName:$branch},expectedHeadOid:$source,message:{headline:$title},fileChanges:{additions:[{path:".github/plugin/marketplace.json",contents:($a|@base64)},{path:".claude-plugin/marketplace.json",contents:($b|@base64)}]}}}}' > "$temp/commit-request"
 gh api graphql --hostname github.com --method POST --input "$temp/commit-request" > "$temp/commit-response"
 json_object_unique "$temp/commit-response" || fail 'ambiguous signed commit response'
-commit=$(jq -esr 'if length==1 and (.[0]|.errors==null and (.data.createCommitOnBranch.commit|(.oid|test("^[0-9a-f]{40}$")) and .signature.isValid==true and .signature.state=="VALID")) then .[0].data.createCommitOnBranch.commit.oid else error("signed commit response missing") end' "$temp/commit-response")
+commit=$(jq -esr -L "$here" 'include "graphql-observation"; if length==1 and (.[0]|graphql_complete and (.data.createCommitOnBranch.commit|(.oid|test("^[0-9a-f]{40}$")) and .signature.isValid==true and .signature.state=="VALID")) then .[0].data.createCommitOnBranch.commit.oid else error("signed commit response missing") end' "$temp/commit-response")
 gh api --hostname github.com "repos/$repo/commits/$commit" > "$temp/commit-readback"
 json_object_unique "$temp/commit-readback" || fail 'ambiguous signature readback'
 jq -es --arg commit "$commit" 'length==1 and (.[0]|.sha==$commit and .commit.verification.verified==true and .commit.verification.reason=="valid")' "$temp/commit-readback" >/dev/null || fail 'independent signature readback failed'

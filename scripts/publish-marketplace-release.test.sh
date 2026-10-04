@@ -90,6 +90,8 @@ elif [ "$endpoint" = graphql ]; then
       malformed-snapshot:*) change='{}' ;;
       graphql-errors:*) change='.errors=[{message:"partial"}]' ;;
       invalid-errors:*) change='.errors=false' ;;
+      null-errors:*) change='.errors=null' ;;
+      empty-errors:*) change='.errors=[]' ;;
       wrong-repo:*) change='.data.repository.nameWithOwner="other/catalogue"' ;;
       no-permission:*) change='.data.repository.viewerPermission="READ"' ;;
       missing-role:*) change='del(.data.repository.viewerPermission)' ;;
@@ -229,7 +231,7 @@ for kind in initial incremental; do
     jq -e '.body|contains("&lt;unsafe&gt;") and (contains("<unsafe>")|not)' "$FORGE_STATE/release" >/dev/null
   fi
 done
-for fault in assessment-fails snapshot-fails branch-moved tag-raced malformed-snapshot graphql-errors invalid-errors wrong-repo no-permission missing-role unknown-role archived missing-ref missing-release trailing-json app-read writer-denied writer-malformed writer-name writer-body writer-trailing permission-foreign permission-node permission-id permission-archived permission-branch permission-malformed permission-trailing permission-transport; do
+for fault in assessment-fails snapshot-fails branch-moved tag-raced malformed-snapshot graphql-errors invalid-errors null-errors wrong-repo no-permission missing-role unknown-role archived missing-ref missing-release trailing-json app-read writer-denied writer-malformed writer-name writer-body writer-trailing permission-foreign permission-node permission-id permission-archived permission-branch permission-malformed permission-trailing permission-transport; do
   setup; export FAULT=$fault; reject "$fault" --publish
   ! grep -Eq '^POST .*git/refs$|^POST .*releases$' "$CALLS" || fail "$fault wrote before readiness"
 done
@@ -249,6 +251,7 @@ setup; reject 'duplicate publish' --publish --publish
 setup; GH_HOST=other.invalid accept 'fixed API host' --publish
 setup; export FAULT=mutate-caller; accept 'caller mutation cannot change frozen publication' --publish
 jq -e '.body|contains("changed after verification")|not' "$FORGE_STATE/release" >/dev/null
+setup; export FAULT=empty-errors; accept 'explicit empty GraphQL errors remain valid' --publish
 setup; source=abc; reject 'abbreviated source' --publish
 [ ! -s "$CALLS" ] || fail 'invalid input reached forge'
 setup; bash "$tool" --help > "$work/help"

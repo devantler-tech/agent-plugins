@@ -10,14 +10,18 @@ proposals and identifies the source commit containing the plugins.
 
 Versions are complete canonical stable SemVer strings, without whitespace or line terminators.
 Source manifests and native API observations must contain exactly one complete JSON value with
-unique decoded object keys, including nested objects and paginated arrays. Contradictory fields
+unique decoded object keys, including nested objects and paginated arrays. A GraphQL observation's
+error envelope must be absent or an empty array; false, null and other malformed values refuse
+proposal and publication observations, including signed-commit and draft readback responses. Contradictory fields
 are refused before candidate, readiness, occupancy or writer decisions. An ambiguous response
 after a write leaves any created remote objects intact and reports uncertainty for explicit recovery;
 it never establishes completed publication or a verified draft.
 
 ## Prepare locally
 
-Use Bash, Git, and jq 1.6 or later from a complete repository clone. Configuration queries must
+Use Bash, Git, and jq 1.6 or later from a complete repository clone. Each release helper derives
+Git evidence and output exclusions from the caller's checkout. Inherited Git directory, worktree,
+index, object-store and command-scoped configuration overrides cannot redirect that evidence. Configuration queries must
 complete before an offline result is possible: only Git's no-match status proves an absent
 partial-clone setting. Failed reads, including partial output, refuse preparation and validation;
 lazy object fetching is disabled defensively.

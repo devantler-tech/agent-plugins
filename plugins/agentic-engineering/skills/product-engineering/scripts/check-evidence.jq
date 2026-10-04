@@ -1,7 +1,34 @@
+# Inspect decoded member paths before object reconstruction can overwrite them.
+# A container prefix is declared once while active; after its closing event, a
+# repeated prefix is a second declaration, even when its children are disjoint.
+def raw_need($ok; $why): if $ok then . else error($why) end;
+def raw_document:
+  raw_need(type == "array" and all(.[]; type == "array" and (length == 1 or length == 2)
+    and (.[0] | type == "array")); "use jq --stream -s")
+  # A real stream leaf is a scalar or an empty container; a non-empty one is a hand-wrapped document.
+  | raw_need(all(.[]; length == 1 or (.[1] | (type != "object" and type != "array") or length == 0));
+      "use jq --stream -s")
+  | . as $events
+  | reduce .[] as $event ({active: [], seen: {}};
+      $event[0] as $path
+      | if ($event | length) == 2 then
+          reduce range(1; ($path | length) + 1) as $n (.;
+            $path[0:$n] as $prefix
+            | if $n < ($path | length) and .active[0:$n] == $prefix then .
+              else ($prefix | tojson) as $key
+                | raw_need(.seen[$key] != true; "repeated decoded field path: " + $key)
+                | .seen[$key] = true end)
+          | .active = $path[0:-1]
+        else .active = $path[0:-2] end)
+  | [$events | fromstream(.[])]
+  | raw_need(length == 1; "expected exactly one JSON document; before jq 1.8.0 the file must also end with a newline")
+  | .[0];
+
 # Offline evidence-bundle v1 evaluator. See ../references/evidence-bundle.md.
-# jq -s --arg now YYYY-MM-DDTHH:MM:SSZ -f check-evidence.jq bundle.json
+# Use check-evidence.sh to validate retained raw bytes before streaming into this filter.
 def require($ok; $message): if $ok then . else error($message) end;
 def text: type == "string" and test("\\S");
+def source_identity: type == "string" and test("\\A[^\\s\\p{C}\\p{Default_Ignorable_Code_Point}]+\\z");
 def number: type == "number" and isfinite;
 def decimal_integer:
   tostring as $raw
@@ -29,45 +56,46 @@ def interval: . == null or (type == "object" and (.lower | number) and (.upper |
 def kinds: ["measurement", "static", "behavior", "deployment", "live", "review", "holdout", "rollback"];
 def schema:
   require(type == "object" and (.schemaVersion | integer) and .schemaVersion == 1; "unsupported evidence-bundle schema")
-  | require((.outcome | text) and (.baseline.id | text) and (.baseline.revision | text)
-      and (.candidate.id | text) and (.candidate.revision | text)
+  | require((.outcome | text) and (.baseline.id | source_identity) and (.baseline.revision | source_identity)
+      and (.candidate.id | source_identity) and (.candidate.revision | source_identity)
       and .baseline.id != .candidate.id and .baseline.revision != .candidate.revision; "outcome, baseline and distinct candidate required")
   | .baseline.id as $baseline
   | require((.alternatives | type == "array" and length > 0 and unique_ids)
-      and all(.alternatives[]; (.id | text) and (.reason | text))
+      and all(.alternatives[]; (.id | source_identity) and (.reason | text))
       and any(.alternatives[]; .id == $baseline); "record alternatives including retaining the baseline and their disposition")
-  | require((.plan.record | text) and (.plan.registeredAt | stamp) and (.plan.startedAt | stamp)
+  | require((.plan.record | source_identity) and (.plan.registeredAt | stamp) and (.plan.startedAt | stamp)
       and (.plan.minRepeats | integer) and .plan.minRepeats >= 2; "invalid preregistration or repeat floor")
   | require((.plan.measures | type == "array" and length > 0 and unique_ids)
       and any(.plan.measures[]; .objective == true) and any(.plan.measures[]; .protected == true); "unique measures, objectives and protected dimensions required")
   | require(all(.plan.measures[];
-      (.id | text) and (.unit | text) and (.direction == "higher" or .direction == "lower")
+      (.id | source_identity) and (.unit | text) and (.direction == "higher" or .direction == "lower")
       and (.objective | type == "boolean") and (.protected | type == "boolean")
       and (.minImprovement | number) and .minImprovement >= 0 and (if .objective then .minImprovement > 0 else true end)
       and (.maxRegression | number) and .maxRegression >= 0 and (if .protected then (.floor | number) else true end)
       and (.method | text) and (.environment | text) and (.uncertaintyMethod | text)); "invalid measure, threshold, floor or uncertainty method")
   | require((.assumptions | type == "array" and length > 0)
-      and all(.assumptions[]; (.statement | text) and (.evidenceId | text)
+      and all(.assumptions[]; (.statement | text) and (.evidenceId | source_identity)
         and (.state == "supported" or .state == "unknown" or .state == "refuted")); "record assumptions and their evidence")
   | require((.falsification.approach == "independent" or .falsification.approach == "adversarial")
-      and (.falsification.evaluator | text) and (.falsification.evidenceId | text) and (.falsification.attempt | text); "independent or adversarial falsification required")
+      and (.falsification.evaluator | text) and (.falsification.evidenceId | source_identity) and (.falsification.attempt | text); "independent or adversarial falsification required")
   | require((.rollout.stages | type == "array" and length > 0 and all(.[]; text))
       and (.rollout.stopConditions | type == "array" and length > 0 and all(.[]; text))
-      and (.rollback.procedure | text) and (.rollback.evidenceId | text) and (.rollback.trigger | text)
+      and (.rollback.procedure | source_identity) and (.rollback.evidenceId | source_identity) and (.rollback.trigger | text)
       and .rollback.targetRevision == .baseline.revision; "staged rollout and recovery to the baseline required")
-  | require((.observation.owner | text) and (.observation.evidenceId | text)
+  | require((.observation.owner | text) and (.observation.evidenceId | source_identity)
       and (.observation.window.startedAt | stamp) and (.observation.window.endedAt | stamp)
       and .observation.window.startedAt < .observation.window.endedAt
       and (.observation.nextCheck | stamp); "observation owner, evidence, ordered window bounds and next check required")
   | require((.evidence | type == "array" and unique_ids) and all(.evidence[];
-      (.id | text) and (.kind as $kind | kinds | index($kind) != null)
-      and .provenance == "observed" and (.revision | text) and (.uri | text)
+      (.id | source_identity) and (.kind as $kind | kinds | index($kind) != null)
+      and .provenance == "observed" and (.revision | source_identity) and (.uri | source_identity)
+      and (.baselineRevision == null or (.baselineRevision | source_identity))
       and (.observedAt | stamp) and (.expiresAt | stamp)
       and (.result == "pass" or .result == "fail" or .result == "unknown")); "invalid evidence or provenance; confidence is not observation")
   | require((.observations | type == "array" and unique_ids) and all(.observations[];
-      (.id | text) and (.evidenceId | text) and (.values | type == "array")
+      (.id | source_identity) and (.evidenceId | source_identity) and (.values | type == "array")
       and ((.values | length) == (.values | map(.measure) | unique | length))
-      and all(.values[]; (.measure | text) and (.baseline | interval) and (.candidate | interval))); "invalid observation or uncertainty interval")
+      and all(.values[]; (.measure | source_identity) and (.baseline | interval) and (.candidate | interval))); "invalid observation or uncertainty interval")
   | .plan.measures as $measures
   | require(all(.observations[].values[]; .measure as $id | any($measures[]; .id == $id)); "observation names an undeclared measure");
 
@@ -128,8 +156,8 @@ def floor_known_bad($m; $v):
 def floor_proven($m; $v):
   ($m.protected | not) or (if $m.direction == "lower" then $v.candidate.upper <= $m.floor else $v.candidate.lower >= $m.floor end);
 
-require(9007199254740991.1 > 9007199254740991; "evidence assessment requires decimal-preserving jq (1.7 or newer)")
-| require(type == "array" and length == 1; "use jq -s with exactly one evidence bundle")
+[raw_document] | require(9007199254740991.1 > 9007199254740991; "evidence assessment requires decimal-preserving jq (1.7 or newer)")
+| require(type == "array" and length == 1; "use jq --stream -s with exactly one evidence bundle")
 | .[0]
 | require($now | stamp; "--arg now must be a UTC timestamp")
 | schema

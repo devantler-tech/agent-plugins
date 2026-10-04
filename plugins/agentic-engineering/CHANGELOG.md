@@ -21,6 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.1.2 — 2026-10-04
+
+**Fixed** — retained review observations refuse repeated decoded JSON keys before counting threads
+or failed workflow results. Survey projections require complete GraphQL envelopes, exact issue
+identities, integer summaries and terminal census pagination. Routing verification references need
+visible content. Consumer onboarding includes the shared raw JSON observer; all routing remains advisory.
+
 ## 6.1.1 — 2026-10-04
 
 **Fixed** — autonomy assessments require distinct stage records, bind protected requests before

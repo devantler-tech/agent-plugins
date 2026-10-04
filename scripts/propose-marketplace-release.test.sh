@@ -250,7 +250,7 @@ run_case() {
     [ "$code" -ne 0 ] || fail "$name unexpectedly succeeded"
     ! grep -Eq '"status": "(CREATED|PREPARED)"' "$work/result" || fail "$name emitted success"
     if [[ "$fault" == commit-null-errors || "$fault" == readback-null-errors ]]; then
-      [ -e "$FORGE_STATE/branch" ] && [ -e "$FORGE_STATE/commit" ] || fail "$name lost created objects"
+      if [ ! -e "$FORGE_STATE/branch" ] || [ ! -e "$FORGE_STATE/commit" ]; then fail "$name lost created objects"; fi
       grep -q "No automatic retry or rollback" "$work/error" || fail "$name omitted recovery warning"
       ! grep -Eq "^(PATCH|DELETE) " "$CALLS" || fail "$name altered created objects"
       [ "$(grep -c '^POST graphql' "$CALLS" || true)" -eq 1 ] || fail "$name retried commit creation"

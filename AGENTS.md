@@ -321,6 +321,9 @@ npm ci --ignore-scripts --no-audit --no-fund
 #    "Validate manifests" job runs.
 ./scripts/validate-manifests.sh
 
+bash plugins/agentic-engineering/scripts/assess-autonomy.test.sh # optional copied consumer; always assessment-only
+GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local go test ./plugins/agentic-engineering/scripts/autonomy-contract-go
+
 # 1b. Every plugin whose shipped content changed must also move its version, or the change
 #     never reaches consumers that cache by version (CI's "Check version bump" job).
 #     Fix a failure with: ./scripts/bump-plugin-version.sh <plugin> [patch|minor|major]

@@ -15,6 +15,7 @@ FILTER=$(sed -n "/closedByPullRequestsReferences(includeClosedPrs:false,userLink
 if [ -z "$QUERY" ] || [ -z "$FILTER" ]; then
   fail 'missing prescribed query or projection'
 fi
+FILTER=${FILTER//<number>/165}
 
 VALID='{"data":{"repository":{"issue":{"number":165,"closedByPullRequestsReferences":{"totalCount":0}}}}}'
 for count in 0 1 3; do
@@ -31,6 +32,7 @@ for mutation in \
   'del(.data.repository.issue.number)' \
   '.data.repository.issue.number=0' \
   '.data.repository.issue.number=1.5' \
+  '.data.repository.issue.number=166' \
   'del(.data.repository.issue.closedByPullRequestsReferences)' \
   '.data.repository.issue.closedByPullRequestsReferences=null' \
   'del(.data.repository.issue.closedByPullRequestsReferences.totalCount)' \
@@ -49,4 +51,4 @@ GH_TELEMETRY=0 "$HERE/forge-readonly-guard.sh" --command \
   "gh api graphql -F owner=devantler-tech -F name=agent-plugins -F number=165 -f query='$QUERY' --jq '$FILTER'" \
   >/dev/null || fail 'prescribed read denied by the forge guard'
 
-echo 'surveyor open PR links: PASS (3 counts, 13 invalid responses, guard admission)'
+echo 'surveyor open PR links: PASS (3 counts, 14 invalid responses, guard admission)'

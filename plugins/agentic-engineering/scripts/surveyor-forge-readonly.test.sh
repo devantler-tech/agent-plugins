@@ -38,6 +38,8 @@ run_wrapper() {
 # --- missing jq fails closed without consulting the guard ---
 missing_jq_bin="$TMP/bin"
 mkdir -p "$missing_jq_bin"
+# Keep directory resolution available so the missing-jq branch itself is reached.
+ln -s "$(command -v dirname)" "$missing_jq_bin/dirname"
 # PATH with no jq: keep the wrapper and a no-op guard, but not system jq.
 cat >"$TMP/noop-guard" <<'EOF'
 #!/usr/bin/env bash
@@ -244,7 +246,7 @@ chmod +x "$TMP/forge-bin/gh"
 for install_dir in "$TMP/install-v1" "$TMP/relocated plugin 'quoted' \$literal"; do
   mkdir -p "$install_dir"
   install_dir=$(CDPATH='' cd -- "$install_dir" && pwd -P)
-  cp "$GUARD" "$WRAPPER" "$HERE/classify-default-branch-ci-runs.sh" "$install_dir/"
+  cp "$GUARD" "$WRAPPER" "$HERE/classify-default-branch-ci-runs.sh" "$HERE/json-stream.lib.sh" "$install_dir/"
   for probe in 'classify-default-branch-ci-runs.sh' '/incorrect/install/classify-default-branch-ci-runs.sh'; do
     st=0
     out=$(run_wrapper "$(hook_stdin "$probe")" "$install_dir/surveyor-forge-readonly.sh" 2>"$TMP/discovery.err") || st=$?
@@ -310,7 +312,7 @@ chmod +x "$TMP/thread-bin/gh"
 for install_dir in "$TMP/threads-v1" "$TMP/relocated threads 'quoted' \$literal"; do
   mkdir -p "$install_dir"
   install_dir=$(CDPATH='' cd -- "$install_dir" && pwd -P)
-  cp "$GUARD" "$WRAPPER" "$HERE/count-unresolved-review-threads.sh" "$install_dir/"
+  cp "$GUARD" "$WRAPPER" "$HERE/count-unresolved-review-threads.sh" "$HERE/json-stream.lib.sh" "$install_dir/"
   for probe in 'count-unresolved-review-threads.sh' '/incorrect/install/count-unresolved-review-threads.sh'; do
     st=0
     out=$(run_wrapper "$(hook_stdin "$probe --repo owner/repo --pr 7")" "$install_dir/surveyor-forge-readonly.sh" 2>"$TMP/discovery.err") || st=$?

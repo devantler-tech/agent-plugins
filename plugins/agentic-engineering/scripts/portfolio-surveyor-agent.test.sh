@@ -64,36 +64,40 @@ JQ_FILTER=$(sed -n \
 [ -n "$JQ_FILTER" ] || fail 'could not extract the prescribed dependency jq filter'
 
 expect_output() {
-  local label=$1 input=$2 expected=$3 actual
-  actual=$(jq -c "$JQ_FILTER" <<<"$input") ||
+  local label=$1 requested=$2 input=$3 expected=$4 actual filter
+  filter=${JQ_FILTER//<number>/$requested}
+  actual=$(jq -c "$filter" <<<"$input") ||
     fail "$label: valid dependency summary was rejected"
   [ "$actual" = "$expected" ] ||
     fail "$label: expected $expected, got $actual"
 }
 
 expect_unknown() {
-  local label=$1 input=$2 output
-  if output=$(jq -c "$JQ_FILTER" <<<"$input" 2>&1); then
+  local label=$1 input=$2 output filter
+  filter=${JQ_FILTER//<number>/3196}
+  if output=$(jq -c "$filter" <<<"$input" 2>&1); then
     fail "$label: malformed dependency summary produced actionable output: $output"
   fi
 }
 
-expect_output 'open and closed blockers' \
+expect_output 'open and closed blockers' 3196 \
   '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":2,"totalBlockedBy":3},"subIssuesSummary":{"total":0,"completed":0}}}}}' \
   '{"number":3196,"openBlockedBy":2,"totalBlockedBy":3,"completedSubIssues":0,"totalSubIssues":0}'
-expect_output 'closed blockers only' \
+expect_output 'closed blockers only' 3261 \
   '{"data":{"repository":{"issue":{"number":3261,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":1},"subIssuesSummary":{"total":3,"completed":1}}}}}' \
   '{"number":3261,"openBlockedBy":0,"totalBlockedBy":1,"completedSubIssues":1,"totalSubIssues":3}'
-expect_output 'no blockers' \
+expect_output 'no blockers' 5948 \
   '{"data":{"repository":{"issue":{"number":5948,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":0,"completed":0}}}}}' \
   '{"number":5948,"openBlockedBy":0,"totalBlockedBy":0,"completedSubIssues":0,"totalSubIssues":0}'
 
 # Negative control: every child closed while the parent stayed open is the delivered-but-open
 # shape (monorepo#2994 after its only child, #3668, shipped). The read must surface it, not hide it.
-expect_output 'every sub-issue closed' \
+expect_output 'every sub-issue closed' 2994 \
   '{"data":{"repository":{"issue":{"number":2994,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":1,"completed":1}}}}}' \
   '{"number":2994,"openBlockedBy":0,"totalBlockedBy":0,"completedSubIssues":1,"totalSubIssues":1}'
 
+expect_unknown 'foreign issue' \
+  '{"data":{"repository":{"issue":{"number":3197,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":0,"completed":0}}}}}'
 expect_unknown 'missing sub-issue summary' \
   '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0}}}}}'
 expect_unknown 'null sub-issue summary' \
@@ -143,7 +147,7 @@ expect_unknown 'open count exceeds total' \
 # shellcheck disable=SC2016 # GraphQL variables are literal, not shell expansions.
 GRAPHQL_QUERY='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy} subIssuesSummary{total completed}}}}'
 GH_TELEMETRY=0 "$GUARD" --command \
-  "gh api graphql -F owner=devantler-tech -F name=platform -F number=3196 -f query='$GRAPHQL_QUERY' --jq '$JQ_FILTER'" \
+  "gh api graphql -F owner=devantler-tech -F name=platform -F number=3196 -f query='$GRAPHQL_QUERY' --jq '${JQ_FILTER//<number>/3196}'" \
   >/dev/null || fail 'the prescribed dependency read is not admitted by the forge guard'
 
 GH_TELEMETRY=0 "$GUARD" --command \
@@ -185,7 +189,7 @@ ISSUE_AGGREGATION_FILTER=$(printf '%s\n' "$ISSUE_AGGREGATION_COMMAND" |
 [ -n "$ISSUE_AGGREGATION_FILTER" ] ||
   fail 'could not extract the prescribed issue aggregation jq filter'
 
-ISSUE_PAGES='[{"data":{"repository":{"issues":{"totalCount":4,"nodes":[{"number":1,"issueType":{"name":"Bug"}},{"number":2,"issueType":null}]}}}},{"data":{"repository":{"issues":{"totalCount":4,"nodes":[{"number":3,"issueType":{"name":"Task"}},{"number":4,"issueType":{"name":"untyped"}}]}}}}]'
+ISSUE_PAGES='[{"data":{"repository":{"issues":{"totalCount":4,"nodes":[{"number":1,"issueType":{"name":"Bug"}},{"number":2,"issueType":null}],"pageInfo":{"hasNextPage":true,"endCursor":"first"}}}}},{"data":{"repository":{"issues":{"totalCount":4,"nodes":[{"number":3,"issueType":{"name":"Task"}},{"number":4,"issueType":{"name":"untyped"}}],"pageInfo":{"hasNextPage":false,"endCursor":"last"}}}}}]'
 ISSUE_SUMMARY=$(jq -c "$ISSUE_AGGREGATION_FILTER" <<<"$ISSUE_PAGES") ||
   fail 'the prescribed issue aggregation rejected valid issue rows'
 [ "$ISSUE_SUMMARY" = '{"total":4,"types":[{"type":null,"count":1},{"type":"Bug","count":1},{"type":"Task","count":1},{"type":"untyped","count":1}]}' ] ||

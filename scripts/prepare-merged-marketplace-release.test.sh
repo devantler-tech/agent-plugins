@@ -55,6 +55,11 @@ case "$FAULT:$file:$count" in
   fork-run:run:*) change='.head_repository.full_name="other/catalogue"' ;;
   missing-run:run:*) change='del(.head_repository)' ;;
   moved:ref:*|moved-after:ref:2) change='.object.sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' ;;
+  foreign-after:ref:2)
+    mv "$FIXTURE_OUTPUT" "$FIXTURE_OUTPUT.owned"
+    mkdir "$FIXTURE_OUTPUT"
+    printf 'foreign recovery\n' > "$FIXTURE_OUTPUT/other-writer"
+    change='.object.sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' ;;
   tag-ref:ref:*) change='.object.type="tag"' ;;
   wrong-ref:ref:*) change='.ref="refs/heads/feature"' ;;
   foreign-repo:repo:*) change='.full_name="other/catalogue"' ;;
@@ -103,15 +108,23 @@ refresh() {
   jq -n --arg head "$release" '{ref:"refs/heads/main",object:{type:"commit",sha:$head}}' > "$FORGE/ref"
   jq -n --arg head "$release" '{id:42,path:".github/workflows/ci.yaml",event:"push",status:"completed",conclusion:"success",head_branch:"main",head_sha:$head,repository:{full_name:"example/catalogue"},head_repository:{full_name:"example/catalogue"}}' > "$FORGE/run"
   output=$(mktemp -d "$work/output.XXXXXX")/candidate
+  export FIXTURE_OUTPUT=$output
 }
 # Execute the real orchestrator, keeping only the forge HTTP boundary replaced.
 run() { (cd "$repo" && bash "$tool" --repo example/catalogue --release "$release" --ci-run "$CI_SELECTION" --output "$output"); }
-# Refusals must produce neither success output nor a usable candidate.
+# Refusals emit no ready record; post-preparation refusals retain recovery output.
 reject() {
   local name=$1
   if run > "$work/result" 2> "$work/error"; then fail "$name accepted"; fi
   [ ! -s "$work/result" ] || fail "$name emitted success"
-  [ ! -e "$output" ] || fail "$name left a candidate"
+  case "$FAULT" in
+    foreign-after)
+      [ "$(cat "$output/other-writer")" = 'foreign recovery' ] || fail "$name changed foreign output"
+      [ -f "$output.owned/release.json" ] || fail "$name lost original recovery" ;;
+    ci-after|running-after|moved-after|latest-moved)
+      [ -d "$output" ] || fail "$name lost its recovery candidate" ;;
+    *) [ ! -e "$output" ] || fail "$name left an unexpected candidate" ;;
+  esac
   passed=$((passed+1))
 }
 # A ready result must bind both commits and the named CI; it never grants publication.
@@ -132,7 +145,7 @@ fixture; FAULT=wrong-ci; reject 'green CI at an unrelated commit'
 fixture; accept 'exact merged proposal' VERIFIED
 fixture; jq '.path=".github/workflows/ci.yaml@refs/heads/main"' "$FORGE/run" > "$work/run"; cp "$work/run" "$FORGE/run"; accept 'qualified native CI workflow path' VERIFIED
 fixture; jq '.path=".github/workflows/ci.yaml@main"' "$FORGE/run" > "$work/run"; cp "$work/run" "$FORGE/run"; accept 'native short-ref CI workflow path' VERIFIED
-for fault in running failed neutral pr branch workflow run-id foreign-run fork-run missing-run moved tag-ref wrong-ref foreign-repo archived default-branch malformed empty trailing transport ci-after running-after moved-after; do
+for fault in running failed neutral pr branch workflow run-id foreign-run fork-run missing-run moved tag-ref wrong-ref foreign-repo archived default-branch malformed empty trailing transport ci-after running-after moved-after foreign-after; do
   fixture; FAULT=$fault; reject "$fault"
 done
 fixture

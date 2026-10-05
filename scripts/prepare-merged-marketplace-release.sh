@@ -35,11 +35,8 @@ if [ -z "$output" ] || [ -e "$output" ] || [ -L "$output" ]; then fail 'output m
 source=$(git show -s --no-show-signature --format=%P "$release")
 [[ "$source" =~ ^[0-9a-f]{40}$ ]] || fail 'merged proposal must have exactly one parent'
 temp=$(mktemp -d "${TMPDIR:-/tmp}/marketplace-merged.XXXXXX")
-created=false
-# Remove only this invocation's fresh candidate on a refusal; preserve existing paths.
+# Public output names can move or be replaced; cleanup owns only private staging.
 cleanup() {
-  local status=$?
-  if [ "$status" -ne 0 ] && [ "$created" = true ]; then rm -rf "$output"; fi
   rm -rf "$temp"
 }
 trap cleanup EXIT
@@ -74,7 +71,6 @@ status=$(jq -er '.status' "$temp/gate")
 if [ "$status" = VERIFIED ]; then
   base=$(jq -er '.baseline.tag' "$temp/gate")
   bash "$here/prepare-marketplace-release.sh" --base-tag "$base" --head "$source" --output "$output" > "$temp/preparation.log"
-  created=true
   bash "$here/verify-marketplace-release.sh" --candidate "$output" --source "$source" --release "$release" > "$temp/verified"
   cmp -s "$temp/gate" "$temp/verified" || fail 'regenerated candidate differs from the verified merged proposal'
 elif [ "$status" != NO_VERSION_CHANGE ]; then

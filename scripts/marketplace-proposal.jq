@@ -63,8 +63,11 @@ def proposal_snapshot($repo;$source;$baseline;$tags;$permission;$branch;$owned):
     (.nodes|type=="array" and length<=100) and
     all(.nodes[]; (.name|nonblank) and (.target.__typename=="Commit" or .target.__typename=="Tag") and
       (.target.oid|type=="string" and test("^[0-9a-f]{40}$"))) and
+    (.pageInfo | type=="object" and has("hasNextPage") and has("endCursor") and
+      (.hasNextPage|type=="boolean")) and
     .pageInfo.hasNextPage==($i<($pages|length)-1) and
-    (if $i<($pages|length)-1 then (.pageInfo.endCursor|nonblank) else true end)) then .
+    (if .pageInfo.hasNextPage then (.pageInfo.endCursor|nonblank)
+     else .pageInfo.endCursor==null or (.pageInfo.endCursor|nonblank) end)) then .
     else error("tag pagination or identities are incomplete") end |
   ([.[].data.repository.refs.nodes[]|{name,oid:.target.oid}]|sort_by(.name)) as $remote |
   if ($remote|length)!=$pages[0].data.repository.refs.totalCount or

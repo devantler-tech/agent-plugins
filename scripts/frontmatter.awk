@@ -1,5 +1,8 @@
 # Observe the supported scalar/mapping header shape, never claim full YAML validation.
 function trim(s) { sub(/^[[:space:]]+/,"",s); sub(/[[:space:]]+$/,"",s); return s }
+# U+200B alone has no identity text. Preserve the original scalar for provenance
+# checks; presence normalization must never erase a character inside an owner URL.
+function nonblank_text(s) { gsub("\342\200\213"," ",s); return trim(s) != "" }
 # Observe literal controls before the scalar decoder can mark them as text.
 # Match complete UTF-8 strings: byte ranges inside a regex character class are
 # invalid collation characters in GNU awk's UTF-8 locales. Allowed YAML
@@ -35,7 +38,7 @@ function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
     if (code > 1114111 || (code >= 55296 && code <= 57343)) return ""
     if ((code >= 9 && code <= 13) || code == 32 || code == 133 || code == 160 ||
         code == 5760 || (code >= 8192 && code <= 8202) || code == 8232 || code == 8233 ||
-        code == 8239 || code == 8287 || code == 12288) out=out " "
+        code == 8203 || code == 8239 || code == 8287 || code == 12288) out=out " "
     else if (code < 32 || (code >= 127 && code <= 159)) return ""
     else if (code < 127) out=out sprintf("%c",code)
     else out=out "\\" c hex
@@ -55,7 +58,7 @@ function scalar(s, q,i,c,escaped,tail) {
         tail=trim(substr(s,i+1))
         if (tail != "" && substr(tail,1,1) != "#") return ""
         s=quoted_text(substr(s,2,i-2),q)
-        scalar_ok=(quoted_ok && trim(s) != ""); return s
+        scalar_ok=(quoted_ok && nonblank_text(s)); return s
       }
       escaped=0
     }
@@ -68,15 +71,15 @@ function scalar(s, q,i,c,escaped,tail) {
       s ~ /^[-+]?0([xX][0-9a-fA-F_]+|[oO][0-7_]+|[bB][01_]+)$/ ||
       s ~ /^[-+]?\.([iI][nN][fF]|[nN][aA][nN])$/ ||
       s ~ /^[-+]?[0-9][0-9_]*(:[0-5]?[0-9])+(\.[0-9_]*)?$/) return ""
-  scalar_ok=1; return s
+  scalar_ok=nonblank_text(s); return s
 }
 {
   sub(/\r$/,"")
+  if (forbidden_control($0)) bad=1
   if (NR == 1) { if ($0 !~ /^---[[:space:]]*$/) bad=1; next }
   if ($0 ~ /^---[[:space:]]*$/) { closed=1; exit }
-  if (forbidden_control($0)) bad=1
   if (bad) next
-  if (mode == "text" && block && $0 ~ /^[[:space:]]/ && $0 ~ /[^[:space:]]/) found=1
+  if (mode == "text" && block && $0 ~ /^[[:space:]]/ && nonblank_text($0)) found=1
   if ($0 ~ /^[[:space:]]*(#.*)?$/) next
   if ($0 ~ /^[A-Za-z_][A-Za-z0-9_-]*:/) {
     key=$0; sub(/:.*/,"",key)

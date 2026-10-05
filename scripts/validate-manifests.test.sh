@@ -2045,7 +2045,7 @@ for header in unclosed duplicate-name duplicate-description null bool number seq
 done
 # Escaped agent identities must be valid text after YAML escape interpretation.
 for field in name description; do
-  for value in '"\0"' '"Text\0value"' '"\a"' '"\b"' '"\e"' '"\x00"' '"\u0001"' '"\U0000007f"' '"\u009f"' '"\n"' '"\t\r "' '"\x20"' '"\u0020"' '"\U00000020"' '"\q"' '"\xG0"' '"\u123"' '"\U00110000"' '"\uD800"'; do
+  for value in '"\0"' '"Text\0value"' '"\a"' '"\b"' '"\e"' '"\x00"' '"\u0001"' '"\U0000007f"' '"\u009f"' '"\u200B"' '"\U0000200b"' '"\n"' '"\t\r "' '"\x20"' '"\u0020"' '"\U00000020"' '"\q"' '"\xG0"' '"\u123"' '"\U00110000"' '"\uD800"'; do
     d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
     f="$d/plugins/alpha/agents/sample.agent.md"
     printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
@@ -2120,6 +2120,58 @@ for field in name description; do
     sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
     mv "$d/table" "$d/docs/plugins.md"
     check_fail "raw YAML control $encoding in $field is refused" "must declare a non-empty '$field'" "$d"
+  done
+done
+
+# Delimiters participate in the same original-byte header observation.
+for delimiter in opening closing; do
+  for encoding in '\013' '\014'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    if [ "$delimiter" = opening ]; then printf '%s%b\n' '---' "$encoding" > "$f"
+    else printf '%s\n' '---' > "$f"; fi
+    printf '%s\n' 'name: sample' 'description: A visible description.' >> "$f"
+    if [ "$delimiter" = closing ]; then printf '%s%b\n' '---' "$encoding" >> "$f"
+    else printf '%s\n' '---' >> "$f"; fi
+    printf '%s\n' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_fail "control $encoding on $delimiter delimiter is refused" "must declare a non-empty 'name'" "$d"
+  done
+done
+
+# A zero-width-space-only scalar is not usable identity text. Literal escape
+# spelling and visible text adjacent to the character are still real content.
+for field in name description; do
+  for quoting in double single plain block; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A visible description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    case $quoting in
+      double) printf '%s: "\342\200\213"\n' "$field" >> "$f" ;;
+      single) printf "%s: '\342\200\213'\n" "$field" >> "$f" ;;
+      plain) printf '%s: \342\200\213\n' "$field" >> "$f" ;;
+      block) printf '%s: |\n  \342\200\213\n' "$field" >> "$f" ;;
+    esac
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_fail "zero-width-only $quoting $field is refused" "must declare a non-empty '$field'" "$d"
+  done
+  for value in '"Visible\u200Bé"' '"\\u200B"'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A visible description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s: %s\n' "$field" "$value" >> "$f"
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_pass "visible or literal escape $field $value stays usable" "$d"
   done
 done
 

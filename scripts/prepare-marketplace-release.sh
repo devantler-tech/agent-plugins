@@ -106,7 +106,8 @@ while IFS= read -r -d '' record; do
     *) fail 'unsupported worktree census record' ;;
   esac
 done < "$census"
-[[ -z $record && -z $entry && $caller_seen == true ]] || fail 'worktree census is incomplete or omits caller'
+[[ -z $record ]] || fail 'unterminated record in Git worktree census'
+[[ -z $entry && $caller_seen == true ]] || fail 'worktree census is incomplete or omits caller'
 rm -f "$census"
 trap - EXIT
 if [ -e "$output" ] || [ -L "$output" ]; then fail 'output already exists'; fi

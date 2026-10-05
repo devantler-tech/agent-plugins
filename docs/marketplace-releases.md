@@ -106,7 +106,9 @@ this preparation workflow has no publishing job.
 
 **Publish marketplace release** supports manual main dispatch and an opt-in hourly check at minute
 25 UTC. It uses
-current-main tooling and regenerates the candidate from the version proposal's sole parent. Both
+current-main tooling and regenerates the candidate from the version proposal's sole parent. The
+assessment commit and its output bind to the actual current-main checkout, including when main
+advances after dispatch. Both
 remote main and the named CI run are checked before and after verification. A stale, foreign,
 failed, PR or unrelated workflow run is refused. An ordinary commit reports `NO_VERSION_CHANGE`
 and cannot publish. No downloaded artifact supplies publication authority.
@@ -219,6 +221,8 @@ reuses the complete candidate reproduction, source parent, two-manifest tree and
 in a disposable local repository. Only that private repository's copy of the candidate tag is
 removed for reconstruction. The caller's tags, branches, index and working files are preserved;
 neither GitHub nor another remote is contacted. Inherited Git layout overrides are neutralized.
+Physical checkout pathnames retain all their bytes, including trailing newlines. Verification keeps
+configured filesystem observation hooks inert and preserves the caller's index and configuration.
 
 Success emits `status: INSPECTED`, `scope: local-historical-content`, and a `localTag` snapshot.
 `PRESENT` records the tag object, resolved commit and whether it targets the nominated release;
@@ -302,6 +306,8 @@ or an open PR touching either marketplace manifest. A complete unrelated PR is n
 latest selector refuses a pending or failed latest CI run rather than finding an older green one.
 For renamed PR files, complete REST filename/status records must match GraphQL before the original
 paths are considered. Moving a manifest away is a conflict; complete unrelated renames are allowed.
+The CI workflow identity accepts its plain path or the exact main-qualified forms
+`.github/workflows/ci.yaml@main` and `.github/workflows/ci.yaml@refs/heads/main`.
 Two agreeing observations and byte-exact private reconstruction are required. `NO_CHANGE` performs
 no writes, including when proposal creation was requested. Evidence artifacts supply no write authority.
 Read-only candidate-release visibility is the reader's projection; it does not establish visibility of

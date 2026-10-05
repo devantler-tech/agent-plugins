@@ -53,9 +53,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          RELEASE_COMMIT: ${{ github.sha }}
           CI_RUN: ${{ inputs.ci-run || 'latest' }}
         run: |
+          RELEASE_COMMIT=$(git rev-parse --verify HEAD)
           bash scripts/prepare-merged-marketplace-release.sh \
             --repo "$REPOSITORY" --release "$RELEASE_COMMIT" --ci-run "$CI_RUN" \
             --output "$RUNNER_TEMP/marketplace-candidate" > "$RUNNER_TEMP/assessment.json"

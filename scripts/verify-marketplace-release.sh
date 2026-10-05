@@ -87,7 +87,8 @@ else
   [ "$parents" = "$source" ] || fail 'release must have exactly the selected source as its only parent'
 fi
 # Only the marketplace manifests may change. Include mode changes, deletions and renames.
-git diff-tree --no-relative --no-commit-id --name-only -r --no-renames --no-ext-diff -z "$source" "$release" > "$temp/changes"
+# Git can consult the caller index even for tree diffs; keep configured observation hooks inert.
+git -c core.fsmonitor=false diff-tree --no-relative --no-commit-id --name-only -r --no-renames --no-ext-diff -z "$source" "$release" > "$temp/changes"
 path=''
 while IFS= read -r -d '' path; do
   case "$path" in

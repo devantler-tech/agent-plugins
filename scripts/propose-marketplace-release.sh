@@ -76,7 +76,7 @@ ci_snapshot() {
   fi
   gh api --hostname github.com "repos/$repo/actions/runs/$ci" > "$temp/ci"
   json_object_unique "$temp/ci" || fail 'ambiguous CI observation'
-  jq -es --arg repo "$repo" --arg source "$source" --argjson ci "$ci" 'length==1 and (.[0]|.id==$ci and .path==".github/workflows/ci.yaml" and .event=="push" and .status=="completed" and .conclusion=="success" and .head_branch=="main" and .head_sha==$source and .repository.full_name==$repo and .head_repository.full_name==$repo)' "$temp/ci" >/dev/null || fail 'exact successful main CI is required'
+  jq -es --arg repo "$repo" --arg source "$source" --argjson ci "$ci" 'length==1 and (.[0]|.id==$ci and (.path==".github/workflows/ci.yaml" or .path==".github/workflows/ci.yaml@main" or .path==".github/workflows/ci.yaml@refs/heads/main") and .event=="push" and .status=="completed" and .conclusion=="success" and .head_branch=="main" and .head_sha==$source and .repository.full_name==$repo and .head_repository.full_name==$repo)' "$temp/ci" >/dev/null || fail 'exact successful main CI is required'
 }
 # Refuse any local tag-object change since candidate preparation.
 local_tags_unchanged() {

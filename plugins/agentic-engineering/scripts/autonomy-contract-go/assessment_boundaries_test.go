@@ -80,6 +80,48 @@ func TestRuntimeEvidenceChronology(t *testing.T) {
 	}
 }
 
+func TestInterceptedEvidenceChronology(t *testing.T) {
+	now := time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name, observed, result, want string
+		candidate, expired           bool
+	}{
+		{"earlier", "2026-10-02T12:00:00Z", "intercepted", "RECOMMEND_CANDIDATE", false, false},
+		{"equal", "2026-10-03T00:00:00Z", "intercepted", "RECOMMEND_CANDIDATE", false, false},
+		{"later", "2026-10-03T12:00:00Z", "intercepted", "HOLD", false, false},
+		{"future", "2026-10-04T12:00:00Z", "intercepted", "HOLD", false, false},
+		{"later known failure", "2026-10-03T12:00:00Z", "fail", "RECOMMEND_CONTRACTION", true, false},
+		{"expired", "2026-10-03T00:00:00Z", "intercepted", "RECOMMEND_CONTRACTION", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := inputFixture(t)
+			report := nested(m, "observation", "runtime", "interceptedNegative")
+			report["observedAt"], report["result"] = tc.observed, tc.result
+			if tc.expired {
+				report["expiresAt"] = "2026-10-04T00:00:00Z"
+			}
+			if tc.candidate {
+				nested(m, "request")["currentRevision"] = nested(m, "contract", "bindings")["candidateRevision"]
+			}
+			raw, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			in, err := decode(strings.NewReader(string(raw)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := assess(in, now)
+			if got.Status != tc.want {
+				t.Fatalf("got %s, want %s", got.Status, tc.want)
+			}
+			if got.Authority != "assessment-only" || got.ExecutionAdmitted || got.MutationPerformed || got.ReportedEvidenceAuthenticated {
+				t.Fatal("assessment became authority")
+			}
+		})
+	}
+}
+
 // An explicit malformed provenance marker must not silently become false.
 func TestSyntheticDeclaration(t *testing.T) {
 	for _, value := range []any{nil, "false", 0, []any{}, map[string]any{}} {

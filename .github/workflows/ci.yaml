@@ -138,6 +138,9 @@ jobs:
       - name: 🧪 Self-test marketplace workflow authorization branches
         run: bash scripts/marketplace-publication-workflow.test.sh
 
+      - name: 🧪 Self-test marketplace publication checkout identity
+        run: bash scripts/marketplace-publication-identity.test.sh
+
       - name: 🧪 Self-test create-only marketplace proposals
         run: bash scripts/propose-marketplace-release.test.sh
 

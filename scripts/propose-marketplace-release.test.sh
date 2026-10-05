@@ -77,7 +77,18 @@ elif [ "$endpoint" = repos/example/catalogue/actions/runs/42 ]; then
   if [ "$mode" = duplicate-ci ]; then
     jq -c . "$FORGE_STATE/ci" | sed 's/^{/{"conclusion":"failure",/'; exit 0
   fi
-  case "$mode" in ci-pending) jq '.status="in_progress"|.conclusion=null' "$FORGE_STATE/ci";; ci-foreign) jq '.head_repository.full_name="other/catalogue"' "$FORGE_STATE/ci";; ci-stale) jq '.head_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$FORGE_STATE/ci";; ci-event) jq '.event="workflow_dispatch"' "$FORGE_STATE/ci";; ci-workflow) jq '.path=".github/workflows/other.yaml"' "$FORGE_STATE/ci";; *) cat "$FORGE_STATE/ci";; esac
+  case "$mode" in
+    ci-qualified-main) jq '.path=".github/workflows/ci.yaml@main"' "$FORGE_STATE/ci";;
+    ci-qualified-full-main) jq '.path=".github/workflows/ci.yaml@refs/heads/main"' "$FORGE_STATE/ci";;
+    ci-qualified-other) jq '.path=".github/workflows/other.yaml@main"' "$FORGE_STATE/ci";;
+    ci-qualified-feature) jq '.path=".github/workflows/ci.yaml@feature"' "$FORGE_STATE/ci";;
+    ci-pending) jq '.status="in_progress"|.conclusion=null' "$FORGE_STATE/ci";;
+    ci-foreign) jq '.head_repository.full_name="other/catalogue"' "$FORGE_STATE/ci";;
+    ci-stale) jq '.head_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$FORGE_STATE/ci";;
+    ci-event) jq '.event="workflow_dispatch"' "$FORGE_STATE/ci";;
+    ci-workflow) jq '.path=".github/workflows/other.yaml"' "$FORGE_STATE/ci";;
+    *) cat "$FORGE_STATE/ci";;
+  esac
 elif [ "$endpoint" = graphql ] && [ "$paginated" = true ]; then
   count=$(cat "$FORGE_STATE/reads" 2>/dev/null || printf 0)
   count=$((count+1)); printf '%s\n' "$count" > "$FORGE_STATE/reads"
@@ -275,6 +286,10 @@ run_case() {
   passed=$((passed+1))
 }
 run_case 'read-only preparation' none false PREPARED
+run_case 'native main-qualified CI path' ci-qualified-main false PREPARED
+run_case 'native fully-qualified main CI path' ci-qualified-full-main false PREPARED
+run_case 'qualified unrelated workflow refuses' ci-qualified-other false REFUSED
+run_case 'qualified feature workflow refuses' ci-qualified-feature false REFUSED
 run_case 'explicit signed draft creation' none true CREATED
 run_case 'explicit empty GraphQL errors remain valid' empty-errors true CREATED
 for fault in null-errors commit-null-errors readback-null-errors; do run_case "$fault is refused" "$fault" true REFUSED; done

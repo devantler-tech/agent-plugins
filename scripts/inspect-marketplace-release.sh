@@ -16,8 +16,10 @@ unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
   GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_NAMESPACE GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
 unset GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_NOSYSTEM
 export GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
-original=$(git rev-parse --show-toplevel) || fail 'a Git working tree is required'
-original=$(cd "$original" && pwd -P)
+original=$(git rev-parse --show-toplevel && printf '.') || fail 'a Git working tree is required'
+original=${original%$'\n.'}
+original=$(cd "$original" && pwd -P && printf '.') || fail 'physical working tree is unavailable'
+original=${original%$'\n.'}
 temp=$(mktemp -d "${TMPDIR:-/tmp}/marketplace-inspect.XXXXXX")
 trap 'rm -rf "$temp"' EXIT
 # Check the original before cloning; a local clone need not retain these restrictions.
@@ -48,9 +50,10 @@ if [ -n "$tag_oid" ]; then
 else
   printf '%s\n' '{"state":"ABSENT","objectOid":null,"commitOid":null,"targetsRelease":null}' > "$temp/local-tag.json"
 fi
-# A separate local repository shares immutable objects, never the caller's refs or index.
+# A separate local repository copies immutable objects, never the caller's refs or index.
 # No checkout, network call or nominated source code is executed.
-git clone --shared --no-checkout --quiet "$original" "$temp/repository"
+# Shared-clone alternates use line records and cannot retain every physical pathname.
+git clone --no-hardlinks --no-checkout --quiet "$original" "$temp/repository"
 private=$(cd "$temp/repository" && pwd -P)
 [ "$(git -C "$private" rev-parse --show-toplevel)" = "$private" ] || fail 'private worktree layout is invalid'
 [ "$(git -C "$private" rev-parse --path-format=absolute --git-common-dir)" = "$private/.git" ] || fail 'private Git directory is invalid'

@@ -77,6 +77,16 @@ run > "$work/default"
 jq -e '.status=="VERIFIED" and .scope=="local-prepublication"' "$work/default" >/dev/null
 passed=$((passed+1))
 accept 'absent tag is an inspection, never prepublication clearance' ABSENT null
+fixture
+newline_repo="$repo"$'\n'
+mv "$repo" "$newline_repo"; repo=$newline_repo
+snapshot "$work/newline-before"
+accept 'exact trailing-newline checkout identity' ABSENT null
+snapshot "$work/newline-after"
+for field in refs status index; do
+  cmp "$work/newline-before.$field" "$work/newline-after.$field" || fail "newline checkout $field changed"
+done
+passed=$((passed+1))
 git -C "$repo" tag v1.3.0 "$release"
 if run > "$work/default" 2> "$work/error"; then fail 'default mode accepted occupied tag'; fi
 [ ! -s "$work/default" ] || fail 'default emitted clearance'

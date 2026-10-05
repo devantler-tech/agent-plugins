@@ -64,7 +64,7 @@ exec "$REAL_FIND" "$@"
 STUB
 cat > "$work/bin/git" <<'STUB'
 #!/usr/bin/env bash
-[[ ${DIFF_MODE:-} != empty || $1 != diff-tree ]] || exit 0
+[[ ${DIFF_MODE:-} != empty || " $* " != *' diff-tree '* ]] || exit 0
 exec "$REAL_GIT" "$@"
 STUB
 chmod +x "$work/bin/find" "$work/bin/git"
@@ -80,6 +80,22 @@ git -C "$repo" add content; git -C "$repo" commit --amend --no-edit -q
 release=$(git -C "$repo" rev-parse HEAD)
 PATH="$work/bin:$PATH" DIFF_MODE=empty REAL_GIT="$real_git" REAL_FIND="$real_find" reject 'empty successful diff inventory cannot hide unrelated content'
 incremental; accept 'single-parent manifest-only release' 1.3.0
+# Observation must not execute a checkout-configured filesystem hook.
+export FS_MARKER="$work/fsmonitor-called"
+cat > "$work/fsmonitor" <<'HOOK'
+#!/bin/sh
+printf 'observed\n' >> "$FS_MARKER"
+exit 1
+HOOK
+chmod +x "$work/fsmonitor"
+git -C "$repo" config core.fsmonitor "$work/fsmonitor"
+cp "$repo/.git/index" "$work/index-before"
+cp "$repo/.git/config" "$work/config-before"
+accept 'filesystem observation hook is inert' 1.3.0
+[ ! -e "$FS_MARKER" ] || fail 'verification executed a filesystem observation hook'
+cmp -s "$repo/.git/index" "$work/index-before" || fail 'verification changed the caller index'
+cmp -s "$repo/.git/config" "$work/config-before" || fail 'verification changed the caller configuration'
+passed=$((passed+1))
 incremental
 unusual_repo="$repo$(printf '\001'):quoted\\path"
 mv "$repo" "$unusual_repo"; repo="$unusual_repo"

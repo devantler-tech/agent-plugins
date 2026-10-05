@@ -76,7 +76,9 @@ if { [ "${1:-}" = -C ] && [ "${2:-}" = "$OBS_REPO" ] && [ "${3:-}" = config ]; }
   esac
 fi
 if [ "$OBS_FAULT" = graft ] && [ "${1:-}" = rev-parse ] && [ "${2:-}" = --git-path ]; then exit 1; fi
-if [ "$OBS_FAULT" = changes ] && [ "${1:-}" = diff-tree ]; then
+if [ "$OBS_FAULT" = changes ] &&
+   { [ "${1:-}" = diff-tree ] ||
+     { [ "${1:-}" = -c ] && [ "${2:-}" = core.fsmonitor=false ] && [ "${3:-}" = diff-tree ]; }; }; then
   printf '.claude-plugin/marketplace.json\0.github/plugin/marketplace.json\0content'
   exit 0
 fi

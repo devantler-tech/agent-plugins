@@ -13,17 +13,17 @@
       "requiredRuntimeAssets": [
         {
           "path": "scripts/json-stream.lib.sh",
-          "sha256": "380213df0a3859bbe660056523992d5843372c383e446fda20285eef8a6bc0be",
+          "sha256": "973bdf6677eb4b5640839167d3d925e085582807fd6829590574e4c9dacbdcb6",
           "executable": true
         },
         {
           "path": "scripts/classify-default-branch-ci-runs.sh",
-          "sha256": "1017c5cf420411663aac3187776d06e7bb7c54b36bccbf74c2984d83a4d17c29",
+          "sha256": "c7ced2410f8605cecf93017761dbbdb291f4c6dc09e1d6dd6e1098ddbc767906",
           "executable": true
         },
         {
           "path": "scripts/count-unresolved-review-threads.sh",
-          "sha256": "a34388eb6d1ece6f96783e020a9959a112a950985a3438713b7a1a854ea3bae6",
+          "sha256": "022a197f36ec02b34727c83ba40ffdc4967892fbe299604c2deb3c8bef005e8e",
           "executable": true
         },
         {

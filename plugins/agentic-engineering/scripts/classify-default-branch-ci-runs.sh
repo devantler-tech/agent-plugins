@@ -58,6 +58,9 @@ command -v jq >/dev/null 2>&1 || {
   exit 2
 }
 
+observer_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) || exit 2
+# shellcheck source=plugins/agentic-engineering/scripts/json-stream.lib.sh
+. "$observer_dir/json-stream.lib.sh" || exit 2
 payload_path=""
 payload=""
 
@@ -90,7 +93,7 @@ else
   if ! payload=$(gh api --paginate --slurp --method GET "repos/${repo}/actions/runs" \
     -f head_sha="$head_sha" \
     -f branch="$branch" \
-    -F per_page=100); then
+    -F per_page=100 | json_stream_retain_raw); then
     echo "classify-default-branch-ci-runs: GitHub Actions pagination failed; health is unknown" >&2
     exit 2
   fi
@@ -240,11 +243,8 @@ jq_filter='
 ' 
 
 classification=""
-observer_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) || exit 2
-# shellcheck source=plugins/agentic-engineering/scripts/json-stream.lib.sh
-. "$observer_dir/json-stream.lib.sh" || exit 2
 if [ -n "$payload_path" ]; then
-  payload=$(cat "$payload_path") || exit 2
+  payload=$(cat "$payload_path" | json_stream_retain_raw) || exit 2
   payload_path=""
 fi
 if ! printf '%s\n' "$payload" | json_stream_unique; then

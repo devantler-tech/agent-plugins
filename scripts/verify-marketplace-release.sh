@@ -62,14 +62,14 @@ done < "$temp/entries"
 shopt -s dotglob nullglob
 for directory in '' .github .github/plugin .claude-plugin; do
   parent="$candidate${directory:+/$directory}"
-  [ -d "$parent" ] && [ ! -L "$parent" ] || fail 'candidate parent is not a real directory'
+  if [ ! -d "$parent" ] || [ -L "$parent" ]; then fail 'candidate parent is not a real directory'; fi
   children=("$parent"/*)
   case "$directory" in '') count=4 ;; .github) count=1 ;; *) count=1 ;; esac
   [ "${#children[@]}" -eq "$count" ] || fail 'candidate layout contains unexpected entries'
 done
 shopt -u dotglob nullglob
 for path in release.json RELEASE_NOTES.md .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
-  [ -f "$candidate/$path" ] && [ ! -L "$candidate/$path" ] || fail "missing or linked candidate artifact: $path"
+  if [ ! -f "$candidate/$path" ] || [ -L "$candidate/$path" ]; then fail "missing or linked candidate artifact: $path"; fi
 done
 jq -es --arg source "$source" 'length == 1 and (.[0] | .schemaVersion==1 and .status=="CANDIDATE" and .sourceCommit==$source and .publication=="NOT_AUTHORIZED")' "$candidate/release.json" >/dev/null || fail 'candidate plan does not match the selected source'
 base_tag=$(jq -r 'if .baseline==null then "initial" else .baseline.tag end' "$candidate/release.json")

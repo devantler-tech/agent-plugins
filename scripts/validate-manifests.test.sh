@@ -2070,6 +2070,18 @@ for field in name description; do
   done
 done
 
+# The header observer must compile and preserve non-ASCII text in both byte and
+# UTF-8 locales. GNU awk rejects regex ranges made from partial UTF-8 bytes.
+for parser_locale in C C.UTF-8; do
+  d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+  printf '%s\n' '---' 'name: sample' 'description: Unicode café 日本語.' '---' body \
+    > "$d/plugins/alpha/agents/sample.agent.md"
+  # shellcheck disable=SC2016 # Literal catalogue tokens.
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+  mv "$d/table" "$d/docs/plugins.md"
+  LC_ALL="$parser_locale" check_pass "non-ASCII agent identity survives $parser_locale parser" "$d"
+done
+
 # Literal control bytes must be refused too, including when catalogue omission
 # would otherwise conceal a parse failure after Bash erased the original NUL.
 for field in name description; do

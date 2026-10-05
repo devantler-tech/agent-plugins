@@ -1,11 +1,19 @@
 # Observe the supported scalar/mapping header shape, never claim full YAML validation.
 function trim(s) { sub(/^[[:space:]]+/,"",s); sub(/[[:space:]]+$/,"",s); return s }
 # Observe literal controls before the scalar decoder can mark them as text.
-# Byte-oriented awk needs the UTF-8 pair check; Unicode-aware awk also exposes
-# C1 through [:cntrl:]. Allowed YAML whitespace is not a forbidden control.
-function forbidden_control(s, t) {
+# Match complete UTF-8 strings: byte ranges inside a regex character class are
+# invalid collation characters in GNU awk's UTF-8 locales. Allowed YAML
+# whitespace is not a forbidden control.
+function forbidden_control(s, t,controls,c1,n,i) {
   t=s; gsub(/[\t\r]/,"",t); gsub("\302\205","",t)
-  return t ~ /[[:cntrl:]]/ || s ~ /\302[\200-\204\206-\237]/
+  if (t ~ /[[:cntrl:]]/) return 1
+  controls="\302\200 \302\201 \302\202 \302\203 \302\204 " \
+    "\302\206 \302\207 \302\210 \302\211 \302\212 \302\213 \302\214 \302\215 \302\216 \302\217 " \
+    "\302\220 \302\221 \302\222 \302\223 \302\224 \302\225 \302\226 \302\227 " \
+    "\302\230 \302\231 \302\232 \302\233 \302\234 \302\235 \302\236 \302\237"
+  n=split(controls,c1," ")
+  for (i=1;i<=n;i++) if (index(s,c1[i])) return 1
+  return 0
 }
 # A presence observer, not a general YAML decoder: normalize escaped whitespace,
 # decode printable ASCII, and retain valid non-ASCII escapes as nonblank text.

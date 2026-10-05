@@ -13,7 +13,7 @@
       "requiredRuntimeAssets": [
         {
           "path": "scripts/json-stream.lib.sh",
-          "sha256": "973bdf6677eb4b5640839167d3d925e085582807fd6829590574e4c9dacbdcb6",
+          "sha256": "13850e77959146d28af0e779c2effc449aba995ef3d3d033ca99b425ee102a8e",
           "executable": true
         },
         {
@@ -28,7 +28,7 @@
         },
         {
           "path": "scripts/forge-readonly-guard.sh",
-          "sha256": "39e3ccd8c2a4a4f78bb2083425283525a36916fcc7d656d9413f54e0c42ebcb0",
+          "sha256": "bb04b61f8451669cd52745e6414569c6f26368606180d5a2790786609c5ed484",
           "executable": true
         },
         {

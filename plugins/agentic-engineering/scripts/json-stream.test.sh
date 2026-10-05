@@ -31,13 +31,18 @@ ci_prefix='{"total_count":1,"workflow_runs":[{"id":1,"run_attempt":1,"workflow_i
 ci_suffix='"}]}'
 thread_prefix='{"data":{"repository":{"nameWithOwner":"devantler-tech/example","pullRequest":{"number":1,"reviewThreads":{"totalCount":1,"nodes":[{"isResolved":true,"id":"'
 thread_suffix='"}],"pageInfo":{"hasNextPage":false,"endCursor":"cursor"}}}}}}'
-for kind in valid valid-max invalid truncated range surrogate overlong five-byte six-byte nul-middle nul-start nul-end failed-producer; do
+for kind in valid valid-max valid-pair escaped-low escaped-high escaped-high-text escaped-reversed invalid truncated range surrogate overlong five-byte six-byte nul-middle nul-start nul-end failed-producer; do
   for observer in ci threads; do
     case "$observer" in ci) prefix=$ci_prefix; suffix=$ci_suffix ;; *) prefix=$thread_prefix; suffix=$thread_suffix ;; esac
     export FORGE_EXIT=0
     case "$kind" in
       valid) printf '%s東京 café �%s' "$prefix" "$suffix" > "$work/bytes" ;;
       valid-max) printf '%s\364\217\277\277%s' "$prefix" "$suffix" > "$work/bytes" ;;
+      valid-pair) printf '%s\\ud83d\\ude00%s' "$prefix" "$suffix" > "$work/bytes" ;;
+      escaped-low) printf '%s\\udc00%s' "$prefix" "$suffix" > "$work/bytes" ;;
+      escaped-high) printf '%s\\ud800%s' "$prefix" "$suffix" > "$work/bytes" ;;
+      escaped-high-text) printf '%s\\ud800text%s' "$prefix" "$suffix" > "$work/bytes" ;;
+      escaped-reversed) printf '%s\\udc00\\ud800%s' "$prefix" "$suffix" > "$work/bytes" ;;
       invalid) printf '%sbad\377text%s' "$prefix" "$suffix" > "$work/bytes" ;;
       truncated) printf '%sbad\302%s' "$prefix" "$suffix" > "$work/bytes" ;;
       range) printf '%s\364\220\200\200%s' "$prefix" "$suffix" > "$work/bytes" ;;

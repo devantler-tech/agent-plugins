@@ -332,6 +332,9 @@ scan_segments() {
         '$')
           case "$nxt" in
             '(') deny 'dollar-paren command substitution is not a read' ;;
+            [0-9] | '*' | '@' | '#' | '?' | '-' | '!' | '$')
+              deny "the parameter expansion \$$nxt is removed or rewritten before the command sees it — expand it yourself"
+              ;;
             '{')
               j=$((i + 2))
               ec=''
@@ -622,9 +625,16 @@ split_flag() {
 # Exact-match a resolved argv word. Compares whole words rather than substrings,
 # so `--no-pager` is not satisfied by some longer flag that merely contains it.
 words_contain() {
-  local want=$1 w
-  for w in "${WORDS[@]}"; do
+  local want=$1 w i=1
+  while [ "$i" -lt "${#WORDS[@]}" ]; do
+    w=${WORDS[$i]}
+    [ "$w" != -- ] || break
     if [ "$w" = "$want" ]; then return 0; fi
+    split_flag "$w"
+    if [ "$FLAG_HAS_VALUE" -eq 0 ]; then
+      case "$GIT_OK_VALUE_FLAGS -c " in *" $FLAG_NAME "*) i=$((i + 1)) ;; esac
+    fi
+    i=$((i + 1))
   done
   return 1
 }
@@ -637,6 +647,7 @@ words_contain_pair() {
   local first=$1 second=$2 i=0
   local n=${#WORDS[@]}
   while [ "$i" -lt "$((n - 1))" ]; do
+    [ "${WORDS[$i]}" != -- ] || break
     if [ "${WORDS[$i]}" = "$first" ] && [ "${WORDS[$((i + 1))]}" = "$second" ]; then
       return 0
     fi
@@ -1272,18 +1283,13 @@ classify_filter() {
     # `--` ends option parsing for the filter as well: every later word is an
     # operand, so `head -- -qv` names a FILE, not two flags. Counting those words
     # as operands is what lets the cap refuse the read.
-    if [ "$operands_only" -eq 1 ]; then
-      operands=$((operands + 1))
-      i=$((i + 1))
-      continue
-    fi
-    case "$w" in
-      --)
+    case "$operands_only:$w" in
+      0:--)
         operands_only=1
         i=$((i + 1))
         continue
         ;;
-      -*) ;;
+      0:-*) ;;
       *)
         # jq reads local state without touching the filesystem: `env` and `$ENV`
         # both emit the whole process environment, so `jq -n env` prints

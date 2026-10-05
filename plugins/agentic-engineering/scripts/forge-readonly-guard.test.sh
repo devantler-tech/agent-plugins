@@ -84,6 +84,31 @@ expect_usage() {
 # cases below inherit this export and keep asserting their original reasons.
 export GH_TELEMETRY=0
 
+# Observe native shell expansion without invoking the forge: the shell function
+# records only its bounded argument vector, and unset $9 joins a mutation token.
+# shellcheck disable=SC2016 # The child shell intentionally performs this expansion.
+native_argv=$(BASH_ENV=/dev/null bash -c 'gh() { printf "%s\n" "$@"; }; gh api graphql -f "query=muta$9tion{noop}"')
+native_expected=$(printf '%s\n' api graphql -f 'query=mutation{noop}')
+if [ "$native_argv" = "$native_expected" ]; then
+  pass=$((pass + 1)); printf 'PASS  native quoted parameter expansion changes the observed request\n'
+else
+  fail=$((fail + 1)); printf 'FAIL  native quoted parameter expansion observer\n'
+fi
+
+# Observe syntax in its actual option/expansion context, before command admission.
+for parameter in '0' '9' '@' '*' '#' '?' '-' '!' '$'; do
+  command='gh api graphql -f "query=muta$'"$parameter"'tion{noop}"'
+  expect_deny "quoted special parameter $parameter stays unresolved" "$command"
+done
+# shellcheck disable=SC2016 # The command text is classified, never executed.
+expect_allow 'escaped dollar remains literal text' 'gh api graphql -f "query={repository(name:\"\$9\"){name}}"'
+expect_deny 'jq option terminator cannot conceal environment access' 'gh api repos/example/fixture | jq -- "env.CANARY"'
+expect_deny 'jq option terminator cannot conceal imports' 'gh api repos/example/fixture | jq -- "include \"fixture\"; ."'
+expect_allow 'jq option terminator preserves a safe program' 'gh api repos/example/fixture | jq -- ".name"'
+expect_deny 'Git pathspecs cannot supply patch suppression' 'git show HEAD -- --no-ext-diff --no-textconv'
+expect_deny 'Git value operands cannot supply patch suppression' 'git -C --no-ext-diff show --no-textconv HEAD'
+expect_allow 'Git options still suppress configured patch programs' 'git show --no-ext-diff --no-textconv HEAD -- --no-ext-diff'
+
 # ---------------------------------------------------------------------------
 # Intended path — the surveyor's measured vocabulary
 # ---------------------------------------------------------------------------

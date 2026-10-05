@@ -82,7 +82,7 @@
         "enabledWhen": "Both optional consumer contract sections are present",
         "mode": "separate-schedule-or-on-demand",
         "definitionSha256": "5bf3fb5e6e99e82900f23b5f42d41bc26a4ea764862a1ca155557162196c26b9",
-        "skillSha256": "a3959eb9ff42d2d4d4e649a164e569752b12d38519a06aec885ef141d6018380"
+        "skillSha256": "c33e46d40307e4588825a41486c34a7de80c99689698ffe1a92a45fd32d86a77"
       }
     },
     "runtime": {

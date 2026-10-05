@@ -84,6 +84,17 @@ expect_usage() {
 # cases below inherit this export and keep asserting their original reasons.
 export GH_TELEMETRY=0
 
+# Observe native shell expansion without invoking the forge: the shell function
+# records only its bounded argument vector, and unset $9 joins a mutation token.
+# shellcheck disable=SC2016 # The child shell intentionally performs this expansion.
+native_argv=$(BASH_ENV=/dev/null bash -c 'gh() { printf "%s\n" "$@"; }; gh api graphql -f "query=muta$9tion{noop}"')
+native_expected=$(printf '%s\n' api graphql -f 'query=mutation{noop}')
+if [ "$native_argv" = "$native_expected" ]; then
+  pass=$((pass + 1)); printf 'PASS  native quoted parameter expansion changes the observed request\n'
+else
+  fail=$((fail + 1)); printf 'FAIL  native quoted parameter expansion observer\n'
+fi
+
 # Observe syntax in its actual option/expansion context, before command admission.
 for parameter in '0' '9' '@' '*' '#' '?' '-' '!' '$'; do
   command='gh api graphql -f "query=muta$'"$parameter"'tion{noop}"'

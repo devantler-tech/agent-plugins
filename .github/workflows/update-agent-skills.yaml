@@ -40,7 +40,7 @@ jobs:
 
   update:
     needs: scope
-    uses: devantler-tech/actions/.github/workflows/update-agent-skills.yaml@da153eb43b8333f13094abb151a48dc11e431988 # v13.7.4
+    uses: devantler-tech/.github/.github/workflows/update-agent-skills.yaml@e271b7ff25d4ce97b067612e7ba0c5d657b6a17a # v6.1.0
     with:
       dir: ${{ needs.scope.outputs.dir }}
       pr-branch: ${{ needs.scope.outputs.branch }}

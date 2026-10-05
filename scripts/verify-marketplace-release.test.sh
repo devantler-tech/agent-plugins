@@ -53,7 +53,37 @@ reject() {
   passed=$((passed+1))
 }
 new_repo; prepare initial; accept 'initial source already has release metadata' 1.2.3
+real_find=$(command -v find); real_git=$(command -v git)
+mkdir "$work/bin"
+cat > "$work/bin/find" <<'STUB'
+#!/usr/bin/env bash
+if [[ -n ${VERIFY_CANDIDATE:-} && $1 -ef $VERIFY_CANDIDATE ]]; then
+  case $INVENTORY_MODE in empty) exit 0 ;; partial) printf '%s\0' "$1/release.json"; exit 0 ;; esac
+fi
+exec "$REAL_FIND" "$@"
+STUB
+cat > "$work/bin/git" <<'STUB'
+#!/usr/bin/env bash
+[[ ${DIFF_MODE:-} != empty || $1 != diff-tree ]] || exit 0
+exec "$REAL_GIT" "$@"
+STUB
+chmod +x "$work/bin/find" "$work/bin/git"
+for inventory_mode in empty partial; do
+  incremental
+  printf extra > "$candidate/.extra"
+  PATH="$work/bin:$PATH" VERIFY_CANDIDATE="$candidate" INVENTORY_MODE="$inventory_mode" REAL_FIND="$real_find" REAL_GIT="$real_git" \
+    reject "$inventory_mode successful artifact inventory cannot hide extras"
+done
+incremental
+printf 'unapproved\n' > "$repo/content"
+git -C "$repo" add content; git -C "$repo" commit --amend --no-edit -q
+release=$(git -C "$repo" rev-parse HEAD)
+PATH="$work/bin:$PATH" DIFF_MODE=empty REAL_GIT="$real_git" REAL_FIND="$real_find" reject 'empty successful diff inventory cannot hide unrelated content'
 incremental; accept 'single-parent manifest-only release' 1.3.0
+incremental
+unusual_repo="$repo$(printf '\001'):quoted\\path"
+mv "$repo" "$unusual_repo"; repo="$unusual_repo"
+accept 'native checkout control and delimiter bytes remain supported' 1.3.0
 cp "$work/result" "$work/first"
 run > "$work/second"; cmp "$work/first" "$work/second" || fail 'nondeterministic verdict'
 passed=$((passed+1))
@@ -62,10 +92,17 @@ git -C "$repo" show-ref > "$work/refs-before"
 printf 'dirty\n' > "$repo/content"
 printf 'ignored\n' > "$repo/local"
 git -C "$repo" status --porcelain > "$work/status-before"
+cp "$repo/.git/index" "$work/index-before"
+cp "$repo/.git/config" "$work/config-before"
+find "$repo/.git/objects" -type f -print | sort > "$work/objects-before"
 accept 'dirty checkout is neither read nor changed' 1.3.0
 git -C "$repo" status --porcelain > "$work/status-after"
 git -C "$repo" show-ref > "$work/refs-after"
 cmp "$work/status-before" "$work/status-after"; cmp "$work/refs-before" "$work/refs-after"
+cmp "$work/index-before" "$repo/.git/index" || fail 'caller index was changed'
+cmp "$work/config-before" "$repo/.git/config" || fail 'caller configuration was changed'
+find "$repo/.git/objects" -type f -print | sort > "$work/objects-after"
+cmp "$work/objects-before" "$work/objects-after" || fail 'expected tree wrote caller objects'
 for file in release.json RELEASE_NOTES.md .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
   incremental; printf '\nmodified\n' >> "$candidate/$file"; reject "tampered $file"
   incremental; rm "$candidate/$file"; reject "missing $file"

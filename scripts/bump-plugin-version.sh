@@ -41,21 +41,25 @@ for directory in .claude-plugin .github .github/plugin; do
 done
 for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
   [ -f "$manifest" ] && [ ! -L "$manifest" ] || exit 1
-  json_object_unique "$manifest" || { echo '::error::Marketplace declarations must be unambiguous; no manifests were changed.' >&2; exit 1; }
-  jq -es 'length==1 and (.[0] | type == "object" and (.plugins | type == "array"))' "$manifest" >/dev/null || exit 1
-  cp "$manifest" "$work/$(basename "$(dirname "$manifest")").json"
+  snapshot="$work/$(basename "$(dirname "$manifest")").original"
+  cp "$manifest" "$snapshot"
+  json_object_unique "$snapshot" || { echo '::error::Marketplace declarations must be unambiguous; no manifests were changed.' >&2; exit 1; }
+  jq -es 'length==1 and (.[0] | type == "object" and (.plugins | type == "array"))' "$snapshot" >/dev/null || exit 1
+  cp "$snapshot" "$work/$(basename "$(dirname "$manifest")").json"
 done
 
 # Validate one plugin's four-manifest parity and stage its increment without changing the checkout.
 plan_one() {
-  local name="$1" level="$2" dir="plugins/$1" current new manifest staged entry observed
+  local name="$1" level="$2" dir="plugins/$1" current='' new manifest staged entry observed original
   [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { echo '::error::Invalid plugin identity.' >&2; return 1; }
   plugin_version_local_parents "$name" || return 1
-  current=$(plugin_version_read "$dir/.claude-plugin/plugin.json" "$name") || return 1
   for manifest in "$dir/plugin.json" "$dir/.claude-plugin/plugin.json"; do
     [ -f "$manifest" ] && [ ! -L "$manifest" ] || return 1
-    json_object_unique "$manifest" || { echo '::error::Plugin declarations must be unambiguous; no manifests were changed.' >&2; return 1; }
-    observed=$(plugin_version_read "$manifest" "$name") || return 1
+    original="$work/original-$name-$(basename "$(dirname "$manifest")")"
+    cp "$manifest" "$original" || return 1
+    json_object_unique "$original" || { echo '::error::Plugin declarations must be unambiguous; no manifests were changed.' >&2; return 1; }
+    observed=$(plugin_version_read "$original" "$name") || return 1
+    [ -n "$current" ] || current=$observed
     [ "$observed" = "$current" ] || {
       echo "::error::$manifest: plugin identity or version parity is invalid; no manifests were changed." >&2
       return 1
@@ -75,8 +79,9 @@ plan_one() {
   new=$(plugin_version_next "$current" "$level") || return 1
   for manifest in "$dir/plugin.json" "$dir/.claude-plugin/plugin.json"; do
     entry="$work/plugin-$(wc -c < "$work/changes" | tr -d ' ')"
-    jq --arg v "$new" '.version = $v' "$manifest" > "$entry" || return 1
-    printf '%s\0%s\0' "$manifest" "$entry" >> "$work/changes"
+    original="$work/original-$name-$(basename "$(dirname "$manifest")")"
+    jq --arg v "$new" '.version = $v' "$original" > "$entry" || return 1
+    printf '%s\0%s\0%s\0' "$manifest" "$entry" "$original" >> "$work/changes"
   done
   for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
     staged="$work/$(basename "$(dirname "$manifest")").json"
@@ -160,7 +165,7 @@ main() {
   local destination staged
   for destination in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
     staged="$work/$(basename "$(dirname "$destination")").json"
-    printf '%s\0%s\0' "$destination" "$staged" >> "$work/changes"
+    printf '%s\0%s\0%s\0' "$destination" "$staged" "$work/$(basename "$(dirname "$destination")").original" >> "$work/changes"
   done
   atomic_write_batch "$work/changes"
 }

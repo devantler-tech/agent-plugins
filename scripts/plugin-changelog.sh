@@ -115,6 +115,7 @@ while IFS= read -r dir; do
   if [ -f "$log" ]; then
     cp "$log" "$snapshot"
   else
+    touch "$work/$name.absent"
     # shellcheck disable=SC2016 # Literal Markdown code spans, not shell expansion.
     printf '# Changelog — `%s`\n\n' "$name" > "$snapshot"
   fi
@@ -180,7 +181,9 @@ if [ "$mode" = write ]; then
   for planned in "$work/"*.new; do
     [ -f "$planned" ] || continue
     name=${planned##*/}; name=${name%.new}
-    printf '%s\0%s\0' "plugins/$name/CHANGELOG.md" "$planned" >> "$work/plan"
+    expected="$work/$name.old"
+    [ ! -f "$work/$name.absent" ] || expected=''
+    printf '%s\0%s\0%s\0' "plugins/$name/CHANGELOG.md" "$planned" "$expected" >> "$work/plan"
   done
   atomic_write_batch "$work/plan" true || fail 'changelog batch replacement failed'
 fi

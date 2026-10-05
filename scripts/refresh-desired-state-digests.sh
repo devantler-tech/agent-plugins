@@ -139,7 +139,10 @@ resource=''
 while IFS= read -r -d '' resource; do
   seen=$((seen + 1))
   [ -n "$resource" ] || continue
-  if [ -L "$resource" ] || ! jq -es 'length==1 and (.[0]|type=="object")' "$resource" > /dev/null 2>&1; then
+  [ ! -L "$resource" ] || { echo '::error::Linked resource refused.' >&2; exit 1; }
+  observed_resource="$work/original-$seen"
+  cat "$resource" > "$observed_resource" || { echo '::error::Original resource could not be read.' >&2; exit 1; }
+  if ! jq -es 'length==1 and (.[0]|type=="object")' "$observed_resource" > /dev/null 2>&1; then
     echo "::error::$resource: not valid JSON — refusing to rewrite" >&2
     missing=1
     continue
@@ -154,7 +157,7 @@ while IFS= read -r -d '' resource; do
             $complete[($path[0:.]|tojson)]==true)|not)) |
           .complete[($path|tojson)] = true
         else .complete[($event[0][0:-1]|tojson)] = true end) | .valid
-    ' "$resource" >/dev/null ||
+    ' "$observed_resource" >/dev/null ||
      ! jq -e '
        def digest_fields: all(to_entries[]; if (.key|endswith("Sha256")) then (.value|type)=="string" else true end);
        (.spec|type)=="object" and
@@ -169,11 +172,11 @@ while IFS= read -r -d '' resource; do
         else true end) and
        (if .spec|has("roles") then (.spec.roles|type)=="object" and
           all(.spec.roles[]; type=="object" and digest_fields) else true end)
-     ' "$resource" >/dev/null; then
+     ' "$observed_resource" >/dev/null; then
     echo "::error::$resource: invalid or duplicate digest declaration; refusing all writes." >&2
     exit 1
   fi
-  if ! jq -e '(.spec.source.requiredRuntimeAssets // []) | map(.path) | length == (unique|length)' "$resource" >/dev/null; then
+  if ! jq -e '(.spec.source.requiredRuntimeAssets // []) | map(.path) | length == (unique|length)' "$observed_resource" >/dev/null; then
     echo "::error::$resource: duplicate runtime asset declaration; refusing all writes." >&2
     exit 1
   fi
@@ -185,8 +188,8 @@ while IFS= read -r -d '' resource; do
   args=()
   program='.'
 
-  entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$resource")
-  if ! has_entrypoint_digest=$(jq -r 'has("spec") and (.spec | has("source")) and (.spec.source | has("entrypointSha256"))' "$resource"); then
+  entrypoint=$(jq -r '.spec.source.entrypoint // ""' "$observed_resource")
+  if ! has_entrypoint_digest=$(jq -r 'has("spec") and (.spec | has("source")) and (.spec.source | has("entrypointSha256"))' "$observed_resource"); then
     echo "::error::$resource: entrypoint declaration could not be observed; refusing all writes." >&2
     exit 1
   fi
@@ -224,7 +227,7 @@ while IFS= read -r -d '' resource; do
              else empty end)
         )
       | @tsv
-    ' "$resource" > "$work/roles"; then
+    ' "$observed_resource" > "$work/roles"; then
     echo "::error::$resource: role inventory failed; refusing all writes." >&2
     exit 1
   fi
@@ -252,7 +255,7 @@ while IFS= read -r -d '' resource; do
 
   # Runtime assets are hashed as exact bytes: they are executed from the checkout, so a
   # checkout-only CRLF change must invalidate the digest rather than be normalized away.
-  if ! jq -j '.spec.source.requiredRuntimeAssets[]? | (.path // "") + "\u0000"' "$resource" > "$work/assets"; then
+  if ! jq -j '.spec.source.requiredRuntimeAssets[]? | (.path // "") + "\u0000"' "$observed_resource" > "$work/assets"; then
     echo "::error::$resource: runtime asset inventory failed; refusing all writes." >&2
     exit 1
   fi
@@ -271,7 +274,7 @@ while IFS= read -r -d '' resource; do
       missing=1
       continue
     fi
-    executable=$(jq -r --arg path "$asset_path" '.spec.source.requiredRuntimeAssets[] | select(.path==$path) | .executable' "$resource") || exit 1
+    executable=$(jq -r --arg path "$asset_path" '.spec.source.requiredRuntimeAssets[] | select(.path==$path) | .executable' "$observed_resource") || exit 1
     if { [ "$executable" = true ] && [ ! -x "$plugin_dir/$asset_path" ]; } ||
        { [ "$executable" = false ] && [ -x "$plugin_dir/$asset_path" ]; }; then
       echo "::error::$resource: runtime asset executable permissions differ from its declaration; refusing all writes." >&2
@@ -300,9 +303,9 @@ while IFS= read -r -d '' resource; do
     continue
   fi
 
-  updated=$(jq "${args[@]}" "$program" "$resource")
+  updated=$(jq "${args[@]}" "$program" "$observed_resource")
 
-  if ! original=$(cat "$resource"); then
+  if ! original=$(cat "$observed_resource"); then
     echo "::error::$resource: original bytes could not be read; refusing all writes." >&2
     exit 1
   fi
@@ -317,7 +320,7 @@ while IFS= read -r -d '' resource; do
   fi
 
   printf '%s\n' "$updated" > "$work/update-$seen"
-  printf '%s\0%s\0' "$resource" "$work/update-$seen" >> "$work/changes"
+  printf '%s\0%s\0%s\0' "$resource" "$work/update-$seen" "$observed_resource" >> "$work/changes"
 done < "$work/resources"
 if [ -n "$resource" ]; then
   echo '::error::unterminated desired-state resource inventory; refusing all writes.' >&2
@@ -345,6 +348,7 @@ if [ "$mode" = "write" ]; then
   atomic_write_batch "$work/changes" || exit 1
   while IFS= read -r -d '' resource; do
     IFS= read -r -d '' _staged <&0 || exit 1
+    IFS= read -r -d '' _original <&0 || exit 1
     echo "✓ refreshed $resource"
   done < "$work/changes"
 fi

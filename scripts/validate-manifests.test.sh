@@ -2045,7 +2045,7 @@ for header in unclosed duplicate-name duplicate-description null bool number seq
 done
 # Escaped agent identities must be valid text after YAML escape interpretation.
 for field in name description; do
-  for value in '"\n"' '"\t\r "' '"\x20"' '"\u0020"' '"\U00000020"' '"\q"' '"\xG0"' '"\u123"' '"\U00110000"' '"\uD800"'; do
+  for value in '"\0"' '"Text\0value"' '"\a"' '"\b"' '"\e"' '"\x00"' '"\u0001"' '"\U0000007f"' '"\u009f"' '"\u200B"' '"\U0000200b"' '"\n"' '"\t\r "' '"\x20"' '"\u0020"' '"\U00000020"' '"\q"' '"\xG0"' '"\u123"' '"\U00110000"' '"\uD800"'; do
     d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
     f="$d/plugins/alpha/agents/sample.agent.md"
     printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
@@ -2068,6 +2068,172 @@ for field in name description; do
     mv "$d/table" "$d/docs/plugins.md"
     check_pass "supported escaped $field $value remains usable" "$d"
   done
+done
+
+# The header observer must compile and preserve non-ASCII text in both byte and
+# UTF-8 locales. GNU awk rejects regex ranges made from partial UTF-8 bytes.
+for parser_locale in C C.UTF-8; do
+  d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+  printf '%s\n' '---' 'name: sample' 'description: Unicode café 日本語.' '---' body \
+    > "$d/plugins/alpha/agents/sample.agent.md"
+  # shellcheck disable=SC2016 # Literal catalogue tokens.
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+  mv "$d/table" "$d/docs/plugins.md"
+  LC_ALL="$parser_locale" check_pass "non-ASCII agent identity survives $parser_locale parser" "$d"
+done
+
+# Literal control bytes must be refused too, including when catalogue omission
+# would otherwise conceal a parse failure after Bash erased the original NUL.
+for field in name description; do
+  for encoding in '\001' '\177' '\302\237'; do
+    for quoting in double single plain block; do
+      d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+      f="$d/plugins/alpha/agents/sample.agent.md"
+      printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
+      sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+      case $quoting in
+        double) printf '%s: "%b"\n' "$field" "$encoding" >> "$f" ;;
+        single) printf "%s: '%b'\n" "$field" "$encoding" >> "$f" ;;
+        plain) printf '%s: %b\n' "$field" "$encoding" >> "$f" ;;
+        block) printf '%s: |\n  %b\n' "$field" "$encoding" >> "$f" ;;
+      esac
+      printf '%s\n' '---' body >> "$f"
+      # shellcheck disable=SC2016 # Literal catalogue tokens.
+      sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+      mv "$d/table" "$d/docs/plugins.md"
+      check_fail "literal control $encoding in $quoting $field is refused" "must declare a non-empty '$field'" "$d"
+    done
+  done
+done
+d=$(fresh)
+printf '{"mcpServers":{"fixture":{"command":"to\000ol"}}}\n' > "$d/plugins/alpha/.mcp.json"
+check_fail 'original MCP NUL cannot vanish before validation' 'not valid JSON' "$d"
+for field in name description; do
+  for encoding in '\013' '\014'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s: "Visible%btext"\n' "$field" "$encoding" >> "$f"
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_fail "raw YAML control $encoding in $field is refused" "must declare a non-empty '$field'" "$d"
+  done
+done
+
+# Delimiters participate in the same original-byte header observation.
+for delimiter in opening closing; do
+  for encoding in '\013' '\014'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    if [ "$delimiter" = opening ]; then printf '%s%b\n' '---' "$encoding" > "$f"
+    else printf '%s\n' '---' > "$f"; fi
+    printf '%s\n' 'name: sample' 'description: A visible description.' >> "$f"
+    if [ "$delimiter" = closing ]; then printf '%s%b\n' '---' "$encoding" >> "$f"
+    else printf '%s\n' '---' >> "$f"; fi
+    printf '%s\n' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_fail "control $encoding on $delimiter delimiter is refused" "must declare a non-empty 'name'" "$d"
+  done
+done
+
+# A zero-width-space-only scalar is not usable identity text. Literal escape
+# spelling and visible text adjacent to the character are still real content.
+for field in name description; do
+  for quoting in double single plain block; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A visible description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    case $quoting in
+      double) printf '%s: "\342\200\213"\n' "$field" >> "$f" ;;
+      single) printf "%s: '\342\200\213'\n" "$field" >> "$f" ;;
+      plain) printf '%s: \342\200\213\n' "$field" >> "$f" ;;
+      block) printf '%s: |\n  \342\200\213\n' "$field" >> "$f" ;;
+    esac
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_fail "zero-width-only $quoting $field is refused" "must declare a non-empty '$field'" "$d"
+  done
+  for value in '"Visible\u200Bé"' '"\\u200B"'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A visible description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s: %s\n' "$field" "$value" >> "$f"
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_pass "visible or literal escape $field $value stays usable" "$d"
+  done
+done
+
+# Literal whitespace follows the already supported escaped-codepoint policy in
+# every locale. The C locale must not mistake UTF-8 bytes for visible content.
+for field in name description; do
+  for encoding in '\302\205' '\302\240' '\341\232\200' \
+    '\342\200\200' '\342\200\201' '\342\200\202' '\342\200\203' \
+    '\342\200\204' '\342\200\205' '\342\200\206' '\342\200\207' \
+    '\342\200\210' '\342\200\211' '\342\200\212' \
+    '\342\200\250' '\342\200\251' '\342\200\257' '\342\201\237' '\343\200\200'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A visible description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s: "%b"\n' "$field" "$encoding" >> "$f"
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    LC_ALL=C check_fail "literal Unicode space $encoding in $field is blank in C" "must declare a non-empty '$field'" "$d"
+  done
+  for parser_locale in C C.UTF-8; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A visible description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s: "Visible\302\240Unicode"\n' "$field" >> "$f"
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    LC_ALL="$parser_locale" check_pass "visible Unicode space in $field stays usable in $parser_locale" "$d"
+  done
+done
+
+# Transport declarations must survive native process/HTTP argument validation.
+for server in \
+  '{"command":"node\u0000"}' \
+  '{"command":"node","args":["\u0000"]}' \
+  '{"command":"node","env":{"TOKEN":"x\u0000"}}' \
+  '{"command":"node","env":{"BAD=KEY":"x"}}' \
+  '{"type":"http","url":"https://example.com/mcp","headers":{"Bad:Name":"value"}}' \
+  '{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"value\r\nnext"}}' \
+  '{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"\u0100"}}'; do
+  d=$(fresh)
+  printf '{"mcpServers":{"fixture":%s}}\n' "$server" > "$d/plugins/alpha/.mcp.json"
+  # shellcheck disable=SC2016 # Literal catalogue tokens.
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `fixture` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+  mv "$d/table" "$d/docs/plugins.md"
+  check_fail 'unusable MCP wire values are refused' 'invalid or missing' "$d"
+done
+# shellcheck disable=SC2016 # Variable references are literal packaged values.
+for server in \
+  '{"command":"命令","args":["","${TOKEN}","é"],"env":{"TOKEN":""}}' \
+  '{"type":"http","url":"https://example.com/mcp","headers":{"X-Token":"${TOKEN}","X-Empty":"","X-Tab":"a\tb","X-Latin":"é"}}'; do
+  d=$(fresh)
+  printf '{"mcpServers":{"fixture":%s}}\n' "$server" > "$d/plugins/alpha/.mcp.json"
+  # shellcheck disable=SC2016 # Literal catalogue tokens.
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `fixture` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+  mv "$d/table" "$d/docs/plugins.md"
+  check_pass 'supported MCP wire values stay usable' "$d"
 done
 
 for owner in null malformed nested duplicate-owner duplicate-metadata unclosed; do

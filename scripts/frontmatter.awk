@@ -1,5 +1,32 @@
 # Observe the supported scalar/mapping header shape, never claim full YAML validation.
 function trim(s) { sub(/^[[:space:]]+/,"",s); sub(/[[:space:]]+$/,"",s); return s }
+# Normalize the same Unicode whitespace observed in escaped scalars for presence
+# only. Preserve the original scalar for provenance; use complete UTF-8 strings
+# so the C and UTF-8 locales agree without partial-byte regex ranges.
+function nonblank_text(s,spaces,blanks,n,i) {
+  spaces="\302\205 \302\240 \341\232\200 " \
+    "\342\200\200 \342\200\201 \342\200\202 \342\200\203 \342\200\204 \342\200\205 " \
+    "\342\200\206 \342\200\207 \342\200\210 \342\200\211 \342\200\212 \342\200\213 " \
+    "\342\200\250 \342\200\251 \342\200\257 \342\201\237 \343\200\200"
+  n=split(spaces,blanks,"[ ]")
+  for (i=1;i<=n;i++) gsub(blanks[i]," ",s)
+  return trim(s) != ""
+}
+# Observe literal controls before the scalar decoder can mark them as text.
+# Match complete UTF-8 strings: byte ranges inside a regex character class are
+# invalid collation characters in GNU awk's UTF-8 locales. Allowed YAML
+# whitespace is not a forbidden control.
+function forbidden_control(s, t,controls,c1,n,i) {
+  t=s; gsub(/[\t\r]/,"",t); gsub("\302\205","",t)
+  if (t ~ /[[:cntrl:]]/) return 1
+  controls="\302\200 \302\201 \302\202 \302\203 \302\204 " \
+    "\302\206 \302\207 \302\210 \302\211 \302\212 \302\213 \302\214 \302\215 \302\216 \302\217 " \
+    "\302\220 \302\221 \302\222 \302\223 \302\224 \302\225 \302\226 \302\227 " \
+    "\302\230 \302\231 \302\232 \302\233 \302\234 \302\235 \302\236 \302\237"
+  n=split(controls,c1," ")
+  for (i=1;i<=n;i++) if (index(s,c1[i])) return 1
+  return 0
+}
 # A presence observer, not a general YAML decoder: normalize escaped whitespace,
 # decode printable ASCII, and retain valid non-ASCII escapes as nonblank text.
 function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
@@ -10,7 +37,7 @@ function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
     if (c != "\\") { out=out c; continue }
     c=substr(s,++i,1)
     if (c == "\\" || c == "\"" || c == "/") { out=out c; continue }
-    if (c ~ /^[0abe]$/) { out=out "\\" c; continue }
+    if (c ~ /^[0abe]$/) return ""
     if (c ~ /^[tnvfrN_LP ]$/ || c == "\t") { out=out " "; continue }
     if (c != "x" && c != "u" && c != "U") return ""
     n=(c == "x" ? 2 : (c == "u" ? 4 : 8)); hex=substr(s,i+1,n)
@@ -20,8 +47,8 @@ function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
     if (code > 1114111 || (code >= 55296 && code <= 57343)) return ""
     if ((code >= 9 && code <= 13) || code == 32 || code == 133 || code == 160 ||
         code == 5760 || (code >= 8192 && code <= 8202) || code == 8232 || code == 8233 ||
-        code == 8239 || code == 8287 || code == 12288) out=out " "
-    else if (code < 32 || (code >= 127 && code <= 159)) out=out "\\" c hex
+        code == 8203 || code == 8239 || code == 8287 || code == 12288) out=out " "
+    else if (code < 32 || (code >= 127 && code <= 159)) return ""
     else if (code < 127) out=out sprintf("%c",code)
     else out=out "\\" c hex
     i+=n
@@ -40,7 +67,7 @@ function scalar(s, q,i,c,escaped,tail) {
         tail=trim(substr(s,i+1))
         if (tail != "" && substr(tail,1,1) != "#") return ""
         s=quoted_text(substr(s,2,i-2),q)
-        scalar_ok=(quoted_ok && trim(s) != ""); return s
+        scalar_ok=(quoted_ok && nonblank_text(s)); return s
       }
       escaped=0
     }
@@ -53,14 +80,15 @@ function scalar(s, q,i,c,escaped,tail) {
       s ~ /^[-+]?0([xX][0-9a-fA-F_]+|[oO][0-7_]+|[bB][01_]+)$/ ||
       s ~ /^[-+]?\.([iI][nN][fF]|[nN][aA][nN])$/ ||
       s ~ /^[-+]?[0-9][0-9_]*(:[0-5]?[0-9])+(\.[0-9_]*)?$/) return ""
-  scalar_ok=1; return s
+  scalar_ok=nonblank_text(s); return s
 }
 {
   sub(/\r$/,"")
+  if (forbidden_control($0)) bad=1
   if (NR == 1) { if ($0 !~ /^---[[:space:]]*$/) bad=1; next }
   if ($0 ~ /^---[[:space:]]*$/) { closed=1; exit }
   if (bad) next
-  if (mode == "text" && block && $0 ~ /^[[:space:]]/ && $0 ~ /[^[:space:]]/) found=1
+  if (mode == "text" && block && $0 ~ /^[[:space:]]/ && nonblank_text($0)) found=1
   if ($0 ~ /^[[:space:]]*(#.*)?$/) next
   if ($0 ~ /^[A-Za-z_][A-Za-z0-9_-]*:/) {
     key=$0; sub(/:.*/,"",key)

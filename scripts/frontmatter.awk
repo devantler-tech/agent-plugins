@@ -1,5 +1,7 @@
 # Observe the supported scalar/mapping header shape, never claim full YAML validation.
 function trim(s) { sub(/^[[:space:]]+/,"",s); sub(/[[:space:]]+$/,"",s); return s }
+# YAML separation uses ASCII spaces and tabs; Unicode spaces are scalar content.
+function yaml_trim(s) { sub(/^[ \t]+/,"",s); sub(/[ \t]+$/,"",s); return s }
 # Normalize the same Unicode whitespace observed in escaped scalars for presence
 # only. Preserve the original scalar for provenance; use complete UTF-8 strings
 # so the C and UTF-8 locales agree without partial-byte regex ranges.
@@ -56,7 +58,7 @@ function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
   quoted_ok=1; return out
 }
 function scalar(s, q,i,c,escaped,tail) {
-  s=trim(s); scalar_ok=0
+  s=yaml_trim(s); scalar_ok=0
   q=substr(s,1,1)
   if (q == "\"" || q == "\047") {
     for (i=2;i<=length(s);i++) {
@@ -64,7 +66,7 @@ function scalar(s, q,i,c,escaped,tail) {
       if (q == "\"" && !escaped && c == "\\") { escaped=1; continue }
       if (!escaped && c == q) {
         if (q == "\047" && substr(s,i+1,1) == q) { i++; continue }
-        tail=trim(substr(s,i+1))
+        tail=yaml_trim(substr(s,i+1))
         if (tail != "" && substr(tail,1,1) != "#") return ""
         s=quoted_text(substr(s,2,i-2),q)
         scalar_ok=(quoted_ok && nonblank_text(s)); return s
@@ -73,8 +75,12 @@ function scalar(s, q,i,c,escaped,tail) {
     }
     return ""
   }
-  sub(/[[:space:]]+#.*$/,"",s); s=trim(s)
-  if (s == "" || substr(s,1,1) == "#" || s ~ /^[\[\{&*!|>]/ ||
+  sub(/[ \t]+#.*$/,"",s); s=yaml_trim(s)
+  # A plain scalar cannot start with a reserved indicator, contain a mapping
+  # separator, or turn its first token into a sequence/mapping declaration.
+  # The same punctuation remains valid inside supported quoted scalars.
+  if (s == "" || s ~ /^[\[\]\{\},#&*!|>%@`]/ ||
+      s ~ /^[-?:]([ \t]|$)/ || s ~ /:([ \t]|$)/ ||
       s ~ /^(~|null|Null|NULL|true|True|TRUE|false|False|FALSE)$/ ||
       s ~ /^[-+]?([0-9][0-9_]*(\.[0-9_]*)?|\.[0-9_]+)([eE][-+]?[0-9_]+)?$/ ||
       s ~ /^[-+]?0([xX][0-9a-fA-F_]+|[oO][0-7_]+|[bB][01_]+)$/ ||
@@ -88,16 +94,46 @@ function scalar(s, q,i,c,escaped,tail) {
   if (NR == 1) { if ($0 !~ /^---[[:space:]]*$/) bad=1; next }
   if ($0 ~ /^---[[:space:]]*$/) { closed=1; exit }
   if (bad) next
-  if (mode == "text" && block && $0 ~ /^[[:space:]]/ && nonblank_text($0)) found=1
+  if (mode == "text" && block) {
+    indent=length($0)
+    if (match($0,/[^ ]/)) indent=RSTART-1
+    rest=substr($0,indent+1)
+    blank_line=($0 ~ /^[ \t]*$/)
+    # A dedented comment ends the scalar. Later indented text cannot resume it
+    # before a new top-level key supplies another mapping or scalar context.
+    if ((!blank_line && indent == 0) ||
+        (rest ~ /^#/ && indent < (block_indent ? block_indent : 1))) {
+      block=0; after_block=1
+    } else if (blank_line && rest == "") {
+      if (!block_indent && indent > block_blank_indent) block_blank_indent=indent
+    } else {
+      # Tabs may be scalar content only after an explicit or inferred indentation
+      # is established; they cannot establish the first line's indentation.
+      if (!block_indent && rest ~ /^\t/) bad=1
+      if (!block_indent) {
+        block_indent=indent
+        if (block_blank_indent > indent) bad=1
+      }
+      if (indent < 1 || indent < block_indent) bad=1
+      else if (nonblank_text($0)) found=1
+    }
+  }
+  if (after_block && $0 !~ /^[ \t]*(#.*)?$/ && $0 !~ /^[A-Za-z_][A-Za-z0-9_-]*:/) bad=1
   if ($0 ~ /^[[:space:]]*(#.*)?$/) next
   if ($0 ~ /^[A-Za-z_][A-Za-z0-9_-]*:/) {
     key=$0; sub(/:.*/,"",key)
     if (++keys[key] > 1) bad=1
-    block=0; in_metadata=(key == "metadata"); depth=0
+    block=0; block_indent=0; block_blank_indent=0; after_block=0
+    in_metadata=(key == "metadata"); depth=0
     raw=substr($0,length(key)+2)
     if (mode == "text" && key == field) {
-      v=trim(raw); sub(/[[:space:]]+#.*$/,"",v)
-      if (v ~ /^[|>][0-9+-]*$/) block=1
+      v=yaml_trim(raw); sub(/[ \t]+#.*$/,"",v)
+      # YAML permits one nonzero indentation digit and one chomping indicator
+      # in either order. An omitted digit is inferred from the first text line.
+      if (v ~ /^[|>]([1-9][+-]?|[+-][1-9]?)?$/) {
+        block=1
+        if (match(v,/[1-9]/)) block_indent=substr(v,RSTART,1)+0
+      }
       else { v=scalar(raw); found=scalar_ok }
     }
     if (mode == "repository" && in_metadata) {

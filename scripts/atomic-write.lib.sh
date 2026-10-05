@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Replace a validated NUL-paired (destination, staged source) batch without
+# Replace a validated NUL-triple (destination, staged source, observed original) batch without
 # truncating live files. Helpers share one checkout-root lock through snapshots,
 # replacement and recovery. Uncontended originals are restored; a conflict or
 # failed recovery keeps its backup beside the destination for the operator.
@@ -41,12 +41,20 @@ atomic_write_batch() (
   fi
   # The subshell keeps this cleanup independent of each caller's staging trap.
   trap 'lock_rc=$?; rm -rf "$atomic_tool_dir"; if ! rmdir "$lock"; then echo "::error::Recovery required; generated-write lock retained." >&2; lock_rc=1; fi; exit "$lock_rc"' EXIT
-  local plan=$1 allow_new=${2:-false} destination='' staged='' next original i failed=0
-  local destinations=() replacements=() originals=() sources=()
+  local plan=$1 allow_new=${2:-false} destination='' staged='' expected='' next original i failed=0
+  local destinations=() replacements=() originals=() sources=() expectations=()
   while IFS= read -r -d '' destination; do
     if ! IFS= read -r -d '' staged; then failed=1; break; fi
+    if ! IFS= read -r -d '' expected; then failed=1; break; fi
     # Staged operands are relative to the caller, before entering any parent.
     case "$staged" in /*) ;; *) staged="$atomic_root/$staged" ;; esac
+    if [ -n "$expected" ]; then
+      case "$expected" in /*) ;; *) expected="$atomic_root/$expected" ;; esac
+      if [ ! -f "$expected" ] || [ -L "$expected" ] ||
+         ! atomic_at "$destination" cmp -s "$destination" "$expected"; then failed=1; break; fi
+    elif [ "$allow_new" != true ] || [ -e "$destination" ] || [ -L "$destination" ]; then
+      failed=1; break
+    fi
     if atomic_at "$destination" test -L "$destination" || [ ! -f "$staged" ] ||
        { [ ! -f "$destination" ] && { [ "$allow_new" != true ] || [ -e "$destination" ]; }; }; then failed=1; break; fi
     original=''
@@ -56,9 +64,11 @@ atomic_write_batch() (
     originals+=("$original")
     destinations+=("$destination")
     sources+=("$staged")
+    expectations+=("$expected")
     next=$(atomic_temp "$destination.next.XXXXXX") || { failed=1; break; }
     replacements+=("$next")
     if { [ -n "$original" ] && { ! atomic_at "$destination" cp -p "$destination" "$original" || ! atomic_at "$destination" cp -p "$destination" "$next"; }; } ||
+       { [ -n "$original" ] && ! atomic_at "$destination" cmp -s "$original" "$expected"; } ||
        ! atomic_at "$destination" cp "$staged" "$next"; then
       failed=1; break
     fi
@@ -68,7 +78,7 @@ atomic_write_batch() (
     # Refuse a moved target before the first replacement.
     for i in "${!destinations[@]}"; do
       if [ -L "${destinations[$i]}" ] ||
-         { [ -n "${originals[$i]}" ] && ! atomic_at "${destinations[$i]}" cmp -s "${destinations[$i]}" "${originals[$i]}"; } ||
+         { [ -n "${expectations[$i]}" ] && ! atomic_at "${destinations[$i]}" cmp -s "${destinations[$i]}" "${expectations[$i]}"; } ||
          { [ -z "${originals[$i]}" ] && [ -e "${destinations[$i]}" ]; }; then failed=1; break; fi
     done
   fi
@@ -78,7 +88,9 @@ atomic_write_batch() (
       # becoming mv's destination directory after the validation above.
       local nofollow=-T
       [ "$(uname -s)" != Darwin ] || nofollow=-h
-      if ! atomic_at "${destinations[$i]}" mv -f "$nofollow" "${replacements[$i]}" "${destinations[$i]}"; then
+      if { [ -n "${expectations[$i]}" ] && ! atomic_at "${destinations[$i]}" cmp -s "${destinations[$i]}" "${expectations[$i]}"; } ||
+         { [ -z "${expectations[$i]}" ] && { [ -e "${destinations[$i]}" ] || [ -L "${destinations[$i]}" ]; }; } ||
+         ! atomic_at "${destinations[$i]}" mv -f "$nofollow" "${replacements[$i]}" "${destinations[$i]}"; then
         failed=1
         local j
         for j in "${!destinations[@]}"; do

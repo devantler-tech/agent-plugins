@@ -135,7 +135,8 @@ label='conflicting rollback explains operator recovery'; check grep -Fq 'Recover
 version_fixture
 mkdir "$root/bin"
 printf '{"name":"alpha","version":"1.2.4","description":"second writer"}\n' > "$root/second-source"
-printf '%s\0%s\0' plugins/alpha/plugin.json "$root/second-source" > "$root/second-plan"
+cp "$root/plugins/alpha/plugin.json" "$root/second-original"
+printf '%s\0%s\0%s\0' plugins/alpha/plugin.json "$root/second-source" "$root/second-original" > "$root/second-plan"
 cat > "$root/bin/mv" <<'STUB'
 #!/usr/bin/env bash
 last=${!#}
@@ -165,6 +166,64 @@ label='writer refusal identifies the shared lock'; check grep -Fq 'Generated wri
 label='ordinary failed batch releases its own lock'; check test ! -e "$root/.agent-plugin-write.lock"
 
 version_fixture
+mkdir -p "$root/plugins/beta/.claude-plugin" "$root/bin"
+jq '.name="beta"' "$root/plugins/alpha/plugin.json" > "$root/plugins/beta/plugin.json"
+cp "$root/plugins/beta/plugin.json" "$root/plugins/beta/.claude-plugin/plugin.json"
+for manifest in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
+  jq '.plugins += [{name:"beta",version:"1.2.3",source:"./plugins/beta"}]' "$root/$manifest" > "$work/marketplace"
+  cp "$work/marketplace" "$root/$manifest"
+done
+cat > "$root/bin/go" <<'STUB'
+#!/usr/bin/env bash
+if [[ ${NESTED_WRITER:-} != yes && $1 == build ]]; then
+  (cd "$RACE_ROOT" && NESTED_WRITER=yes bash "$BUMP_TOOL" beta patch) > "$RACE_ROOT/nested-output" 2>&1 || exit $?
+fi
+exec "$REAL_GO" "$@"
+STUB
+chmod +x "$root/bin/go"
+real_go=$(command -v go)
+rc=0
+(cd "$root" && PATH="$root/bin:$PATH" RACE_ROOT="$root" BUMP_TOOL="$bump" REAL_GO="$real_go" bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
+label='a stale writer plan refuses before erasing a completed bump'; check test "$rc" -ne 0
+for manifest in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
+  label="completed beta bump survives in $manifest"; check jq -e '.plugins[] | select(.name=="beta") | .version=="1.2.4"' "$root/$manifest"
+done
+label='stale alpha batch does not publish its first destination'; check jq -e '.version=="1.2.3"' "$root/plugins/alpha/plugin.json"
+
+# A changed later target refuses the whole plan before its first replacement.
+version_fixture
+cp "$root/plugins/alpha/plugin.json" "$root/first-observed"
+cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$root/second-observed"
+printf 'replacement\n' > "$root/planned-source"
+printf '%s\0%s\0%s\0' plugins/alpha/plugin.json "$root/planned-source" "$root/first-observed" \
+  plugins/alpha/.claude-plugin/plugin.json "$root/planned-source" "$root/second-observed" > "$root/stale-plan"
+printf 'concurrent second target\n' > "$root/plugins/alpha/.claude-plugin/plugin.json"
+cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$root/concurrent-second"
+rc=0
+(cd "$root" && bash -c '. "$1"; atomic_write_batch stale-plan' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
+label='stale later destination refuses publication'; check test "$rc" -ne 0
+label='stale later destination leaves the first target unchanged'; check cmp -s "$root/first-observed" "$root/plugins/alpha/plugin.json"
+label='stale later destination preserves the foreign update'; check cmp -s "$root/concurrent-second" "$root/plugins/alpha/.claude-plugin/plugin.json"
+
+# Observed absence has the same protection as an existing file's original bytes.
+version_fixture
+printf 'new release notes\n' > "$root/planned-source"
+printf '%s\0%s\0%s\0' plugins/alpha/CHANGELOG.md "$root/planned-source" '' > "$root/new-plan"
+printf 'concurrent release notes\n' > "$root/plugins/alpha/CHANGELOG.md"
+cp "$root/plugins/alpha/CHANGELOG.md" "$root/concurrent-log"
+rc=0
+(cd "$root" && bash -c '. "$1"; atomic_write_batch new-plan true' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
+label='concurrent creation refuses an absent-target plan'; check test "$rc" -ne 0
+label='concurrent creation preserves foreign release notes'; check cmp -s "$root/concurrent-log" "$root/plugins/alpha/CHANGELOG.md"
+version_fixture
+printf 'new release notes\n' > "$root/planned-source"
+printf '%s\0%s\0%s\0' plugins/alpha/CHANGELOG.md "$root/planned-source" '' > "$root/new-plan"
+rc=0
+(cd "$root" && bash -c '. "$1"; atomic_write_batch new-plan true' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
+label='an uncontended absent destination remains supported'; check test "$rc" -eq 0
+label='an uncontended new file contains the planned bytes'; check cmp -s "$root/planned-source" "$root/plugins/alpha/CHANGELOG.md"
+
+version_fixture
 mkdir "$root/.agent-plugin-write.lock"
 cp "$root/plugins/alpha/plugin.json" "$work/locked-before"
 rc=0; (cd "$root" && bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
@@ -177,7 +236,8 @@ version_fixture
 mkdir -p "$root/staging" "$root/plugins/alpha/staging"
 printf 'caller bytes\n' > "$root/staging/source"
 printf 'wrong parent bytes\n' > "$root/plugins/alpha/staging/source"
-printf '%s\0%s\0' plugins/alpha/plugin.json staging/source > "$root/relative-plan"
+cp "$root/plugins/alpha/plugin.json" "$root/staging/original"
+printf '%s\0%s\0%s\0' plugins/alpha/plugin.json staging/source staging/original > "$root/relative-plan"
 rc=0
 (cd "$root" && bash -c '. "$1"; atomic_write_batch relative-plan' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
 label='relative staging source stays bound to caller root'; check test "$rc" -eq 0
@@ -189,7 +249,8 @@ mkdir "$root/bin"
 outside=$(mktemp -d "$work/moved-outside.XXXXXX")
 cp -R "$root/." "$outside/"
 printf 'replacement\n' > "$work/moved-source"
-printf '%s\0%s\0' plugins/alpha/plugin.json "$work/moved-source" > "$root/moved-plan"
+cp "$root/plugins/alpha/plugin.json" "$work/moved-original"
+printf '%s\0%s\0%s\0' plugins/alpha/plugin.json "$work/moved-source" "$work/moved-original" > "$root/moved-plan"
 cat > "$root/bin/cp" <<'STUB'
 #!/usr/bin/env bash
 last=${!#}

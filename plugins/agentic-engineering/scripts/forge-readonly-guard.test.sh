@@ -84,6 +84,20 @@ expect_usage() {
 # cases below inherit this export and keep asserting their original reasons.
 export GH_TELEMETRY=0
 
+# Observe syntax in its actual option/expansion context, before command admission.
+for parameter in '0' '9' '@' '*' '#' '?' '-' '!' '$'; do
+  command='gh api graphql -f "query=muta$'"$parameter"'tion{noop}"'
+  expect_deny "quoted special parameter $parameter stays unresolved" "$command"
+done
+# shellcheck disable=SC2016 # The command text is classified, never executed.
+expect_allow 'escaped dollar remains literal text' 'gh api graphql -f "query={repository(name:\"\$9\"){name}}"'
+expect_deny 'jq option terminator cannot conceal environment access' 'gh api repos/example/fixture | jq -- "env.CANARY"'
+expect_deny 'jq option terminator cannot conceal imports' 'gh api repos/example/fixture | jq -- "include \"fixture\"; ."'
+expect_allow 'jq option terminator preserves a safe program' 'gh api repos/example/fixture | jq -- ".name"'
+expect_deny 'Git pathspecs cannot supply patch suppression' 'git show HEAD -- --no-ext-diff --no-textconv'
+expect_deny 'Git value operands cannot supply patch suppression' 'git -C --no-ext-diff show --no-textconv HEAD'
+expect_allow 'Git options still suppress configured patch programs' 'git show --no-ext-diff --no-textconv HEAD -- --no-ext-diff'
+
 # ---------------------------------------------------------------------------
 # Intended path — the surveyor's measured vocabulary
 # ---------------------------------------------------------------------------

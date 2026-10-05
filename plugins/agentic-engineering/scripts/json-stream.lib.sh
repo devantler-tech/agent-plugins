@@ -2,7 +2,8 @@
 # Retain producer bytes before Bash command substitution can erase literal NULs
 # or jq can repair invalid UTF-8. No temporary response files or compiler.
 json_stream_retain_raw() {
- local raw='' converted read_status=0
+ local raw='' converted read_status=0 i=0 length in_string=0 char hex low backslash=$'\\'
+ local LC_ALL=C
  IFS= read -r -d '' raw || read_status=$?
  # read succeeds only when its NUL delimiter was encountered. EOF is status 1.
  [ "$read_status" = 1 ] && [ -n "$raw" ] || return 2
@@ -14,6 +15,29 @@ json_stream_retain_raw() {
    printf '.') 2>/dev/null || return 2
  converted=${converted%.}
  [ "$converted" = "$raw" ] || return 2
+ # jq repairs lone surrogate escapes. Refuse those original bytes before an
+ # identity can collapse onto a distinct literal replacement character.
+ length=${#raw}
+ while ((i < length)); do
+   char=${raw:i:1}
+   if ((in_string == 0)); then
+     [[ $char == '"' ]] && in_string=1
+     i=$((i + 1)); continue
+   fi
+   if [[ $char == '"' ]]; then in_string=0; i=$((i + 1)); continue; fi
+   if [[ $char != "$backslash" ]]; then i=$((i + 1)); continue; fi
+   if [[ ${raw:i+1:1} != u ]]; then i=$((i + 2)); continue; fi
+   hex=${raw:i+2:4}
+   if [[ ! $hex =~ ^[0-9A-Fa-f]{4}$ ]]; then i=$((i + 2)); continue; fi
+   if [[ $hex =~ ^[dD][89AaBb][0-9A-Fa-f]{2}$ ]]; then
+     [[ ${raw:i+6:2} == "${backslash}u" ]] || return 2
+     low=${raw:i+8:4}
+     [[ $low =~ ^[dD][cCdDeEfF][0-9A-Fa-f]{2}$ ]] || return 2
+     i=$((i + 12)); continue
+   fi
+   [[ ! $hex =~ ^[dD][cCdDeEfF][0-9A-Fa-f]{2}$ ]] || return 2
+   i=$((i + 6))
+ done
  printf '%s' "$raw"
 }
 

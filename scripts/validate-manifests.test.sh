@@ -2045,7 +2045,7 @@ for header in unclosed duplicate-name duplicate-description null bool number seq
 done
 # Escaped agent identities must be valid text after YAML escape interpretation.
 for field in name description; do
-  for value in '"\n"' '"\t\r "' '"\x20"' '"\u0020"' '"\U00000020"' '"\q"' '"\xG0"' '"\u123"' '"\U00110000"' '"\uD800"'; do
+  for value in '"\0"' '"Text\0value"' '"\a"' '"\b"' '"\e"' '"\x00"' '"\u0001"' '"\U0000007f"' '"\u009f"' '"\n"' '"\t\r "' '"\x20"' '"\u0020"' '"\U00000020"' '"\q"' '"\xG0"' '"\u123"' '"\U00110000"' '"\uD800"'; do
     d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
     f="$d/plugins/alpha/agents/sample.agent.md"
     printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
@@ -2068,6 +2068,75 @@ for field in name description; do
     mv "$d/table" "$d/docs/plugins.md"
     check_pass "supported escaped $field $value remains usable" "$d"
   done
+done
+
+# Literal control bytes must be refused too, including when catalogue omission
+# would otherwise conceal a parse failure after Bash erased the original NUL.
+for field in name description; do
+  for encoding in '\001' '\177' '\302\237'; do
+    for quoting in double single plain block; do
+      d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+      f="$d/plugins/alpha/agents/sample.agent.md"
+      printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
+      sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+      case $quoting in
+        double) printf '%s: "%b"\n' "$field" "$encoding" >> "$f" ;;
+        single) printf "%s: '%b'\n" "$field" "$encoding" >> "$f" ;;
+        plain) printf '%s: %b\n' "$field" "$encoding" >> "$f" ;;
+        block) printf '%s: |\n  %b\n' "$field" "$encoding" >> "$f" ;;
+      esac
+      printf '%s\n' '---' body >> "$f"
+      # shellcheck disable=SC2016 # Literal catalogue tokens.
+      sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+      mv "$d/table" "$d/docs/plugins.md"
+      check_fail "literal control $encoding in $quoting $field is refused" "must declare a non-empty '$field'" "$d"
+    done
+  done
+done
+d=$(fresh)
+printf '{"mcpServers":{"fixture":{"command":"to\000ol"}}}\n' > "$d/plugins/alpha/.mcp.json"
+check_fail 'original MCP NUL cannot vanish before validation' 'not valid JSON' "$d"
+for field in name description; do
+  for encoding in '\013' '\014'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A real description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s: "Visible%btext"\n' "$field" "$encoding" >> "$f"
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    check_fail "raw YAML control $encoding in $field is refused" "must declare a non-empty '$field'" "$d"
+  done
+done
+
+# Transport declarations must survive native process/HTTP argument validation.
+for server in \
+  '{"command":"node\u0000"}' \
+  '{"command":"node","args":["\u0000"]}' \
+  '{"command":"node","env":{"TOKEN":"x\u0000"}}' \
+  '{"command":"node","env":{"BAD=KEY":"x"}}' \
+  '{"type":"http","url":"https://example.com/mcp","headers":{"Bad:Name":"value"}}' \
+  '{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"value\r\nnext"}}' \
+  '{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"\u0100"}}'; do
+  d=$(fresh)
+  printf '{"mcpServers":{"fixture":%s}}\n' "$server" > "$d/plugins/alpha/.mcp.json"
+  # shellcheck disable=SC2016 # Literal catalogue tokens.
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `fixture` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+  mv "$d/table" "$d/docs/plugins.md"
+  check_fail 'unusable MCP wire values are refused' 'invalid or missing' "$d"
+done
+# shellcheck disable=SC2016 # Variable references are literal packaged values.
+for server in \
+  '{"command":"命令","args":["","${TOKEN}","é"],"env":{"TOKEN":""}}' \
+  '{"type":"http","url":"https://example.com/mcp","headers":{"X-Token":"${TOKEN}","X-Empty":"","X-Tab":"a\tb","X-Latin":"é"}}'; do
+  d=$(fresh)
+  printf '{"mcpServers":{"fixture":%s}}\n' "$server" > "$d/plugins/alpha/.mcp.json"
+  # shellcheck disable=SC2016 # Literal catalogue tokens.
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `fixture` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+  mv "$d/table" "$d/docs/plugins.md"
+  check_pass 'supported MCP wire values stay usable' "$d"
 done
 
 for owner in null malformed nested duplicate-owner duplicate-metadata unclosed; do

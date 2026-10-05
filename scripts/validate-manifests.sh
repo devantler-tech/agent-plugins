@@ -229,7 +229,7 @@ validate_marketplace_renames() {
 # or a 'url' (remote transport).
 validate_mcp_json() {
   local mcp="$1" document
-  if ! document=$(cat "$mcp") || ! jq -es 'length == 1 and (.[0] | type == "object")' <<< "$document" > /dev/null 2>&1; then
+  if ! document=$(cat -- "$mcp" | json_source_retain) || ! jq -es 'length == 1 and (.[0] | type == "object")' <<< "$document" > /dev/null 2>&1; then
     echo "::error::$mcp: not valid JSON"
     return 1
   fi
@@ -257,16 +257,24 @@ validate_mcp_json() {
   fi
   if ! jq -e '
     def nonblank: type == "string" and test("[^[:space:]]");
-    def string_map: type == "object" and all(to_entries[]; (.key|nonblank) and (.value|type)=="string");
+    def process_text: type == "string" and (contains("\u0000") | not);
+    def environment: type == "object" and all(to_entries[];
+      (.key | nonblank and process_text and (contains("=") | not)) and (.value | process_text));
+    def header_name: nonblank and (explode | all(.[];
+      (. >= 48 and . <= 57) or (. >= 65 and . <= 90) or (. >= 97 and . <= 122) or
+      (. as $code | [33,35,36,37,38,39,42,43,45,46,94,95,96,124,126] | index($code) != null)));
+    def header_value: type == "string" and (explode | all(.[];
+      . == 9 or (. >= 32 and . <= 126) or (. >= 128 and . <= 255)));
+    def headers: type == "object" and all(to_entries[]; (.key|header_name) and (.value|header_value));
     all(.mcpServers | to_entries[];
       (.key | nonblank) and (.value | type == "object" and
         (if has("command") then
-          (.command | nonblank) and (has("url") | not) and
+          (.command | nonblank and process_text) and (has("url") | not) and
           (if has("type") then .type == "stdio" else true end)
          else (.url | nonblank) and (.type == "http" or .type == "sse") end) and
-        (if has("args") then (.args | type == "array" and all(.[]; type == "string")) else true end) and
-        (if has("env") then (.env | string_map) else true end) and
-        (if has("headers") then (.headers | string_map) else true end)))
+        (if has("args") then (.args | type == "array" and all(.[]; process_text)) else true end) and
+        (if has("env") then (.env | environment) else true end) and
+        (if has("headers") then (.headers | headers) else true end)))
   ' <<< "$document" > /dev/null; then
     echo "::error::$mcp: invalid or missing a 'command' (stdio) or 'url' (remote), transport, arguments, environment or headers"
     return 1

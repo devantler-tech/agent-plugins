@@ -1,5 +1,12 @@
 # Observe the supported scalar/mapping header shape, never claim full YAML validation.
 function trim(s) { sub(/^[[:space:]]+/,"",s); sub(/[[:space:]]+$/,"",s); return s }
+# Observe literal controls before the scalar decoder can mark them as text.
+# Byte-oriented awk needs the UTF-8 pair check; Unicode-aware awk also exposes
+# C1 through [:cntrl:]. Allowed YAML whitespace is not a forbidden control.
+function forbidden_control(s, t) {
+  t=s; gsub(/[\t\r]/,"",t); gsub("\302\205","",t)
+  return t ~ /[[:cntrl:]]/ || s ~ /\302[\200-\204\206-\237]/
+}
 # A presence observer, not a general YAML decoder: normalize escaped whitespace,
 # decode printable ASCII, and retain valid non-ASCII escapes as nonblank text.
 function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
@@ -10,7 +17,7 @@ function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
     if (c != "\\") { out=out c; continue }
     c=substr(s,++i,1)
     if (c == "\\" || c == "\"" || c == "/") { out=out c; continue }
-    if (c ~ /^[0abe]$/) { out=out "\\" c; continue }
+    if (c ~ /^[0abe]$/) return ""
     if (c ~ /^[tnvfrN_LP ]$/ || c == "\t") { out=out " "; continue }
     if (c != "x" && c != "u" && c != "U") return ""
     n=(c == "x" ? 2 : (c == "u" ? 4 : 8)); hex=substr(s,i+1,n)
@@ -21,7 +28,7 @@ function quoted_text(s,q, i,c,n,hex,j,d,code,out) {
     if ((code >= 9 && code <= 13) || code == 32 || code == 133 || code == 160 ||
         code == 5760 || (code >= 8192 && code <= 8202) || code == 8232 || code == 8233 ||
         code == 8239 || code == 8287 || code == 12288) out=out " "
-    else if (code < 32 || (code >= 127 && code <= 159)) out=out "\\" c hex
+    else if (code < 32 || (code >= 127 && code <= 159)) return ""
     else if (code < 127) out=out sprintf("%c",code)
     else out=out "\\" c hex
     i+=n
@@ -59,6 +66,7 @@ function scalar(s, q,i,c,escaped,tail) {
   sub(/\r$/,"")
   if (NR == 1) { if ($0 !~ /^---[[:space:]]*$/) bad=1; next }
   if ($0 ~ /^---[[:space:]]*$/) { closed=1; exit }
+  if (forbidden_control($0)) bad=1
   if (bad) next
   if (mode == "text" && block && $0 ~ /^[[:space:]]/ && $0 ~ /[^[:space:]]/) found=1
   if ($0 ~ /^[[:space:]]*(#.*)?$/) next

@@ -114,7 +114,24 @@ done
 mkdir "$temp/objects"
 objects=$(git rev-parse --git-path objects) || fail 'cannot locate source objects'
 objects=$(cd "$objects" && pwd -P) || fail 'cannot resolve source object directory'
-alternates=$(jq -cn --arg path "$objects" '$path') || fail 'cannot retain source object directory'
+# Git accepts C-quoted entries here, not JSON's unsupported \u escapes.
+quote_git_alternate() (
+  LC_ALL=C; export LC_ALL
+  local value=$1 i byte code
+  printf '"'
+  for ((i=0;i<${#value};i++)); do
+    byte=${value:i:1}
+    case "$byte" in
+      \\|'"') printf '\\%s' "$byte" ;;
+      *)
+        printf -v code '%d' "'$byte"
+        if [ "$code" -lt 32 ] || [ "$code" -eq 127 ]; then printf '\\%03o' "$code"
+        else printf '%s' "$byte"; fi ;;
+    esac
+  done
+  printf '"'
+)
+alternates=$(quote_git_alternate "$objects") || fail 'cannot retain source object directory'
 expected_git() {
   GIT_INDEX_FILE="$temp/index" GIT_OBJECT_DIRECTORY="$temp/objects" GIT_ALTERNATE_OBJECT_DIRECTORIES="$alternates" \
     git -c core.fsmonitor=false -c core.splitIndex=false -c index.sparse=false "$@"

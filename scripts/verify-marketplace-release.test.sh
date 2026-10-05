@@ -80,6 +80,10 @@ git -C "$repo" add content; git -C "$repo" commit --amend --no-edit -q
 release=$(git -C "$repo" rev-parse HEAD)
 PATH="$work/bin:$PATH" DIFF_MODE=empty REAL_GIT="$real_git" REAL_FIND="$real_find" reject 'empty successful diff inventory cannot hide unrelated content'
 incremental; accept 'single-parent manifest-only release' 1.3.0
+incremental
+unusual_repo="$repo$(printf '\001'):quoted\\path"
+mv "$repo" "$unusual_repo"; repo="$unusual_repo"
+accept 'native checkout control and delimiter bytes remain supported' 1.3.0
 cp "$work/result" "$work/first"
 run > "$work/second"; cmp "$work/first" "$work/second" || fail 'nondeterministic verdict'
 passed=$((passed+1))

@@ -193,7 +193,8 @@ mkdir "$work/bin"
 printf '#!/usr/bin/env bash\nif [ "$1" = -R ]; then exit 23; fi\nexec %q "$@"\n' "$(command -v cp)" > "$work/bin/cp"
 chmod +x "$work/bin/cp"
 if (cd "$repo" && env PATH="$work/bin:$release_test_path" bash "$tool" --base-tag v1.2.3 --output "$work/copy-failure") > "$work/stdout" 2> "$work/stderr"; then fail 'copy failure passed'; fi
-test ! -e "$work/copy-failure"; test ! -s "$work/stdout"; passed=$((passed + 1))
+test -d "$work/copy-failure"; test ! -s "$work/stdout"
+grep -q 'retained for recovery' "$work/stderr"; passed=$((passed + 1))
 
 # A successful probe followed by a failed listing is not one complete census.
 # Keep the real first listing, then fail before/after a valid prefix on a second

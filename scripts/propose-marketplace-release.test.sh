@@ -106,6 +106,10 @@ elif [ "$endpoint" = graphql ] && [ "$paginated" = true ]; then
     tag-missing) change='.[0].data.repository.refs.nodes=[]|.[0].data.repository.refs.totalCount=0';;
     tag-unknown) change='.[0].data.repository.refs.nodes[0].target.__typename="Tree"';;
     page-incomplete) change='.[0].data.repository.refs.pageInfo.hasNextPage=true';;
+    page-cursor-missing) change='del(.[0].data.repository.refs.pageInfo.endCursor)';;
+    page-cursor-malformed) change='.[0].data.repository.refs.pageInfo.endCursor=123';;
+    page-next-malformed) change='.[0].data.repository.refs.pageInfo.hasNextPage=0';;
+    page-next-missing) change='del(.[0].data.repository.refs.pageInfo.hasNextPage)';;
     pr-incomplete) change='.[0].data.repository.pullRequests.totalCount=101';;
     pr-files-incomplete) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:101,nodes:[]}}]}';;
     pr-conflict) change='.[0].data.repository.pullRequests={totalCount:1,nodes:[{number:9,headRefName:"other",files:{totalCount:1,nodes:[{path:".github/plugin/marketplace.json",changeType:"MODIFIED"}]}}]}';;
@@ -292,7 +296,7 @@ done
 for fault in duplicate-writer ref-duplicate commit-duplicate signature-duplicate pr-duplicate readback-rest-duplicate readback-gql-duplicate; do
   run_case "$fault is refused" "$fault" true REFUSED
 done
-for fault in repo-foreign repo-node repo-missing ci-pending ci-foreign ci-stale ci-event ci-workflow latest-ci-changed main-stale main-moved main-after-ref baseline-draft baseline-missing baseline-wrong baseline-changed candidate-occupied candidate-field-missing proposal-field-missing tag-missing tag-unknown page-incomplete pr-incomplete pr-files-incomplete pr-conflict branch-occupied malformed trailing writer-other-user writer-role-missing writer-read-role writer-denied writer-after-ref writer-after-commit ref-race commit-fails commit-extra commit-wrong-parent unsigned signature-readback pr-fails readback-fails readback-not-draft readback-wrong-head; do
+for fault in page-cursor-missing page-cursor-malformed page-next-malformed page-next-missing repo-foreign repo-node repo-missing ci-pending ci-foreign ci-stale ci-event ci-workflow latest-ci-changed main-stale main-moved main-after-ref baseline-draft baseline-missing baseline-wrong baseline-changed candidate-occupied candidate-field-missing proposal-field-missing tag-missing tag-unknown page-incomplete pr-incomplete pr-files-incomplete pr-conflict branch-occupied malformed trailing writer-other-user writer-role-missing writer-read-role writer-denied writer-after-ref writer-after-commit ref-race commit-fails commit-extra commit-wrong-parent unsigned signature-readback pr-fails readback-fails readback-not-draft readback-wrong-head; do
   run_case "$fault is refused" "$fault" true REFUSED
 done
 SOURCE=$BASE

@@ -19,7 +19,7 @@ it never establishes completed publication or a verified draft.
 
 ## Prepare locally
 
-Use Bash, Git, and jq 1.6 or later from a complete repository clone. Each release helper derives
+Use Bash, Git, iconv, and jq 1.6 or later from a complete repository clone. Each release helper derives
 Git evidence and output exclusions from the caller's checkout. Inherited Git directory, worktree,
 index, object-store and command-scoped configuration overrides cannot redirect that evidence. Configuration queries must
 complete before an offline result is possible: only Git's no-match status proves an absent
@@ -82,7 +82,16 @@ not guess how to reconcile an independently edited version.
 
 For `NO_RELEASE`, only the plan and notes are emitted; there are no proposed manifest updates.
 Repeated preparation from the same Git objects produces identical files. Existing output paths are
-never reused. Preparation validates manifest shape and parity; full resource/provenance checks
+never reused. Preparation checks that its entered reservation is empty before writing; writes and
+artifact readback stay inside that directory. Movement detected by the directory-identity checks
+refuses success and preserves both the replacement and any partial output for explicit recovery;
+preparation never recursively removes a mutable public output pathname, including after a late
+CI or ref refusal in merged preparation. These observations do not provide an atomic creation
+handle or serialize other processes writing inside the directory. Use a separate new destination
+for each preparation and inspect retained output before recovery.
+Original JSON must preserve its bytes through Unicode validation and contain no unpaired surrogate
+escapes. Valid international text and genuine replacement characters remain supported.
+Preparation validates manifest shape and parity; full resource/provenance checks
 remain the responsibility of `bash scripts/validate-manifests.sh` and the rest of repository CI.
 
 ## Prepare in GitHub Actions

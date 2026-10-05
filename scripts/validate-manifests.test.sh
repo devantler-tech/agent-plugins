@@ -2175,6 +2175,39 @@ for field in name description; do
   done
 done
 
+# Literal whitespace follows the already supported escaped-codepoint policy in
+# every locale. The C locale must not mistake UTF-8 bytes for visible content.
+for field in name description; do
+  for encoding in '\302\205' '\302\240' '\341\232\200' \
+    '\342\200\200' '\342\200\201' '\342\200\202' '\342\200\203' \
+    '\342\200\204' '\342\200\205' '\342\200\206' '\342\200\207' \
+    '\342\200\210' '\342\200\211' '\342\200\212' \
+    '\342\200\250' '\342\200\251' '\342\200\257' '\342\201\237' '\343\200\200'; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A visible description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s: "%b"\n' "$field" "$encoding" >> "$f"
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    LC_ALL=C check_fail "literal Unicode space $encoding in $field is blank in C" "must declare a non-empty '$field'" "$d"
+  done
+  for parser_locale in C C.UTF-8; do
+    d=$(fresh); mkdir -p "$d/plugins/alpha/agents"
+    f="$d/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' '---' 'name: sample' 'description: A visible description.' > "$f"
+    sed "/^$field:/d" "$f" > "$d/header"; mv "$d/header" "$f"
+    printf '%s: "Visible\302\240Unicode"\n' "$field" >> "$f"
+    printf '%s\n' '---' body >> "$f"
+    # shellcheck disable=SC2016 # Literal catalogue tokens.
+    sed 's/`example-skill` | Alpha plugin/`example-skill`, `sample` | Alpha plugin/' "$d/docs/plugins.md" > "$d/table"
+    mv "$d/table" "$d/docs/plugins.md"
+    LC_ALL="$parser_locale" check_pass "visible Unicode space in $field stays usable in $parser_locale" "$d"
+  done
+done
+
 # Transport declarations must survive native process/HTTP argument validation.
 for server in \
   '{"command":"node\u0000"}' \

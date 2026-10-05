@@ -1,8 +1,17 @@
 # Observe the supported scalar/mapping header shape, never claim full YAML validation.
 function trim(s) { sub(/^[[:space:]]+/,"",s); sub(/[[:space:]]+$/,"",s); return s }
-# U+200B alone has no identity text. Preserve the original scalar for provenance
-# checks; presence normalization must never erase a character inside an owner URL.
-function nonblank_text(s) { gsub("\342\200\213"," ",s); return trim(s) != "" }
+# Normalize the same Unicode whitespace observed in escaped scalars for presence
+# only. Preserve the original scalar for provenance; use complete UTF-8 strings
+# so the C and UTF-8 locales agree without partial-byte regex ranges.
+function nonblank_text(s,spaces,blanks,n,i) {
+  spaces="\302\205 \302\240 \341\232\200 " \
+    "\342\200\200 \342\200\201 \342\200\202 \342\200\203 \342\200\204 \342\200\205 " \
+    "\342\200\206 \342\200\207 \342\200\210 \342\200\211 \342\200\212 \342\200\213 " \
+    "\342\200\250 \342\200\251 \342\200\257 \342\201\237 \343\200\200"
+  n=split(spaces,blanks,"[ ]")
+  for (i=1;i<=n;i++) gsub(blanks[i]," ",s)
+  return trim(s) != ""
+}
 # Observe literal controls before the scalar decoder can mark them as text.
 # Match complete UTF-8 strings: byte ranges inside a regex character class are
 # invalid collation characters in GNU awk's UTF-8 locales. Allowed YAML

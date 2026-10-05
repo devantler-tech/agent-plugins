@@ -10,6 +10,14 @@ marketplace_git_context
 . "$here/json-object.lib.sh"
 # Stop preparation without emitting a prepared candidate.
 fail() { printf 'release preparation: %s\n' "$*" >&2; exit 1; }
+directory_identity() {
+  [ -d "$1" ] && [ ! -L "$1" ] || return 1
+  case "$(uname -s)" in
+    Darwin) stat -f '%d:%i' "$1" ;;
+    Linux) stat -c '%d:%i' "$1" ;;
+    *) return 1 ;;
+  esac
+}
 # Describe offline preparation and the explicit Git head selector.
 usage() { printf 'usage: prepare-marketplace-release.sh --base-tag <initial|vX.Y.Z> --output <new-directory> [--head <full-commit>]\n'; }
 base_tag='' output='' head=''
@@ -50,35 +58,63 @@ parent=${parent%.}; parent=${parent%$'\n'}
 parent=$(cd "$parent" && pwd -P && printf '.') || fail 'output parent must exist'
 parent=${parent%.}; parent=${parent%$'\n'}
 name=$(basename "$output" && printf '.') || fail 'output must name a new directory'
+parent_identity=$(directory_identity "$parent") || fail 'cannot identify output parent'
+[[ $parent_identity =~ ^[0-9]+:[0-9]+$ ]] || fail 'invalid output parent identity'
 name=${name%.}; name=${name%$'\n'}
 [[ "$name" != . && "$name" != .. && "$name" != / ]] || fail 'output must name a new directory'
 output="$parent/$name"
-git rev-parse --show-toplevel >/dev/null || fail 'must run inside a Git worktree'
+caller=$(git rev-parse --show-toplevel && printf '.') || fail 'must run inside a Git worktree'
+caller=${caller%.}; caller=${caller%$'\n'}
+caller=$(cd "$caller" && pwd -P && printf '.') || fail 'cannot resolve caller worktree'
+caller=${caller%.}; caller=${caller%$'\n'}
 # Retain one complete NUL census and its producer status before consuming it.
 # Keep this private scratch file separate from the not-yet-authorized output.
 census=$(mktemp) || fail 'cannot retain Git worktrees'
 trap 'rm -f "$census"' EXIT
 git worktree list --porcelain -z > "$census" || fail 'cannot list Git worktrees'
-record=''
+record='' entry='' head_seen=false selector_seen=false bare_seen=false caller_seen=false
+trees=()
 while IFS= read -r -d '' record; do
-  [[ "$record" == 'worktree '* ]] || continue
-  if tree=$(cd "${record#worktree }" 2>/dev/null && pwd -P && printf '.'); then
-    tree=${tree%.}; tree=${tree%$'\n'}
-  else
-    tree=${record#worktree }
-  fi
-  case "$output/" in "$tree"/*) fail 'output must be outside every Git worktree' ;; esac
+  case "$record" in
+    'worktree '*)
+      [ -z "$entry" ] || fail 'worktree census has overlapping entries'
+      entry=${record#worktree }
+      [[ $entry == /* ]] || fail 'worktree census has an invalid path'
+      for known in ${trees[@]+"${trees[@]}"}; do [ "$known" != "$entry" ] || fail 'worktree census repeats a path'; done
+      trees+=("$entry")
+      head_seen=false; selector_seen=false; bare_seen=false
+      if tree=$(cd "$entry" 2>/dev/null && pwd -P && printf '.'); then
+        tree=${tree%.}; tree=${tree%$'\n'}
+      else tree=$entry; fi
+      [ "$tree" != "$caller" ] || caller_seen=true
+      case "$output/" in "$tree"/*) fail 'output must be outside every Git worktree' ;; esac ;;
+    'HEAD '*)
+      [[ -n $entry && $head_seen == false && $bare_seen == false && ${record#HEAD } =~ ^[0-9a-f]{40}$ ]] || fail 'invalid worktree HEAD observation'
+      head_seen=true ;;
+    'branch '*|detached)
+      [[ -n $entry && $head_seen == true && $selector_seen == false && $bare_seen == false ]] || fail 'invalid worktree selector observation'
+      if [[ $record == 'branch '* ]]; then [[ ${record#branch } == refs/heads/?* ]] || fail 'invalid worktree branch'; fi
+      selector_seen=true ;;
+    bare)
+      [[ -n $entry && $head_seen == false && $selector_seen == false && $bare_seen == false ]] || fail 'invalid bare worktree observation'
+      bare_seen=true ;;
+    locked|'locked '*|prunable|'prunable '*)
+      [[ -n $entry ]] || fail 'worktree metadata has no entry' ;;
+    '')
+      [[ -n $entry && ( $bare_seen == true || ( $head_seen == true && $selector_seen == true ) ) ]] || fail 'incomplete worktree entry'
+      entry='' ;;
+    *) fail 'unsupported worktree census record' ;;
+  esac
 done < "$census"
-[ -z "$record" ] || fail 'worktree census contains an unterminated record'
+[[ -z $record && -z $entry && $caller_seen == true ]] || fail 'worktree census is incomplete or omits caller'
 rm -f "$census"
 trap - EXIT
 if [ -e "$output" ] || [ -L "$output" ]; then fail 'output already exists'; fi
-temp=$(mktemp -d "$parent/.marketplace-release.XXXXXX")
-owned_output=false
-# Remove private scratch and only the candidate output owned by this invocation.
+temp=$(mktemp -d /tmp/.marketplace-release.XXXXXX)
+# Independent scratch may be deleted; an entered output is retained on failure
+# for explicit recovery. Never recursively clean a mutable public pathname.
 cleanup() {
   rm -rf "$temp"
-  if [ "$owned_output" = true ]; then rm -rf "$output"; fi
 }
 trap cleanup EXIT
 mkdir "$temp/data" "$temp/candidate"
@@ -136,8 +172,28 @@ if [ -n "$version" ]; then
 fi
 jq -r -L "$here" 'include "marketplace-release"; release_notes' "$temp/candidate/release.json" > "$temp/candidate/RELEASE_NOTES.md"
 # Reserve the destination exclusively only after every source check and rendering step passed.
-mkdir "$output" || fail 'output was concurrently created'
-owned_output=true
-cp -R "$temp/candidate/." "$output/"
-owned_output=false
-printf 'Prepared %s at %s\n' "$(jq -r .status "$output/release.json")" "$output"
+(
+  cd "$parent" || fail 'cannot enter output parent; recovery retained'
+  [[ $(directory_identity .) == "$parent_identity" && $(directory_identity "$parent") == "$parent_identity" ]] ||
+    fail 'output parent moved before reservation; recovery retained'
+  # Relative operands remain in the entered parent even if its public name moves.
+  mkdir "./$name" || fail 'output was concurrently created'
+  reserved=$(directory_identity "./$name") || fail 'cannot identify reserved output; recovery retained'
+  [[ $reserved =~ ^[0-9]+:[0-9]+$ ]] || fail 'invalid reserved output identity; recovery retained'
+  cd "./$name" || fail 'cannot enter reserved output; recovery retained'
+  [[ $(directory_identity .) == "$reserved" && $(directory_identity "$output") == "$reserved" ]] ||
+    fail 'reserved output moved before copy; recovery retained'
+  # A replacement inserted before the first identity observation is not evidence
+  # of an empty reservation. Retain a complete successful inventory before writing.
+  find . -mindepth 1 -maxdepth 1 -print0 > "$temp/reservation-inventory" ||
+    fail 'cannot inventory reserved output; recovery retained'
+  [[ ! -s $temp/reservation-inventory ]] || fail 'reserved output contains unexpected data; recovery retained'
+  cp -R "$temp/candidate/." . || fail 'copy failed; reserved output retained for recovery'
+  # All readback stays relative to the entered directory even if its name moved.
+  diff -r "$temp/candidate" . >/dev/null || fail 'candidate readback differs; recovery retained'
+  status=$(jq -r .status ./release.json) || fail 'candidate status readback failed; recovery retained'
+  [[ $status == CANDIDATE || $status == NO_RELEASE ]] || fail 'candidate status is invalid; recovery retained'
+  [[ $(directory_identity "$parent") == "$parent_identity" && $(directory_identity "$output") == "$reserved" ]] ||
+    fail 'reserved output or parent moved during copy; recovery retained'
+  printf 'Prepared %s at %s\n' "$status" "$output"
+)

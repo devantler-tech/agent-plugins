@@ -360,6 +360,7 @@ bash scripts/generated-write-safety.test.sh # resource refusal and failed batch-
 # uncertain and preserves remote objects for explicit recovery.
 bash scripts/marketplace-caller-context.test.sh # inherited Git selectors cannot redirect caller evidence
 bash scripts/prepare-marketplace-release.test.sh
+bash scripts/release-observation-boundaries.test.sh # original Unicode, census completeness and reserved output identity
 bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exact release-tree binding
 bash scripts/inspect-marketplace-release.test.sh # historical content, occupied tags and caller-state preservation
 bash scripts/check-marketplace-release-remote.test.sh # remote state, pagination and movement; offline forge

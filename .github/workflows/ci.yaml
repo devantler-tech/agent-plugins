@@ -111,6 +111,9 @@ jobs:
       - name: 🧪 Self-test marketplace release preparation
         run: bash scripts/prepare-marketplace-release.test.sh
 
+      - name: 🧪 Verify original release observations and reserved output writes
+        run: bash scripts/release-observation-boundaries.test.sh
+
       - name: 🧪 Self-test marketplace release verification
         run: bash scripts/verify-marketplace-release.test.sh
 

@@ -82,9 +82,13 @@ not guess how to reconcile an independently edited version.
 
 For `NO_RELEASE`, only the plan and notes are emitted; there are no proposed manifest updates.
 Repeated preparation from the same Git objects produces identical files. Existing output paths are
-never reused. Writes and artifact readback stay inside the reserved, entered directory. A moved
-or replaced output refuses success and preserves both the replacement and any partial owned output
-for explicit recovery; preparation never recursively removes a mutable output pathname.
+never reused. Preparation checks that its entered reservation is empty before writing; writes and
+artifact readback stay inside that directory. Movement detected by the directory-identity checks
+refuses success and preserves both the replacement and any partial output for explicit recovery;
+preparation never recursively removes a mutable public output pathname, including after a late
+CI or ref refusal in merged preparation. These observations do not provide an atomic creation
+handle or serialize other processes writing inside the directory. Use a separate new destination
+for each preparation and inspect retained output before recovery.
 Original JSON must preserve its bytes through Unicode validation and contain no unpaired surrogate
 escapes. Valid international text and genuine replacement characters remain supported.
 Preparation validates manifest shape and parity; full resource/provenance checks

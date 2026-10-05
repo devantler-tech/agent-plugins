@@ -244,7 +244,7 @@ jq_filter='
 
 classification=""
 if [ -n "$payload_path" ]; then
-  payload=$(cat "$payload_path" | json_stream_retain_raw) || exit 2
+  payload=$(cat -- "$payload_path" | json_stream_retain_raw) || exit 2
   payload_path=""
 fi
 if ! printf '%s\n' "$payload" | json_stream_unique; then

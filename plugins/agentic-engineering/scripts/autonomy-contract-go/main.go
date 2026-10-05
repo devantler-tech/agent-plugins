@@ -398,7 +398,8 @@ func assess(in Input, now time.Time) Result {
 	}
 	runtimeBound := reportBound(r.Positive) && reportBound(r.Negative) && r.Positive.ID != r.Negative.ID && r.Positive.Record != r.Negative.Record
 	positiveObserved, _ := stamp(r.Positive.Observed)
-	runtimeReady := runtimeBound && !positiveObserved.After(ao) && r.Positive.Result == "pass" && r.Negative.Result == "intercepted" && fresh(r.Positive.Observed, r.Positive.Expires, now) && fresh(r.Negative.Observed, r.Negative.Expires, now)
+	negativeObserved, _ := stamp(r.Negative.Observed)
+	runtimeReady := runtimeBound && !positiveObserved.After(ao) && !negativeObserved.After(ao) && r.Positive.Result == "pass" && r.Negative.Result == "intercepted" && fresh(r.Positive.Observed, r.Positive.Expires, now) && fresh(r.Negative.Observed, r.Negative.Expires, now)
 	for _, e := range []Report{r.Positive, r.Negative} {
 		if reportBound(e) {
 			ex, _ := stamp(e.Expires)

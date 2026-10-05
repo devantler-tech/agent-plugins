@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.1.10 — 2026-10-05
+
+**Fixed** — read-only command admission rejects unresolved quoted special parameters, inspects filter programs after option terminators, and requires Git suppression flags to be actual options. Runtime JSON observations reject unpaired Unicode surrogate escapes before comparing identities.
+
 ## 6.1.9 — 2026-10-05
 
 **Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.27`.

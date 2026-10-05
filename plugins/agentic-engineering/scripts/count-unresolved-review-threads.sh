@@ -81,19 +81,20 @@ query='query($owner:String!,$name:String!,$number:Int!,$endCursor:String){
         pageInfo{hasNextPage endCursor}
       }}}}'
 
+observer_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) || unknown malformed
+# shellcheck source=plugins/agentic-engineering/scripts/json-stream.lib.sh
+. "$observer_dir/json-stream.lib.sh" || unknown malformed
+
 # Capture before parsing: piped straight into jq, a failed read yields an empty stream that
 # `jq -s` turns into a zero.
 if ! pages=$(gh api graphql --paginate \
   -f owner="${repo%%/*}" \
   -f name="${repo#*/}" \
   -F number="$pr" \
-  -f query="$query" 2>/dev/null); then
+  -f query="$query" 2>/dev/null | json_stream_retain_raw); then
   unknown read-failed
 fi
 [ -n "$pages" ] || unknown read-failed
-observer_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) || unknown malformed
-# shellcheck source=plugins/agentic-engineering/scripts/json-stream.lib.sh
-. "$observer_dir/json-stream.lib.sh" || unknown malformed
 printf '%s\n' "$pages" | json_stream_unique || unknown malformed
 
 # Every page must carry a reviewThreads object with an integer totalCount and a node array

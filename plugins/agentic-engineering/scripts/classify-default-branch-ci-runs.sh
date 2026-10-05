@@ -244,6 +244,8 @@ jq_filter='
 
 classification=""
 if [ -n "$payload_path" ]; then
+  # PATH names a file; cat's special '-' operand must never substitute stdin.
+  [[ $payload_path == /* ]] || payload_path="./$payload_path"
   payload=$(cat -- "$payload_path" | json_stream_retain_raw) || exit 2
   payload_path=""
 fi

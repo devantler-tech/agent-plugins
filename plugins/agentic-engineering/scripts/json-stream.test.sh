@@ -70,4 +70,11 @@ for kind in valid valid-max invalid truncated range surrogate overlong five-byte
     fi
   done
 done
+# A literal filename '-' remains a named file, never a substitute stdin producer.
+mkdir "$work/dash"
+printf '%snamed file%s' "$ci_prefix" "$ci_suffix" | jq '.workflow_runs[0].conclusion="failure"' > "$work/dash/-"
+printf '%sstdin%s' "$ci_prefix" "$ci_suffix" > "$work/stdin"
+(cd "$work/dash" && bash "$here/classify-default-branch-ci-runs.sh" --input - < "$work/stdin") > "$work/out"
+IFS=$'\t' read -r workflow conclusion _rest < "$work/out"
+[[ $workflow == 2 && $conclusion == failure ]] || { echo 'named dash input was substituted by stdin' >&2; exit 1; }
 echo 'json-stream: PASS (raw bytes, producer status and EOF uniqueness)'

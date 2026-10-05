@@ -18,7 +18,7 @@
         },
         {
           "path": "scripts/classify-default-branch-ci-runs.sh",
-          "sha256": "ce6ee9522e8f6f783efb248a8374fbbdbf68d0c0d8f7a5d9653fa7d492ab2ea0",
+          "sha256": "9bb0ac5ae3705b7581e1da4a64d962e85a8e9de5a3c87cdc761d333625149de2",
           "executable": true
         },
         {

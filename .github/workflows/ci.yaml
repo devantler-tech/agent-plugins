@@ -116,6 +116,9 @@ jobs:
       - name: 🧪 Self-test validator installation recovery
         run: bash scripts/install-skills-ref.test.sh
 
+      - name: 🧪 Guard consolidated skill-spec validation
+        run: bash scripts/ci-skill-validation-workflow.test.sh
+
       - name: 🧪 Verify marketplace caller checkout isolation
         run: bash scripts/marketplace-caller-context.test.sh
 
@@ -410,44 +413,11 @@ jobs:
           git diff -z --no-renames --name-only "$BASE_SHA...$HEAD_SHA" |
             ./scripts/guard-bundled-skill-edits.sh --null
 
-  discover-skills:
-    name: Discover skills
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      skills: ${{ steps.list.outputs.skills }}
-    steps:
-      - name: 📄 Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: 📂 List skill directories
-        id: list
-        run: |
-          skills=$(find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -printf '%h\n' \
-            | sed 's|^\./||' \
-            | sort \
-            | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$skills"; then
-            echo "::error::Skill discovery produced invalid output."
-            exit 1
-          fi
-          echo "skills=$skills" >> "$GITHUB_OUTPUT"
-          echo "Discovered: $skills"
-
   validate-spec:
-    name: Validate spec (${{ matrix.skill }})
-    needs: discover-skills
-    if: needs.discover-skills.outputs.skills != '[]'
+    name: Validate skill specs
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        skill: ${{ fromJson(needs.discover-skills.outputs.skills) }}
     steps:
       - name: 📄 Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -464,10 +434,28 @@ jobs:
           AGENTSKILLS_REF: 8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3
         run: bash scripts/install-skills-ref.sh
 
-      - name: ✅ Validate ${{ matrix.skill }} against agentskills.io spec
-        env:
-          SKILL: ${{ matrix.skill }}
-        run: skills-ref validate "$SKILL"
+      - name: ✅ Validate every skill against the agentskills.io spec
+        run: |
+          set -euo pipefail
+          inventory=$(mktemp "$RUNNER_TEMP/skill-inventory.XXXXXX")
+          trap 'rm -f "$inventory"' EXIT
+          find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -print0 | sort -z > "$inventory"
+
+          skills=()
+          while IFS= read -r -d '' skill_file; do
+            skills+=("${skill_file%/SKILL.md}")
+          done < "$inventory"
+          if [ "${#skills[@]}" -eq 0 ]; then
+            echo "::error::Skill discovery found no SKILL.md files."
+            exit 1
+          fi
+
+          printf 'Validating %s skill(s).\n' "${#skills[@]}"
+          for skill in "${skills[@]}"; do
+            echo "::group::Validate $skill"
+            skills-ref validate "$skill"
+            echo "::endgroup::"
+          done
 
   retired-repo-links:
     name: Retired repository links
@@ -528,7 +516,7 @@ jobs:
       statuses: read
       pull-requests: read
     timeout-minutes: 5
-    needs: [retired-repo-links, validate-manifests, lint-scripts, check-version-bump, check-bundled-skill-edits, discover-skills, validate-spec]
+    needs: [retired-repo-links, validate-manifests, lint-scripts, check-version-bump, check-bundled-skill-edits, validate-spec]
     if: ${{ always() }}
     steps:
       - uses: devantler-tech/.github/actions/aggregate-job-checks@4b00bd6698af033dc472b39a7e609173fe38dfb1 # v6.0.6
@@ -539,5 +527,4 @@ jobs:
             ${{ needs.lint-scripts.result }}
             ${{ needs.check-version-bump.result }}
             ${{ needs.check-bundled-skill-edits.result }}
-            ${{ needs.discover-skills.result }}
             ${{ needs.validate-spec.result }}

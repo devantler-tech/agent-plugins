@@ -80,6 +80,87 @@ for scenario in valid number missing outside directory empty invalid-frontmatter
   expected=reject; case $scenario in valid|empty) expected=pass ;; esac
   gate "agent-$scenario" "$expected" "$root"
 done
+# Identity text must be usable YAML, rather than merely a nonempty encoded value.
+# Each case runs through the complete gate with both supported identity fields.
+for field in name description; do
+  for scenario in plain quoted-colon plain-colon leading-dash leading-question leading-colon \
+    leading-percent leading-at leading-backtick leading-bracket leading-brace leading-comma \
+    trailing-colon safe-colon safe-dash safe-question safe-leading-colon unicode-colon unicode-dash \
+    unicode-question unicode-leading-indicator unicode-trailing-colon valid-strip valid-keep valid-strip-first valid-inferred valid-empty-lines \
+    valid-leading-blank valid-explicit-tab-blank valid-explicit-tab-content valid-later-tab \
+    valid-explicit-more-indent valid-large-indent block-double-plus block-double-minus block-zero \
+    block-double-digit block-plus-minus block-minus-plus block-small-indent block-dedent \
+    block-oversized-leading-blank block-leading-tab block-leading-tab-content block-small-tab-indent \
+    block-continued-after-comment; do
+    root="$work/yaml-$field-$scenario"; fixture "$root"
+    cp "$root/plugins/alpha/plugin.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
+    mkdir -p "$root/plugins/alpha/agents"
+    value='' body='' expected=reject
+    case "$scenario" in
+      plain) value=sample; expected=pass ;;
+      quoted-colon) value='"alpha: beta"'; expected=pass ;;
+      plain-colon) value='alpha: beta' ;;
+      leading-dash) value='- alpha' ;;
+      leading-question) value='? alpha' ;;
+      leading-colon) value=': alpha' ;;
+      leading-percent) value='%alpha' ;;
+      leading-at) value='@alpha' ;;
+      leading-backtick) value='`alpha' ;;
+      leading-bracket) value=']alpha' ;;
+      leading-brace) value='}alpha' ;;
+      leading-comma) value=',alpha' ;;
+      trailing-colon) value='alpha:' ;;
+      safe-colon) value='alpha:beta'; expected=pass ;;
+      safe-dash) value='-alpha'; expected=pass ;;
+      safe-question) value='?alpha'; expected=pass ;;
+      safe-leading-colon) value=':alpha'; expected=pass ;;
+      unicode-colon) value=$'alpha:\302\240beta'; expected=pass ;;
+      unicode-dash) value=$'-\302\240alpha'; expected=pass ;;
+      unicode-question) value=$'?\302\240alpha'; expected=pass ;;
+      unicode-leading-indicator) value=$'\302\240@alpha'; expected=pass ;;
+      unicode-trailing-colon) value=$'alpha:\302\240'; expected=pass ;;
+      valid-strip) value='|2-'; body='  alpha'; expected=pass ;;
+      valid-keep) value='>+2'; body='  alpha'; expected=pass ;;
+      valid-strip-first) value='|-2'; body='  alpha'; expected=pass ;;
+      valid-inferred) value='>'; body=$'  alpha\n  beta'; expected=pass ;;
+      valid-empty-lines) value='|'; body=$'\n\n  alpha\n\n  beta'; expected=pass ;;
+      valid-leading-blank) value='|'; body=$' \n  alpha'; expected=pass ;;
+      valid-explicit-tab-blank) value='|2'; body=$'  \t\n  alpha'; expected=pass ;;
+      valid-explicit-tab-content) value='|2'; body=$'  \talpha'; expected=pass ;;
+      valid-later-tab) value='|'; body=$'  alpha\n  \tbeta'; expected=pass ;;
+      valid-explicit-more-indent) value='|1'; body=$'  alpha\n beta'; expected=pass ;;
+      valid-large-indent) value='|9'; body='         alpha'; expected=pass ;;
+      block-double-plus) value='|++'; body='  alpha' ;;
+      block-double-minus) value='|--'; body='  alpha' ;;
+      block-zero) value='|0'; body='  alpha' ;;
+      block-double-digit) value='|99'; body='  alpha' ;;
+      block-plus-minus) value='|+-'; body='  alpha' ;;
+      block-minus-plus) value='|-+'; body='  alpha' ;;
+      block-small-indent) value='|9'; body='  alpha' ;;
+      block-dedent) value='|'; body=$'  alpha\n beta' ;;
+      block-oversized-leading-blank) value='|'; body=$'    \n  alpha' ;;
+      block-leading-tab) value='|'; body=$'\t\n  alpha' ;;
+      block-leading-tab-content) value='|'; body=$'  \talpha' ;;
+      block-small-tab-indent) value='|2'; body=$' \t\n  alpha' ;;
+      block-continued-after-comment) value='|'; body=$'  alpha\n# comment\n  beta' ;;
+    esac
+    header="$root/plugins/alpha/agents/sample.agent.md"
+    printf '%s\n' --- > "$header"
+    if [ "$field" = description ]; then printf 'name: sample\n' >> "$header"; fi
+    printf '%s: %s\n' "$field" "$value" >> "$header"
+    if [ -n "$body" ]; then printf '%s\n' "$body" >> "$header"; fi
+    if [ "$field" = name ]; then printf 'description: Example agent.\n' >> "$header"; fi
+    printf '%s\n' --- >> "$header"
+    # shellcheck disable=SC2016 # Backticks are literal catalogue markup.
+    sed 's/`example` |/`example`, `sample` |/' "$root/docs/plugins.md" > "$root/new"
+    mv "$root/new" "$root/docs/plugins.md"
+    gate "yaml-$field-$scenario" "$expected" "$root"
+    if [ "$expected" = reject ] && ! grep -Fq "must declare a non-empty '$field'" "$root/out"; then
+      printf 'FAIL yaml-%s-%s did not identify the malformed identity\n' "$field" "$scenario"
+      fail=$((fail+1))
+    fi
+  done
+done
 # The real desired-state fixture must be valid before ambiguity is introduced;
 # otherwise another schema failure could mask the repeated protected declaration.
 for scenario in healthy duplicate; do

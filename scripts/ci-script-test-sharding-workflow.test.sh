@@ -9,6 +9,7 @@ WORKFLOW=${1:-$HERE/../.github/workflows/ci.yaml}
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
+# Print one named top-level workflow job without consuming the next job.
 job_block() {
   local job=$1 workflow=$2
   awk -v job="$job" '
@@ -18,6 +19,7 @@ job_block() {
   ' "$workflow"
 }
 
+# Verify that every script-test command is assigned once to an independent required shard.
 check_workflow() {
   local workflow=$1 lint marketplace packages required combined failures=0
   lint=$(job_block lint-scripts "$workflow")
@@ -26,6 +28,7 @@ check_workflow() {
   required=$(job_block ci-required-checks "$workflow")
   combined="$lint"$'\n'"$marketplace"$'\n'"$packages"
 
+  # Record a failure when a fixed string occurs a different number of times than required.
   require_count() {
     local description=$1 pattern=$2 expected=$3 text=$4 actual
     actual=$(grep -Fc -- "$pattern" <<<"$text" || true)
@@ -34,6 +37,7 @@ check_workflow() {
       failures=$((failures + 1))
     fi
   }
+  # Record a failure when a forbidden fixed string occurs in the selected text.
   reject() {
     local description=$1 pattern=$2 text=$3
     if grep -Fq -- "$pattern" <<<"$text"; then
@@ -114,6 +118,7 @@ check_workflow() {
   [ "$failures" -eq 0 ]
 }
 
+# Prove that a deliberately damaged workflow is rejected by the contract.
 expect_rejected() {
   local label=$1 workflow=$2
   if check_workflow "$workflow" >"$WORK/$label.log" 2>&1; then

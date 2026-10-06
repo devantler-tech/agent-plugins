@@ -223,6 +223,9 @@ jobs:
       - name: 🧪 Verify complete packaged resource discovery
         run: bash scripts/package-discovery.test.sh
 
+      - name: 🧪 Verify packaged desired-state file boundaries
+        run: bash scripts/desired-state-boundaries.test.sh
+
       - name: 🧪 Self-test the desired-state digest generator
         # Proves the generator writes exactly what validate-manifests.sh demands — a
         # generator that disagreed with the gate would leave a sync branch just as

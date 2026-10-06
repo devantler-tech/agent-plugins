@@ -3,9 +3,9 @@ description: How a meta-engineer improves an autonomous AI engineer from the OUT
 license: Apache-2.0
 metadata:
     github-path: agent-improvement
-    github-ref: refs/tags/v1.21.29
+    github-ref: refs/tags/v1.21.36
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: c5d8b7638564bcd58eed8f1c40aff283151b7e91
+    github-tree-sha: c3d9e203952546c6d40e7d328ee13536ce5dab73
 name: agent-improvement
 ---
 # Agent-improvement loop

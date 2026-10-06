@@ -400,8 +400,11 @@ optional. Filesystem inventories preserve complete filenames with NUL-delimited 
 
 Agent identity and installed-source checks share a minimum frontmatter observer. It requires a
 closed header, unique top-level keys, text-valued agent identity, and a usable GitHub repository at
-the direct `metadata.github-repo` key. Unsupported header syntax is refused; this observer does not
-replace the skill specification validator. The bundled-edit guard uses the same source observation
+the direct `metadata.github-repo` key. Plain identity values reject reserved YAML indicators and
+mapping separators. Literal and folded identity blocks require a valid single indentation/chomping
+declaration and content meeting the declared or inferred indentation. Unsupported header syntax is
+refused; this observer does not replace the skill specification validator. The bundled-edit guard uses
+the same source observation
 at the base commit and preserves whole path components, including embedded and trailing newlines. Body examples
 never supply provenance, and malformed base provenance remains UNKNOWN.
 

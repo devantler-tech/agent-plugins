@@ -1,9 +1,35 @@
 package main
 
 import (
+	"errors"
+	"io"
 	"strings"
 	"testing"
 )
+
+type failedObservation struct{}
+
+func (failedObservation) Read([]byte) (int, error) {
+	return 0, errors.New("observation failed after plausible output")
+}
+
+func TestReadFailureCannotClearCompleteLookingOutput(t *testing.T) {
+	input := io.MultiReader(strings.NewReader(`["https://example.invalid/mcp"]`), failedObservation{})
+	if err := validateURLs(input); err == nil {
+		t.Fatal("a failed observation must refuse even after a complete-looking array")
+	}
+}
+
+func TestObservationBudget(t *testing.T) {
+	// A complete array exactly at the documented budget remains observable.
+	input := "[]" + strings.Repeat(" ", (8<<20)-2)
+	if err := validateURLs(strings.NewReader(input)); err != nil {
+		t.Fatalf("complete observation at the budget was refused: %v", err)
+	}
+	if err := validateURLs(strings.NewReader(input + " ")); err == nil {
+		t.Fatal("an over-budget observation must not report success")
+	}
+}
 
 func TestRemoteURLSyntax(t *testing.T) {
 	t.Setenv("SERVER_URL", "ftp://must-not-be-read.invalid")

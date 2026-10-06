@@ -381,7 +381,7 @@ bash scripts/marketplace-publication-workflow.test.sh # actual workflow authoriz
 bash scripts/propose-marketplace-release.test.sh # signed draft creation and complete readback; offline forge
 bash scripts/marketplace-proposal-workflow.test.sh # default-off proposal and CI dispatch boundaries
 
-# 2. Validate each bundled skill against the agentskills.io spec (the matrixed CI check). Pin to the
+# 2. Validate each bundled skill against the agentskills.io spec (the consolidated CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
 AGENTSKILLS_REF=8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3 bash scripts/install-skills-ref.sh
 find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -printf '%h\n' | while read -r d; do skills-ref validate "$d"; done
@@ -412,7 +412,7 @@ at the base commit and preserves whole path components, including embedded and t
 never supply provenance, and malformed base provenance remains UNKNOWN.
 
 The required gate is the aggregated **`CI - Required Checks`** job (validate-manifests +
-discover-skills + validate-spec); `actionlint` above is a local-only convenience, not a CI gate. Never
+validate-spec); `actionlint` above is a local-only convenience, not a CI gate. Never
 weaken a check to pass — fix the root cause.
 
 **Adding a gate does not retroactively apply it to open PRs — the recheck workflow is what does.**

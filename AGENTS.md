@@ -232,6 +232,9 @@ plugin membership) is authored here.
    A plugin may additionally carry ancillary `resources/*.desired-state.json` documents for human
    copy-paste onboarding. They do not satisfy the minimum auto-discovered-resource requirement and must
    be linked from the plugin README; `validate-manifests.sh` enforces their provider-neutral contract.
+   Desired-state files and their `resources/` parents must be regular packaged files and directories,
+   without symlinks. Run `bash scripts/desired-state-boundaries.test.sh` for complete-package refusal
+   cases, including ancillary files outside the canonical onboarding document.
 3. **agentskills.io spec.** Every bundled `SKILL.md` must validate against the
    [`agentskills.io`](https://agentskills.io) spec — CI validates each discovered skill in a matrix.
 4. **Tool-neutral.** Keep names, descriptions, and README framing cross-tool (VS Code / Copilot CLI /

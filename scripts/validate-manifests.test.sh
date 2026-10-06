@@ -1943,8 +1943,8 @@ exec "$REAL_GREP" "$@"
 EOF
 cat > "$WORK/inventory-bin/find" <<'EOF'
 #!/usr/bin/env bash
-case "$INVENTORY_SCOPE:${5:-}" in
-  desired-state:'*/resources/*.desired-state.json'|provenance:'*/skills/*/SKILL.md')
+case "$INVENTORY_SCOPE:${3:-}:${5:-}" in
+  desired-state:'*/resources/*.desired-state.json':*|desired-state:*:'*/resources/*.desired-state.json'|provenance:*:'*/skills/*/SKILL.md')
     "$REAL_FIND" "$@" > "$INVENTORY_CAPTURE.full" || exit 8
     if [ "$INVENTORY_OUTPUT" = partial ]; then
       # The current guard requests NUL records; preserve the original guard's

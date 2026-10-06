@@ -623,9 +623,20 @@ validate_desired_state_resources() {
   local -a asset_components
   local entrypoint_sha256 actual_entrypoint_sha256
   local portfolio_surveyor_sha256 actual_portfolio_surveyor_sha256
+  # A linked resources parent is invisible to find's non-following traversal.
+  # Retain the direct parent census independently, including non-directories.
+  capture_nul_inventory resource-parents 'desired-state resource parents' \
+    find plugins -mindepth 2 -maxdepth 2 -name resources -print0 || return 1
+  while IFS= read -r -d '' resource; do
+    if [ ! -d "$resource" ] || [ -L "$resource" ]; then
+      echo "::error::$resource: must be a regular packaged resources directory"
+      return 1
+    fi
+  done < "$inventory_dir/resource-parents"
   capture_nul_inventory desired-state 'desired-state resources' \
-    find plugins -type f -path '*/resources/*.desired-state.json' -print0 || return 1
+    find plugins -path '*/resources/*.desired-state.json' -print0 || return 1
   local canonical_resource="plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
+  local canonical_seen=0
   local delivery_guardrail="Write-capable roles own selected engineering work from claim through exact-head review and merge; issue-only handoff is allowed only for a named external blocker or missing authority."
   local version_controlled_delivery="Version-controlled definition surfaces are delivered by draft pull request and owned through exact-head review and merge."
   local runtime_local_delivery="Runtime-local definition surfaces are delivered in place: back up the current state, apply the change, validate it, and record the reversible before/after evidence."
@@ -650,8 +661,11 @@ validate_desired_state_resources() {
   local portfolio_survey_classifier_argv_contract="**Invoke the classifier only in its flag form, by its resolved installed path:** \`<installed plugin>/scripts/classify-default-branch-ci-runs.sh --repo OWNER/REPO --branch BRANCH --head-sha FULL_SHA\`. The helper and the read-only guard accept nothing else: the guard admits only that exact installed sibling path — never a bare basename, a \`PATH\` lookup, or a relative \`../scripts/\` form — and a positional \`OWNER/REPO BRANCH SHA\` is denied as \`not the guarded remote-mode shape\` while the helper itself exits 2 on it, so every executable invocation must carry the resolved path and all three flags."
 
   if [ -d plugins/agentic-engineering ]; then
-    if [ ! -f "$canonical_resource" ]; then
+    if [ ! -e "$canonical_resource" ] && [ ! -L "$canonical_resource" ]; then
       echo "::error::$canonical_resource: missing canonical agentic desired-state resource"
+      failed=1
+    elif ! regular_packaged_file "$canonical_resource"; then
+      echo "::error::$canonical_resource: must be a regular packaged desired-state file"
       failed=1
     elif jq -e . "$canonical_resource" > /dev/null 2>&1 \
       && ! jq -e '.kind == "AgenticEngineeringDesiredState"' "$canonical_resource" > /dev/null; then
@@ -662,6 +676,12 @@ validate_desired_state_resources() {
 
   while IFS= read -r -d '' resource; do
     resource_failed=0
+    if [ "$resource" = "$canonical_resource" ]; then canonical_seen=1; fi
+    if ! regular_packaged_file "$resource"; then
+      echo "::error::$resource: must be a regular packaged desired-state file"
+      failed=1
+      continue
+    fi
     if ! json_object_unique "$resource"; then
       echo "::error::$resource: not valid JSON"
       failed=1
@@ -1507,6 +1527,10 @@ validate_desired_state_resources() {
       echo "✓ desired state $resource"
     fi
   done < "$inventory_dir/desired-state"
+  if [ -d plugins/agentic-engineering ] && [ "$canonical_seen" -ne 1 ]; then
+    echo "::error::$canonical_resource: canonical desired-state resource was not enumerated"
+    failed=1
+  fi
   return "$failed"
 }
 

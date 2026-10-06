@@ -34,6 +34,41 @@ check stdio pass '{"mcpServers":{"test-mcp":{"command":"tool","args":["serve", "
 # shellcheck disable=SC2016 # This is client configuration data, never shell expansion.
 check http pass '{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.invalid/mcp","headers":{"Authorization":"Bearer ${TOKEN}"}}}}'
 check sse pass '{"mcpServers":{"test-mcp":{"type":"sse","url":"https://example.invalid/events"}}}'
+check http-local pass '{"mcpServers":{"test-mcp":{"type":"http","url":"http://localhost:8080/mcp"}}}'
+check ipv6 pass '{"mcpServers":{"test-mcp":{"type":"http","url":"https://[2001:db8::1]:8443/mcp"}}}'
+# shellcheck disable=SC2016 # These are retained client templates, never shell substitutions.
+check ipv6-variable pass '{"mcpServers":{"test-mcp":{"type":"http","url":"https://[${IPV6_ADDR}]:8443/mcp"}}}'
+# shellcheck disable=SC2016
+check escape-variable pass '{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.invalid/%${HEX_PAIR}"}}}'
+GOOS=linux GOARCH=amd64 GOCACHEPROG=/does-not-exist check inherited-go-selectors pass '{"mcpServers":{"test-mcp":{"type":"http","url":"https://[2001:db8::1]:8443/mcp"}}}'
+check ipv6-zone pass '{"mcpServers":{"test-mcp":{"type":"sse","url":"http://[fe80::1%25en0]/events"}}}'
+check escaped-url pass '{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.invalid/a%20b?token=a%26b#section"}}}'
+# shellcheck disable=SC2016 # Client substitutions must remain literal and unexpanded.
+check variable-url pass '{"mcpServers":{"test-mcp":{"type":"http","url":"${SERVER_URL}"}}}'
+# shellcheck disable=SC2016
+check variable-parts pass '{"mcpServers":{"test-mcp":{"type":"http","url":"https://${HOST}:${PORT}/mcp/${PATH}?token=${TOKEN}"}}}'
+# shellcheck disable=SC2016
+check variable-defaults pass '{"mcpServers":{"test-mcp":{"type":"sse","url":"${SCHEME:-https}://${HOST:-example.invalid}/events"}}}'
+# shellcheck disable=SC2016
+check variable-base-default pass '{"mcpServers":{"test-mcp":{"type":"http","url":"${BASE_URL:-https://example.invalid}/mcp"}}}'
+check unclosed-host reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://["}}}'
+check invalid-ipv6 reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://[not-an-address]/mcp"}}}'
+check invalid-path-escape reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.invalid/%zz"}}}'
+check invalid-query-escape reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.invalid/mcp?key=%zz"}}}'
+check incomplete-escape reject '{"mcpServers":{"test-mcp":{"type":"sse","url":"https://example.invalid/%"}}}'
+check missing-host reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https:///mcp"}}}'
+check relative-url reject '{"mcpServers":{"test-mcp":{"type":"http","url":"/mcp"}}}'
+check opaque-url reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https:example.invalid/mcp"}}}'
+check unsupported-scheme reject '{"mcpServers":{"test-mcp":{"type":"http","url":"ftp://example.invalid/mcp"}}}'
+check invalid-port reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.invalid:banana/mcp"}}}'
+check out-of-range-port reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.invalid:65536/mcp"}}}'
+check raw-control reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.invalid/mcp\n"}}}'
+# shellcheck disable=SC2016
+check invalid-url-default reject '{"mcpServers":{"test-mcp":{"type":"http","url":"${SERVER_URL:-https://[}"}}}'
+# shellcheck disable=SC2016
+check invalid-literal-beside-variable reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://${HOST}/%zz"}}}'
+# shellcheck disable=SC2016
+check unfinished-variable reject '{"mcpServers":{"test-mcp":{"type":"http","url":"https://${HOST/mcp"}}}'
 check explicit-stdio pass '{"mcpServers":{"test-mcp":{"type":"stdio","command":"tool","args":[],"env":{}}}}'
 check server-array reject '{"mcpServers":[{"command":"tool"}]}' 0
 check server-scalar reject '{"mcpServers":"tool"}'

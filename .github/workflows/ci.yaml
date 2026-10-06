@@ -119,6 +119,74 @@ jobs:
       - name: 🧪 Guard consolidated skill-spec validation
         run: bash scripts/ci-skill-validation-workflow.test.sh
 
+      - name: 🧪 Guard complete script-test sharding
+        run: bash scripts/ci-script-test-sharding-workflow.test.sh
+
+      - name: 🧪 Self-test the open-PR recheck
+        # Proves recheck-open-prs.sh re-triggers each open PR in the one order that is safe
+        # (close BEFORE reopen), never leaves a PR closed when a step fails mid-sequence,
+        # restores an armed auto-merge without arming one that was not, and fails closed on
+        # an unparseable listing rather than reading it as "no open PRs". Hermetic: `gh` is
+        # stubbed on PATH, so nothing reaches the network or touches a real pull request.
+        run: ./scripts/recheck-open-prs.test.sh
+
+      - name: 🧪 Verify PR recheck observations and recovery
+        env:
+          RECHECK_OBSERVATION_ARTIFACT_DIR: ${{ runner.temp }}/recheck-observation-recovery
+        run: bash scripts/recheck-open-prs-observations.test.sh
+
+      - name: 📦 Verify hosted recovery artifact collection
+        if: ${{ always() }}
+        # Synthetic PR settings from the hermetic test exercise the same collection as the caller.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: recheck-recovery-test-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/recheck-observation-recovery/**/rearm/**
+            ${{ runner.temp }}/recheck-observation-recovery/**/closed/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 🧪 Self-test head-checked PR base refreshes
+        run: bash scripts/recheck-open-prs-base-refresh.test.sh
+
+      - name: 🧪 Self-test changelog generation and publication checks
+        run: bash scripts/plugin-changelog.test.sh
+
+      - name: 🧪 Verify changelog observation and recovery boundaries
+        run: bash scripts/plugin-changelog-boundaries.test.sh
+
+      - name: 🧪 Verify release artifact identity and write boundaries
+        run: bash scripts/plugin-changelog-release-boundaries.test.sh
+
+      - name: 🧪 Verify updater dispatch scopes
+        run: bash scripts/skill-update-scope.test.sh
+
+  test-marketplace:
+    name: Test marketplace automation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📄 Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: 🔧 Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: 📦 Install the locked Markdown parser
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: 🔧 Set up the minimum supported Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.22.12"
+          cache: false
+
       - name: 🧪 Verify marketplace caller checkout isolation
         run: bash scripts/marketplace-caller-context.test.sh
 
@@ -169,45 +237,30 @@ jobs:
           jq '{login: .data.viewer.login}' "$RUNNER_TEMP/native-proposal-identity.json"
           jq -e '.data.viewer.login == "github-actions[bot]"' "$RUNNER_TEMP/native-proposal-identity.json"
 
-      - name: 🧪 Self-test the open-PR recheck
-        # Proves recheck-open-prs.sh re-triggers each open PR in the one order that is safe
-        # (close BEFORE reopen), never leaves a PR closed when a step fails mid-sequence,
-        # restores an armed auto-merge without arming one that was not, and fails closed on
-        # an unparseable listing rather than reading it as "no open PRs". Hermetic: `gh` is
-        # stubbed on PATH, so nothing reaches the network or touches a real pull request.
-        run: ./scripts/recheck-open-prs.test.sh
-
-      - name: 🧪 Verify PR recheck observations and recovery
-        env:
-          RECHECK_OBSERVATION_ARTIFACT_DIR: ${{ runner.temp }}/recheck-observation-recovery
-        run: bash scripts/recheck-open-prs-observations.test.sh
-
-      - name: 📦 Verify hosted recovery artifact collection
-        if: ${{ always() }}
-        # Synthetic PR settings from the hermetic test exercise the same collection as the caller.
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+  test-packages:
+    name: Test packaged resources
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 📄 Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          name: recheck-recovery-test-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/recheck-observation-recovery/**/rearm/**
-            ${{ runner.temp }}/recheck-observation-recovery/**/closed/**
-          if-no-files-found: error
-          retention-days: 14
+          persist-credentials: false
 
-      - name: 🧪 Self-test head-checked PR base refreshes
-        run: bash scripts/recheck-open-prs-base-refresh.test.sh
+      - name: 🔧 Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
 
-      - name: 🧪 Self-test changelog generation and publication checks
-        run: bash scripts/plugin-changelog.test.sh
+      - name: 📦 Install the locked Markdown parser
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: 🧪 Verify changelog observation and recovery boundaries
-        run: bash scripts/plugin-changelog-boundaries.test.sh
-
-      - name: 🧪 Verify release artifact identity and write boundaries
-        run: bash scripts/plugin-changelog-release-boundaries.test.sh
-
-      - name: 🧪 Verify updater dispatch scopes
-        run: bash scripts/skill-update-scope.test.sh
+      - name: 🔧 Set up the minimum supported Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.22.12"
+          cache: false
 
       - name: 🧪 Self-test the manifest guard
         # Proves validate-manifests.sh PASSES a consistent fixture and FAILS each
@@ -516,7 +569,7 @@ jobs:
       statuses: read
       pull-requests: read
     timeout-minutes: 5
-    needs: [retired-repo-links, validate-manifests, lint-scripts, check-version-bump, check-bundled-skill-edits, validate-spec]
+    needs: [retired-repo-links, validate-manifests, lint-scripts, test-marketplace, test-packages, check-version-bump, check-bundled-skill-edits, validate-spec]
     if: ${{ always() }}
     steps:
       - uses: devantler-tech/.github/actions/aggregate-job-checks@4b00bd6698af033dc472b39a7e609173fe38dfb1 # v6.0.6
@@ -525,6 +578,8 @@ jobs:
             ${{ needs.retired-repo-links.result }}
             ${{ needs.validate-manifests.result }}
             ${{ needs.lint-scripts.result }}
+            ${{ needs.test-marketplace.result }}
+            ${{ needs.test-packages.result }}
             ${{ needs.check-version-bump.result }}
             ${{ needs.check-bundled-skill-edits.result }}
             ${{ needs.validate-spec.result }}

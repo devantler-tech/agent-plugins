@@ -228,7 +228,7 @@ validate_marketplace_renames() {
 # non-empty '.mcpServers' object, each server carrying a 'command' (stdio transport)
 # or a 'url' (remote transport).
 validate_mcp_json() {
-  local mcp="$1" document
+  local mcp="$1" document remote_urls
   if ! document=$(cat -- "$mcp" | json_source_retain) || ! jq -es 'length == 1 and (.[0] | type == "object")' <<< "$document" > /dev/null 2>&1; then
     echo "::error::$mcp: not valid JSON"
     return 1
@@ -278,6 +278,21 @@ validate_mcp_json() {
   ' <<< "$document" > /dev/null; then
     echo "::error::$mcp: invalid or missing a 'command' (stdio) or 'url' (remote), transport, arguments, environment or headers"
     return 1
+  fi
+  if ! remote_urls=$(jq -c '[.mcpServers[] | select(has("url")) | .url]' <<< "$document"); then
+    echo "::error::$mcp: cannot completely observe remote MCP URLs"; return 1
+  fi
+  if [ "$remote_urls" != '[]' ]; then
+    if [ ! -x "$inventory_dir/mcp-url-validator" ]; then
+      if ! GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
+        GOOS='' GOARCH='' GOCACHEPROG='' GOTMPDIR="$inventory_dir" \
+        go build -o "$inventory_dir/mcp-url-validator" "$validator_dir/mcp-url-go/main.go"; then
+        echo "::error::$mcp: could not build the offline remote MCP URL validator"; return 1
+      fi
+    fi
+    if ! "$inventory_dir/mcp-url-validator" <<< "$remote_urls"; then
+      echo "::error::$mcp: malformed remote MCP URL"; return 1
+    fi
   fi
   return 0
 }

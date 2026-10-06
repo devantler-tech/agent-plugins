@@ -33,6 +33,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: 🔧 Set up the minimum supported Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.22.12"
+          cache: false
+
       - name: ✅ Validate manifests
         # Single source of truth in scripts/validate-manifests.sh (documented in
         # AGENTS.md, self-tested in the lint-scripts job) — no inline/doc drift.
@@ -87,6 +93,11 @@ jobs:
         run: |
           GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
             go test scripts/gh-json-go/main.go scripts/gh-json-go/main_test.go
+
+      - name: 🧪 Self-test offline remote MCP URL validation
+        run: |
+          GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
+            go test scripts/mcp-url-go/main.go scripts/mcp-url-go/main_test.go
 
       - name: 🧪 Self-test the version-bump tools
         # Proves check-plugin-version-bump.sh PASSES what it must not block (a bumped

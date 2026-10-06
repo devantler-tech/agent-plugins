@@ -219,9 +219,14 @@ plugin membership) is authored here.
    Server names retain underscores, dots and Unicode; whitespace, controls, backticks and table
    delimiters are refused because the catalogue cannot represent them unambiguously.
    MCP configuration is one unambiguous JSON object with a nonempty named server map.
-   Each server selects a nonblank string command (omitted type or `stdio`) or a nonblank URL
-   with type `http` or `sse`. Optional arguments are string arrays; environment and header
-   values are named string maps. Literal variable references are retained without expansion.
+   Each server selects a nonblank string command (omitted type or `stdio`) or an absolute HTTP(S)
+   URL with type `http` or `sse`. Remote URL validation requires Go ≥1.22 and uses its standard
+   URL/HTTP parsers, with explicit percent-escape, IPv6 and port checks. The offline validator
+   compiles once per package validation; it downloads no modules and connects to no endpoint.
+   Optional arguments are string arrays; environment and header values are named string maps.
+   Documented `${VAR}` and `${VAR:-default}` URL references retain their source bytes. Neutral
+   syntax witnesses stand in for unresolved variables; literal defaults are checked, while actual
+   runtime values and credential validity remain unobserved. No environment values are read.
    Run `bash scripts/mcp-boundaries.test.sh` with the manifest tests.
    An automatically discovered `agents/` directory holds ≥1 `agents/*.agent.md` —
    the `.agent.md` suffix is REQUIRED (VS Code/Copilot discover agents by it; a bare `.md` is
@@ -333,6 +338,9 @@ npm ci --ignore-scripts --no-audit --no-fund
 #    desired-state resources, and skill provenance — the exact checks CI's
 #    "Validate manifests" job runs.
 ./scripts/validate-manifests.sh
+# Remote MCP URL syntax uses the repository-local Go helper (Go ≥1.22, standard library only).
+GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
+  go test scripts/mcp-url-go/main.go scripts/mcp-url-go/main_test.go
 
 bash plugins/agentic-engineering/scripts/assess-autonomy.test.sh # optional copied consumer; always assessment-only
 GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local go test ./plugins/agentic-engineering/scripts/autonomy-contract-go

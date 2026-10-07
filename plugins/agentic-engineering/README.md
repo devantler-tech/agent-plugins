@@ -37,8 +37,8 @@ drift, and dispatch failures that no single run can see.
 
 ### Matt Pocock's engineering techniques
 
-Six supplemental skills are curated from [Matt Pocock's skills](https://github.com/mattpocock/skills).
-They add focused discovery, design, prototyping, testing and debugging techniques to the core
+Five supplemental skills are curated from [Matt Pocock's skills](https://github.com/mattpocock/skills).
+They add focused discovery, design, prototyping and testing techniques to the core
 delivery workflow. Each complete skill directory retains its native `gh skill` source metadata and
 supporting resources; normal upstream updates remain enabled.
 
@@ -49,12 +49,11 @@ supporting resources; normal upstream updates remain enabled.
 | [`codebase-design`](skills/codebase-design/SKILL.md) | Design small interfaces that hide useful complexity and expose meaningful test seams. |
 | [`prototype`](skills/prototype/SKILL.md) | Answer a design question with a throwaway logic demo or alternative UI layouts. |
 | [`tdd`](skills/tdd/SKILL.md) | Build behavior through one failing test and one implementation slice at a time. |
-| [`diagnosing-bugs`](skills/diagnosing-bugs/SKILL.md) | Build a reproducible failure signal, minimise it, test hypotheses and verify the fix. |
 
 Select a skill through the runtime's native skill picker or invocation mechanism. Where plugin
 skills use qualified names, the name is `agentic-engineering:<skill>`; for example,
 `agentic-engineering:grilling`. The TDD skill's shared `codebase-design` reference and its design
-guides are included. The debugging reproduction template and both prototype guides are included too.
+guides are included. Both prototype guides are included too.
 
 These techniques supplement the engineer rather than introduce another operating contract. The
 consumer's canonical `AGENTS.md`, existing authorization and core delivery rules govern repository
@@ -69,6 +68,8 @@ experimental skills and separate PR/review policies. Those would introduce compe
 or lifecycle conventions. Entry points whose upstream frontmatter is incompatible with this
 marketplace's required skill-spec validator are also excluded; upstream skills are never rewritten
 to bypass that gate.
+`diagnosing-bugs` is also excluded: its Bash template has no adjacent self-test, which this
+marketplace requires for bundled helpers. Its upstream tree is not modified to add one.
 
 The imported material is Copyright (c) 2026 Matt Pocock and licensed under MIT. The complete upstream
 copyright and permission notice is distributed in

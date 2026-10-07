@@ -7,3 +7,6 @@ frontmatter_has_value() {
 frontmatter_repository() {
   awk -v mode=repository -f "$FRONTMATTER_PARSER"
 }
+frontmatter_metadata() {
+  awk -v mode=metadata -v field="$2" -f "$FRONTMATTER_PARSER" "$1"
+}

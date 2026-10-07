@@ -21,6 +21,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.2.0 — 2026-10-07
+
+**Added** — two MIT-licensed skills from `mattpocock/skills` at `refs/tags/v1.3.1`:
+`grilling` and `prototype`.
+Complete upstream resources and native update provenance are retained. The plugin includes Matt
+Pocock's copyright and MIT permission notice and documents how the techniques supplement the
+existing consumer contract.
+
+**Fixed** — required package validation binds the distributed notice to each imported skill's
+recorded upstream tree and source commit. A changed notice, moved source or failed public read
+refuses an update until its provenance and licensing have been reviewed.
+
 ## 6.1.14 — 2026-10-07
 
 **Fixed** — the portfolio surveyor reads an Advance candidate's labels in its existing blocker and

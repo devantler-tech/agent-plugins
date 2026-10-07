@@ -3,10 +3,62 @@ package main
 import (
 	"go/ast"
 	"go/token"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 )
+
+func TestYAMLGuidance(t *testing.T) {
+	tests := []struct {
+		name, source string
+		want         []string
+	}{
+		{"native metadata", "interface:\n  display_name: \"Codebase Design\"\n  short_description: Vocabulary for deep-module design\n", []string{"interface", "display_name", "Codebase Design", "short_description", "Vocabulary for deep-module design"}},
+		{"escaped prompt", `prompt: "gh pr view --json mer\u0067ed"`, []string{"prompt", "gh pr view --json merged"}},
+		{"single quotes", `prompt: 'gh pr view --json ''merged'''`, []string{"prompt", "gh pr view --json 'merged'"}},
+		{"literal prompt", "prompt: |-\n  gh pr view --json\n  merged\n", []string{"prompt", "gh pr view --json\nmerged"}},
+		{"nested siblings", "a:\n  prompt: one\nb:\n  prompt: two\n", []string{"a", "prompt", "one", "b", "prompt", "two"}},
+		{"inline comment", "prompt: safe # gh pr view --json merged\n", []string{"prompt", "# gh pr view --json merged", "safe"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parts, err := yamlGuidance([]byte(test.source))
+			if err != nil || !reflect.DeepEqual(parts, test.want) {
+				t.Fatalf("guidance=%q, want=%q, error=%v", parts, test.want, err)
+			}
+		})
+	}
+}
+
+func TestYAMLIncompleteObservation(t *testing.T) {
+	for _, source := range []string{
+		"prompt: safe\nprompt: safe\n",
+		"prompt: safe\n\"pro\\u006dpt\": safe\n",
+		"interface:\n  prompt: safe\n prompt: safe\n",
+		"prompt: safe\n  continued\n",
+		"prompt: safe\n  nested: hidden\n",
+		"prompt: \"unterminated\n",
+		"prompt: [\"--json\", \"merged\"]\n",
+		"prompt: &anchor safe\n",
+		"prompt: *anchor\n",
+		"prompt: !tag safe\n",
+		"prompt: >\n  folded\n",
+		"prompt: |2\n  explicit indent\n",
+		"prompt: \"mer\\x67ed\"\n",
+		"interface:\n\tprompt: safe\n",
+		"prompt: \x00\n",
+		"---\nprompt: safe\n",
+		"prompt: {nested: hidden}\n",
+		"prompt: ? complex key\n",
+		"prompt: -\n",
+	} {
+		parts, err := yamlGuidance([]byte(source))
+		if err == nil || parts != nil {
+			t.Fatalf("incomplete YAML %q returned guidance=%q, error=%v", source, parts, err)
+		}
+	}
+}
 
 func TestGuidance(t *testing.T) {
 	tests := []struct {

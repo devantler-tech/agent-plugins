@@ -21,7 +21,7 @@ Three agents:
 - **`agent-improver`** — a meta-engineer that evaluates deployed instances and improves their shared
   definition from evidence.
 
-Six skills:
+Six core skills:
 
 - **`portfolio-maintenance`** — the autonomous run loop and portfolio operating discipline.
 - **`product-engineering`** — strategy, issue delivery, quality, performance, and secure product
@@ -34,6 +34,50 @@ Six skills:
 `self-improvement` and `agent-improvement` are complementary. The former lets one run bank and verify
 its own learnings. The latter is an external observer that can identify recurrence, cross-instance
 drift, and dispatch failures that no single run can see.
+
+### Matt Pocock's engineering techniques
+
+Two supplemental skills are curated from [Matt Pocock's skills](https://github.com/mattpocock/skills).
+They add focused discovery and prototyping techniques to the core
+delivery workflow. Each complete skill directory retains its native `gh skill` source metadata and
+supporting resources; normal upstream updates remain enabled.
+
+| Skill | Use it for |
+|---|---|
+| [`grilling`](skills/grilling/SKILL.md) | Stress-test a plan through a decision-tree interview when the user asks to explore it. |
+| [`prototype`](skills/prototype/SKILL.md) | Answer a design question with a throwaway logic demo or alternative UI layouts. |
+
+Select a skill through the runtime's native skill picker or invocation mechanism. Where plugin
+skills use qualified names, the name is `agentic-engineering:<skill>`; for example,
+`agentic-engineering:grilling`. Both prototype guides are included.
+
+These techniques supplement the engineer rather than introduce another operating contract. The
+consumer's canonical `AGENTS.md`, existing authorization and core delivery rules govern repository
+scope, privacy, tooling, delegation, issue handling, tests, review and merge.
+Prototypes stay separate from production delivery and do not
+waive its checks. Interview skills serve user-requested design discussions, not unattended dispatches.
+
+The bundle excludes Matt's setup and Git hooks, tracker-specific triage/spec/implementation flows,
+experimental skills and separate PR/review policies. Those would introduce competing configuration
+or lifecycle conventions. Entry points whose upstream frontmatter is incompatible with this
+marketplace's required skill-spec validator are also excluded; upstream skills are never rewritten
+to bypass that gate.
+`diagnosing-bugs` is also excluded: its Bash template has no adjacent self-test, which this
+marketplace requires for bundled helpers. Its upstream tree is not modified to add one.
+`tdd` is excluded because its review skill dependency is not bundled; `domain-modeling` is
+excluded because its fixed documentation paths can conflict with consumer conventions.
+`codebase-design` is deferred because its alternative-design guide assumes a root `GLOSSARY.md`
+that consumers need not have. It can be reconsidered after a portable upstream version is available.
+
+The imported material is Copyright (c) 2026 Matt Pocock and licensed under MIT. The complete upstream
+copyright and permission notice is distributed in
+[`resources/matt-pocock-LICENSE.txt`](resources/matt-pocock-LICENSE.txt); retain it when redistributing
+these skills, including when copying individual directories. This is an independently curated
+bundle and does not imply Matt Pocock's endorsement. When updating the imported skills, re-check the
+upstream license and retain the applicable notice from the same source revision. Required package
+validation resolves each imported skill's upstream ref, verifies its recorded tree and compares this
+notice with LICENSE from that exact commit. A changed notice or incomplete upstream observation
+refuses the update; a licensing change requires a reviewed curation update.
 
 ## Copy-paste onboarding
 

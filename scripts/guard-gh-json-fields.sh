@@ -12,7 +12,7 @@
 # the definitions are authored (and where synced skills arrive), stops it before it ships.
 #
 # Usage: guard-gh-json-fields.sh [ROOT]      (ROOT defaults to this repository)
-# Scans every *.md, *.txt, *.json, *.jq and *.go under ROOT/plugins; any other non-script file is UNKNOWN. Shell
+# Scans every *.md, *.txt, *.json, *.jq, *.go, *.yaml and *.yml under ROOT/plugins; any other non-script file is UNKNOWN. Shell
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
 # silently misleads every agent that reads it.
 # Go 1.22+ is required: only the installed observer is built. Literal adjacent shell quotes are
@@ -21,6 +21,9 @@
 # strings and literal Command/CommandContext or composite argument blocks. Unresolved groupings beside
 # a known JSON flag, malformed source, or the 8 MiB source / 4 MiB decoded-work / 262144-step budgets
 # are UNKNOWN. This does not evaluate arbitrary Go programs.
+# YAML supports block mappings, single-line plain/quoted scalars (JSON-compatible double
+# escapes), comments and literal blocks. Repeated decoded keys, sequences, flow collections,
+# aliases, tags, folded blocks and multiline plain/quoted scalars remain UNKNOWN.
 #
 # A surface that legitimately contains the request (a skill warning against it) is exempted by a
 # reviewed line in scripts/gh-json-fields-allowlist.tsv — path, TAB, the file's sha256, TAB, the
@@ -66,6 +69,9 @@ decode_surface() {
     *.go)
       ensure_decoder || return 2
       "$go_decoder" "$2" ;;
+    *.yaml|*.yml)
+      ensure_decoder || return 2
+      "$go_decoder" --yaml "$2" ;;
     # Object KEYS are scanned as well as values. An argv list (an all-string array under an `args`,
     # `argv`, `cmd` or `command` key, e.g. ["pr","view","--json","state,merged"]) is ALSO emitted
     # joined, as the one command it is; any other array keeps its elements apart.
@@ -190,7 +196,7 @@ find "${root}/plugins" ! -type d -print0 2>/dev/null | LC_ALL=C sort -z > "${dis
 surfaces=()
 while IFS= read -r -d '' f; do
   case "$f" in
-    *.md|*.txt|*.json|*.jq|*.go) surfaces+=("$f") ;;
+    *.md|*.txt|*.json|*.jq|*.go|*.yaml|*.yml) surfaces+=("$f") ;;
     *.sh) ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
@@ -208,7 +214,7 @@ for surface in "${surfaces[@]}"; do
   [ -r "${surface}" ] || unknown "${surface#"${root}/"} cannot be read, so any field it prescribes would go unseen"
   # Read the original once. Extraction, syntax checks and exemption hashing share these
   # private bytes, so a later source change cannot authorize a different observation.
-  if [[ $surface == *.go ]]; then
+  if [[ $surface == *.go || $surface == *.yaml || $surface == *.yml ]]; then
     # Retain at most the decoder bound plus one byte, so oversize source cannot fill temp storage.
     head -c 8388609 "${surface}" > "${snapshot}" || unknown "${surface#"${root}/"} could not be completely read"
   else

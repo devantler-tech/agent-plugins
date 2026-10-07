@@ -173,6 +173,11 @@ re-pulled. Fix it in the skill's **own** upstream (the repo named in its `metada
 let the update workflow pull it through. `validate-manifests.sh` enforces this mechanically: every
 bundled `SKILL.md` must carry a non-empty `metadata.github-repo` provenance line, so a hand-authored
 or provenance-stripped skill fails CI rather than reaching consumers.
+For Matt Pocock's skills, required validation also reads public upstream Git objects, binds the
+recorded skill tree to its source commit, and compares that commit's complete `LICENSE` with the
+distributed notice. A changed notice or incomplete read refuses validation; refresh licensing in
+a reviewed curation change rather than replacing the notice silently. Run
+`bash scripts/check-matt-skill-license.test.sh` for its offline source and notice regressions.
 For a portfolio-owned repair, dispatch `update-agent-skills.yaml` with
 `scope=agentic-engineering` to update only that plugin's skills through the same programmed
 PRs. The default `all` scope and scheduled updates cover the full catalogue. Unsupported
@@ -321,7 +326,11 @@ Moved directories retain their staging and original files for operator recovery.
 The JSON-field guard needs Go 1.22 or later for every scanned surface. It builds only
 its installed observer, joins adjacent literal shell quotes without evaluation, requires unique
 decoded JSON keys, reads Go comments and decoded literal strings/argument blocks, and never
-executes the inspected package. Unresolved groupings beside a known JSON flag, malformed source,
+executes the inspected package. Native skill YAML metadata is observed as block mappings with
+single-line plain/quoted scalar values, comments and literal text blocks. Double-quoted escapes
+use the JSON-compatible subset. Repeated decoded keys, sequences, flow collections, aliases,
+tags, folded blocks and multiline plain/quoted scalars remain UNKNOWN.
+Unresolved groupings beside a known JSON flag, malformed source,
 incomplete decoding, or exhausted source/decoded-work budgets stay UNKNOWN. This is not analysis of
 arbitrary Go runtime behavior.
 

@@ -1566,6 +1566,7 @@ validate_skill_provenance() {
   while IFS= read -r -d '' skill; do
     if owner=$(frontmatter_repository < "$skill") && [ -n "$owner" ]; then
       echo "✓ provenance $skill"
+      bash "$validator_dir/check-matt-skill-license.sh" "$skill" || return 1
     else
       echo "::error::$skill: missing upstream provenance (metadata.github-repo) — bundled skills must come from 'gh skill install', never hand-authored"
       failed=1

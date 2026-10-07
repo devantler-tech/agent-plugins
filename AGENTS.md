@@ -173,6 +173,11 @@ re-pulled. Fix it in the skill's **own** upstream (the repo named in its `metada
 let the update workflow pull it through. `validate-manifests.sh` enforces this mechanically: every
 bundled `SKILL.md` must carry a non-empty `metadata.github-repo` provenance line, so a hand-authored
 or provenance-stripped skill fails CI rather than reaching consumers.
+For Matt Pocock's skills, required validation also reads public upstream Git objects, binds the
+recorded skill tree to its source commit, and compares that commit's complete `LICENSE` with the
+distributed notice. A changed notice or incomplete read refuses validation; refresh licensing in
+a reviewed curation change rather than replacing the notice silently. Run
+`bash scripts/check-matt-skill-license.test.sh` for its offline source and notice regressions.
 For a portfolio-owned repair, dispatch `update-agent-skills.yaml` with
 `scope=agentic-engineering` to update only that plugin's skills through the same programmed
 PRs. The default `all` scope and scheduled updates cover the full catalogue. Unsupported

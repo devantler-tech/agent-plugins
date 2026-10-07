@@ -193,6 +193,13 @@ echo "validate-manifests.sh self-test"
 
 # --- happy path ---
 check_pass "valid fixture passes" "$(fresh)"
+
+# A third-party source without its distributed notice must not clear packaging.
+d=$(fresh)
+sed "s|https://github.com/devantler-tech/agent-skills|https://github.com/mattpocock/skills|" \
+  "$d/plugins/alpha/skills/example-skill/SKILL.md" > "$d/skill.tmp"
+mv "$d/skill.tmp" "$d/plugins/alpha/skills/example-skill/SKILL.md"
+check_fail "Matt source without a distributed notice is refused" "Matt Pocock license" "$d"
 check_published_contract_pass "published plugin rename mappings are independently pinned" "$REPO_ROOT"
 
 # --- check 1: malformed marketplace manifests ---

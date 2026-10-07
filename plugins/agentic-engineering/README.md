@@ -37,30 +37,25 @@ drift, and dispatch failures that no single run can see.
 
 ### Matt Pocock's engineering techniques
 
-Five supplemental skills are curated from [Matt Pocock's skills](https://github.com/mattpocock/skills).
-They add focused discovery, design, prototyping and testing techniques to the core
+Three supplemental skills are curated from [Matt Pocock's skills](https://github.com/mattpocock/skills).
+They add focused discovery, design and prototyping techniques to the core
 delivery workflow. Each complete skill directory retains its native `gh skill` source metadata and
 supporting resources; normal upstream updates remain enabled.
 
 | Skill | Use it for |
 |---|---|
 | [`grilling`](skills/grilling/SKILL.md) | Stress-test a plan through a decision-tree interview when the user asks to explore it. |
-| [`domain-modeling`](skills/domain-modeling/SKILL.md) | Sharpen domain terms and record a glossary and architectural decisions. |
 | [`codebase-design`](skills/codebase-design/SKILL.md) | Design small interfaces that hide useful complexity and expose meaningful test seams. |
 | [`prototype`](skills/prototype/SKILL.md) | Answer a design question with a throwaway logic demo or alternative UI layouts. |
-| [`tdd`](skills/tdd/SKILL.md) | Build behavior through one failing test and one implementation slice at a time. |
 
 Select a skill through the runtime's native skill picker or invocation mechanism. Where plugin
 skills use qualified names, the name is `agentic-engineering:<skill>`; for example,
-`agentic-engineering:grilling`. The TDD skill's shared `codebase-design` reference and its design
-guides are included. Both prototype guides are included too.
+`agentic-engineering:grilling`. The design references and both prototype guides are included.
 
 These techniques supplement the engineer rather than introduce another operating contract. The
 consumer's canonical `AGENTS.md`, existing authorization and core delivery rules govern repository
-scope, privacy, tooling, delegation, issue handling, tests, review and merge. Use its existing domain
-documents and ADR location. TDD's seam discussion can use decisions already agreed in the issue or
-session; retain its user checkpoint where decisions remain unresolved. Its review stage uses the
-consumer's existing review procedure. Prototypes stay separate from production delivery and do not
+scope, privacy, tooling, delegation, issue handling, tests, review and merge.
+Prototypes stay separate from production delivery and do not
 waive its checks. Interview skills serve user-requested design discussions, not unattended dispatches.
 
 The bundle excludes Matt's setup and Git hooks, tracker-specific triage/spec/implementation flows,
@@ -70,13 +65,18 @@ marketplace's required skill-spec validator are also excluded; upstream skills a
 to bypass that gate.
 `diagnosing-bugs` is also excluded: its Bash template has no adjacent self-test, which this
 marketplace requires for bundled helpers. Its upstream tree is not modified to add one.
+`tdd` is excluded because its review skill dependency is not bundled; `domain-modeling` is
+excluded because its fixed documentation paths can conflict with consumer conventions.
 
 The imported material is Copyright (c) 2026 Matt Pocock and licensed under MIT. The complete upstream
 copyright and permission notice is distributed in
 [`resources/matt-pocock-LICENSE.txt`](resources/matt-pocock-LICENSE.txt); retain it when redistributing
 these skills, including when copying individual directories. This is an independently curated
 bundle and does not imply Matt Pocock's endorsement. When updating the imported skills, re-check the
-upstream license and retain the applicable notice from the same source revision.
+upstream license and retain the applicable notice from the same source revision. Required package
+validation resolves each imported skill's upstream ref, verifies its recorded tree and compares this
+notice with LICENSE from that exact commit. A changed notice or incomplete upstream observation
+refuses the update; a licensing change requires a reviewed curation update.
 
 ## Copy-paste onboarding
 

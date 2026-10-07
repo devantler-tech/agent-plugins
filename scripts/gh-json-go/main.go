@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -10,7 +11,189 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
+
+// yamlQuoted accepts single-line single quotes and the JSON-compatible subset of
+// YAML double quotes. Other escapes and multiline quoting require a fuller observer.
+func yamlQuoted(source string) (string, string, error) {
+	quote := source[0]
+	for i := 1; i < len(source); i++ {
+		if quote == '"' && source[i] == '\\' {
+			i++
+			continue
+		}
+		if source[i] != quote {
+			continue
+		}
+		if quote == '\'' && i+1 < len(source) && source[i+1] == '\'' {
+			i++
+			continue
+		}
+		if quote == '\'' {
+			return strings.ReplaceAll(source[1:i], "''", "'"), source[i+1:], nil
+		}
+		var value string
+		if err := json.Unmarshal([]byte(source[:i+1]), &value); err != nil {
+			return "", "", err
+		}
+		return value, source[i+1:], nil
+	}
+	return "", "", fmt.Errorf("YAML quoting is incomplete")
+}
+
+// yamlGuidance observes the block mappings used by native skill metadata, including
+// comments, decoded scalar values and literal blocks. It never silently accepts
+// sequences, flow collections, aliases, tags, folded blocks or multiline scalars.
+func yamlGuidance(source []byte) ([]string, error) {
+	if len(source) > 8<<20 || !utf8.Valid(source) {
+		return nil, fmt.Errorf("YAML source exceeds the complete observation budget or is not UTF-8")
+	}
+	text := strings.ReplaceAll(string(source), "\r\n", "\n")
+	for _, character := range text {
+		if character < 32 && character != '\n' && character != '\t' {
+			return nil, fmt.Errorf("YAML contains an unsupported control character")
+		}
+	}
+	type mapping struct {
+		indent int
+		keys   map[string]bool
+	}
+	stack := []mapping{{0, map[string]bool{}}}
+	lines := strings.Split(text, "\n")
+	d := &decoder{}
+	pending := false
+	unknown := func() ([]string, error) {
+		return nil, fmt.Errorf("YAML mapping contains unsupported or incomplete syntax")
+	}
+	for i := 0; i < len(lines); i++ {
+		if !d.step() {
+			return nil, d.err
+		}
+		line := lines[i]
+		body := strings.TrimSpace(line)
+		if body == "" {
+			continue
+		}
+		if strings.HasPrefix(body, "#") {
+			d.emit(body)
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if line[indent] == '\t' {
+			return unknown()
+		}
+		if indent > stack[len(stack)-1].indent {
+			if !pending {
+				return unknown()
+			}
+			stack = append(stack, mapping{indent, map[string]bool{}})
+		}
+		for len(stack) > 1 && indent < stack[len(stack)-1].indent {
+			stack = stack[:len(stack)-1]
+		}
+		if indent != stack[len(stack)-1].indent {
+			return unknown()
+		}
+		key, rest := "", ""
+		if body[0] == '"' || body[0] == '\'' {
+			var err error
+			key, rest, err = yamlQuoted(body)
+			if err != nil {
+				return nil, err
+			}
+		} else if colon := strings.IndexByte(body, ':'); colon >= 0 {
+			key, rest = strings.TrimSpace(body[:colon]), body[colon:]
+		}
+		if key == "" || !strings.HasPrefix(rest, ":") || len(rest) > 1 && rest[1] != ' ' && rest[1] != '\t' {
+			return unknown()
+		}
+		for index, character := range key {
+			if !(character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' || character == '_' ||
+				index > 0 && (character >= '0' && character <= '9' || character == '-')) {
+				return unknown()
+			}
+		}
+		keys := stack[len(stack)-1].keys
+		if keys[key] {
+			return nil, fmt.Errorf("YAML mapping has repeated decoded keys")
+		}
+		keys[key] = true
+		d.emit(key)
+		value := strings.TrimSpace(rest[1:])
+		if value != "" && (value[0] == '"' || value[0] == '\'') {
+			decoded, tail, err := yamlQuoted(value)
+			if err != nil {
+				return nil, err
+			}
+			if tail != "" {
+				if tail[0] != ' ' && tail[0] != '\t' || !strings.HasPrefix(strings.TrimSpace(tail), "#") {
+					return unknown()
+				}
+				d.emit(strings.TrimSpace(tail))
+			}
+			d.emit(decoded)
+			pending = false
+			continue
+		}
+		if strings.HasPrefix(value, "#") {
+			d.emit(value)
+			value = ""
+		} else if comment := strings.Index(value, " #"); comment >= 0 {
+			d.emit(value[comment+1:])
+			value = strings.TrimSpace(value[:comment])
+		}
+		pending = value == ""
+		if pending {
+			continue
+		}
+		if value == "|" || value == "|-" || value == "|+" {
+			var block []string
+			blockIndent := -1
+			for i+1 < len(lines) {
+				next := lines[i+1]
+				blank := strings.TrimSpace(next) == ""
+				nextIndent := len(next) - len(strings.TrimLeft(next, " "))
+				if !blank && nextIndent <= indent {
+					break
+				}
+				if !d.step() {
+					return nil, d.err
+				}
+				i++
+				if blank {
+					block = append(block, "")
+					continue
+				}
+				if blockIndent < 0 {
+					blockIndent = nextIndent
+				}
+				if nextIndent < blockIndent || next[nextIndent] == '\t' {
+					return unknown()
+				}
+				block = append(block, next[blockIndent:])
+			}
+			decoded := strings.Join(block, "\n")
+			if value == "|-" {
+				decoded = strings.TrimRight(decoded, "\n")
+			} else {
+				decoded += "\n"
+			}
+			d.emit(decoded)
+		} else {
+			if strings.ContainsAny(value[:1], "[]{}&*!>|%@`") ||
+				strings.ContainsAny(value[:1], "-?:") && (len(value) == 1 || value[1] == ' ' || value[1] == '\t') ||
+				strings.Contains(value, ": ") {
+				return unknown()
+			}
+			d.emit(value)
+		}
+	}
+	if d.err != nil {
+		return nil, d.err
+	}
+	return d.parts, nil
+}
 
 type decoder struct {
 	steps, bytes int
@@ -442,10 +625,11 @@ func run() error {
 		_, err = io.WriteString(os.Stdout, text)
 		return err
 	}
-	if len(os.Args) != 2 {
+	yaml := len(os.Args) == 3 && os.Args[1] == "--yaml"
+	if len(os.Args) != 2 && !yaml {
 		return fmt.Errorf("one retained source path is required")
 	}
-	input, err := os.Open(os.Args[1])
+	input, err := os.Open(os.Args[len(os.Args)-1])
 	if err != nil {
 		return err
 	}
@@ -453,9 +637,14 @@ func run() error {
 	const maximum = 8 << 20
 	source, err := io.ReadAll(io.LimitReader(input, maximum+1))
 	if err != nil || len(source) > maximum {
-		return fmt.Errorf("Go source could not be completely read within 8 MiB")
+		return fmt.Errorf("source could not be completely read within 8 MiB")
 	}
-	parts, err := guidance(source)
+	var parts []string
+	if yaml {
+		parts, err = yamlGuidance(source)
+	} else {
+		parts, err = guidance(source)
+	}
 	if err != nil {
 		return err
 	}

@@ -364,8 +364,51 @@ expect 1 "a bad request in a .txt reference" "${dir}"
 
 # A file type the guard does not scan is UNKNOWN, never silently skipped. Scripts are exempt.
 dir="$(fixture unknown-unscanned-type)"
-printf '%s\n' 'cmd: gh pr view 42 --json state,merged' > "${dir}/plugins/p/agents/case.yaml"
+printf '%s\n' 'cmd: gh pr view 42 --json state,merged' > "${dir}/plugins/p/agents/case.ini"
 expect 2 "an unscanned file type is UNKNOWN" "${dir}"
+
+# Native skill runtime metadata is YAML. Decode supported mappings rather than treating
+# their quotes as shell syntax or permitting escaped prescriptions to go unseen.
+for extension in yaml yml; do
+  dir="$(fixture "good-yaml-metadata-$extension")"
+  printf '%s\n' 'interface:' '  display_name: "Codebase Design"' '  short_description: "Vocabulary for deep-module design"' \
+    > "$dir/plugins/p/agents/openai.$extension"
+  expect 0 "native skill metadata in .$extension is examined" "$dir"
+done
+i=0
+while IFS= read -r -d '' document; do
+  i=$((i + 1))
+  dir="$(fixture "bad-yaml-$i")"
+  printf '%s\n' "$document" > "$dir/plugins/p/agents/openai.yaml"
+  expect 1 "YAML bad prompt form $i is decoded" "$dir"
+done < <(printf '%s\0' \
+  'prompt: gh pr view 42 --json state,merged' \
+  'prompt: "gh pr view 42 --json state,mer\u0067ed"' \
+  "prompt: 'gh pr view 42 --json ''state,merged'''" \
+  $'interface:\n  default_prompt: |-\n    gh pr view 42 --json\n    state,merged' \
+  '# use gh pr view 42 --json state,merged')
+dir="$(fixture good-yaml-separate-values)"
+printf '%s\n' 'prompt: "The option --json"' 'notes: "merged is not supported"' \
+  > "$dir/plugins/p/agents/openai.yaml"
+expect 0 'separate YAML values do not invent a command' "$dir"
+dir="$(fixture good-yaml-prompt)"
+printf '%s\n' 'interface:' '  default_prompt: "Use gh pr view 42 --json state,mergedAt"' \
+  > "$dir/plugins/p/agents/openai.yaml"
+expect 0 'valid YAML prompt fields remain accepted' "$dir"
+for document in \
+  $'prompt: safe\nprompt: "gh pr view --json merged"' \
+  $'prompt: safe\n"pro\\u006dpt": safe' \
+  $'interface:\n  prompt: safe\n prompt: safe' \
+  'prompt: "unterminated' \
+  'prompt: ["gh", "pr", "view", "--json", "merged"]' \
+  'prompt: &p "gh pr view --json merged"' \
+  $'prompt: >\n  gh pr view --json merged' \
+  $'prompt: safe\n  continuation' \
+  'prompt: "gh pr view --json mer\x67ed"'; do
+  dir="$(fixture "unknown-yaml-$passed")"
+  printf '%s\n' "$document" > "$dir/plugins/p/agents/openai.yaml"
+  expect 2 'incomplete or unsupported YAML remains UNKNOWN' "$dir"
+done
 
 dir="$(fixture good-script-skipped)"
 mkdir -p "${dir}/plugins/p/scripts"

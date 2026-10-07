@@ -321,7 +321,11 @@ Moved directories retain their staging and original files for operator recovery.
 The JSON-field guard needs Go 1.22 or later for every scanned surface. It builds only
 its installed observer, joins adjacent literal shell quotes without evaluation, requires unique
 decoded JSON keys, reads Go comments and decoded literal strings/argument blocks, and never
-executes the inspected package. Unresolved groupings beside a known JSON flag, malformed source,
+executes the inspected package. Native skill YAML metadata is observed as block mappings with
+single-line plain/quoted scalar values, comments and literal text blocks. Double-quoted escapes
+use the JSON-compatible subset. Repeated decoded keys, sequences, flow collections, aliases,
+tags, folded blocks and multiline plain/quoted scalars remain UNKNOWN.
+Unresolved groupings beside a known JSON flag, malformed source,
 incomplete decoding, or exhausted source/decoded-work budgets stay UNKNOWN. This is not analysis of
 arbitrary Go runtime behavior.
 

@@ -63,10 +63,17 @@ JQ_FILTER=$(sed -n \
   "$SURVEYOR")
 [ -n "$JQ_FILTER" ] || fail 'could not extract the prescribed dependency jq filter'
 
+# Fixtures written before the label read carry none. Give each a complete, empty label list so it
+# still exercises the field it was written for; the label cases below pass their own list untouched.
+with_labels() {
+  jq -c 'if (.data.repository.issue|type)=="object" and (.data.repository.issue|has("labels")|not)
+         then .data.repository.issue.labels={"totalCount":0,"nodes":[]} else . end' <<<"$1"
+}
+
 expect_output() {
   local label=$1 requested=$2 input=$3 expected=$4 actual filter
   filter=${JQ_FILTER//<number>/$requested}
-  actual=$(jq -c "$filter" <<<"$input") ||
+  actual=$(jq -c "$filter" <<<"$(with_labels "$input")") ||
     fail "$label: valid dependency summary was rejected"
   [ "$actual" = "$expected" ] ||
     fail "$label: expected $expected, got $actual"
@@ -75,26 +82,58 @@ expect_output() {
 expect_unknown() {
   local label=$1 input=$2 output filter
   filter=${JQ_FILTER//<number>/3196}
-  if output=$(jq -c "$filter" <<<"$input" 2>&1); then
+  if output=$(jq -c "$filter" <<<"$(with_labels "$input")" 2>&1); then
     fail "$label: malformed dependency summary produced actionable output: $output"
   fi
 }
 
+# A label can be a consumer's skip reason, so the candidate's labels come from this read and an
+# unread list is never an empty one (agent-plugins#545).
+labelled() {
+  jq -c --argjson labels "$1" '.data.repository.issue.labels=$labels' \
+    <<<'{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":0,"completed":0}}}}}'
+}
+expect_labels() {
+  local label=$1 labels=$2 expected=$3 actual
+  actual=$(jq -c "${JQ_FILTER//<number>/3196}" <<<"$(labelled "$labels")") ||
+    fail "$label: complete label list was rejected"
+  [ "$actual" = "{\"number\":3196,\"openBlockedBy\":0,\"totalBlockedBy\":0,\"completedSubIssues\":0,\"totalSubIssues\":0,\"labels\":$expected}" ] ||
+    fail "$label: expected labels $expected, got $actual"
+}
+expect_labels_unknown() {
+  local label=$1 input=$2 output
+  if output=$(jq -c "${JQ_FILTER//<number>/3196}" <<<"$input" 2>&1); then
+    fail "$label: unread label list produced actionable output: $output"
+  fi
+}
+expect_labels 'no labels' '{"totalCount":0,"nodes":[]}' '[]'
+expect_labels 'a parking label is reported' \
+  '{"totalCount":2,"nodes":[{"name":"roadmap"},{"name":"blocked"}]}' '["blocked","roadmap"]'
+expect_labels_unknown 'absent label list' \
+  '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":0,"completed":0}}}}}'
+expect_labels_unknown 'null label list' "$(labelled 'null')"
+expect_labels_unknown 'label list cut short' "$(labelled '{"totalCount":2,"nodes":[{"name":"roadmap"}]}')"
+expect_labels_unknown 'label count missing' "$(labelled '{"nodes":[]}')"
+expect_labels_unknown 'label nodes missing' "$(labelled '{"totalCount":0}')"
+expect_labels_unknown 'label node without a name' "$(labelled '{"totalCount":1,"nodes":[{}]}')"
+expect_labels_unknown 'empty label name' "$(labelled '{"totalCount":1,"nodes":[{"name":""}]}')"
+expect_labels_unknown 'null label node' "$(labelled '{"totalCount":1,"nodes":[null]}')"
+
 expect_output 'open and closed blockers' 3196 \
   '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":2,"totalBlockedBy":3},"subIssuesSummary":{"total":0,"completed":0}}}}}' \
-  '{"number":3196,"openBlockedBy":2,"totalBlockedBy":3,"completedSubIssues":0,"totalSubIssues":0}'
+  '{"number":3196,"openBlockedBy":2,"totalBlockedBy":3,"completedSubIssues":0,"totalSubIssues":0,"labels":[]}'
 expect_output 'closed blockers only' 3261 \
   '{"data":{"repository":{"issue":{"number":3261,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":1},"subIssuesSummary":{"total":3,"completed":1}}}}}' \
-  '{"number":3261,"openBlockedBy":0,"totalBlockedBy":1,"completedSubIssues":1,"totalSubIssues":3}'
+  '{"number":3261,"openBlockedBy":0,"totalBlockedBy":1,"completedSubIssues":1,"totalSubIssues":3,"labels":[]}'
 expect_output 'no blockers' 5948 \
   '{"data":{"repository":{"issue":{"number":5948,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":0,"completed":0}}}}}' \
-  '{"number":5948,"openBlockedBy":0,"totalBlockedBy":0,"completedSubIssues":0,"totalSubIssues":0}'
+  '{"number":5948,"openBlockedBy":0,"totalBlockedBy":0,"completedSubIssues":0,"totalSubIssues":0,"labels":[]}'
 
 # Negative control: every child closed while the parent stayed open is the delivered-but-open
 # shape (monorepo#2994 after its only child, #3668, shipped). The read must surface it, not hide it.
 expect_output 'every sub-issue closed' 2994 \
   '{"data":{"repository":{"issue":{"number":2994,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":1,"completed":1}}}}}' \
-  '{"number":2994,"openBlockedBy":0,"totalBlockedBy":0,"completedSubIssues":1,"totalSubIssues":1}'
+  '{"number":2994,"openBlockedBy":0,"totalBlockedBy":0,"completedSubIssues":1,"totalSubIssues":1,"labels":[]}'
 
 expect_unknown 'foreign issue' \
   '{"data":{"repository":{"issue":{"number":3197,"issueDependenciesSummary":{"blockedBy":0,"totalBlockedBy":0},"subIssuesSummary":{"total":0,"completed":0}}}}}'
@@ -133,6 +172,31 @@ for removed in '`subIssuesSummary` is **delivery evidence' 'right. Never drop, d
   fi
 done
 
+# The label list is the only source for a label-based skip (agent-plugins#545). Pin the rule in its
+# operative paragraph and the digest row, with the same moved-text control as above.
+check_label_rule() {
+  local source=$1 step5 advance
+  step5=$(sed -n '/^### 5\. Triage, stale, and advance signals/,/^#### Advance selection evidence$/p' "$source")
+  advance=$(sed -n '/^### Advance$/,/^```$/p' "$source")
+  # shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+  grep -Fq '`labels` is **the only source for a label-based skip**.' <<<"$step5" || return 1
+  grep -Fq 'labels a search or census row carried' <<<"$step5" || return 1
+  grep -Fq '"not blocked", without this read' <<<"$step5" || return 1
+  # shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+  grep -Fq 'malformed label list makes the candidate `QUERY-UNKNOWN`, never label-free.' <<<"$step5" || return 1
+  grep -Fq -- '— labels=<name,...>|none' <<<"$advance" || return 1
+}
+check_label_rule "$SURVEYOR" ||
+  fail 'the label list must be pinned as the only source for a label-based skip, with its digest row'
+# shellcheck disable=SC2016 # Backticks are literal Markdown contract text.
+for removed in '`labels` is **the only source' 'labels a search or census row carried' '"not blocked", without this read' 'malformed label list makes the candidate' '— labels=<name,...>|none'; do
+  awk -v r="$removed" 'index($0,r) && !done {held=$0; done=1; next} {print} END {if (!done) exit 1; print "\n## Appendix\n" held}' \
+    "$SURVEYOR" >"$MUTANT" || fail "removal control did not fire: $removed"
+  if check_label_rule "$MUTANT"; then
+    fail "text moved out of its section still satisfied the label rule: $removed"
+  fi
+done
+
 expect_unknown 'missing issue' \
   '{"data":{"repository":{"issue":null}}}'
 expect_unknown 'missing summary' \
@@ -145,7 +209,7 @@ expect_unknown 'open count exceeds total' \
   '{"data":{"repository":{"issue":{"number":3196,"issueDependenciesSummary":{"blockedBy":2,"totalBlockedBy":1}}}}}'
 
 # shellcheck disable=SC2016 # GraphQL variables are literal, not shell expansions.
-GRAPHQL_QUERY='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy} subIssuesSummary{total completed}}}}'
+GRAPHQL_QUERY='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy} subIssuesSummary{total completed} labels(first:100){totalCount nodes{name}}}}}'
 GH_TELEMETRY=0 "$GUARD" --command \
   "gh api graphql -F owner=devantler-tech -F name=platform -F number=3196 -f query='$GRAPHQL_QUERY' --jq '${JQ_FILTER//<number>/3196}'" \
   >/dev/null || fail 'the prescribed dependency read is not admitted by the forge guard'

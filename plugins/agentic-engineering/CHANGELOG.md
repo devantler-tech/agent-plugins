@@ -21,6 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.1.14 — 2026-10-07
+
+**Fixed** — the portfolio surveyor reads an Advance candidate's labels in its existing blocker and
+sub-issue read, reports them on the candidate's row, and judges a label-based skip from that read
+only. A missing, cut-short or malformed label list makes the candidate `QUERY-UNKNOWN`; a search
+row that dropped a label can no longer make a parked issue read as actionable.
+
 ## 6.1.13 — 2026-10-06
 
 **Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.36`.

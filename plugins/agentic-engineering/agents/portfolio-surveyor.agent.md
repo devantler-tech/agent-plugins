@@ -724,12 +724,12 @@ including partial GraphQL errors, makes the candidate `QUERY-UNKNOWN`, never unc
 consumer also uses textual PR-body references, join against step 1's complete all-author body census;
 missing that census leaves the candidate's open-PR evidence unknown even when the native count is zero.
 
-Then read the dependency and sub-issue summaries in one query:
+Then read the dependency and sub-issue summaries and the label list in one query:
 
 ```sh
 gh api graphql -F owner=<owner> -F name=<repo> -F number=<number> \
-  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy} subIssuesSummary{total completed}}}}' \
-  --jq 'def nonnegative_integer: if type=="number" then .>=0 and floor==. else false end; def graphql_complete: if type=="object" then ((has("errors")|not) or .errors==[]) else false end; if (graphql_complete|not) then error("QUERY-UNKNOWN: dependency query failed") else .data.repository.issue as $issue |   if ($issue|type)!="object" or ($issue.number|nonnegative_integer|not) or      $issue.number==0 or $issue.number!=<number> or      ($issue.issueDependenciesSummary|type)!="object" or      ($issue.subIssuesSummary|type)!="object" or      ($issue.issueDependenciesSummary.blockedBy|nonnegative_integer|not) or      ($issue.issueDependenciesSummary.totalBlockedBy|nonnegative_integer|not) or      $issue.issueDependenciesSummary.totalBlockedBy<$issue.issueDependenciesSummary.blockedBy or      ($issue.subIssuesSummary.total|nonnegative_integer|not) or      ($issue.subIssuesSummary.completed|nonnegative_integer|not) or      $issue.subIssuesSummary.total<$issue.subIssuesSummary.completed   then error("QUERY-UNKNOWN: malformed or foreign issue dependency or sub-issue summary")   else {number:$issue.number,         openBlockedBy:$issue.issueDependenciesSummary.blockedBy,         totalBlockedBy:$issue.issueDependenciesSummary.totalBlockedBy,         completedSubIssues:$issue.subIssuesSummary.completed,         totalSubIssues:$issue.subIssuesSummary.total}   end end'
+  -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){number issueDependenciesSummary{blockedBy totalBlockedBy} subIssuesSummary{total completed} labels(first:100){totalCount nodes{name}}}}}' \
+  --jq 'def nonnegative_integer: if type=="number" then .>=0 and floor==. else false end; def graphql_complete: if type=="object" then ((has("errors")|not) or .errors==[]) else false end; if (graphql_complete|not) then error("QUERY-UNKNOWN: dependency query failed") else .data.repository.issue as $issue |   if ($issue|type)!="object" or ($issue.number|nonnegative_integer|not) or      $issue.number==0 or $issue.number!=<number> or      ($issue.issueDependenciesSummary|type)!="object" or      ($issue.subIssuesSummary|type)!="object" or      ($issue.issueDependenciesSummary.blockedBy|nonnegative_integer|not) or      ($issue.issueDependenciesSummary.totalBlockedBy|nonnegative_integer|not) or      $issue.issueDependenciesSummary.totalBlockedBy<$issue.issueDependenciesSummary.blockedBy or      ($issue.subIssuesSummary.total|nonnegative_integer|not) or      ($issue.subIssuesSummary.completed|nonnegative_integer|not) or      $issue.subIssuesSummary.total<$issue.subIssuesSummary.completed or      ($issue.labels|type)!="object" or      ($issue.labels.totalCount|nonnegative_integer|not) or      ($issue.labels.nodes|type)!="array" or      ($issue.labels.nodes|length)!=$issue.labels.totalCount or      ($issue.labels.nodes|all(type=="object" and (.name|type)=="string" and .name!="")|not)   then error("QUERY-UNKNOWN: malformed or foreign issue dependency, sub-issue or label summary")   else {number:$issue.number,         openBlockedBy:$issue.issueDependenciesSummary.blockedBy,         totalBlockedBy:$issue.issueDependenciesSummary.totalBlockedBy,         completedSubIssues:$issue.subIssuesSummary.completed,         totalSubIssues:$issue.subIssuesSummary.total,         labels:($issue.labels.nodes|map(.name)|sort)}   end end'
 ```
 
 `issueDependenciesSummary.blockedBy` is the count of **open** blocking issues;
@@ -752,6 +752,16 @@ right. Never drop, down-rank or close that candidate yourself. A closed child pr
 child closed, and the parent can carry acceptance criteria no child covered. A `total` of zero claims
 nothing. The summary requests counts only, for the same boundary reason as the blocker summary. A
 missing or malformed sub-issue summary makes the candidate `QUERY-UNKNOWN`, like the blocker summary.
+
+`labels` is **the only source for a label-based skip**. A consumer may park work with a label, so a
+candidate is judged against the consumer's skip labels from this array alone — never from the
+labels a search or census row carried, which a listing can drop for one row and keep for the next.
+Report `labels=<name,...>` on each candidate deepened by this read, and `labels=none` only
+when this read returned a complete empty list. Never state that a candidate lacks a label, or is
+"not blocked", without this read: a ranked candidate you never deepen has no label verdict, so
+leave the field off its row. The projection requires the returned names to match the list's own
+`totalCount`, so a list cut short at the page size is a failed read. A missing, cut-short or
+malformed label list makes the candidate `QUERY-UNKNOWN`, never label-free.
 
 #### Advance selection evidence
 
@@ -893,6 +903,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - UNTYPED-RESIDUAL-UNAVAILABLE — <repo>: operand=<primary|typed:<Type>> truncated at <cap> of <total> → THAT repo's residual withheld (others unaffected); mandatory-query failure ⇒ nothing_on_fire: false
 - <repo> #<n> "<title>" — future-dated measurement, date=<UTC date> (not yet actionable)
 - <repo> #<n> "<title>" — subissues=<completed>/<total> DELIVERY-CHECK (every child closed; completion check before starting, never a skip)
+- <repo> #<n> "<title>" — labels=<name,...>|none   # from the candidate's own deepening read; absent on a row that was never deepened, and never inferred from a listing
 - <repo> #<n> "<title>" — measurement=unresolved, condition="<body condition, ≤80 chars>" → candidate-scoped unknown; not nominated; full-survey freshness cursor unchanged
 ```
 

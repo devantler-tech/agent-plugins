@@ -23,8 +23,8 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 
 ## 6.2.0 — 2026-10-07
 
-**Added** — three MIT-licensed skills from `mattpocock/skills` at `refs/tags/v1.3.1`:
-`grilling`, `codebase-design` and `prototype`.
+**Added** — two MIT-licensed skills from `mattpocock/skills` at `refs/tags/v1.3.1`:
+`grilling` and `prototype`.
 Complete upstream resources and native update provenance are retained. The plugin includes Matt
 Pocock's copyright and MIT permission notice and documents how the techniques supplement the
 existing consumer contract.

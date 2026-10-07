@@ -37,20 +37,19 @@ drift, and dispatch failures that no single run can see.
 
 ### Matt Pocock's engineering techniques
 
-Three supplemental skills are curated from [Matt Pocock's skills](https://github.com/mattpocock/skills).
-They add focused discovery, design and prototyping techniques to the core
+Two supplemental skills are curated from [Matt Pocock's skills](https://github.com/mattpocock/skills).
+They add focused discovery and prototyping techniques to the core
 delivery workflow. Each complete skill directory retains its native `gh skill` source metadata and
 supporting resources; normal upstream updates remain enabled.
 
 | Skill | Use it for |
 |---|---|
 | [`grilling`](skills/grilling/SKILL.md) | Stress-test a plan through a decision-tree interview when the user asks to explore it. |
-| [`codebase-design`](skills/codebase-design/SKILL.md) | Design small interfaces that hide useful complexity and expose meaningful test seams. |
 | [`prototype`](skills/prototype/SKILL.md) | Answer a design question with a throwaway logic demo or alternative UI layouts. |
 
 Select a skill through the runtime's native skill picker or invocation mechanism. Where plugin
 skills use qualified names, the name is `agentic-engineering:<skill>`; for example,
-`agentic-engineering:grilling`. The design references and both prototype guides are included.
+`agentic-engineering:grilling`. Both prototype guides are included.
 
 These techniques supplement the engineer rather than introduce another operating contract. The
 consumer's canonical `AGENTS.md`, existing authorization and core delivery rules govern repository
@@ -67,6 +66,8 @@ to bypass that gate.
 marketplace requires for bundled helpers. Its upstream tree is not modified to add one.
 `tdd` is excluded because its review skill dependency is not bundled; `domain-modeling` is
 excluded because its fixed documentation paths can conflict with consumer conventions.
+`codebase-design` is deferred because its alternative-design guide assumes a root `GLOSSARY.md`
+that consumers need not have. It can be reconsidered after a portable upstream version is available.
 
 The imported material is Copyright (c) 2026 Matt Pocock and licensed under MIT. The complete upstream
 copyright and permission notice is distributed in

@@ -30,6 +30,14 @@ Consumers supply board states, WIP ceilings and freshness bounds; missing eviden
 Historical prioritization metrics retain their original rubric and denominator; value-pull-v1 is a
 separate cohort, not a claim of measured lead-time improvement.
 
+## 6.2.4 — 2026-10-08
+
+**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.22.0`.
+
+## 6.2.3 — 2026-10-08
+
+**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.22.0`.
+
 ## 6.2.2 — 2026-10-08
 
 **Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.38`.

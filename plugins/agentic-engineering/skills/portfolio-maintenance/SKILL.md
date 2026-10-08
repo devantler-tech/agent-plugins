@@ -3,9 +3,9 @@ description: The run loop for an autonomous AI engineer acting as a portfolio's 
 license: Apache-2.0
 metadata:
     github-path: portfolio-maintenance
-    github-ref: refs/tags/v1.20.1
+    github-ref: refs/tags/v1.21.38
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 7c3ee27056f5a9dac57b53565cdc2facc09cea53
+    github-tree-sha: 0afa1240e148844908cb226500dce6ed6197ed05
 name: portfolio-maintenance
 ---
 # Portfolio maintenance — the run loop
@@ -19,6 +19,11 @@ readiness as defined below**, then driven to merge per the **Trust gate**, one c
 weaken a safety/security guardrail. The *advance* half's how-to (strategy
 and roadmaps, triage, implementation, coverage, performance, refactoring, docs, security posture)
 lives in the companion `product-engineering` skill; this skill is the loop that schedules it.
+
+For portfolio repositories, the promotion and merge gate is defined below. For your own authorized
+contributions to a third-party project, use [the upstream contribution procedure](references/upstream-contributions.md)
+instead: it defines the separate Ready for Review handoff and quiet internal review. Track those
+specific outgoing PRs in private carry-forward and revisit received feedback on later runs.
 
 **Genuine readiness means the consuming deployment's complete promotion gate: an own or trusted
 author, programmatic validation with all required CI and pre-merge quality checks green, zero
@@ -342,6 +347,10 @@ assignment never grants authority or proves runtime enforcement. Load this optio
 when needed, rather than injecting it into every run.
 
 ### Delivery procedure
+
+The upstream contribution procedure governs third-party PRs throughout this delivery procedure.
+If that reference is unavailable, resolve the consumer's maintained equivalent before publishing;
+do not infer permission to post an internal review or merge an upstream contribution.
 
 1. **Isolate:** create a throwaway per-run working copy (e.g. a git worktree on a fresh
    conventionally-named branch) so you never collide with parallel sessions; verify the isolation

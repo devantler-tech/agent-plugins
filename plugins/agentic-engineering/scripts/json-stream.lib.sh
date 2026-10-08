@@ -2,7 +2,7 @@
 # Retain producer bytes before Bash command substitution can erase literal NULs
 # or jq can repair invalid UTF-8. No temporary response files or compiler.
 json_stream_retain_raw() {
- local raw='' converted read_status=0 i=0 length in_string=0 char hex low backslash=$'\\'
+ local raw='' converted read_status=0
  local LC_ALL=C
  IFS= read -r -d '' raw || read_status=$?
  # read succeeds only when its NUL delimiter was encountered. EOF is status 1.
@@ -17,27 +17,40 @@ json_stream_retain_raw() {
  [ "$converted" = "$raw" ] || return 2
  # jq repairs lone surrogate escapes. Refuse those original bytes before an
  # identity can collapse onto a distinct literal replacement character.
- length=${#raw}
- while ((i < length)); do
-   char=${raw:i:1}
-   if ((in_string == 0)); then
-     [[ $char == '"' ]] && in_string=1
-     i=$((i + 1)); continue
-   fi
-   if [[ $char == '"' ]]; then in_string=0; i=$((i + 1)); continue; fi
-   if [[ $char != "$backslash" ]]; then i=$((i + 1)); continue; fi
-   if [[ ${raw:i+1:1} != u ]]; then i=$((i + 2)); continue; fi
-   hex=${raw:i+2:4}
-   if [[ ! $hex =~ ^[0-9A-Fa-f]{4}$ ]]; then i=$((i + 2)); continue; fi
-   if [[ $hex =~ ^[dD][89AaBb][0-9A-Fa-f]{2}$ ]]; then
-     [[ ${raw:i+6:2} == "${backslash}u" ]] || return 2
-     low=${raw:i+8:4}
-     [[ $low =~ ^[dD][cCdDeEfF][0-9A-Fa-f]{2}$ ]] || return 2
-     i=$((i + 12)); continue
-   fi
-   [[ ! $hex =~ ^[dD][cCdDeEfF][0-9A-Fa-f]{2}$ ]] || return 2
-   i=$((i + 6))
- done
+ # Byte-by-byte Bash substring expansion stalls on large retained responses. Scan
+ # in bounded awk byte arrays instead, retaining quote/escape state across lines.
+ # macOS awk substr also walks from the start of its string for each offset;
+ # splitting small windows avoids that repeated traversal and bounds array memory.
+ # The scan only checks surrogate escapes; jq still owns JSON syntax/uniqueness.
+ command -v awk >/dev/null 2>&1 || return 2
+ printf '%s' "$raw" | LC_ALL=C awk '
+  {
+   n=length($0)
+   for (start=1; start<=n;) {
+    # Eleven lookahead bytes keep a surrogate pair atomic at a window edge.
+    split(substr($0,start,32779),bytes,"")
+    limit=n-start+1; if (limit>32768) limit=32768
+    for (i=1; i<=limit;) {
+     char=bytes[i]
+     if (!in_string) { if (char=="\"") in_string=1; i++; continue }
+     if (char=="\"") { in_string=0; i++; continue }
+     if (char!="\\") { i++; continue }
+     if (bytes[i+1]!="u") { i+=2; continue }
+     hex=bytes[i+2] bytes[i+3] bytes[i+4] bytes[i+5]
+     if (hex !~ /^[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]$/) { i+=2; continue }
+     if (hex ~ /^[dD][89AaBb][0-9A-Fa-f][0-9A-Fa-f]$/) {
+      low=bytes[i+8] bytes[i+9] bytes[i+10] bytes[i+11]
+      if ((bytes[i+6] bytes[i+7])!="\\u" ||
+          low !~ /^[dD][cCdDeEfF][0-9A-Fa-f][0-9A-Fa-f]$/) exit 2
+      i+=12; continue
+     }
+     if (hex ~ /^[dD][cCdDeEfF][0-9A-Fa-f][0-9A-Fa-f]$/) exit 2
+     i+=6
+    }
+    start+=i-1
+   }
+  }
+ ' || return 2
  printf '%s' "$raw"
 }
 

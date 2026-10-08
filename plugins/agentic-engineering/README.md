@@ -15,7 +15,7 @@ assuming it has a change the changelog lists.
 Three agents:
 
 - **`agentic-engineer`** — the actor that runs the survey → select → act → report loop, operates
-  the portfolio, advances the oldest actionable issue, and — after explicit maintainer opt-in and a
+  the portfolio, finishes started work and pulls important Ready work within Kanban capacity, and — after explicit maintainer opt-in and a
   resolving **Spend contract** — stewards the portfolio's running cost in the same loop.
 - **`portfolio-surveyor`** — a delegated, read-only agent that returns a compact current-state digest.
 - **`agent-improver`** — a meta-engineer that evaluates deployed instances and improves their shared

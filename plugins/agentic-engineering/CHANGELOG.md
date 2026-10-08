@@ -21,6 +21,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.3.0 — 2026-10-08
+
+**Changed** — prioritize important, refined Ready work within downstream Kanban capacity instead of
+age-only intake. Finish started work and due verification first, preserve original waiting and
+blocked clocks, and compare product outcomes and cost of waiting against end-to-end effort.
+Consumers supply board states, WIP ceilings and freshness bounds; missing evidence holds new starts.
+Historical prioritization metrics retain their original rubric and denominator; value-pull-v1 is a
+separate cohort, not a claim of measured lead-time improvement.
+
 ## 6.2.5 — 2026-10-08
 
 **Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.22.0`.

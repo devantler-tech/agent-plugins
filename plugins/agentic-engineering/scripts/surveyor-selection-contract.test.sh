@@ -23,8 +23,9 @@ check_contract() {
   # shellcheck disable=SC2016 # Markdown backticks are literal contract text.
   for requirement in \
     'Rank the complete issue universe by the consuming contract' \
-    'When the consumer declares no selection order, retain the default oldest-actionable-first rule' \
-    'Include creation timestamps and every field needed to apply that order' \
+    'When the consumer declares no selection order, use the role' \
+    'Join state, documented priority/outcome' \
+    'Include creation timestamps and every field needed to apply the order' \
     'For every candidate skipped before the nominated issue, retain a permitted skip reason' \
     'Evaluate claim skips using the declared consumer lease policy and its authoritative timestamps' \
     'Collect linked-open-PR evidence for every candidate needed to establish selection' \
@@ -48,6 +49,7 @@ check_contract "$SURVEYOR"
 for prefix in \
   'Rank the complete issue universe' \
   'When the consumer declares no selection order' \
+  'Join state, documented priority/outcome' \
   'Include creation timestamps' \
   'For every candidate skipped' \
   'Evaluate claim skips' \
@@ -76,4 +78,4 @@ for prefix in \
   fi
 done
 
-echo 'surveyor selection contract: PASS (11 independently removed obligations rejected)'
+echo 'surveyor selection contract: PASS (12 independently removed obligations rejected)'

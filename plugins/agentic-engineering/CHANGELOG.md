@@ -21,12 +21,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
-## 6.2.1 — 2026-10-08
+## 6.2.2 — 2026-10-08
 
 **Fixed** — the Engineer and Improver use the shared upstream contribution procedure for
 third-party PRs: private internal review, an explicit Ready for Review handoff, and plain-English
 replies to received maintainer feedback. Routine updates stay in the PR title and description.
 Portfolio-owned definition repositories retain the existing promotion and merge gate.
+
+## 6.2.1 — 2026-10-08
+
+**Fixed** — raw JSON validation uses bounded byte windows so large Actions responses
+finish promptly on macOS and Linux. Original-byte retention, UTF-8 checks, surrogate
+escape rejection and decoded-key uniqueness remain strict. Regression coverage checks
+multi-megabyte responses, window-edge escapes and incomplete or failed pagination.
 
 ## 6.2.0 — 2026-10-07
 

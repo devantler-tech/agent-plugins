@@ -13,7 +13,7 @@
       "requiredRuntimeAssets": [
         {
           "path": "scripts/json-stream.lib.sh",
-          "sha256": "13850e77959146d28af0e779c2effc449aba995ef3d3d033ca99b425ee102a8e",
+          "sha256": "267be91964fd961153892648c5021be367bdcc8d191d16ee2d2a02d54d53b842",
           "executable": true
         },
         {

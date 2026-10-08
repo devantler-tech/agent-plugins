@@ -765,13 +765,21 @@ malformed label list makes the candidate `QUERY-UNKNOWN`, never label-free.
 
 #### Advance selection evidence
 
-Rank the complete issue universe by the consuming contract's selection order, including its severity
-and age rules. Repository, PR, issue, claim, and Project census completeness alone does not prove
+Rank the complete issue universe by the consuming contract's selection order, including its
+importance, eligibility, capacity and age rules. Repository, PR, issue, claim, and Project census completeness alone does not prove
 that this ranking or the actionability assessment happened.
-When the consumer declares no selection order, retain the default oldest-actionable-first rule
-from the agentic-engineer role. An absent override is not a missing required contract fact.
-Include creation timestamps and every field needed to apply that order in the enumeration; missing
-ordering inputs leave the affected ordering unknown. Never substitute update time for issue age.
+When the consumer declares no selection order, use the role's value-prioritized Kanban pull:
+confirmed incidents, finish started work and due verification, then important refined Ready work
+within downstream capacity. An absent override is not a missing required contract fact, but missing
+Ready/capacity evidence remains unknown; a deployment without a board records those facts in its tracker.
+Join state, documented priority/outcome, work/service class, end-to-end size, deadline, dependencies,
+original first-start, Ready entry, blocked intervals and active-stage counts/ceilings from the declared
+consumer surfaces. Report started work even when its card is absent or parked upstream; it remains WIP.
+Include creation timestamps and every field needed to apply the order; missing ordering inputs leave
+the affected ordering unknown. Never substitute update time for waiting age or backdate unknown history.
+Backlog is refinement and Icebox deferred, not direct implementation. Age breaks comparable ties and
+flags anti-starvation review; ordinary Security/Bug types are not proof of urgent severity. Preserve
+hard security/quality obligations and historical metric denominators; report value-pull-v1 separately.
 
 For every candidate skipped before the nominated issue, retain a permitted skip reason and its
 current evidence reference. Complete the applicable joins for maintainer controls, linked open PRs,

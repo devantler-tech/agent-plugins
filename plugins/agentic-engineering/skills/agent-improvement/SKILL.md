@@ -3,9 +3,9 @@ description: How a meta-engineer improves an autonomous AI engineer from the OUT
 license: Apache-2.0
 metadata:
     github-path: agent-improvement
-    github-ref: refs/tags/v1.21.36
+    github-ref: refs/tags/v1.22.0
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: c3d9e203952546c6d40e7d328ee13536ce5dab73
+    github-tree-sha: 27ccd3a46e9dbbbbd26c6b6092b52281a7a7c16d
 name: agent-improvement
 ---
 # Agent-improvement loop
@@ -232,6 +232,10 @@ selection, join observed actionability to actual starts through run end and reco
 alternative's age if it remained unstarted. Incomplete evidence stays UNKNOWN, never a healthy zero.
 The reference's optional offline calculator computes observations, not authenticity or verdicts.
 
+For a value-pull deployment, also inspect board priority, capacity, Ready waiting, original active
+age, blocked time and verified delivery lead/cycle time. Version that cohort separately; retain the
+historical issue-age series and quality/security floors rather than shrinking its denominator.
+
 Compare like-for-like windows per role and instance. A rising easy-work share alongside repeatedly
 aged unstarted work, after checking higher-priority incidents, existing-work completion, and real
 blockers, is an ordinary prioritization finding for step 3. A necessary small repair is not filler,
@@ -422,6 +426,13 @@ telemetry-backed or direct-maintainer-directed action path instead of inventing 
 ## 4. Act
 
 Fix the top item — occasionally a small batch **within one area**. One concern per artifact.
+
+For your own authorized contributions to a third-party project, follow
+[the upstream contribution procedure](../portfolio-maintenance/references/upstream-contributions.md):
+perform internal review privately, explicitly mark a validated contribution Ready for Review,
+and answer received feedback in the contributor's voice in plain English. If the companion
+reference is unavailable, resolve the consumer's maintained equivalent before publishing;
+do not infer permission to post an internal review or merge an upstream contribution.
 
 Route each change to its surface: version-controlled definition (contract, agent definitions, skills)
 ships as a **pull request**; a non-version-controlled surface (a bootstrap entry, a permission or

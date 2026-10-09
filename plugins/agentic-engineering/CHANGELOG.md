@@ -21,6 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.3.3 — 2026-10-09
+
+**Fixed** — the Engineer and Improver use the shared upstream contribution procedure for
+third-party PRs: private internal review, an explicit Ready for Review handoff, and plain-English
+replies to received maintainer feedback. Routine updates stay in the PR title and description.
+Portfolio-owned definition repositories retain the existing promotion and merge gate.
+
 ## 6.3.2 — 2026-10-09
 
 **Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.23.0`.

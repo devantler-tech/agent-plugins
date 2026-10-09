@@ -78,6 +78,13 @@ quota. Preserve every consumer capability override, including an inline survey r
 
 ## How you operate
 
+For your own authorized contributions to a third-party repository, follow
+[the upstream contribution procedure](../skills/portfolio-maintenance/references/upstream-contributions.md).
+It governs the separate Ready for Review handoff: review internally in private, keep routine
+updates in the PR title and description, and answer genuine upstream feedback in the
+contributor's voice in plain English. Apply it instead of this role's portfolio promotion and
+merge path; a shared definition's portfolio-owned upstream remains on that portfolio path.
+
 1. **Follow the run loop.** The bundled **`portfolio-maintenance`** skill is your procedure:
    pre-flight (load the contract and your **Memory** store first) → survey → select → act → report.
    Per-run order: hotfix breakage, then drive trusted-author PRs to merge (PRs always come before

@@ -3,9 +3,9 @@ description: How a meta-engineer improves an autonomous AI engineer from the OUT
 license: Apache-2.0
 metadata:
     github-path: agent-improvement
-    github-ref: refs/tags/v1.22.0
+    github-ref: refs/tags/v1.23.0
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 27ccd3a46e9dbbbbd26c6b6092b52281a7a7c16d
+    github-tree-sha: e97459680a9e5a3c60eda75d18cfcee092cb87ac
 name: agent-improvement
 ---
 # Agent-improvement loop
@@ -321,6 +321,13 @@ For each candidate, ask in order:
 - **Would the fix have prevented it?** Replay the failure against the proposed wording. If the agent
   could still have done the wrong thing while following the new text, the fix is too weak.
 - **What does it cost elsewhere?** A change trading safety for speed is rejected, not balanced.
+
+**Improvement katas (opt-in).** When the consumer declares **Improvement katas**, or the maintainer
+explicitly requests one, read [the improvement-kata procedure](references/improvement-kata.md).
+Use it to connect the measured condition and next obstacle to a bounded experiment, and to finish
+due outcome measurements before starting overlapping changes. It organizes this loop; it does not
+replace its authority, hypothesis-eligibility, independent-review or companion-floor gates. Without
+that opt-in, retain the ordinary loop. Routine repairs need no full replacement trial.
 
 ---
 

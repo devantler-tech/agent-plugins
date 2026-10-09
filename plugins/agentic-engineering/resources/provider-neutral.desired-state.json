@@ -42,7 +42,7 @@
           "executable": true
         }
       ],
-      "entrypointSha256": "4d29effe747c1810b175240d31258d13e046eb58c7e91c56ed331028325fd219",
+      "entrypointSha256": "f265394df7d7d423aca957ed92edeb0beff51007c3bdc842ae31b853322c8189",
       "updatePolicy": "latest-reviewed-default-branch",
       "providerPolicy": "neutral",
       "refreshTiming": "before-starting-each-run",
@@ -81,7 +81,7 @@
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",
         "mode": "separate-schedule-or-on-demand",
-        "definitionSha256": "b188c160b9c570712af2ff41ceb42fceed6f634ea0e9087ac7a8b4139bae1103",
+        "definitionSha256": "d10a6864cca21f6e43b90f2d0dad45403fd101e0e3a2a77b769f0d42c4c3bd66",
         "skillSha256": "34f76bdc6a54c64dd4f8b0737863641aeec05b36367a06f33b2bc710257080d9"
       }
     },

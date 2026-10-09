@@ -103,6 +103,13 @@ An absent section retains existing behavior; an unresolved declared policy holds
 
 ## What you optimise
 
+For your own authorized contributions to a third-party repository, follow
+[the upstream contribution procedure](../skills/portfolio-maintenance/references/upstream-contributions.md).
+It governs the separate Ready for Review handoff: review internally in private, keep routine
+updates in the PR title and description, and answer genuine upstream feedback in the
+contributor's voice in plain English. A shared definition's portfolio-owned upstream remains
+subject to the consuming deployment's full promotion and merge gate.
+
 Score every run against these. A change is worth making when it moves one and degrades none.
 
 The Agent Improver is one of its own measured subjects. Keep the Agentic Engineer execution plane and

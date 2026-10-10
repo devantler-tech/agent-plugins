@@ -113,6 +113,16 @@ jobs:
           bash scripts/plugin-version-boundaries.test.sh || result=1
           exit "$result"
 
+      - name: 🧪 Keep the always-loaded instructions within one read
+        # AGENTS.md is loaded by every session and Codex drops everything past
+        # 32 KiB without a warning. Run the gate and its self-test even when the
+        # first fails, retaining a failed job result.
+        run: |
+          result=0
+          ./scripts/check-instruction-size.sh || result=1
+          bash scripts/check-instruction-size.test.sh || result=1
+          exit "$result"
+
       - name: 🧪 Self-test validator installation recovery
         run: bash scripts/install-skills-ref.test.sh
 
@@ -545,9 +555,10 @@ jobs:
           set -euo pipefail
           control=$(mktemp -d "$RUNNER_TEMP/retired-links.XXXXXX")
           trap 'rm -rf "$control"' EXIT
-          mkdir "$control/.github"
+          mkdir "$control/.github" "$control/docs"
           cp .github/retired-repo-links.json "$control/.github/"
           cp README.md AGENTS.md "$control/"
+          cp docs/validation.md docs/scripts.md "$control/docs/"
           go -C .retired-link-validator-source/actions/validate-retired-repo-links build -mod=readonly -trimpath -o "$control/validator" .
           printf '\nhttps://github.com/devantler-tech/reusable-workflows\n' >>"$control/README.md"
           status=0

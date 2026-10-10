@@ -67,6 +67,8 @@ check_workflow() {
     './scripts/check-plugin-version-bump.test.sh || result=1'
     './scripts/bump-plugin-version.test.sh || result=1'
     'bash scripts/plugin-version-boundaries.test.sh || result=1'
+    './scripts/check-instruction-size.sh || result=1'
+    'bash scripts/check-instruction-size.test.sh || result=1'
     'bash scripts/install-skills-ref.test.sh'
     'bash scripts/ci-skill-validation-workflow.test.sh'
     'bash scripts/ci-script-test-sharding-workflow.test.sh'

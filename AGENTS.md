@@ -42,7 +42,7 @@ plugins/
     ├── resources/              # Optional ancillary, explicitly linked human-consumed assets
     ├── README.md               # What the plugin is today, and its consumer contract
     └── CHANGELOG.md            # Released versions, newest first, incl. per-release upgrade steps
-scripts/                        # Validators, gates, writers and their self-tests — each one is listed in docs/scripts.md
+scripts/                        # Validators, gates, writers and their self-tests — the main ones are described in docs/scripts.md
 README.md                       # Short introduction and getting started
 docs/plugins.md                 # Validated plugin catalogue and resource inventory
 docs/installation.md            # Per-tool installation instructions
@@ -280,8 +280,8 @@ plugin membership) is authored here.
 ## Validation
 
 Run before opening any PR, and never weaken a check to pass — fix the root cause. The required gate
-is the aggregated **`CI - Required Checks`** job. Every command in the order CI runs them, what each
-check observes, and how a new gate reaches pull requests that are already open are in
+is the aggregated **`CI - Required Checks`** job. Every validation command, what each check
+observes, and how a new gate reaches pull requests that are already open are in
 [docs/validation.md](docs/validation.md): **read it before validating a change, or adding or
 altering a CI job.** Every change starts with:
 

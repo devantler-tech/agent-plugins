@@ -1,7 +1,7 @@
 # Validation
 
-Every command that validates a change, in the order CI runs them, what each check observes,
-and how a new CI gate reaches pull requests that are already open. [`AGENTS.md`](../AGENTS.md) links here.
+Every command that validates a change, what each check observes, and how a new CI gate reaches
+pull requests that are already open. [`AGENTS.md`](../AGENTS.md) links here.
 
 Run before opening any PR. Steps 1–2 mirror the CI gates; step 3 is a best-effort local lint that CI
 does not currently enforce but that keeps workflow changes clean:

@@ -29,10 +29,10 @@ cases=0
 # Write a fixture repository: an AGENTS.md of exactly <bytes> bytes whose guide
 # table links <guide>, and that guide on disk unless <create> is "no".
 fixture() {
-  local dir=$1 bytes=$2 guide=${3:-docs/guide.md} create=${4:-yes} head pad
+  local dir=$1 bytes=$2 guide=${3:-docs/guide.md} create=${4:-yes} header pad
   mkdir -p "$dir/docs"
-  head=$(printf '# Fixture\n\n## Agent guides\n\n| Guide | Read it before |\n|---|---|\n| [%s](%s) | doing the thing |\n\n## Notes\n\n' "$guide" "$guide")
-  printf '%s\n\n' "$head" >"$dir/AGENTS.md"
+  header=$(printf '# Fixture\n\n## Agent guides\n\n| Guide | Read it before |\n|---|---|\n| [%s](%s) | doing the thing |\n\n## Notes\n\n' "$guide" "$guide")
+  printf '%s\n\n' "$header" >"$dir/AGENTS.md"
   pad=$((bytes - $(wc -c <"$dir/AGENTS.md")))
   [ "$pad" -ge 0 ] || { echo "fixture: $bytes bytes is smaller than the header" >&2; return 1; }
   head -c "$pad" /dev/zero | tr '\0' 'x' >>"$dir/AGENTS.md"

@@ -1,7 +1,8 @@
 # Repository scripts
 
-What each script under `scripts/` is for. Every script has a self-test beside it, and CI runs
-both. [`AGENTS.md`](../AGENTS.md) links here; [validation](validation.md) lists the commands.
+What the main files under `scripts/` are for. A `*.test.sh` beside a script is its self-test, and
+CI runs it. This list is kept by hand and can lag: the directory itself is the complete list.
+[`AGENTS.md`](../AGENTS.md) links here; [validation](validation.md) lists the commands.
 
 ```text
 scripts/

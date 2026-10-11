@@ -86,7 +86,11 @@ bash scripts/check-instruction-size.test.sh
 # 2. Validate each bundled skill against the agentskills.io spec (the consolidated CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
 AGENTSKILLS_REF=8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3 bash scripts/install-skills-ref.sh
-find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -printf '%h\n' | while read -r d; do skills-ref validate "$d"; done
+find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -exec sh -c '
+  for skill_file do
+    skills-ref validate "${skill_file%/SKILL.md}" || exit
+  done
+' sh {} +
 
 # 3. (local only) Lint changed workflows.
 actionlint
@@ -113,8 +117,10 @@ the same source observation
 at the base commit and preserves whole path components, including embedded and trailing newlines. Body examples
 never supply provenance, and malformed base provenance remains UNKNOWN.
 
-The required gate is the aggregated **`CI - Required Checks`** job (validate-manifests +
-validate-spec); `actionlint` above is a local-only convenience, not a CI gate. Never
+The required gate is the aggregated **`CI - Required Checks`** job. It requires retired-repository
+link checks, manifest validation, script lint/tests, marketplace tests, package tests, version/changelog
+checks, the bundled-skill edit guard, and skill-spec validation. The exact dependency list lives in
+[`ci.yaml`](../.github/workflows/ci.yaml); `actionlint` above is a local-only convenience, not a CI gate. Never
 weaken a check to pass — fix the root cause.
 
 **Adding a gate does not retroactively apply it to open PRs — the recheck workflow is what does.**

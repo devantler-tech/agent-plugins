@@ -21,7 +21,7 @@ The [autonomous engineering setup](plugins/agentic-engineering/README.md) explai
 
 ## Contribute
 
-Skills come from their original authors, including [Agent Skills](https://github.com/devantler-tech/agent-skills). To suggest a bundle or report a problem, [open an issue](https://github.com/devantler-tech/agent-plugins/issues). For repository changes, read the [contributor instructions](AGENTS.md).
+Skills come from their original authors, including [Agent Skills](https://github.com/devantler-tech/agent-skills). To suggest a bundle or report a problem, [open an issue](https://github.com/devantler-tech/agent-plugins/issues). For a safe first repository change, start with [Contributing](CONTRIBUTING.md).
 
 Maintainers can [prepare and publish a marketplace release](docs/marketplace-releases.md) with a reviewed version proposal, matching manifests, and verified release notes. Actions can explicitly create a signed draft containing only the generated marketplace versions and start normal PR CI. Review and merge remain separate gates. Pull-request CI checks that a version update exactly matches its generated proposal; publication separately requires exact successful main CI. Scheduled proposal creation and publication are independently opt-in.
 

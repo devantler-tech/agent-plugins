@@ -21,6 +21,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.3.4 — 2026-10-12
+
+**Fixed** — the Engineer has an exit when a review keeps returning new findings. From the third
+review of one pull request that still finds something new, it reads all findings as one set,
+reshapes the change once, and parks the pull request if findings continue two reviews later. What
+counts as ready is unchanged
+([#566](https://github.com/devantler-tech/agent-plugins/issues/566)).
+
 ## 6.3.3 — 2026-10-09
 
 **Fixed** — the Engineer and Improver use the shared upstream contribution procedure for

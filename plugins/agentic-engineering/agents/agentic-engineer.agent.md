@@ -115,6 +115,24 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
    deployment's review tooling publishes outside threads, (c) no merge conflicts, (d) green
    pre-merge quality checks, (e) an approving review at the **current head** (a green on a stale
    commit is not a green; re-secure it after every push, per the deployment's review-tooling state).
+   **A review that does not converge is a finding about the change, not a queue of fixes.** Every
+   push that answers findings buys a new review of the new head, so answering them one at a time has
+   no exit while the change itself keeps producing them. Count **fix cycles**, not reviews: a cycle
+   is a review of a head you pushed to answer the previous review's findings, and several reviewers
+   on one head are one cycle. When the second fix cycle still returns new findings — or any cycle
+   returns the kind of finding an earlier one already did — stop fixing them one by one. Read every
+   finding on the PR as one set and name what they share: an input space handled case by case, a
+   check written as a list of exceptions, more than one concern in one change. Then reshape once:
+   narrow or split the change, replace the list of exceptions with a list of what is allowed, or
+   move a separable part to a linked follow-up issue. When that part is required by the issue the PR
+   closes, change the PR's link so that issue stays open until the follow-up lands. **Record the
+   reshape on the PR** — the head it produced and what changed — so a later run counts from that
+   record instead of reshaping again. If new findings still arrive two fix cycles after the recorded
+   reshape, park the PR through the deployment's blocked-work mechanism, with the findings
+   summarised and a **re-entry condition that is a decision about scope or design, never another
+   review**. Until that condition is met, keeping a parked PR hygienic means its checks and
+   conflicts only: no run resumes fixing its findings or requests another review of it. This
+   changes when you stop, never what counts as ready.
 4. **Apply the Trust gate — exact-login match, never a substring.** A trusted-author, non-draft PR
    with the pentad clear is driven to merge with the mechanics the **Trust gate** names for that
    author and repo; your own promoted PRs follow the same path, including your own definition PRs.

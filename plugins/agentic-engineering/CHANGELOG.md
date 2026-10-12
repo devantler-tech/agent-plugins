@@ -23,11 +23,13 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 
 ## 6.3.4 — 2026-10-12
 
-**Fixed** — the Engineer has an exit when a review keeps returning new findings. From the third
-review of one pull request that still finds something new, or as soon as a review repeats a kind of
-finding an earlier one already raised, it reads all findings as one set, reshapes the change once,
-and parks the pull request if findings continue two reviews later. What
-counts as ready is unchanged
+**Fixed** — the Engineer has an exit when a review keeps returning new findings. When a second
+round of fixes still draws new findings, or a review repeats a kind of finding an earlier one raised,
+it reads all findings as one set, reshapes the change once and records that on the pull request. If
+findings continue two rounds later it parks the pull request until a scope or design decision is
+made; a parked pull request gets no further finding fixes or review requests. A part moved to a
+follow-up issue keeps the original issue open when that issue requires it. What counts as ready is
+unchanged
 ([#566](https://github.com/devantler-tech/agent-plugins/issues/566)).
 
 ## 6.3.3 — 2026-10-09

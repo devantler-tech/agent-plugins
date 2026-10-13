@@ -21,7 +21,7 @@
     {
       "name": "github",
       "description": "GitHub CLI, stacked PRs, Actions docs, and issue management skills",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "source": "./plugins/github"
     },
     {

@@ -3,8 +3,8 @@ description: Build or maintain user documentation sites for software products, i
 license: Apache-2.0
 metadata:
     github-path: product-documentation
-    github-pinned: 208bd5b0f34ae307465f285f9a1950718278fd46
-    github-ref: 208bd5b0f34ae307465f285f9a1950718278fd46
+    github-pinned: aa404bdbdc6ea211fbc1c2f75168cdab6ed37ab2
+    github-ref: aa404bdbdc6ea211fbc1c2f75168cdab6ed37ab2
     github-repo: https://github.com/devantler-tech/agent-skills
     github-tree-sha: c7103bdb7bc00a7ec8c2e26f15a4f202185f2ae5
 name: product-documentation

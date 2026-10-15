@@ -3,9 +3,9 @@ description: Write or review CONTRIBUTING.md or a contribution guide so a first-
 license: Apache-2.0
 metadata:
     github-path: write-contributing
-    github-ref: refs/tags/v1.24.0
+    github-ref: refs/tags/v1.24.1
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: a1962d9baad826acb7598c09e56669e974ab843f
+    github-tree-sha: 57d74a4a490d54254e1d8ce075f4455c61978d69
 name: write-contributing
 ---
 # Write a first-contribution guide
@@ -61,6 +61,11 @@ Keep the README's contribution section short and link to this guide. Put the gui
 can discover it, or provide a short discoverable pointer to an existing canonical location; do not
 create competing copies. Resolve the forge's recognized paths rather than assuming an arbitrary
 nested file is discoverable.
+
+Write short, direct instructions in the contributor's language. Explain what each step achieves;
+keep familiar tool names, but leave implementation details out unless needed to do the task.
+Preserve useful existing organization instead of expanding every guide into the same template.
+Keep author-only verification reports in the review, not in the contributor's instructions.
 
 Make the first contribution path self-contained. Link to detailed check matrices, architecture,
 release and operational instructions instead of pasting them all into onboarding. Avoid requiring

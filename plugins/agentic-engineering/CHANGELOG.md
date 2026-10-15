@@ -21,6 +21,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.4.0 — 2026-10-15
+
+**Added** — the Engineer reads every dependency update as a release range before it promotes or
+merges one. It runs the bundled `product-engineering` skill's upstream release review: a fixed bug
+retires our workaround, a new capability gets adopted, and a breaking change, deprecation or removal
+gets adapted to. Security fixes, changed defaults, end of life and regressions are handled the same
+way. The review is recorded on the update pull request
+([agent-skills#279](https://github.com/devantler-tech/agent-skills/issues/279)).
+
 ## 6.3.5 — 2026-10-15
 
 **Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.24.1`.

@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.3.5 — 2026-10-15
+
+**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.24.1`.
+
 ## 6.3.4 — 2026-10-12
 
 **Fixed** — the Engineer has an exit when a review keeps returning new findings. When a second

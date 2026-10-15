@@ -35,6 +35,14 @@ Six core skills:
 its own learnings. The latter is an external observer that can identify recurrence, cross-instance
 drift, and dispatch failures that no single run can see.
 
+### Product documentation
+
+The supplemental [`product-documentation`](skills/product-documentation/SKILL.md) skill helps the
+Engineer build and maintain user documentation sites: practical tutorials, task guides, reference,
+explanations and checks of the built and published result. It works with the product's existing
+framework guidance, such as the Astro skill in the frontend-design plugin. The Engineer loads it
+when that work applies; it is not part of the three skills preloaded for every run.
+
 ### Matt Pocock's engineering techniques
 
 Two supplemental skills are curated from [Matt Pocock's skills](https://github.com/mattpocock/skills).

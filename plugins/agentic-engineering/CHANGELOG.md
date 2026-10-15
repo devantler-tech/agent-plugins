@@ -21,6 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.4.0 — 2026-10-15
+
+**Added** — the supplemental `product-documentation` skill for user documentation sites,
+including task-focused writing, verified examples, site navigation and public publication checks.
+The Engineer loads it on demand with the relevant framework guidance; its three preloaded skills
+and the consuming deployment's authorization boundaries are unchanged.
+
 ## 6.3.5 — 2026-10-15
 
 **Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.24.1`.

@@ -23,10 +23,10 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 
 ## 6.4.0 — 2026-10-15
 
-**Added** — the Engineer reads every dependency update as a release range before it promotes or
-merges one. It runs the bundled `product-engineering` skill's upstream release review: a fixed bug
-retires our workaround, a new capability gets adopted, and a breaking change, deprecation or removal
-gets adapted to. Security fixes, changed defaults, end of life and regressions are handled the same
+**Added** — the Engineer reads every dependency update, from a bot, itself or the maintainer, as a
+release range before it promotes or merges one. It runs the bundled `product-engineering` skill's
+upstream release review: a fixed bug retires our workaround, a new capability gets adopted, and a
+breaking change, deprecation or removal gets adapted to. Security fixes, changed defaults, end of life and regressions are handled the same
 way. The review is recorded on the update pull request
 ([agent-skills#279](https://github.com/devantler-tech/agent-skills/issues/279)).
 

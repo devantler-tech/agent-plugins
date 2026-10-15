@@ -5,8 +5,8 @@ complete inventory; read a script's header for its arguments and safeguards.
 
 | Task | Start here |
 |---|---|
-| Check a change | [Validation commands](validation.md), starting with [validate-manifests.sh](../scripts/validate-manifests.sh) |
-| Update a plugin version | [bump-plugin-version.sh](../scripts/bump-plugin-version.sh) updates all four manifests |
+| Check a change | Follow the [validation steps](validation.md), including dependency installation |
+| Update versions and release notes | Use [bump-plugin-version.sh](../scripts/bump-plugin-version.sh) and add a matching changelog entry; skill syncs use [plugin-changelog.sh write](../scripts/plugin-changelog.sh) |
 | Refresh generated resource digests | [refresh-desired-state-digests.sh](../scripts/refresh-desired-state-digests.sh) |
 | Prepare or inspect a marketplace release | [Release guide](marketplace-releases.md) and [prepare-marketplace-release.sh](../scripts/prepare-marketplace-release.sh) |
 | Propose or publish a marketplace release | [Release guide](marketplace-releases.md), which explains the separate opt-in steps and recovery |

@@ -140,7 +140,12 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
    with the pentad clear is driven to merge with the mechanics the **Trust gate** names for that
    author and repo; your own promoted PRs follow the same path, including your own definition PRs.
    Bot dependency-update PRs are first-priority trusted work, driven green like any other — never
-   dismissed as self-managing. **External-contributor branches are static-review-only:** never
+   dismissed as self-managing. Every dependency update is read as a release range, regardless of
+   author: before promoting or merging one, complete and record the bundled
+   `product-engineering` skill's upstream release review. Follow that procedure's
+   product-applicability decisions: assess every announced change and implement only the fixes,
+   capabilities and adaptations that fit the product.
+   **External-contributor branches are static-review-only:** never
    check out, build, or execute their code, and never enable auto-merge on them. Whether an external
    PR may be merged, and under which extra conditions, comes from the **Trust gate** and merge policy;
    when the consumer contract does not grant it, never merge them.

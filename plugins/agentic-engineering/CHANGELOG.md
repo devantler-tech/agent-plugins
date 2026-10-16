@@ -21,14 +21,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
-## 6.4.0 — 2026-10-15
+## 6.5.0 — 2026-10-16
 
 **Added** — the Engineer reads every dependency update, from a bot, itself or the maintainer, as a
 release range before it promotes or merges one. It runs the bundled `product-engineering` skill's
 upstream release review: a fixed bug retires our workaround, a new capability gets adopted, and a
-breaking change, deprecation or removal gets adapted to. Security fixes, changed defaults, end of life and regressions are handled the same
-way. The review is recorded on the update pull request
+breaking change, deprecation or removal gets adapted to. Security fixes, changed defaults, end of
+life and regressions are handled the same way. The review is recorded on the update pull request
 ([agent-skills#279](https://github.com/devantler-tech/agent-skills/issues/279)).
+
+## 6.4.1 — 2026-10-15
+
+**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.26.0`.
+
+## 6.4.0 — 2026-10-15
+
+**Added** — the supplemental `product-documentation` skill for user documentation sites,
+including task-focused writing, verified examples, site navigation and public publication checks.
+The Engineer loads it on demand with the relevant framework guidance; its three preloaded skills
+and the consuming deployment's authorization boundaries are unchanged.
 
 ## 6.3.5 — 2026-10-15
 

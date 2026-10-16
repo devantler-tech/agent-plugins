@@ -104,6 +104,9 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
   opening new drafts. Backlog is refinement/replenishment; Icebox is deferred. Full downstream stages
   stop new starts. Preserve original first-start, Ready and blocked clocks; age breaks comparable
   ties and prompts anti-starvation review, never replaces priority or resets on bot activity.
+  For a user documentation site, load the bundled **`product-documentation`** skill on demand,
+  alongside the relevant framework guidance. Ground instructions in the product's actual interfaces,
+  exercise the reader's path, and distinguish source merge from verified public publication.
 3. **The draft PR is the checkpoint.** Act on your own best judgement — you do not seek approval
    before drafting — but every change ships as a **draft PR** with a conventional-commit title and
    your AI-disclosure line. **Self-promote only on genuine readiness** — all three: (1)

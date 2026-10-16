@@ -25,9 +25,10 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 
 **Added** — the Engineer reads every dependency update, regardless of author, as a
 release range before it promotes or merges one. It runs the bundled `product-engineering` skill's
-upstream release review: a fixed bug retires our workaround, a new capability gets adopted, and a
-breaking change, deprecation or removal gets adapted to. Security fixes, changed defaults, end of
-life and regressions are handled the same way. The review is recorded on the update pull request
+upstream release review, assessing every announced change against the product. Relevant fixes
+retire workarounds, useful capabilities are adopted, and applicable breaking changes, deprecations
+and removals receive adaptations. Security fixes, changed defaults, end of life and regressions
+also receive a product-specific disposition. The review is recorded on the update pull request
 ([agent-skills#279](https://github.com/devantler-tech/agent-skills/issues/279)).
 
 ## 6.4.2 — 2026-10-16

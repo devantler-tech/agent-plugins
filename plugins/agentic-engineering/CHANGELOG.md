@@ -30,6 +30,10 @@ breaking change, deprecation or removal gets adapted to. Security fixes, changed
 life and regressions are handled the same way. The review is recorded on the update pull request
 ([agent-skills#279](https://github.com/devantler-tech/agent-skills/issues/279)).
 
+## 6.4.2 — 2026-10-16
+
+**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.26.0`.
+
 ## 6.4.1 — 2026-10-15
 
 **Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.26.0`.

@@ -23,7 +23,7 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 
 ## 6.5.0 — 2026-10-16
 
-**Added** — the Engineer reads every dependency update, from a bot, itself or the maintainer, as a
+**Added** — the Engineer reads every dependency update, regardless of author, as a
 release range before it promotes or merges one. It runs the bundled `product-engineering` skill's
 upstream release review: a fixed bug retires our workaround, a new capability gets adopted, and a
 breaking change, deprecation or removal gets adapted to. Security fixes, changed defaults, end of

@@ -21,6 +21,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.6.0 — 2026-10-17
+
+**Added** — the Engineer's isolation rule covers scratch files. Every worker one session
+dispatches shares that session's scratch directory, so the Engineer starts each scratch file's name
+with a token unique to its worker (the issue or PR number, plus a worker tag when two workers share
+one item) and a purpose word, and gives every worker it dispatches its own token in its brief. A
+consuming deployment measured 13 scratch names each written by two to four workers in one day
+([#579](https://github.com/devantler-tech/agent-plugins/issues/579)).
+
 ## 6.5.0 — 2026-10-16
 
 **Added** — the Engineer reads every dependency update, regardless of author, as a

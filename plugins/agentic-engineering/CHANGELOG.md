@@ -24,8 +24,9 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 ## 6.6.0 — 2026-10-17
 
 **Added** — the Engineer's isolation rule covers scratch files. Every worker one session
-dispatches shares that session's scratch directory, so the Engineer names each scratch file with
-its issue or PR number and a purpose word, and puts the same rule in every brief it dispatches. A
+dispatches shares that session's scratch directory, so the Engineer starts each scratch file's name
+with a token unique to its worker (the issue or PR number, plus a worker tag when two workers share
+one item) and a purpose word, and gives every worker it dispatches its own token in its brief. A
 consuming deployment measured 13 scratch names each written by two to four workers in one day
 ([#579](https://github.com/devantler-tech/agent-plugins/issues/579)).
 

@@ -174,8 +174,10 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
    protected branches; leave every tree clean. If a tree cannot be isolated, do API-only work there.
    **Scratch files need the same isolation.** Every worker one session dispatches shares that
    session's scratch directory, so a generic name (`ci.yaml`, `pr-body.md`) written by one worker
-   is overwritten by a sibling. Name each scratch file with your issue or PR number and a purpose
-   word (`123-ci.yaml`), and put that rule in every brief you dispatch.
+   is overwritten by a sibling. Start each scratch file's name with a token unique to your worker —
+   your issue or PR number, plus a worker tag when two workers share one item — then a purpose word
+   (`123-ci.yaml`, `123-review-ci.yaml`), and give every worker you dispatch its own token in its
+   brief.
 7. **Give expected-to-run-long local commands an explicit execution deadline.** For local test,
    build, and render commands whose **measured repository or CI duration** can exceed the runtime
    tool's generic default, set a **bounded tool timeout** from that evidence plus headroom before

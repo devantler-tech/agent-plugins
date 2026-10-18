@@ -3,9 +3,9 @@ description: 'The ADVANCE playbook for an autonomous AI engineer — how to move
 license: Apache-2.0
 metadata:
     github-path: product-engineering
-    github-ref: refs/tags/v1.26.0
+    github-ref: refs/tags/v1.27.0
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 328d7937ebdbed48cc2e21282f4bab8be2d7560b
+    github-tree-sha: dd465837330087614a8f2f0d6e290db3cd82fe8e
 name: product-engineering
 ---
 # Product engineering — moving products forward
@@ -245,6 +245,12 @@ Docs are part of the product.
 
 Treat live security findings as first-class advance work, with the same evidence discipline as
 coverage and performance.
+
+For hosted security and code-quality findings and feature-adoption drift, use the existing
+portfolio intake's [posture procedure](../portfolio-maintenance/references/security-and-quality-posture.md).
+It supplements this fix-versus-except policy without creating another priority queue.
+If the companion reference is unavailable, resolve the consumer's maintained equivalent before
+activation or posture claims; missing cost, privacy or coverage evidence remains unknown.
 
 - **Ingest liveness-first.** Findings come from the product's live scanners/gates (named in its
   card). **A zero/empty reading is a broken scanner until proven otherwise** — a broken scanner and

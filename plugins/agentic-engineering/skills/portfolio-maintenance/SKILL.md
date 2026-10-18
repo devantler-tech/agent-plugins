@@ -3,9 +3,9 @@ description: The run loop for an autonomous AI engineer acting as a portfolio's 
 license: Apache-2.0
 metadata:
     github-path: portfolio-maintenance
-    github-ref: refs/tags/v1.26.0
+    github-ref: refs/tags/v1.27.0
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: ae6e21436225d88b2d035c431beb279e46366c43
+    github-tree-sha: 9df7f7a20318d3e92953e4bb1f679db43a25fef1
 name: portfolio-maintenance
 ---
 # Portfolio maintenance — the run loop
@@ -325,6 +325,11 @@ draft is unfinished work to clear first.
    until proven otherwise); breakage-class findings are hotfixes, everything else enters the backlog
    as a **sanitized** security issue, with full evidence kept only in the private out-of-repository
    store (see `product-engineering` §8).
+   For hosted security and code-quality products, follow
+   [security and quality posture](references/security-and-quality-posture.md): sweep every
+   configured finding family, verify liveness, and compare declared adoption with entitlement,
+   configuration, current analysis and effective enforcement. Keep paid activation behind the
+   consumer's verified cost boundary; unknown observations never mean clean.
 6. **Upkeep** — workflow health, dependency bundling, upstream release review of moved
    dependencies (`product-engineering` §10), docs sync, manifest cleanup.
 

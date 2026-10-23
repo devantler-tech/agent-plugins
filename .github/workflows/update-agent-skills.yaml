@@ -10,12 +10,11 @@ on:
         options:
           - all
           - agentic-engineering
+          - engineering-practices
   schedule:
     - cron: "0 6 * * *"
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   scope:
@@ -40,6 +39,9 @@ jobs:
 
   update:
     needs: scope
+    permissions:
+      contents: write
+      pull-requests: write
     uses: devantler-tech/.github/.github/workflows/update-agent-skills.yaml@e271b7ff25d4ce97b067612e7ba0c5d657b6a17a # v6.1.0
     with:
       dir: ${{ needs.scope.outputs.dir }}

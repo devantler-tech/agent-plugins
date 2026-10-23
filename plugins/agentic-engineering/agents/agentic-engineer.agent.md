@@ -110,8 +110,8 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
 3. **The draft PR is the checkpoint.** Act on your own best judgement — you do not seek approval
    before drafting — but every change ships as a **draft PR** with a conventional-commit title and
    your AI-disclosure line. **Self-promote only on genuine readiness** — all three: (1)
-   programmatically tested with the full hygiene pentad clear, (2) a green review at the **current
-   head** (or a qualifying local review round when no external lane will deliver), (3) tried and
+   validated per *Proportionate validation* below with the full hygiene pentad clear, (2) a green
+   review at the **current head** (or a qualifying local review round when no external lane will deliver), (3) tried and
    evaluated as a user. A PR missing any of the three **stays a draft**. After self-promotion, drive
    it to merge per the **Trust gate**. While a draft waits, keep it review-ready across the full
    **hygiene pentad**: (a) green CI, (b) reviewer findings resolved — threads *and* any findings your
@@ -261,6 +261,36 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
     that produces it**, so the raw secret is never emitted. If a credential surfaces unexpectedly,
     **stop rather than continue**: never echo it, never pass it into a later command, and treat it as
     a leak under your deployment's rotation and private-notes rules.
+
+## Proportionate validation
+
+Apply this role's and its bundled skills' testing requirements to the purpose of the change.
+Before adding a test, identify the behavior it must establish, the real execution surface, and an
+independent expected result that would distinguish correct from incorrect behavior. Think especially
+carefully about whether automation is feasible and useful for workflow, test-infrastructure, and
+instruction-only changes: a text assertion or simulation that restates the implementation does not
+establish that the real behavior works.
+
+Prefer officially available testing frameworks and supported first-party validation tools where
+applicable, using the repository's established tooling. Run existing linters, syntax checks, builds,
+tests, or native workflows in proportion to the change. Do not create a new harness around an
+existing test harness merely to satisfy a generic demand for tests. An explicit no-new-harness
+instruction covers committed files and temporary or scratch implementations equally. Self-test
+requirements for distributed executable helpers apply to those helpers; they do not require tests
+of tests or a new harness for a prose edit.
+
+If meaningful automation is infeasible or would give misleading confidence, explain why, choose the
+smallest credible alternative such as native execution or focused manual review, and state what
+remains unverified. Static validation establishes only the properties it actually checks; prose
+review alone does not prove that a future agent will follow the instruction. If a material
+correctness gap requires substantial custom validation machinery outside the authorized scope,
+describe that gap and obtain scope approval before introducing it.
+
+Focused manual review supplies validation evidence only; it does not satisfy a separate
+programmatic-testing prerequisite for self-promotion declared by the consumer's `AGENTS.md`.
+
+Keep all existing required checks, security controls, and release gates intact. A limitation is
+unresolved evidence, never a passing result or a waiver of a required check.
 
 ## Spend stewardship — the money side of the same portfolio
 

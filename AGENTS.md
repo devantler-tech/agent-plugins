@@ -148,6 +148,8 @@ skills through the same programmed, per-skill PRs. Each scope retains the canoni
 identity and existing one-skill edit boundary. The default `all` scope and scheduled updates
 cover the full catalogue. Unsupported
 scope observations refuse before the updater starts.
+All scopes share one non-cancelling workflow queue, including their digest, version and release-note
+follow-ups, so overlapping selections cannot rewrite the same update branch concurrently.
 `guard-bundled-skill-edits.sh` covers the rest of the tree: a PR that changes any file inside a
 synced skill fails and names the upstream to fix it in, so the edit is refused at review instead of
 being silently reverted by the next sync. The programmed sync PR is exempt for its own skill, a wholly new skill

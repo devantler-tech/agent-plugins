@@ -36,6 +36,12 @@ options=$(yq -o=json '.on.workflow_dispatch.inputs.scope' "$here/../.github/work
 printf '%s\n' "$options" | jq -se 'length == 1 and (.[0] | .type == "choice" and .default == "all" and
   (.options | sort) == ["agentic-engineering","all","engineering-practices"])' > /dev/null
 workflow=$(yq -o=json '.' "$here/../.github/workflows/update-agent-skills.yaml")
+if ! printf '%s\n' "$workflow" | jq -se 'length == 1 and (.[0].concurrency == {
+  group:"agent-plugins-skill-sync-${{ github.repository }}",
+  "cancel-in-progress":false, queue:"max"})' > /dev/null; then
+  printf 'skill update scopes: require one non-cancelling queue across all scopes and follow-up jobs\n' >&2
+  exit 1
+fi
 printf '%s\n' "$workflow" | jq -se 'length == 1 and (.[0] |
   .permissions == {} and .jobs.scope.permissions == {contents:"read"} and
   .jobs.update.permissions == {contents:"write","pull-requests":"write"} and

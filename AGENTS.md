@@ -128,8 +128,8 @@ which records the true upstream in the skill's `metadata.github-*` frontmatter (
 `anthropics/skills`, our own sibling [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills),
 …), each tracked independently. The daily
 [`update-agent-skills.yaml`](.github/workflows/update-agent-skills.yaml) workflow runs
-[`gh skill update --all`](https://github.com/devantler-tech/actions/tree/main/update-agent-skills) via
-the [`update-agent-skills`](https://github.com/devantler-tech/actions/blob/main/.github/workflows/update-agent-skills.yaml)
+[`gh skill update --all`](https://github.com/devantler-tech/.github/tree/main/actions/update-agent-skills) via
+the [`update-agent-skills`](https://github.com/devantler-tech/.github/blob/main/.github/workflows/update-agent-skills.yaml)
 reusable workflow and opens one PR per drifted skill, from `deps/agent-skills-update-<slug>`, so a
 blocked update holds back only its own skill — **no lockfile, no sync bot, no custom metadata.** Never hand-edit anything inside a bundled skill — not the `SKILL.md`, and not the
 `references/`, `scripts/` and `assets/` files beside it, which are equally the upstream's and equally
@@ -143,9 +143,13 @@ distributed notice. A changed notice or incomplete read refuses validation; refr
 a reviewed curation change rather than replacing the notice silently. Run
 `bash scripts/check-matt-skill-license.test.sh` for its offline source and notice regressions.
 For a portfolio-owned repair, dispatch `update-agent-skills.yaml` with
-`scope=agentic-engineering` to update only that plugin's skills through the same programmed
-PRs. The default `all` scope and scheduled updates cover the full catalogue. Unsupported
+`scope=agentic-engineering` or `scope=engineering-practices` to update only the selected plugin's
+skills through the same programmed, per-skill PRs. Each scope retains the canonical branch
+identity and existing one-skill edit boundary. The default `all` scope and scheduled updates
+cover the full catalogue. Unsupported
 scope observations refuse before the updater starts.
+All scopes share one non-cancelling workflow queue, including their digest, version and release-note
+follow-ups, so overlapping selections cannot rewrite the same update branch concurrently.
 `guard-bundled-skill-edits.sh` covers the rest of the tree: a PR that changes any file inside a
 synced skill fails and names the upstream to fix it in, so the edit is refused at review instead of
 being silently reverted by the next sync. The programmed sync PR is exempt for its own skill, a wholly new skill

@@ -10,12 +10,18 @@ on:
         options:
           - all
           - agentic-engineering
+          - engineering-practices
   schedule:
     - cron: "0 6 * * *"
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
+
+# All scopes can update the same per-skill branches. Keep their digest/version
+# follow-ups inside the same non-cancelling queue as the updater itself.
+concurrency:
+  group: agent-plugins-skill-sync-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
 
 jobs:
   scope:
@@ -40,6 +46,9 @@ jobs:
 
   update:
     needs: scope
+    permissions:
+      contents: write # The shared updater writes the signed skill-sync commits.
+      pull-requests: write # The shared updater opens per-skill update proposals.
     uses: devantler-tech/.github/.github/workflows/update-agent-skills.yaml@e271b7ff25d4ce97b067612e7ba0c5d657b6a17a # v6.1.0
     with:
       dir: ${{ needs.scope.outputs.dir }}

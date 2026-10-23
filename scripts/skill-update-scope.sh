@@ -6,5 +6,6 @@ refuse() { printf 'skill update scope: unsupported dispatch\n' >&2; exit 2; }
 case "$1:${2:-all}" in
   schedule:all|workflow_dispatch:all) printf 'dir=plugins\nbranch=deps/agent-skills-update\n' ;;
   workflow_dispatch:agentic-engineering) printf 'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills\n' ;;
+  workflow_dispatch:engineering-practices) printf 'dir=plugins/engineering-practices/skills\nbranch=deps/agent-skills-update-engineering-practices-skills\n' ;;
   *) refuse ;;
 esac

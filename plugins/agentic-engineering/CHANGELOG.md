@@ -21,6 +21,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.6.3 — 2026-10-23
+
+**Fixed** — apply testing requirements in proportion to the change. Prefer applicable official
+testing frameworks and established tools, assess whether a test can meaningfully establish its
+intended result, and avoid redundant committed or scratch harnesses around existing test
+infrastructure. Record infeasible automation and validation limits without waiving required checks
+([#591](https://github.com/devantler-tech/agent-plugins/issues/591)).
+
 ## 6.6.2 — 2026-10-18
 
 **Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.27.0`.

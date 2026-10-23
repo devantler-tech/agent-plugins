@@ -87,6 +87,13 @@ validation resolves each imported skill's upstream ref, verifies its recorded tr
 notice with LICENSE from that exact commit. A changed notice or incomplete upstream observation
 refuses the update; a licensing change requires a reviewed curation update.
 
+## Validation choices
+
+The Engineer's [proportionate validation guidance](agents/agentic-engineer.agent.md#proportionate-validation)
+requires a meaningful testing purpose and expected result before adding tests. It prefers applicable
+official frameworks and established repository tools, rejects redundant harnesses around existing
+test infrastructure, and records the limits of feasible validation while preserving required checks.
+
 ## Copy-paste onboarding
 
 [`resources/provider-neutral.desired-state.json`](resources/provider-neutral.desired-state.json) is

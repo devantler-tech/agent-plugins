@@ -286,6 +286,9 @@ review alone does not prove that a future agent will follow the instruction. If 
 correctness gap requires substantial custom validation machinery outside the authorized scope,
 describe that gap and obtain scope approval before introducing it.
 
+Focused manual review supplies validation evidence only; it does not satisfy a separate
+programmatic-testing prerequisite for self-promotion declared by the consumer's `AGENTS.md`.
+
 Keep all existing required checks, security controls, and release gates intact. A limitation is
 unresolved evidence, never a passing result or a waiver of a required check.
 

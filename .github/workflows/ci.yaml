@@ -44,6 +44,12 @@ jobs:
         # AGENTS.md, self-tested in the lint-scripts job) — no inline/doc drift.
         run: ./scripts/validate-manifests.sh
 
+      - name: 📜 Check bundled skill licenses
+        # Every bundled skill keeps its own license: a third-party skill needs its
+        # copyright notice and license text in its plugin's resources, and every
+        # skill needs a row in the catalogue's skill-license table.
+        run: bash scripts/check-skill-licenses.sh
+
   lint-scripts:
     name: Lint scripts
     runs-on: ubuntu-latest
@@ -291,6 +297,9 @@ jobs:
 
       - name: 🧪 Verify packaged desired-state file boundaries
         run: bash scripts/desired-state-boundaries.test.sh
+
+      - name: 🧪 Self-test the skill license check
+        run: bash scripts/check-skill-licenses.test.sh
 
       - name: 🧪 Self-test the desired-state digest generator
         # Proves the generator writes exactly what validate-manifests.sh demands — a

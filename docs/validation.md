@@ -35,6 +35,11 @@ npm ci --ignore-scripts --no-audit --no-fund
 #    desired-state resources, and skill provenance — the exact checks CI's
 #    "Validate manifests" job runs.
 ./scripts/validate-manifests.sh
+# Every bundled skill keeps its own license (CI's "Check bundled skill licenses" step). A third-party
+# skill needs a row and a `## <owner>/<repo>` section with its copyright notice and license text in
+# plugins/<plugin>/resources/THIRD-PARTY-NOTICES.md; every skill needs a row in docs/plugins.md.
+bash scripts/check-skill-licenses.sh
+bash scripts/check-skill-licenses.test.sh
 # Remote MCP URL syntax uses the repository-local Go helper (Go ≥1.22, standard library only).
 GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
   go test scripts/mcp-url-go/main.go scripts/mcp-url-go/main_test.go

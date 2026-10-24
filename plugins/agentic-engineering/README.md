@@ -87,6 +87,10 @@ validation resolves each imported skill's upstream ref, verifies its recorded tr
 notice with LICENSE from that exact commit. A changed notice or incomplete upstream observation
 refuses the update; a licensing change requires a reviewed curation update.
 
+The license, copyright notice and license text of every third-party skill in this plugin, including
+`find-skills`, are recorded in
+[`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.md).
+
 ## Validation choices
 
 The Engineer's [proportionate validation guidance](agents/agentic-engineer.agent.md#proportionate-validation)

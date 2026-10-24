@@ -24,7 +24,7 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 ## 6.6.4 — 2026-10-24
 
 **Added** — `resources/THIRD-PARTY-NOTICES.md` records the upstream license, copyright notice
-and license text of the bundled `find-skills`, `grilling` and `prototype` skills; keep it when you redistribute those skills
+and license text (or the file holding it) of the bundled `find-skills`, `grilling` and `prototype` skills; keep it when you redistribute those skills
 ([#582](https://github.com/devantler-tech/agent-plugins/issues/582)).
 
 ## 6.6.3 — 2026-10-23

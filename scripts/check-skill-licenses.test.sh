@@ -49,7 +49,15 @@ EOF
 
 ## example/skills
 
-Copyright (c) 2026 Example. MIT License text.
+Skills: `theirs`, `other`.
+
+```text
+MIT License
+
+Copyright (c) 2026 Example
+
+Permission is hereby granted, free of charge.
+```
 EOF
   printf '%s\n' "$root"
 }
@@ -109,6 +117,42 @@ expect 'a catalogue row for a skill that is not bundled fails' 1 "$root" 'bundle
 root=$(fixture stale-notice-row)
 printf '| `gone` | example/skills | MIT |\n' >> "$root/plugins/alpha/resources/THIRD-PARTY-NOTICES.md"
 expect 'a notice row for a skill that is not bundled fails' 1 "$root" 'has a row for gone, which alpha does not bundle'
+
+# The frontmatter scalar is compared unquoted, so quoting cannot hide a contradiction.
+root=$(fixture quoted-frontmatter)
+sed -i.bak 's/^license: MIT$/license: "Apache-2.0"/' "$root/plugins/alpha/skills/theirs/SKILL.md"
+expect 'a quoted frontmatter license that contradicts the records fails' 1 "$root" 'theirs declares Apache-2.0, but'
+
+root=$(fixture quoted-frontmatter-agrees)
+sed -i.bak "s/^license: MIT\$/license: 'MIT'/" "$root/plugins/alpha/skills/theirs/SKILL.md"
+expect 'a quoted frontmatter license that agrees passes' 0 "$root"
+
+# A declaration that is not an identifier must be backed by a license file beside the skill.
+root=$(fixture prose-declaration)
+sed -i.bak 's/^license: MIT$/license: Complete terms in LICENSE.txt/' "$root/plugins/alpha/skills/theirs/SKILL.md"
+expect 'a prose license declaration without a license file fails' 1 "$root" 'neither an SPDX identifier nor backed by a LICENSE file'
+printf 'Terms.\n' > "$root/plugins/alpha/skills/theirs/LICENSE.txt"
+expect 'a prose license declaration with a license file passes' 0 "$root"
+
+# Blank license cells cannot agree with each other.
+root=$(fixture blank-licenses)
+sed -i.bak 's/^| `other` | example\/skills | MIT |/| `other` | example\/skills |  |/' "$root/plugins/alpha/resources/THIRD-PARTY-NOTICES.md"
+sed -i.bak 's/^| `other` | `alpha` | example\/skills | MIT |/| `other` | `alpha` | example\/skills |  |/' "$root/docs/plugins.md"
+expect 'blank license cells fail' 1 "$root" 'lists no SPDX license for other'
+
+# A section must keep its records, not only its heading.
+root=$(fixture heading-only)
+awk '/^## example\/skills$/ { print; exit } { print }' "$root/plugins/alpha/resources/THIRD-PARTY-NOTICES.md" > "$root/n" && mv "$root/n" "$root/plugins/alpha/resources/THIRD-PARTY-NOTICES.md"
+expect 'a heading-only notice section fails' 1 "$root" 'needs its copyright notice'
+
+root=$(fixture no-license-text)
+printf '## example/skills\n\nCopyright (c) 2026 Example.\n' > "$root/section"
+awk '/^## example\/skills$/ { exit } { print }' "$root/plugins/alpha/resources/THIRD-PARTY-NOTICES.md" > "$root/n" && cat "$root/n" "$root/section" > "$root/plugins/alpha/resources/THIRD-PARTY-NOTICES.md"
+expect 'a section with a copyright notice but no license text fails' 1 "$root" 'needs the license text'
+printf 'See [the license](missing-LICENSE.txt).\n' >> "$root/plugins/alpha/resources/THIRD-PARTY-NOTICES.md"
+expect 'a link to a missing license file fails' 1 "$root" 'needs the license text'
+printf 'MIT terms.\n' > "$root/plugins/alpha/resources/missing-LICENSE.txt"
+expect 'a link to a shipped license file passes' 0 "$root"
 
 root=$(fixture symlinked-notice)
 mv "$root/plugins/alpha/resources/THIRD-PARTY-NOTICES.md" "$root/notice.md"

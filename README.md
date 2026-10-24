@@ -29,4 +29,5 @@ If a pull-request recheck fails, follow the [recovery guide](docs/pr-recheck-rec
 
 The marketplace is under the [Apache 2.0 license](LICENSE). Bundled skills keep their own licenses, listed
 in the [plugin catalogue](docs/plugins.md#skill-licenses); third-party skills ship their copyright
-notices and license texts in their plugin's `resources/THIRD-PARTY-NOTICES.md`.
+notices and license texts, or links to the license files beside them, in their plugin's
+`resources/THIRD-PARTY-NOTICES.md`.

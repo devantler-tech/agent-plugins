@@ -19,8 +19,8 @@ A **skill** teaches an assistant a task. An **agent** gives it a specialized rol
 
 Every bundled skill keeps its own license. The plugin bundles themselves are licensed under the
 repository's [Apache-2.0 license](../LICENSE). A plugin that bundles third-party skills ships each
-skill's copyright notice and license text in its `resources/THIRD-PARTY-NOTICES.md`; keep that file
-when you copy or redistribute those skills.
+skill's copyright notice in its `resources/THIRD-PARTY-NOTICES.md`, with the license text or a link to the
+license file the plugin ships; keep both when you copy or redistribute those skills.
 
 | Skill | Plugin | Upstream | License |
 |-------|--------|----------|---------|

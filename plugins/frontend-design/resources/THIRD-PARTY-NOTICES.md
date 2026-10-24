@@ -15,7 +15,7 @@ plugin is licensed under the repository's
 
 Skills: `astro`. Source: <https://github.com/astrolicious/agent-skills>.
 
-The skill declares MIT in its own frontmatter. The upstream publishes no `LICENSE` file or copyright line, so the standard MIT terms are reproduced below without one.
+The skill declares MIT in its own frontmatter. The upstream publishes no `LICENSE` file and no copyright line, so the standard MIT terms are reproduced below without one.
 
 ```text
 MIT License
@@ -43,13 +43,13 @@ SOFTWARE.
 
 Skills: `frontend-design`. Source: <https://github.com/anthropics/skills>.
 
-The complete Apache-2.0 terms are in the `LICENSE.txt` file the upstream ships beside the skill, which this bundle keeps unchanged. The upstream publishes no copyright line or `NOTICE` file for it.
+The complete Apache-2.0 terms are in [`LICENSE.txt`](../skills/frontend-design/LICENSE.txt), which the upstream ships beside the skill and this bundle keeps unchanged. The upstream publishes no copyright line or `NOTICE` file for it.
 
 ## vercel-labs/agent-skills
 
 Skills: `web-design-guidelines`. Source: <https://github.com/vercel-labs/agent-skills>.
 
-The upstream declares MIT in its README and names `vercel` as the skill's author. It publishes no `LICENSE` file or copyright line, so the standard MIT terms are reproduced below without one.
+The upstream declares MIT in its README and names `vercel` as the skill's author. It publishes no `LICENSE` file and no copyright line, so the standard MIT terms are reproduced below without one.
 
 ```text
 MIT License

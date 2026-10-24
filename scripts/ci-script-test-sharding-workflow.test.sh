@@ -100,6 +100,7 @@ check_workflow() {
     'bash scripts/package-boundaries.test.sh'
     'bash scripts/package-discovery.test.sh'
     'bash scripts/desired-state-boundaries.test.sh'
+    'bash scripts/check-skill-licenses.test.sh'
     './scripts/refresh-desired-state-digests.test.sh || result=1'
     'bash scripts/digest-declarations.test.sh || result=1'
     'bash scripts/generated-write-safety.test.sh'

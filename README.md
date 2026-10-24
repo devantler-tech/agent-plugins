@@ -27,4 +27,7 @@ Maintainers can [prepare and publish a marketplace release](docs/marketplace-rel
 
 If a pull-request recheck fails, follow the [recovery guide](docs/pr-recheck-recovery.md) to retrieve its saved merge settings and verify the current PR before restoring them.
 
-[Apache 2.0 license](LICENSE)
+The marketplace is under the [Apache 2.0 license](LICENSE). Bundled skills keep their own licenses, listed
+in the [plugin catalogue](docs/plugins.md#skill-licenses); third-party skills ship their copyright
+notices and license texts, or links to the license files beside them, in their plugin's
+`resources/THIRD-PARTY-NOTICES.md`.

@@ -21,6 +21,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.6.4 — 2026-10-24
+
+**Added** — `resources/THIRD-PARTY-NOTICES.md` records the upstream license, copyright notice
+and license text (or the file holding it) of the bundled `find-skills`, `grilling` and `prototype` skills; keep it when you redistribute those skills
+([#582](https://github.com/devantler-tech/agent-plugins/issues/582)).
+
 ## 6.6.3 — 2026-10-23
 
 **Fixed** — apply testing requirements in proportion to the change. Prefer applicable official

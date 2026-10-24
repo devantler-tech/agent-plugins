@@ -15,37 +15,37 @@
     {
       "name": "gitops-kubernetes",
       "description": "Flux CD debugging, knowledge, and tenant onboarding — skills plus the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "source": "./plugins/gitops-kubernetes"
     },
     {
       "name": "github",
       "description": "GitHub CLI, stacked PRs, Actions docs, and issue management skills",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "source": "./plugins/github"
     },
     {
       "name": "agentic-engineering",
       "description": "The autonomous engineering system for repository portfolios — engineer, read-only surveyor, and meta-engineer agents; portfolio, product, spend, and improvement workflows; cross-tool instruction architecture and skill discovery; configured by the consumer AGENTS.md",
-      "version": "6.6.3",
+      "version": "6.6.4",
       "source": "./plugins/agentic-engineering"
     },
     {
       "name": "go",
       "description": "Go best practices, concurrency, generics, interfaces, and testing skills",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "source": "./plugins/go"
     },
     {
       "name": "engineering-practices",
       "description": "Git commits, conventional releases, refactoring, test-driven development, and engineering ways of working skills",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "source": "./plugins/engineering-practices"
     },
     {
       "name": "frontend-design",
       "description": "Astro, frontend design, and web design guidelines skills",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "source": "./plugins/frontend-design"
     },
     {

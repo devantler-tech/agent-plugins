@@ -13,12 +13,15 @@ for scenario in healthy empty-resources canonical-internal canonical-external ca
   root="$work/$scenario"; mkdir -p "$root"
   tar -xf "$work/package.tar" -C "$root"
   canonical="$root/plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
+  # The go plugin's resources directory is replaced below, so start each scenario from a known
+  # state rather than from whatever the package ships there.
+  go_resources="$root/plugins/go/resources"
   candidate="$root/plugins/agentic-engineering/resources/other.desired-state.json"
   diagnostic='regular packaged desired-state file'
   expected=reject
   case "$scenario" in
     healthy) expected=pass ;;
-    empty-resources) mkdir -p "$root/plugins/go/resources"; expected=pass ;;
+    empty-resources) rm -rf "$go_resources"; mkdir -p "$go_resources"; expected=pass ;;
     canonical-internal)
       mv "$canonical" "$root/plugins/agentic-engineering/original.json"
       ln -s ../original.json "$canonical" ;;
@@ -43,10 +46,10 @@ for scenario in healthy empty-resources canonical-internal canonical-external ca
     optional-parent|optional-parent-empty)
       mkdir -p "$root/original-resources"
       if [ "$scenario" = optional-parent ]; then cp "$canonical" "$root/original-resources/other.desired-state.json"; fi
-      ln -s "$root/original-resources" "$root/plugins/go/resources"
+      rm -rf "$go_resources"; ln -s "$root/original-resources" "$go_resources"
       diagnostic='regular packaged resources directory' ;;
     resources-file)
-      printf 'not a directory\n' > "$root/plugins/go/resources"
+      rm -rf "$go_resources"; printf 'not a directory\n' > "$go_resources"
       diagnostic='regular packaged resources directory' ;;
   esac
   rc=0

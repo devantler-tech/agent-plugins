@@ -1,8 +1,8 @@
 # Third-party notices
 
 This plugin redistributes the skills below from their upstream repositories. Each skill keeps its
-upstream license, recorded here with its copyright notice and license text. Everything else in this
-plugin is licensed under the repository's
+upstream license, recorded here with its copyright notice and its license text, or a link to the
+license file this plugin ships. Everything else in this plugin is licensed under the repository's
 [Apache-2.0 license](https://github.com/devantler-tech/agent-plugins/blob/main/LICENSE).
 
 | Skill | Upstream | License |

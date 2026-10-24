@@ -1,5 +1,9 @@
 # Changelog — `engineering-practices`
 
+## 1.1.4 — 2026-10-24
+
+**Changed** — sync `git-commit` from `https://github.com/github/awesome-copilot` at `refs/heads/main`.
+
 ## 1.1.3 — 2026-10-23
 
 **Changed** — sync `ways-of-working` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.27.1`.

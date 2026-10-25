@@ -100,14 +100,22 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: write
 
+      - name: 📄 Checkout the reviewed publisher and generators
+        id: trusted-tools
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          path: trusted-tools
+          persist-credentials: false
+
       - name: 📄 Checkout the update branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.scope.outputs.branch }}-${{ matrix.skill.slug }}
+          path: update
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
-          # This job must push, so credentials stay on the checkout.
-          persist-credentials: true
+          persist-credentials: false
         # The sync opens a PR only when an upstream skill actually drifted; on a quiet day
         # the branch does not exist and there is nothing to bump.
         continue-on-error: true
@@ -121,43 +129,30 @@ jobs:
 
       - name: 📦 Install the locked Markdown parser
         if: steps.checkout.outcome == 'success'
+        working-directory: trusted-tools
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: 🔐 Refresh the desired-state digests the sync moved
+      - name: 🔐 Generate the scoped metadata changes
         if: steps.checkout.outcome == 'success'
-        env:
-          SKILL_BRANCH: ${{ needs.scope.outputs.branch }}-${{ matrix.skill.slug }}
+        working-directory: update
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          ./scripts/refresh-desired-state-digests.sh
-          if git diff --quiet; then
-            echo "Declared digests already match the synced content."
-            exit 0
-          fi
-          # Stage only what the generator is allowed to touch, so an unrelated working-tree
-          # change could never ride along in this commit.
+          bash "$GITHUB_WORKSPACE/trusted-tools/scripts/refresh-desired-state-digests.sh"
+          # Checkout supplies history; explicitly bind the comparison ref as well.
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          bash "$GITHUB_WORKSPACE/trusted-tools/scripts/bump-plugin-version.sh" --changed-since origin/main
+          bash "$GITHUB_WORKSPACE/trusted-tools/scripts/plugin-changelog.sh" write origin/main
+          # The publisher independently rejects anything outside this skill's plugin metadata.
           git add -- '*.desired-state.json'
-          git commit -m "chore(deps): refresh desired-state digests for synced content"
-          git push origin "HEAD:${SKILL_BRANCH}"
-
-      - name: 🔢 Bump every plugin whose content changed
-        if: steps.checkout.outcome == 'success'
-        env:
-          SKILL_BRANCH: ${{ needs.scope.outputs.branch }}-${{ matrix.skill.slug }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Be explicit rather than relying on fetch-depth to have populated the
-          # remote-tracking ref — without origin/main the bump has no base to diff against.
-          git fetch --no-tags origin main
-          ./scripts/bump-plugin-version.sh --changed-since origin/main
-          bash scripts/plugin-changelog.sh write origin/main
           git add -- .claude-plugin/marketplace.json .github/plugin/marketplace.json \
             'plugins/*/plugin.json' 'plugins/*/.claude-plugin/plugin.json' 'plugins/*/CHANGELOG.md'
-          if git diff --cached --quiet; then
-            echo "Versions and release notes already match the synced content."
-            exit 0
-          fi
-          git commit -m "chore(deps): bump plugin versions and record skill updates"
-          git push origin "HEAD:${SKILL_BRANCH}"
+
+      - name: ✍️ Publish one App-signed metadata commit
+        id: publish-metadata
+        if: steps.checkout.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SKILL_PATH: ${{ matrix.skill.path }}
+          SKILL_BRANCH: ${{ needs.scope.outputs.branch }}-${{ matrix.skill.slug }}
+        run: |
+          bash "$GITHUB_WORKSPACE/trusted-tools/scripts/publish-skill-metadata.sh" \
+            --repo-dir "$GITHUB_WORKSPACE/update" --skill-path "$SKILL_PATH" --branch "$SKILL_BRANCH"

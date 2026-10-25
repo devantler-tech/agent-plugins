@@ -95,6 +95,7 @@ check_workflow() {
     'bash scripts/plugin-changelog-boundaries.test.sh'
     'bash scripts/plugin-changelog-release-boundaries.test.sh'
     'bash scripts/skill-update-scope.test.sh'
+    'bash scripts/publish-skill-metadata.test.sh'
     './scripts/validate-manifests.test.sh'
     'bash scripts/mcp-boundaries.test.sh'
     'bash scripts/package-boundaries.test.sh'

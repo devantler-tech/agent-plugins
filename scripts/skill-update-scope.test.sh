@@ -51,4 +51,21 @@ printf '%s\n' "$workflow" | jq -se 'length == 1 and (.[0] |
   .jobs.update.with.pins == "${{ needs.scope.outputs.pins }}" and
   .jobs.update.permissions == {contents:"write","pull-requests":"write"} and
   .jobs."bump-versions".permissions == {contents:"read"})' > /dev/null
+if printf '%s\n' "$workflow" | jq -e '[.jobs."bump-versions".steps[] | .run // ""]
+  | any(test("git (commit|push)([[:space:]]|$)"))' >/dev/null; then
+  printf 'FAIL: skill metadata follow-ups still publish unsigned local commits\n' >&2
+  exit 1
+fi
+printf '%s\n' "$workflow" | jq -e '
+  [.jobs."bump-versions".steps[] | select(.id == "publish-metadata")] as $writers
+  | ($writers|length)==1 and
+    $writers[0].env.GH_TOKEN == "${{ steps.app-token.outputs.token }}" and
+    ($writers[0].run|contains("publish-skill-metadata.sh")) and
+    ([.jobs."bump-versions".steps[] | select(.id == "trusted-tools")]
+      | length==1 and .[0].with.ref == "${{ github.sha }}" and
+        .[0].with."persist-credentials" == false)
+' >/dev/null || {
+  printf 'FAIL: signed metadata publisher lacks reviewed tools or the existing App token\n' >&2
+  exit 1
+}
 printf 'skill update scopes: PASS (declared selections, canonical branch and fail-closed dispatch)\n'

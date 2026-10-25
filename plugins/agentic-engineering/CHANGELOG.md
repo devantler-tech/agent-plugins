@@ -21,6 +21,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.6.5 — 2026-10-25
+
+**Fixed** — the portfolio surveyor identifies incomplete triage from native issue types and the
+consuming contract's required metadata. Optional label absence alone no longer makes an issue or
+pull request untriaged. Forges without native issue types retain their declared triage scheme,
+and incomplete reads remain unknown ([#599](https://github.com/devantler-tech/agent-plugins/issues/599)).
+
+Update the installed plugin to load this correction; existing versioned caches remain unchanged.
+
 ## 6.6.4 — 2026-10-24
 
 **Added** — `resources/THIRD-PARTY-NOTICES.md` records the upstream license, copyright notice

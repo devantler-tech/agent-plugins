@@ -627,8 +627,14 @@ diagnosis.
 
 ### 5. Triage, stale, and advance signals
 
-From the enumeration: actionable PRs not updated in >14d; label-less issues/PRs (untriaged);
+From the enumeration: actionable PRs not updated in >14d; genuinely incomplete triage;
 automation-owned dependency PRs stay compact no-action rows.
+
+Missing optional labels alone never establishes incomplete triage.
+Where native issue types exist, use the untyped residual and other consumer-required metadata.
+For PRs, judge missing metadata against the consuming contract; issue types do not classify PRs.
+Without native issue types, use the triage scheme declared by the consuming contract.
+An incomplete read is `QUERY-UNKNOWN`, never evidence that required metadata is absent.
 
 **Select ready work BY ISSUE TYPE, not by label**, where the forge supports issue types. An issue
 carries at most one type, so **type sweeps plus the untyped residual** (below) are together the

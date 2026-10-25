@@ -92,6 +92,9 @@ if [ "${MODE:-}" = short-diff ] && [[ "$*" = *'diff --cached --no-renames --name
   "$REAL_GIT" "$@" | sed -n '1p'
 elif [ "${MODE:-}" = short-blob ] && [[ "$*" = *'cat-file blob '* ]]; then
   printf '{}\n'
+elif [ "${MODE:-}" = failed-rebind ] && [[ "$*" = *'rev-parse HEAD' ]]; then
+  "$REAL_GIT" "$@"
+  exit 1
 else
   exec "$REAL_GIT" "$@"
 fi
@@ -160,7 +163,7 @@ grep -q '^NOOP:' "$STATE/out"
 [ ! -e "$STATE/calls" ]
 printf 'PASS: no-op makes no forge call\n'
 
-for mode in wrong-head wrong-writer wrong-repo partial-observation duplicate-observation short-diff short-blob; do
+for mode in wrong-head wrong-writer wrong-repo partial-observation duplicate-observation short-diff short-blob failed-rebind; do
   fixture
   if [ "$mode" = short-diff ]; then fixture full; fi
   export MODE=$mode

@@ -15,7 +15,7 @@ fail() {
 }
 repo_dir='' skill='' branch=''
 while [ "$#" -gt 0 ]; do
-  [ "$#" -ge 2 ] && [ -n "$2" ] || fail 'each option requires one value'
+  if [ "$#" -lt 2 ] || [ -z "$2" ]; then fail 'each option requires one value'; fi
   case "$1" in
   --repo-dir)
     [ -z "$repo_dir" ] || fail 'duplicate repository directory'
@@ -38,7 +38,7 @@ plugin=${BASH_REMATCH[1]}
 slug=${skill#plugins/}
 slug=${slug//\//-}
 [ "$branch" = "deps/agent-skills-update-$slug" ] || fail 'branch and skill scope disagree'
-[ -n "$repo_dir" ] && [ -d "$repo_dir" ] || fail 'repository directory is required'
+if [ -z "$repo_dir" ] || [ ! -d "$repo_dir" ]; then fail 'repository directory is required'; fi
 repo_dir=$(cd "$repo_dir" && pwd -P)
 top=$(git -C "$repo_dir" rev-parse --show-toplevel) || fail 'repository root is unreadable'
 [ "$top" -ef "$repo_dir" ] || fail 'repository directory must be the physical checkout root'
@@ -77,7 +77,9 @@ fi
 printf '[]\n' >"$temp/additions"
 count=0
 while IFS=$'\t' read -r status path extra || [ -n "${status}${path}${extra}" ]; do
-  [[ "$status" = A || "$status" = M ]] && [ -n "$path" ] && [ -z "$extra" ] || fail 'metadata changes must be regular-file additions or modifications'
+  if [[ "$status" != A && "$status" != M ]] || [ -z "$path" ] || [ -n "$extra" ]; then
+    fail 'metadata changes must be regular-file additions or modifications'
+  fi
   case "$path" in
   .claude-plugin/marketplace.json | .github/plugin/marketplace.json | "plugins/$plugin/plugin.json" | "plugins/$plugin/.claude-plugin/plugin.json" | "plugins/$plugin/CHANGELOG.md") ;;
   "plugins/$plugin/resources/"*)
@@ -122,7 +124,11 @@ jq -es -L "$here" --arg branch "$branch" --arg base "$base" 'include "graphql-ob
   length==1 and (.[0]|graphql_complete and .data.viewer.login=="botantler-1[bot]" and
     (.data.repository|.nameWithOwner=="devantler-tech/agent-plugins" and .isArchived==false and
       .ref.name==$branch and .ref.target.__typename=="Commit" and .ref.target.oid==$base))' "$temp/before" >/dev/null || fail 'writer, repository or expected branch head is unproven'
-[ "$(git -C "$repo_dir" rev-parse HEAD)" = "$base" ] && [ "$(git -C "$repo_dir" write-tree)" = "$tree" ] || fail 'local checkout moved before publication'
+current_base=$(git -C "$repo_dir" rev-parse HEAD) || fail 'local HEAD rebind failed'
+current_tree=$(git -C "$repo_dir" write-tree) || fail 'local index rebind failed'
+if [ "$current_base" != "$base" ] || [ "$current_tree" != "$tree" ]; then
+  fail 'local checkout moved before publication'
+fi
 # shellcheck disable=SC2016 # GraphQL variables remain literal in the request.
 mutation='mutation($input:CreateCommitOnBranchInput!){createCommitOnBranch(input:$input){commit{oid signature{isValid state}}}}'
 jq -n --arg query "$mutation" --arg repo "$repo" --arg branch "$branch" --arg base "$base" --arg message "$message" --slurpfile additions "$temp/additions" \

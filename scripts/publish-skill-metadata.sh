@@ -107,8 +107,8 @@ while IFS=$'\t' read -r status path extra || [ -n "${status}${path}${extra}" ]; 
     cmp -s "$temp/content" "$temp/no-nul" || fail 'generated changelog contains a raw NUL'
     ;;
   esac
-  encoded=$(base64 <"$temp/content" | tr -d '\r\n') || fail 'metadata encoding failed'
-  jq --arg path "$path" --arg contents "$encoded" '. + [{path:$path,contents:$contents}]' "$temp/additions" >"$temp/next"
+  base64 <"$temp/content" | tr -d '\r\n' >"$temp/encoded" || fail 'metadata encoding failed'
+  jq --arg path "$path" --rawfile contents "$temp/encoded" '. + [{path:$path,contents:$contents}]' "$temp/additions" >"$temp/next"
   mv "$temp/next" "$temp/additions"
   count=$((count + 1))
 done <"$temp/index-diff"

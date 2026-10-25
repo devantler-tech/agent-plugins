@@ -156,6 +156,19 @@ cmp "$STATE/unstaged-before" "$STATE/unstaged-after"
 jq -e '.variables.input.fileChanges.additions|length==6 and all(.[];.path!="unrelated")' "$STATE/request" >/dev/null
 printf 'PASS: one signed request reproduces every staged byte and preserves the caller\n'
 
+# A changelog can outgrow Linux's per-argument limit and macOS's total argument budget.
+# Rebuild its full server-side blob from the request; neither a size-only nor prefix check suffices.
+fixture
+printf '%1048576s\n' '' >"$FIXTURE/$plugin/CHANGELOG.md"
+git -C "$FIXTURE" add -- "$plugin/CHANGELOG.md"
+large_tree=$(git -C "$FIXTURE" write-tree)
+if ! publish; then
+  cat "$STATE/err" >&2
+  exit 1
+fi
+[ "$(cat "$STATE/tree")" = "$large_tree" ]
+printf 'PASS: a large changelog is transmitted without an argument-sized payload\n'
+
 fixture
 git -C "$FIXTURE" read-tree HEAD
 publish

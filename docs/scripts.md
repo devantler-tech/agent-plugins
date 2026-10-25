@@ -17,6 +17,14 @@ The directory also contains checks for package discovery, skill provenance and l
 version changes, changelogs, generated writes, release observations and instruction size.
 The [validation guide](validation.md) explains which checks to run and what they establish.
 
+The scope resolver also passes the temporary reviewed `git-commit` pin for full-catalogue
+and `engineering-practices` updates. The `agentic-engineering` selection receives no pin
+outside its directory. This hold is tracked in
+[platform#5224](https://github.com/devantler-tech/platform/issues/5224): all other skills keep
+updating through the same programmed proposals. Removing the hold requires an upstream
+repair and a reviewed updater change that clears the installed pin; deleting its declaration
+alone leaves native pinned metadata in place.
+
 Files ending in `.test.sh` contain regression cases. Shared `.lib.sh`, `.jq`, `.cjs` and Go
 files support the helpers; they are not all standalone commands. Follow the calling script's
 header rather than running each file in the directory.

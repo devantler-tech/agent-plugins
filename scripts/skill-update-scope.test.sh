@@ -6,14 +6,17 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 for event in schedule workflow_dispatch; do
   bash "$here/skill-update-scope.sh" "$event" > "$work/out"
-  [[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update' ]]
+  [[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update\npins=plugins/engineering-practices/skills/git-commit e24be77e6f203409cf99ab7d5a67e1540cb386d3' ]] || {
+    printf 'FAIL: full-catalogue update must retain the reviewed git-commit pin\n' >&2
+    exit 1
+  }
 done
 bash "$here/skill-update-scope.sh" workflow_dispatch all > "$work/out"
-[[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update' ]]
+[[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update\npins=plugins/engineering-practices/skills/git-commit e24be77e6f203409cf99ab7d5a67e1540cb386d3' ]]
 bash "$here/skill-update-scope.sh" workflow_dispatch agentic-engineering > "$work/out"
-[[ $(cat "$work/out") == $'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills' ]]
+[[ $(cat "$work/out") == $'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills\npins=' ]]
 bash "$here/skill-update-scope.sh" workflow_dispatch engineering-practices > "$work/out"
-[[ $(cat "$work/out") == $'dir=plugins/engineering-practices/skills\nbranch=deps/agent-skills-update-engineering-practices-skills' ]]
+[[ $(cat "$work/out") == $'dir=plugins/engineering-practices/skills\nbranch=deps/agent-skills-update-engineering-practices-skills\npins=plugins/engineering-practices/skills/git-commit e24be77e6f203409cf99ab7d5a67e1540cb386d3' ]]
 # A scoped producer must still create the canonical per-skill branch accepted
 # by the existing actor-and-one-skill guard, not a broader exemption.
 branch=$(sed -n 's/^branch=//p' "$work/out")
@@ -44,6 +47,8 @@ if ! printf '%s\n' "$workflow" | jq -se 'length == 1 and (.[0].concurrency == {
 fi
 printf '%s\n' "$workflow" | jq -se 'length == 1 and (.[0] |
   .permissions == {} and .jobs.scope.permissions == {contents:"read"} and
+  .jobs.scope.outputs.pins == "${{ steps.scope.outputs.pins }}" and
+  .jobs.update.with.pins == "${{ needs.scope.outputs.pins }}" and
   .jobs.update.permissions == {contents:"write","pull-requests":"write"} and
   .jobs."bump-versions".permissions == {contents:"read"})' > /dev/null
 printf 'skill update scopes: PASS (declared selections, canonical branch and fail-closed dispatch)\n'

@@ -29,4 +29,11 @@ Files ending in `.test.sh` contain regression cases. Shared `.lib.sh`, `.jq`, `.
 files support the helpers; they are not all standalone commands. Follow the calling script's
 header rather than running each file in the directory.
 
+The skill updater publishes digest, version and release-note follow-ups together through
+[`publish-skill-metadata.sh`](../scripts/publish-skill-metadata.sh). It uses the existing App's
+signed commit API, pins the observed parent, and verifies the complete result tree and signature
+before reporting success. Only the selected plugin's generated metadata may change. No-op runs
+make no forge calls; uncertain writes require inspection rather than an automatic retry.
+Run `bash scripts/publish-skill-metadata.test.sh` for its offline request, scope and readback cases.
+
 [`AGENTS.md`](../AGENTS.md) holds the repository's contribution and maintenance rules.

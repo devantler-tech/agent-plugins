@@ -82,6 +82,7 @@ bash scripts/prepare-merged-marketplace-release.test.sh # exact main CI and fres
 bash scripts/marketplace-publication-workflow.test.sh # actual workflow authorization and permission branches
 bash scripts/propose-marketplace-release.test.sh # signed draft creation and complete readback; offline forge
 bash scripts/marketplace-proposal-workflow.test.sh # default-off proposal and CI dispatch boundaries
+bash scripts/publish-skill-metadata.test.sh # scoped App-signed requests and complete readback; offline forge
 
 # 1e. AGENTS.md is loaded by every session and must stay under the 32 KiB Codex reads;
 #     every guide its "Agent guides" table links must exist.

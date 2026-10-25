@@ -79,3 +79,60 @@ for prefix in \
 done
 
 echo 'surveyor selection contract: PASS (12 independently removed obligations rejected)'
+
+# #599: native issue types and consumer-required metadata establish triage debt;
+# optional label absence does not. Pin this in the operative section, not examples.
+check_triage_contract() {
+  local source=$1 section requirement
+  section=$(awk '
+    /^### 5[.] Triage, stale, and advance signals$/ {inside=1; next}
+    inside && /^### / {exit}
+    inside {print}
+  ' "$source")
+  [ -n "$section" ] || { echo 'missing operative triage section'; return 1; }
+  if grep -Fq 'label-less issues/PRs (untriaged)' <<< "$section"; then
+    echo 'optional label absence still establishes missing triage'; return 1
+  fi
+  # shellcheck disable=SC2016 # Markdown contract text, not command substitution.
+  for requirement in \
+    'Missing optional labels alone never establishes incomplete triage.' \
+    'Where native issue types exist, use the untyped residual and other consumer-required metadata.' \
+    'For PRs, judge missing metadata against the consuming contract; issue types do not classify PRs.' \
+    'Without native issue types, use the triage scheme declared by the consuming contract.'; do
+    grep -Fq -- "$requirement" <<< "$section" || {
+      printf 'missing triage obligation: %s\n' "$requirement"; return 1
+    }
+  done
+}
+
+check_triage_contract "$SURVEYOR"
+
+for prefix in \
+  'Missing optional labels alone' \
+  'Where native issue types exist' \
+  'For PRs, judge missing metadata' \
+  'Without native issue types'; do
+  awk -v prefix="$prefix" '
+    /^### 5[.] Triage, stale, and advance signals$/ {inside=1}
+    inside && index($0,prefix)==1 {removed=$0; count++; next}
+    inside && /^### / && $0 !~ /^### 5[.] / {inside=0}
+    {print}
+    END {
+      if (count != 1) exit 1
+      print "\n### Non-operative example\n" removed
+    }
+  ' "$SURVEYOR" > "$WORK/triage-mutant.md" || {
+    echo "FAIL: triage removal control did not fire: $prefix" >&2; exit 1
+  }
+  if check_triage_contract "$WORK/triage-mutant.md" > "$WORK/output"; then
+    echo "FAIL: out-of-section wording rescued a removed triage obligation: $prefix" >&2; exit 1
+  fi
+done
+
+awk '/^### 5[.] Triage, stale, and advance signals$/ {
+  print; print "From the enumeration: label-less issues/PRs (untriaged);"; next
+} {print}' "$SURVEYOR" > "$WORK/triage-label-mutant.md"
+if check_triage_contract "$WORK/triage-label-mutant.md" > "$WORK/output"; then
+  echo 'FAIL: contradictory label-based triage was accepted' >&2; exit 1
+fi
+echo 'surveyor triage contract: PASS (four removal controls and label-based regression rejected)'

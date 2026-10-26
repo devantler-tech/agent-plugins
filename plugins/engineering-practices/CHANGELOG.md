@@ -1,5 +1,9 @@
 # Changelog — `engineering-practices`
 
+## 1.1.6 — 2026-10-26
+
+**Changed** — sync `write-readme` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.28.1`.
+
 ## 1.1.5 — 2026-10-25
 
 **Changed** — sync `git-commit` from `https://github.com/github/awesome-copilot` at `e24be77e6f203409cf99ab7d5a67e1540cb386d3`.

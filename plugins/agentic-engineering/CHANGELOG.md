@@ -21,6 +21,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.6.9 — 2026-10-26
+
+**Fixed** — survey review accounting recognizes first-line Bugbot commands with
+trailing text or connector-added footers. A command below a disclosure line
+neither pairs nor closes the marker window; a longer command-name prefix also
+does not count. Request emission, authentication,
+head binding and review/readiness gates remain unchanged.
+
 ## 6.6.8 — 2026-10-25
 
 **Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.28.1`.

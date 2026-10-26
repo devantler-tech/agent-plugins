@@ -457,10 +457,17 @@ The three marker forms are a **wire format shared with the orchestrator** — ma
   only the linked winner; report no losing reservation after that request marker or its outcome.
   Before a request exists, report the winner only until the short reservation window expires.
 - **`review_pending=<cr@<sha>|codex@<sha>|bugbot@<sha>|none>`** from request markers, plus
-  reactions/acks and later artifacts. For a lane whose trigger must be a bare command, **pair the
-  marker with the next exact-author bare trigger**, ignoring interleaved comments from other authors
-  and reservation-only comments; another authenticated request marker or bare trigger closes the
-  pairing window. A marker is pending only inside the short no-reaction or generous acknowledged
+  reactions/acks and later artifacts. For Bugbot request accounting, **pair the marker with the
+  next exact-author comment whose first nonblank line names `@cursor review`**, including trailing
+  text or a connector-added footer. Count the command case-insensitively anywhere on that line,
+  with whitespace between `@cursor` and `review`, and `review` ending at a non-word character or end of line;
+  `@cursor reviewer` does not count. Text before the command is conservatively counted, never emitted.
+  Ignore interleaved comments from other authors and
+  reservation-only comments; another authenticated Bugbot request marker or counted trigger closes the
+  pairing window. A command below a disclosure line neither pairs nor closes that window.
+  This is conservative observation, not permission to emit new request shapes: the emitted
+  Bugbot trigger remains the exact bare command. Exact author, structural disclosure, provider
+  and full-head marker requirements are unchanged. A marker is pending only inside the short no-reaction or generous acknowledged
   window; a result, a newer head, or evidenced expiry clears it.
 - **`review_progress=<cr:no-gate@<sha>|codex:no-gate@<sha>|bugbot:no-gate@<sha>|none>`** when the
   latest current-head provider produced neither a gate-satisfying success nor a finding. Derive it

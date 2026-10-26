@@ -25,7 +25,8 @@ schedule still armed, or with a schedule pointing at an entrypoint that no longe
 
 **Fixed** — survey review accounting recognizes first-line Bugbot commands with
 trailing text or connector-added footers. A command below a disclosure line
-neither pairs nor closes the marker window. Request emission, authentication,
+neither pairs nor closes the marker window; a longer command-name prefix also
+does not count. Request emission, authentication,
 head binding and review/readiness gates remain unchanged.
 
 ## 6.6.8 — 2026-10-25

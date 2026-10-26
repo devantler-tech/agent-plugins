@@ -459,8 +459,11 @@ The three marker forms are a **wire format shared with the orchestrator** — ma
 - **`review_pending=<cr@<sha>|codex@<sha>|bugbot@<sha>|none>`** from request markers, plus
   reactions/acks and later artifacts. For Bugbot request accounting, **pair the marker with the
   next exact-author comment whose first nonblank line names `@cursor review`**, including trailing
-  text or a connector-added footer. Ignore interleaved comments from other authors and
-  reservation-only comments; another authenticated request marker or counted trigger closes the
+  text or a connector-added footer. Count the command case-insensitively anywhere on that line,
+  with whitespace between `@cursor` and `review`, and `review` ending at a non-word character or end of line;
+  `@cursor reviewer` does not count. Text before the command is conservatively counted, never emitted.
+  Ignore interleaved comments from other authors and
+  reservation-only comments; another authenticated Bugbot request marker or counted trigger closes the
   pairing window. A command below a disclosure line neither pairs nor closes that window.
   This is conservative observation, not permission to emit new request shapes: the emitted
   Bugbot trigger remains the exact bare command. Exact author, structural disclosure, provider

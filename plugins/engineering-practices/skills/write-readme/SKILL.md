@@ -3,9 +3,9 @@ description: Write or improve a newcomer-facing README with a clear product over
 license: Apache-2.0
 metadata:
     github-path: write-readme
-    github-ref: refs/tags/v1.24.1
+    github-ref: refs/tags/v1.28.1
     github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 02451fe8f1c139a29ad1a404dc1f0abc5c0e0c8f
+    github-tree-sha: f5de4610a39834eefc9c25ae8e1c80b66e0914d3
 name: write-readme
 ---
 # Write a useful README
@@ -30,6 +30,10 @@ Lead with what it does and why someone would use it, in a few direct sentences. 
 product, not its development history. Use short paragraphs, familiar words and concrete benefits.
 Keep names readers use to recognize compatibility: “Encrypt secrets with SOPS” is clearer than
 either a bare tool list or a long explanation of encryption internals.
+
+Draw any diagram as a Mermaid block, which GitHub renders, never as ASCII art or box-drawing
+characters: fixed-width drawings overflow phone screens and screen readers read them as noise.
+Prefer a top-down layout with short labels, and keep any directory tree short and narrow.
 
 Use bullets for distinct benefits and a compact table when comparison helps. Keep a useful feature
 overview visible; do not move every reason to choose the product into a reference document. Avoid

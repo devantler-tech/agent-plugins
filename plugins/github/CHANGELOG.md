@@ -1,5 +1,9 @@
 # Changelog — `github`
 
+## 1.0.8 — 2026-10-27
+
+**Changed** — sync `gh-stack` from `https://github.com/github/gh-stack` at `refs/tags/v0.3.0`.
+
 ## 1.0.7 — 2026-10-24
 
 **Added** — `resources/THIRD-PARTY-NOTICES.md` records the upstream license, copyright notice

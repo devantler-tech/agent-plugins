@@ -15,7 +15,7 @@
     {
       "name": "gitops-kubernetes",
       "description": "Flux CD debugging, knowledge, and tenant onboarding — skills plus the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "source": "./plugins/gitops-kubernetes"
     },
     {

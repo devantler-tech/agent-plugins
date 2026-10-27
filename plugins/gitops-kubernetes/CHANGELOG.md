@@ -1,5 +1,9 @@
 # Changelog — `gitops-kubernetes`
 
+## 1.0.5 — 2026-10-27
+
+**Changed** — sync `gitops-knowledge` from `https://github.com/fluxcd/agent-skills` at `refs/tags/v0.4.0`.
+
 ## 1.0.4 — 2026-10-27
 
 **Changed** — sync `gitops-cluster-debug` from `https://github.com/fluxcd/agent-skills` at `refs/tags/v0.4.0`.

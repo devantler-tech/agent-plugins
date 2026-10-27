@@ -50,7 +50,7 @@ jobs:
     permissions:
       contents: write # The shared updater writes the signed skill-sync commits.
       pull-requests: write # The shared updater opens per-skill update proposals.
-    uses: devantler-tech/.github/.github/workflows/update-agent-skills.yaml@a2403f8a2640dcf9d342bf7085a906d8e8ec094a # v12.1.0
+    uses: devantler-tech/update-agent-skills-action/.github/workflows/update-agent-skills.yaml@61bf88c1a9567700ff7aa1ff18a4c167430e4b13 # candidate; verified release required before merge
     with:
       dir: ${{ needs.scope.outputs.dir }}
       pr-branch: ${{ needs.scope.outputs.branch }}

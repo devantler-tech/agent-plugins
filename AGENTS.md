@@ -128,8 +128,8 @@ which records the true upstream in the skill's `metadata.github-*` frontmatter (
 `anthropics/skills`, our own sibling [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills),
 …), each tracked independently. The daily
 [`update-agent-skills.yaml`](.github/workflows/update-agent-skills.yaml) workflow runs
-[`gh skill update --all`](https://github.com/devantler-tech/.github/tree/main/actions/update-agent-skills) via
-the [`update-agent-skills`](https://github.com/devantler-tech/.github/blob/main/.github/workflows/update-agent-skills.yaml)
+[`gh skill update --all`](https://github.com/devantler-tech/update-agent-skills-action) via
+the [`update-agent-skills`](https://github.com/devantler-tech/update-agent-skills-action/blob/main/.github/workflows/update-agent-skills.yaml)
 reusable workflow and opens one PR per drifted skill, from `deps/agent-skills-update-<slug>`, so a
 blocked update holds back only its own skill — **no lockfile, no sync bot, no custom metadata.** Never hand-edit anything inside a bundled skill — not the `SKILL.md`, and not the
 `references/`, `scripts/` and `assets/` files beside it, which are equally the upstream's and equally

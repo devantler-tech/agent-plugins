@@ -73,7 +73,7 @@ if [ "\$verb" = "api --paginate" ]; then
   query_base=main
   for arg in "\$@"; do case "\$arg" in base=*) query_base=\${arg#base=} ;; esac; done
   jq -Rn --arg base "\$query_base" \
-    '[inputs|select(length>0)|split("\\t")|.[0] as \$n|{number:(\$n|try tonumber catch \$n),title:.[1],state:"open",base:{ref:\$base,repo:{full_name:"owner/name"}}}]|if length==0 then [[]] else [_nwise(100)] end' < "$dir/listing.tsv"
+    '[inputs|select(length>0)|split("\\t")|.[0] as \$n|{number:(\$n|try tonumber catch \$n),title:.[1],state:"open",base:{ref:\$base,repo:{full_name:"owner/name"}}}]|if length==0 then [[]] else . as \$items | [range(0; length; 100) as \$offset | \$items[\$offset:\$offset+100]] end' < "$dir/listing.tsv"
   exit 0
 fi
 

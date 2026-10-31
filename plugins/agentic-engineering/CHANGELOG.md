@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 new one before re-enabling unattended writes. Stopping early resumes writes with the retired FinOps
 schedule still armed, or with a schedule pointing at an entrypoint that no longer resolves.
 
+## 6.6.10 — 2026-10-31
+
+**Changed** — sync `grilling` from `https://github.com/mattpocock/skills` at `refs/tags/v1.3.2`.
+
 ## 6.6.9 — 2026-10-26
 
 **Fixed** — survey review accounting recognizes first-line Bugbot commands with

@@ -1549,26 +1549,32 @@ validate_desired_state_resources() {
   return "$failed"
 }
 
-# 8. Every bundled SKILL.md carries its upstream provenance frontmatter.
-#    `gh skill install` records the true upstream in each skill's `metadata.github-*`
-#    frontmatter, and AGENTS.md forbids hand-authored/divergent skills — so a bundled
-#    skill MUST carry a real `github-repo` value *inside the `metadata:` block* of the
-#    YAML frontmatter (the lines between the first two `---`). Staying jq/grep-only (no
-#    yq dependency), one awk pass both slices the frontmatter and scopes the lookup to
-#    `metadata:` so a TOP-LEVEL `github-repo:` cannot satisfy it, and rejects an empty,
-#    quoted-empty (`""`/`''`) or comment-only (`# …`) value — each of which can only
-#    come from a hand edit. A skill with no frontmatter yields no match → reject.
+# 8. Authored skills have valid frontmatter and a bounded source size. External
+#    skills retain their installed metadata provenance and licensing checks.
+#    Malformed headers and top-level provenance lookalikes fail closed.
 validate_skill_provenance() {
   local failed=0
   local skill
   capture_nul_inventory provenance 'skill provenance' \
     find plugins -type f -path '*/skills/*/SKILL.md' -print0 || return 1
   while IFS= read -r -d '' skill; do
-    if owner=$(frontmatter_repository < "$skill") && [ -n "$owner" ]; then
-      echo "✓ provenance $skill"
-      bash "$validator_dir/check-matt-skill-license.sh" "$skill" || return 1
+    if owner=$(frontmatter_repository < "$skill") && ! frontmatter_has_value "$skill" github-repo; then
+      if [ -n "$owner" ]; then
+        echo "✓ provenance $skill"
+        bash "$validator_dir/check-matt-skill-license.sh" "$skill" || return 1
+      else
+        # Authored sources have no install provenance. Retain the source repository's
+        # 500-line / 20,000-byte budget after its approved merger (#618).
+        if [ "$(awk 'END { print NR }' "$skill")" -gt 500 ] ||
+           [ "$(wc -c < "$skill" | tr -d '[:space:]')" -gt 20000 ]; then
+          echo "::error::$skill: authored skill exceeds its 500-line / 20000-byte budget"
+          failed=1
+        else
+          echo "✓ locally authored skill $skill"
+        fi
+      fi
     else
-      echo "::error::$skill: missing upstream provenance (metadata.github-repo) — bundled skills must come from 'gh skill install', never hand-authored"
+      echo "::error::$skill: missing upstream provenance (metadata.github-repo) — authored skills omit install metadata; external copies require complete provenance"
       failed=1
     fi
   done < "$inventory_dir/provenance"

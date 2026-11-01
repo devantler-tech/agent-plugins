@@ -470,7 +470,14 @@ metadata:
 ---
 Body.
 EOF
-check_fail "SKILL.md without github-repo provenance fails" "missing upstream provenance" "$d"
+check_pass "locally authored skill without install metadata passes" "$d"
+
+# Orphaned installation fields must never become local ownership.
+for install_field in github-path github-ref github-tree-sha github-pinned; do
+  d=$(fresh)
+  printf "%s\n" "---" "name: example-skill" "description: Partial install." "metadata:" "  $install_field: partial" "---" "Body." > "$d/plugins/alpha/skills/example-skill/SKILL.md"
+  check_fail "orphaned $install_field fails" "missing upstream provenance" "$d"
+done
 
 # A skill with no YAML frontmatter at all is likewise rejected.
 d=$(fresh)

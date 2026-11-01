@@ -37,15 +37,13 @@ prove that a plugin was loaded successfully in your assistant.
 
 ## Change the right source
 
-Every bundled skill records its original repository in `metadata.github-repo`. Fix that skill there,
-not in `plugins/*/skills/*`: the updater replaces those copies. New skills must be installed with
-`gh skill install` (GitHub CLI 2.90 or later), not copied by hand.
+Maintained first-party skills are authored in `plugins/<plugin>/skills/<skill>/`, including their resources and tests. They carry no install metadata in this source tree. External synchronized skills record their owner in `metadata.github-repo`: fix those upstream, then install the reviewed result with `gh skill install` (GitHub CLI 2.90 or later).
 
-Bundle membership and marketplace documentation are authored here. If you change shipped plugin
+Maintained first-party skills, bundle membership and marketplace documentation are authored here. External skill trees remain owned by the upstream in their install metadata. If you change shipped plugin
 content, update both marketplace manifests, the portable and strict plugin manifests, and the
 catalogue together. Use `bash scripts/bump-plugin-version.sh <plugin> minor` for an additive skill.
 For a skill addition or sync, commit the skill trees first: the release-note writer reads committed
-provenance, not unstaged files. Then run `bash scripts/plugin-changelog.sh write origin/main`, inspect
+source revisions and external provenance, not unstaged files. Then run `bash scripts/plugin-changelog.sh write origin/main`, inspect
 its output, and include the generated changelog in a follow-up commit before opening the PR.
 For other plugin-content changes, write the matching version entry in that plugin's changelog;
 the skill-sync writer cannot infer notes for changes outside skill trees.

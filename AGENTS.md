@@ -1,11 +1,6 @@
 # devantler-tech/agent-plugins
 
-A tool-neutral [agent-plugin marketplace](https://code.visualstudio.com/docs/copilot/customization/agent-plugins)
-that bundles the curated [agent skills](https://agentskills.io) from
-[`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills) into category-based plugins. A
-single marketplace install works across **VS Code**, **GitHub Copilot CLI**, and **Claude Code** via
-two parity-checked manifests. Sibling repo to [devantler-tech/agent-skills](https://github.com/devantler-tech/agent-skills)
-(the curated skill index this marketplace draws from).
+A tool-neutral agent-plugin marketplace that owns the suite's maintained skills and bundles curated external skills into category-based plugins. One repository owns authoring, validation and delivery across VS Code, GitHub Copilot CLI and Claude Code through two parity-checked manifests.
 
 By design the marketplace is **not scoped to skills-only** — a plugin may bundle any agent resource
 (agent skills today; [MCP](https://modelcontextprotocol.io) servers and custom agents as they prove out
@@ -116,50 +111,15 @@ Existing version manifests require one unambiguous identity and canonical versio
 baseline remains unknown. Local version writes require real manifest directories inside the
 checkout. Run `bash scripts/plugin-version-boundaries.test.sh` with the existing version-tool tests.
 
-## Skills come from upstream — no lockfile
+## Authored and externally sourced skills
 
-Plugins are **thin, additive bundles of curated skills sourced from across the agent-skill ecosystem** —
-each skill is pulled from **its own upstream**, not from a single repository. Each
-`plugins/<plugin>/skills/<skill>/SKILL.md` is installed with
-[`gh skill install`](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/),
-which records the true upstream in the skill's `metadata.github-*` frontmatter (`github-repo`,
-`github-path`, `github-ref`, `github-tree-sha`) — so the bundled skills today come from many upstreams
-(e.g. `github/awesome-copilot`, `fluxcd/agent-skills`, `astrolicious/agent-skills`, `vercel-labs/skills`,
-`anthropics/skills`, our own sibling [`devantler-tech/agent-skills`](https://github.com/devantler-tech/agent-skills),
-…), each tracked independently. The daily
-[`update-agent-skills.yaml`](.github/workflows/update-agent-skills.yaml) workflow runs
-[`gh skill update --all`](https://github.com/devantler-tech/update-agent-skills-action) via
-the [`update-agent-skills`](https://github.com/devantler-tech/update-agent-skills-action/blob/main/.github/workflows/update-agent-skills.yaml)
-reusable workflow and opens one PR per drifted skill, from `deps/agent-skills-update-<slug>`, so a
-blocked update holds back only its own skill — **no lockfile, no sync bot, no custom metadata.** Never hand-edit anything inside a bundled skill — not the `SKILL.md`, and not the
-`references/`, `scripts/` and `assets/` files beside it, which are equally the upstream's and equally
-re-pulled. Fix it in the skill's **own** upstream (the repo named in its `metadata.github-repo`) and
-let the update workflow pull it through. `validate-manifests.sh` enforces this mechanically: every
-bundled `SKILL.md` must carry a non-empty `metadata.github-repo` provenance line, so a hand-authored
-or provenance-stripped skill fails CI rather than reaching consumers.
-For Matt Pocock's skills, required validation also reads public upstream Git objects, binds the
-recorded skill tree to its source commit, and compares that commit's complete `LICENSE` with the
-distributed notice. A changed notice or incomplete read refuses validation; refresh licensing in
-a reviewed curation change rather than replacing the notice silently. Run
-`bash scripts/check-matt-skill-license.test.sh` for its offline source and notice regressions.
-For a portfolio-owned repair, dispatch `update-agent-skills.yaml` with
-`scope=agentic-engineering` or `scope=engineering-practices` to update only the selected plugin's
-skills through the same programmed, per-skill PRs. Each scope retains the canonical branch
-identity and existing one-skill edit boundary. The default `all` scope and scheduled updates
-cover the full catalogue. Unsupported
-scope observations refuse before the updater starts.
-All scopes share one non-cancelling workflow queue, including their digest, version and release-note
-follow-ups, so overlapping selections cannot rewrite the same update branch concurrently.
-`guard-bundled-skill-edits.sh` covers the rest of the tree: a PR that changes any file inside a
-synced skill fails and names the upstream to fix it in, so the edit is refused at review instead of
-being silently reverted by the next sync. The programmed sync PR is exempt for its own skill, a wholly new skill
-directory is not blocked (there is no upstream copy to diverge from yet), and retiring a skill
-outright is allowed because plugin membership is authored here. **The exemption is scoped to the
-PR, not to the commit author**: it keys on who opened the sync PR and what its head branch is
-called, so any commit pushed onto that branch is exempt too — which is deliberate, since adapting a
-bot branch is a documented workflow, but it means the guard stops accidental silent-revert edits
-rather than a writer who sets out to bypass it. Only the marketplace structure (manifests, `plugin.json`,
-plugin membership) is authored here.
+The maintained first-party skills are canonical at `plugins/<plugin>/skills/<skill>/` in this repository. Edit them here, with their resources and tests. Their conformant frontmatter has no `metadata.github-*` install provenance, so native `gh skill update --all` skips them rather than overwriting authored work. Validate both authored and external skills against agentskills.io. The catalogue records this repository as the authored skills' license source.
+
+External skills retain their original `metadata.github-repo`, `github-path`, `github-ref` and `github-tree-sha`. Install and refresh them through `gh skill install` and the existing `update-agent-skills.yaml` workflow. Never hand-edit an external skill or strip its provenance: fix its owning upstream, then accept the programmed update. The base-tree edit guard retains that boundary even when a PR removes the header. A new skill authored here and an external skill are different authoring paths.
+
+The source merger approved in #618 transfers the exact former suite owner to this repository. The guard recognizes that transition only for `https://github.com/devantler-tech/agent-skills`; external owners and prefix lookalikes remain protected. Historical upstream links in prior decisions and releases remain evidence, not active authoring routes.
+
+The daily updater still refreshes external skills independently with no lockfile. Scopes retain their existing queue and per-skill branch boundaries. For Matt Pocock's skills, required validation still binds the recorded tree to its public source commit and compares the complete distributed LICENSE. A changed notice or incomplete observation refuses validation. Run `bash scripts/check-matt-skill-license.test.sh` for the offline controls.
 
 ## Conventions
 
@@ -276,8 +236,7 @@ plugin membership) is authored here.
     consumer's own copy or overlay of a bundled agent is drift: it stops inheriting upstream fixes and
     grows what every dispatch loads. Route by asking whether the change would have to be rewritten to
     install the role on a different portfolio — if not, it belongs in the definition's own upstream
-    (this repository for `plugins/*/agents/*.agent.md`, the repository named in a skill's
-    `metadata.github-repo` for a bundled `SKILL.md`). The `agentic-engineering`
+    (this repository for `plugins/*/agents/*.agent.md`, this repository for an authored skill, or the repository named in an external skill's `metadata.github-repo`). The `agentic-engineering`
     [plugin README](plugins/agentic-engineering/README.md) states this for its consumers, and both of
     its write-capable roles carry it.
 
@@ -344,18 +303,16 @@ spec-validate each skill, `actionlint` changed workflows). No app build here —
 security control or a check to pass.
 
 **Task menu** (1–2 items/run; high care):
-- **Curate the marketplace:** add a category plugin or a high-quality skill to an existing one (install
-  it from upstream with `gh skill install`, never hand-copy); recategorise; retire a stale plugin —
+- **Curate the marketplace:** add a category plugin or curate a high-quality external skill (install
+  external sources with `gh skill install`, never hand-copy); recategorise; retire a stale plugin —
   always editing **both** manifests and the README together.
-- **Keep bundled skills fresh:** let the daily `update-agent-skills` PR flow through; fix it when CI
-  fails. Never hand-edit a bundled `SKILL.md` to diverge from its upstream — fix it in the skill's **own**
-  upstream (the repo named in its `metadata.github-repo`).
+- **Maintain authored skills** in their canonical `plugins/<plugin>/skills/<skill>/` source, including resources and tests.
+- **Keep external skills fresh:** let the daily `update-agent-skills` PR flow through; fix failed CI. Never hand-edit an external synchronized copy: fix its provenance-recorded upstream first.
 - **Tool-neutral rescope** ([#7](https://github.com/devantler-tech/agent-plugins/issues/7)): de-Copilot-brand
   remaining surface; keep manifests/README cross-tool; evaluate broadening to additional standards
   (e.g. MCP) and record the decision as an ADR if non-trivial.
 - **Workflow & action hygiene:** keep third-party actions pinned & aligned with the sibling CI repos;
   bundle Dependabot `github_actions` PRs; flag majors; keep CI `actionlint`-clean.
-- **Consistency** with [devantler-tech/agent-skills](https://github.com/devantler-tech/agent-skills) (the single
-  source of skills) and with how consumer tools install this marketplace.
+- **Consistency** between authored skill sources, plugin packages and how consumer tools install this marketplace.
 - **Triage** new issues/PRs; one insightful comment on the oldest uncommented item.
 - **Maintain your own PRs:** fix CI you caused, resolve conflicts.

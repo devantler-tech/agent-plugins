@@ -238,9 +238,7 @@ To send one:
    evidence.
 2. **Check where the file is authored before editing it.** The three `agents/*.agent.md` definitions,
    the desired-state resource, the bundled scripts, and this README are authored in this repository.
-   A bundled skill is not: each `SKILL.md` names its upstream in `metadata.github-repo` and is
-   re-synced automatically, so an edit made here is reverted with no conflict and no signal. Send a
-   skill change to the repository that field names.
+   The maintained first-party skills are authored here as well, without install provenance. An external skill names its upstream in `metadata.github-repo` and is re-synced automatically; send its changes to that owner.
 3. Where a fix spans this plugin and a deployment, land the upstream change first, then move the
    consumer to the reviewed revision that carries it. Bumping the consumer first pins a revision that
    does not have the fix.

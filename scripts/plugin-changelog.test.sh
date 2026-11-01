@@ -324,4 +324,29 @@ grep -q 'unreadable base manifest' "$work/out"
 cmp "$work/unchanged" "$dir/plugins/alpha/CHANGELOG.md"
 refuse check "$base" HEAD
 grep -q 'unreadable base manifest' "$work/out"
+# Maintained sources have no installation metadata; notes remain revision-bound.
+fixture; bump
+printf "%s\n" "---" "name: example" "description: Maintained source." "---" "Source body." > "$dir/plugins/alpha/skills/example/SKILL.md"
+commit
+(cd "$dir" && bash "$script" write "$base" 2026-11-01)
+grep -Fq "authored in this marketplace" "$dir/plugins/alpha/CHANGELOG.md"
+grep -Fq "$(git -C "$dir" rev-parse HEAD)" "$dir/plugins/alpha/CHANGELOG.md"
+passed=$((passed + 1))
+
+# Removing an authored skill retains its former source revision.
+base=$(git -C "$dir" rev-parse HEAD)
+printf '{"version":"1.2.5"}\n' > "$dir/plugins/alpha/plugin.json"
+rm "$dir/plugins/alpha/skills/example/SKILL.md"
+commit
+(cd "$dir" && bash "$script" write "$base" 2026-11-01)
+grep -Fq "previously authored in this marketplace" "$dir/plugins/alpha/CHANGELOG.md"
+passed=$((passed + 1))
+
+# A partial installed source cannot borrow the local authoring route.
+fixture; bump
+sed '/github-repo:/d' "$dir/plugins/alpha/skills/example/SKILL.md" > "$work/partial"
+mv "$work/partial" "$dir/plugins/alpha/skills/example/SKILL.md"
+commit
+refuse write "$base" 2026-11-01
+
 printf 'plugin changelog: PASS (%s cases)\n' "$passed"

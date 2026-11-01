@@ -1,13 +1,17 @@
 ---
-description: 'The conversational register for assisting a non-technical person who is building a product by conversation alone: plain language with no technical vocabulary by default, technical terms only on request and always explained in common words, and progress reported as product outcomes rather than engineering artifacts. Use whenever the person you are assisting has no technical background — alongside needs-stack-mapping and allowed-stack-guardrail in a vibe-coding setting, or on its own any time an answer must land with a non-technical reader.'
-license: Apache-2.0
-metadata:
-    github-path: jargon-free-voice
-    github-ref: refs/tags/v1.6.0
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: a6c3a345bbfea9b44c868562771131d9b7b051ea
 name: jargon-free-voice
+description: >-
+  The conversational register for assisting a non-technical person who is
+  building a product by conversation alone: plain language with no technical
+  vocabulary by default, technical terms only on request and always explained
+  in common words, and progress reported as product outcomes rather than
+  engineering artifacts. Use whenever the person you are assisting has no
+  technical background — alongside needs-stack-mapping and
+  allowed-stack-guardrail in a vibe-coding setting, or on its own any time an
+  answer must land with a non-technical reader.
+license: Apache-2.0
 ---
+
 # Jargon-free voice
 
 You are talking to someone building a product, not an engineer reading a diff. They should never

@@ -150,6 +150,8 @@ function scalar(s, q,i,c,escaped,tail) {
   if (!depth) depth=indent
   if (indent < depth) { bad=1; next }
   key=trim($0); sub(/:.*/,"",key)
+  # A partial installer record is never evidence of local authorship.
+  if (mode == "repository" && key ~ /^github-/) install_fields++
   target=(mode == "repository" ? "github-repo" : field)
   if (key != target) next
   if (indent != depth || ++owners > 1) { bad=1; next }
@@ -158,7 +160,7 @@ function scalar(s, q,i,c,escaped,tail) {
   if (!scalar_ok || mode == "repository" && owner !~ /^https:\/\/github\.com\/[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/) bad=1
 }
 END {
-  if (!closed || bad) exit (mode == "repository" ? 2 : 1)
+  if (!closed || bad || (mode == "repository" && install_fields && !owners)) exit (mode == "repository" ? 2 : 1)
   if (mode == "repository" || mode == "metadata") { if (owners) print owner; else if (mode == "metadata") exit 2; exit 0 }
   exit (found ? 0 : 1)
 }

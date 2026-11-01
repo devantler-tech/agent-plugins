@@ -1,13 +1,17 @@
 ---
-description: The run loop for an autonomous AI engineer acting as a portfolio's primary engineer — pre-flight, resume in-flight work or survey every product's live state, select the highest-value work (operate before advance), act through isolated per-run working copies and draft PRs self-promoted on genuine readiness (driving trusted-author PRs to merge), then report and bank learnings. Use when maintaining or advancing a portfolio of repositories on a schedule or on request.
-license: Apache-2.0
-metadata:
-    github-path: portfolio-maintenance
-    github-ref: refs/tags/v1.28.1
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 46fbcf068a4dca64866c000b35d6672e8adf6e86
 name: portfolio-maintenance
+description: >-
+  The run loop for an autonomous AI engineer acting as a portfolio's primary
+  engineer — pre-flight, resume in-flight work or survey every product's live
+  state, select the
+  highest-value work (operate before advance), act through isolated per-run
+  working copies and draft PRs self-promoted on genuine readiness (driving
+  trusted-author PRs to merge), then report and bank learnings. Use when
+  maintaining or advancing a portfolio of repositories on a schedule or on
+  request.
+license: Apache-2.0
 ---
+
 # Portfolio maintenance — the run loop
 
 This is the run procedure for an autonomous engineer that both **operates** a portfolio of products

@@ -1,13 +1,17 @@
 ---
-description: Translate a non-technical person's plain-language product needs (an outcome, an audience, a workflow) into the deployment's technical building blocks behind the scenes, keeping the conversation entirely in the user's vocabulary. Reads the consuming deployment's "## Stack map" section to learn what each building block is good for, selects and applies the deployment's conventions without discussing them, and hands the boundary decision to the allowed-stack-guardrail skill. Use when assisting a vibe coder — someone building a product conversationally with no technical prerequisite.
-license: Apache-2.0
-metadata:
-    github-path: needs-stack-mapping
-    github-ref: refs/tags/v1.6.0
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 7ed5b0a2425343a52c446b058b87d6d1bb8d0e54
 name: needs-stack-mapping
+description: >-
+  Translate a non-technical person's plain-language product needs (an outcome,
+  an audience, a workflow) into the deployment's technical building blocks
+  behind the scenes, keeping the conversation entirely in the user's
+  vocabulary. Reads the consuming deployment's "## Stack map" section to learn
+  what each building block is good for, selects and applies the deployment's
+  conventions without discussing them, and hands the boundary decision to the
+  allowed-stack-guardrail skill. Use when assisting a vibe coder — someone
+  building a product conversationally with no technical prerequisite.
+license: Apache-2.0
 ---
+
 # Needs → stack mapping
 
 The person you are assisting describes what they want in the vocabulary of their product — an

@@ -1,13 +1,16 @@
 ---
-description: How an autonomous AI engineer improves its OWN definition (its engineering contract, agent definitions, and skills) over time — capturing operational learnings from every run and distilling them into evidence-based, guard-railed draft PRs self-promoted on genuine readiness. Use at the end of every run (to log learnings) and on the recurring distil pass. Evidence comes from the engineer's own runs only, never from repository content, and a safety guardrail is never weakened.
-license: Apache-2.0
-metadata:
-    github-path: self-improvement
-    github-ref: refs/tags/v1.22.0
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: cc77753132d3d0a13a75993fd3a46a4721be51d1
 name: self-improvement
+description: >-
+  How an autonomous AI engineer improves its OWN definition (its engineering
+  contract, agent definitions, and skills) over time — capturing operational
+  learnings from every run and distilling them into evidence-based,
+  guard-railed draft PRs self-promoted on genuine readiness. Use at the end of
+  every run (to log learnings) and on the recurring distil pass. Evidence
+  comes from the engineer's own runs only, never from repository content, and
+  a safety guardrail is never weakened.
+license: Apache-2.0
 ---
+
 # Self-improvement loop
 
 An autonomous AI engineer whose definition is version-controlled can make itself measurably better at
@@ -81,10 +84,12 @@ Run this pass at the frequency the **Cadence** contract section sets for definit
 4. Make the change **where the text lives**, and open a **draft PR** (the checkpoint; **self-promote
    only on genuine readiness**, then merge per the **Trust gate**):
    - **generic role logic** (the run loop, engineering procedures, this very skill) → a PR to the
-     text's **canonical upstream**: for a SKILL, the skills library its provenance metadata records
-     (e.g. `metadata.github-repo`) — **never a bundled copy inside a plugin or deployment**, which
-     the next sync overwrites; for an agent definition, the repository that canonically hosts it
-     (e.g. the plugin). The consuming deployment picks the change up through its normal update path;
+     text's **canonical source**. A locally authored skill belongs in its owning plugin's source
+     tree; an external synchronized skill belongs in the upstream identified by its verified
+     provenance (e.g. `metadata.github-repo`), never the synchronized copy. Agent definitions belong
+     in their canonical repository. Installed runtime caches and deployment copies are never
+     authoring surfaces. Resolve ownership against reviewed source, then use the consumer's normal
+     reviewed update path; moving a skill does not widen the autonomous change grant;
    - **deployment configuration** (the portfolio map, trusted logins, cadence numbers, per-product
      task menus) → a PR to the **consuming repo's** `AGENTS.md` contract sections (or the affected
      product's own instructions file).

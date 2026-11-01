@@ -1,13 +1,15 @@
 ---
-description: Ship changes through a squash-merge + Conventional Commits release pipeline where the PR title becomes the release note and the commit type drives the next semantic version. Use when writing a PR title or commit message that feeds an automated release, choosing the version bump for a change, setting up or reasoning about semantic-release / release-please / github-tag-action / Changesets, or avoiding a title that corrupts the changelog.
-license: Apache-2.0
-metadata:
-    github-path: conventional-release
-    github-ref: refs/tags/v1.5.0
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 650e08053c6e52fc89fc68db9f074b122d9fbb24
 name: conventional-release
+description: >-
+  Ship changes through a squash-merge + Conventional Commits release pipeline
+  where the PR title becomes the release note and the commit type drives the
+  next semantic version. Use when writing a PR title or commit message that
+  feeds an automated release, choosing the version bump for a change, setting up
+  or reasoning about semantic-release / release-please / github-tag-action /
+  Changesets, or avoiding a title that corrupts the changelog.
+license: Apache-2.0
 ---
+
 # Conventional Release
 
 A widely-used release pattern: every PR is **squash-merged**, its **title is a

@@ -233,6 +233,16 @@ main() {
     if [ "$rc" -ne 0 ] || [ -z "$upstream" ]; then
       continue
     fi
+    # Maintainer-approved source merger (#618). Only the exact former first-party
+    # owner may become an authored source. An external owner's metadata remains
+    # protected even when this same PR strips it from HEAD.
+    if [ "$upstream" = https://github.com/devantler-tech/agent-skills ]; then
+      local head_blob head_owner
+      head_blob=$(git_at show "${HEAD_SHA}:${d}/SKILL.md" 2>/dev/null) || head_blob=""
+      if head_owner=$(printf '%s\n' "$head_blob" | frontmatter_repository) && [ -z "$head_owner" ]; then
+        continue
+      fi
+    fi
     # Retiring a bundled skill is plugin membership, which IS authored here — and it is
     # unblockable by the message this guard would otherwise print, since there is nothing
     # to "fix upstream" about a directory you are removing.

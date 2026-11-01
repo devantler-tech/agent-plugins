@@ -1,13 +1,9 @@
 ---
+name: write-readme
 description: Write or improve a newcomer-facing README with a clear product overview, useful existing visuals and badges, and a short path to first use. Use for repository or directory READMEs, not changelogs or historical evidence records.
 license: Apache-2.0
-metadata:
-    github-path: write-readme
-    github-ref: refs/tags/v1.28.1
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: f5de4610a39834eefc9c25ae8e1c80b66e0914d3
-name: write-readme
 ---
+
 # Write a useful README
 
 Help readers understand what this project does, decide whether it fits, and try it. A newcomer to

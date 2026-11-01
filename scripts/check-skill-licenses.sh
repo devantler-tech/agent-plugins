@@ -91,11 +91,14 @@ while IFS= read -r -d '' skill; do
   name=${skill%/SKILL.md}; name=${name##*/}
   plugin=${skill#plugins/}; plugin=${plugin%%/*}
   printf '%s\t%s\n' "$plugin" "$name" >> "$work/bundled"
-  if ! repository=$(frontmatter_repository < "$skill") || [ -z "$repository" ]; then
+  if ! repository=$(frontmatter_repository < "$skill"); then
     echo "::error file=$skill::$name has no metadata.github-repo, so its license cannot be attributed"
     failed=1
     continue
   fi
+  # An authored skill belongs to this repository; malformed install provenance
+  # still fails above rather than being relabelled as local.
+  repository=${repository:-https://github.com/devantler-tech/agent-plugins}
   upstream=${repository#https://github.com/}
   declared=$(declared_license "$skill")
   if [ -n "$declared" ] && ! [[ $declared =~ $spdx ]]; then

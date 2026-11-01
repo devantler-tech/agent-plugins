@@ -41,7 +41,7 @@ Every bundled skill records its original repository in `metadata.github-repo`. F
 not in `plugins/*/skills/*`: the updater replaces those copies. New skills must be installed with
 `gh skill install` (GitHub CLI 2.90 or later), not copied by hand.
 
-Bundle membership and marketplace documentation are authored here. If you change shipped plugin
+Maintained first-party skills, bundle membership and marketplace documentation are authored here. External skill trees remain owned by the upstream in their install metadata. If you change shipped plugin
 content, update both marketplace manifests, the portable and strict plugin manifests, and the
 catalogue together. Use `bash scripts/bump-plugin-version.sh <plugin> minor` for an additive skill.
 For a skill addition or sync, commit the skill trees first: the release-note writer reads committed

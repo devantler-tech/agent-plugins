@@ -326,7 +326,9 @@ jobs:
         # new skill directory and every authored path, reads provenance at the BASE
         # ref so stripping the line at head cannot disable it, and treats missing CI
         # context as UNKNOWN rather than a pass.
-        run: ./scripts/guard-bundled-skill-edits.test.sh
+        run: |
+          ./scripts/guard-bundled-skill-edits.test.sh
+          bash scripts/local-skill-ownership.test.sh
 
       - name: 🧪 Self-test the gh JSON field guard
         # Proves every known formatting of an invalid `--json …merged…` request is caught

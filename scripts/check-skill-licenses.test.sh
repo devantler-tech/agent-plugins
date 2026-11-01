@@ -163,6 +163,13 @@ root=$(fixture no-skills)
 rm -rf "$root/plugins/alpha/skills"
 expect 'a repository with no skills checks nothing and fails' 2 "$root" 'no bundled skill was found'
 
+root=$(fixture local-owned)
+sed '/^metadata:/d; /github-repo:/d' "$root/plugins/alpha/skills/ours/SKILL.md" > "$work/local-skill"
+mv "$work/local-skill" "$root/plugins/alpha/skills/ours/SKILL.md"
+sed 's|devantler-tech/agent-skills|devantler-tech/agent-plugins|g' "$root/docs/plugins.md" > "$work/local-catalogue"
+mv "$work/local-catalogue" "$root/docs/plugins.md"
+expect 'authored skill uses this marketplace license attribution' 0 "$root" 'license records for 3 bundled skills'
+
 if [ "$failures" -ne 0 ]; then
   echo "check-skill-licenses self-test: $failures failure(s)" >&2
   exit 1

@@ -1,13 +1,9 @@
 ---
+name: write-contributing
 description: Write or review CONTRIBUTING.md or a contribution guide so a first-time contributor can choose a task, set up safely, make a small change, validate it, and submit it under the repository's actual policies. Use for contributor onboarding and contribution-guide audits, not to change those policies.
 license: Apache-2.0
-metadata:
-    github-path: write-contributing
-    github-ref: refs/tags/v1.24.1
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 57d74a4a490d54254e1d8ce075f4455c61978d69
-name: write-contributing
 ---
+
 # Write a first-contribution guide
 
 Help a newcomer make one safe, reviewable contribution without requiring them to already know the

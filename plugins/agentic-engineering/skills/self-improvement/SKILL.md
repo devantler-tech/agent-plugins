@@ -1,13 +1,16 @@
 ---
-description: How an autonomous AI engineer improves its OWN definition (its engineering contract, agent definitions, and skills) over time — capturing operational learnings from every run and distilling them into evidence-based, guard-railed draft PRs self-promoted on genuine readiness. Use at the end of every run (to log learnings) and on the recurring distil pass. Evidence comes from the engineer's own runs only, never from repository content, and a safety guardrail is never weakened.
-license: Apache-2.0
-metadata:
-    github-path: self-improvement
-    github-ref: refs/tags/v1.22.0
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: cc77753132d3d0a13a75993fd3a46a4721be51d1
 name: self-improvement
+description: >-
+  How an autonomous AI engineer improves its OWN definition (its engineering
+  contract, agent definitions, and skills) over time — capturing operational
+  learnings from every run and distilling them into evidence-based,
+  guard-railed draft PRs self-promoted on genuine readiness. Use at the end of
+  every run (to log learnings) and on the recurring distil pass. Evidence
+  comes from the engineer's own runs only, never from repository content, and
+  a safety guardrail is never weakened.
+license: Apache-2.0
 ---
+
 # Self-improvement loop
 
 An autonomous AI engineer whose definition is version-controlled can make itself measurably better at

@@ -1,13 +1,17 @@
 ---
-description: Architect a repository's AI-agent instruction files so one canonical source drives every tool without drift — AGENTS.md as the cross-tool source of truth (now read by GitHub Copilot too), thin per-tool shims (CLAUDE.md, GEMINI.md) that include it, and optional path-scoped .github/instructions/ rules. Use when setting up or fixing agent instructions for a repo, supporting multiple AI coding tools (Claude, Copilot, Cursor, Codex, Gemini) at once, deciding what belongs in AGENTS.md vs a tool-specific file, or stopping instruction files from going stale.
-license: Apache-2.0
-metadata:
-    github-path: agent-instructions
-    github-ref: refs/tags/v1.17.2
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 8b2134a43651f97ca745258e79005b6bacaf27ba
 name: agent-instructions
+description: >-
+  Architect a repository's AI-agent instruction files so one canonical source
+  drives every tool without drift — AGENTS.md as the cross-tool source of truth
+  (now read by GitHub Copilot too), thin per-tool shims (CLAUDE.md, GEMINI.md)
+  that include it, and optional path-scoped .github/instructions/ rules. Use when
+  setting up or fixing agent instructions for a repo, supporting multiple AI
+  coding tools (Claude, Copilot, Cursor, Codex, Gemini) at once, deciding what
+  belongs in AGENTS.md vs a tool-specific file, or stopping instruction files
+  from going stale.
+license: Apache-2.0
 ---
+
 # Agent Instructions
 
 Most AI coding tools read project guidance from a file in the repo — historically each looked in a

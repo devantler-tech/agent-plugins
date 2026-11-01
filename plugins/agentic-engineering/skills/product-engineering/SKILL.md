@@ -1,13 +1,19 @@
 ---
-description: 'The ADVANCE playbook for an autonomous AI engineer — how to move a product forward once it is healthy: product strategy and roadmap stewardship, issue triage and decomposition, value-prioritized Kanban pull, test coverage, benchmarking and performance, refactoring, tool maturation, shared-library decisions and code quality, documentation sync, security posture, and upstream release review of moved dependencies — all shipped as evidence-backed draft PRs self-promoted on genuine readiness. Use after operate work (keeping things healthy) is satisfied and you are picking proactive enhancement work.'
-license: Apache-2.0
-metadata:
-    github-path: product-engineering
-    github-ref: refs/tags/v1.27.3
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: cfd22e47fb044979d83a910f1ee4eabd53ff7f3a
 name: product-engineering
+description: >-
+  The ADVANCE playbook for an autonomous AI engineer — how to move a product
+  forward once it is healthy: product strategy and roadmap stewardship, issue
+  triage and decomposition, value-prioritized Kanban pull, test
+  coverage, benchmarking and performance, refactoring, tool maturation,
+  shared-library decisions and code quality,
+  documentation sync, security posture, and upstream release review of
+  moved dependencies — all shipped as evidence-backed
+  draft PRs self-promoted on genuine readiness. Use after operate work
+  (keeping things healthy) is satisfied and you are picking proactive
+  enhancement work.
+license: Apache-2.0
 ---
+
 # Product engineering — moving products forward
 
 This is the *advance* half of an autonomous engineer's role: once nothing is on fire, proactively

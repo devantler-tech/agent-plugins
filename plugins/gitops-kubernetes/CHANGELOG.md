@@ -1,5 +1,11 @@
 # Changelog — `gitops-kubernetes`
 
+## 1.1.0
+
+2026-11-01
+
+- Own and validate maintained first-party skills in this plugin; external skills retain upstream provenance and refresh protection.
+
 ## 1.0.5 — 2026-10-27
 
 **Changed** — sync `gitops-knowledge` from `https://github.com/fluxcd/agent-skills` at `refs/tags/v0.4.0`.

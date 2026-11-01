@@ -1,14 +1,9 @@
 ---
+name: product-documentation
 description: Build or maintain user documentation sites for software products, including tutorials, task guides, API reference and publication checks. Use for a product documentation website or its information architecture. Do not use for ordinary README edits, engineering proposals or engineering specifications.
 license: Apache-2.0
-metadata:
-    github-path: product-documentation
-    github-pinned: aa404bdbdc6ea211fbc1c2f75168cdab6ed37ab2
-    github-ref: aa404bdbdc6ea211fbc1c2f75168cdab6ed37ab2
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: c7103bdb7bc00a7ec8c2e26f15a4f202185f2ae5
-name: product-documentation
 ---
+
 # Product documentation
 
 Help a user achieve a real result with the product. A successful build proves the
@@ -46,7 +41,8 @@ without forcing every product into identical navigation:
 | Understand a design | Explanations of responsibilities, concepts and tradeoffs, linked from the relevant tasks |
 
 Give the home page a short product explanation and clear routes to a first result
-and common tasks. Choose concrete navigation labels from what users do or look up.
+and common tasks; the `write-docs-introduction` skill covers writing it, when that
+skill is available. Choose concrete navigation labels from what users do or look up.
 Keep troubleshooting near the failing task: symptom, likely cause, a diagnostic
 step, a correction and the result that confirms recovery.
 
@@ -67,6 +63,15 @@ Make navigation, headings, search, code blocks and theme contrast useful on narr
 and wide screens. Prefer native accessible components over custom controls unless
 the task requires them. Maintain canonical URLs, edit links, redirects when routes
 move, a useful missing-page path and downloadable examples where appropriate.
+
+Draw flows, architectures and sequences with Mermaid or the site's diagram
+component, never as ASCII art or box-drawing characters in a code block.
+Fixed-width drawings overflow narrow screens, break when fonts differ, and screen
+readers read them as noise. Prefer top-down layouts with short labels, give each
+diagram an accessible title and description, and leave colours to the site theme.
+Show directory layouts with the site's file-tree component where it has one. When
+converting a drawing, keep every step and label, then check the rendered result at
+phone width in light and dark themes.
 
 ## Verify the result people will use
 

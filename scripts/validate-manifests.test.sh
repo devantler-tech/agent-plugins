@@ -470,7 +470,7 @@ metadata:
 ---
 Body.
 EOF
-check_fail "SKILL.md without github-repo provenance fails" "missing upstream provenance" "$d"
+check_pass "locally authored skill without install metadata passes" "$d"
 
 # A skill with no YAML frontmatter at all is likewise rejected.
 d=$(fresh)

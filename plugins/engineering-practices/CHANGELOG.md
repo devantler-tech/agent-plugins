@@ -1,5 +1,12 @@
 # Changelog — `engineering-practices`
 
+## 1.2.0
+
+2026-11-01
+
+- Own and validate maintained first-party skills in this plugin; external skills retain upstream provenance and refresh protection.
+- Include the maintained documentation introduction skill.
+
 ## 1.1.6 — 2026-10-26
 
 **Changed** — sync `write-readme` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.28.1`.

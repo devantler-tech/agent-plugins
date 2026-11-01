@@ -1,5 +1,11 @@
 # Changelog — `agentic-engineering`
 
+## 6.7.0
+
+2026-11-01
+
+- Own and validate maintained first-party skills in this plugin; external skills retain upstream provenance and refresh protection.
+
 Every released version of this plugin, newest first, with the upgrade steps each breaking release
 needs. The [plugin README](README.md) describes the plugin as it is today; its history and its
 version-to-version upgrade paths live here.

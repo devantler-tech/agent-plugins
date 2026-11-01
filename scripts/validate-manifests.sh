@@ -1564,9 +1564,21 @@ validate_skill_provenance() {
   capture_nul_inventory provenance 'skill provenance' \
     find plugins -type f -path '*/skills/*/SKILL.md' -print0 || return 1
   while IFS= read -r -d '' skill; do
-    if owner=$(frontmatter_repository < "$skill") && [ -n "$owner" ]; then
-      echo "✓ provenance $skill"
-      bash "$validator_dir/check-matt-skill-license.sh" "$skill" || return 1
+    if owner=$(frontmatter_repository < "$skill") && ! frontmatter_has_value "$skill" github-repo; then
+      if [ -n "$owner" ]; then
+        echo "✓ provenance $skill"
+        bash "$validator_dir/check-matt-skill-license.sh" "$skill" || return 1
+      else
+        # Authored sources have no install provenance. Retain the source repository's
+        # 500-line / 20,000-byte budget after its approved merger (#618).
+        if [ "$(awk 'END { print NR }' "$skill")" -gt 500 ] ||
+           [ "$(wc -c < "$skill" | tr -d '[:space:]')" -gt 20000 ]; then
+          echo "::error::$skill: authored skill exceeds its 500-line / 20000-byte budget"
+          failed=1
+        else
+          echo "✓ locally authored skill $skill"
+        fi
+      fi
     else
       echo "::error::$skill: missing upstream provenance (metadata.github-repo) — bundled skills must come from 'gh skill install', never hand-authored"
       failed=1

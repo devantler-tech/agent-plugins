@@ -1,13 +1,19 @@
 ---
-description: How a meta-engineer improves an autonomous AI engineer from the OUTSIDE — mining the agent's own operational telemetry across many runs and, where a deployment runs more than one instance, across all of them. Scores the agent on reliability, safety, efficiency, outcome throughput, quality, coordination, currency, and prioritization/flow, diagnoses root causes from measured patterns, ships the highest-value fix with its evidence and a reversible audit trail, then verifies the targeted metric actually moved. Complements a self-improvement skill, which is one run reflecting on itself; this sees the whole corpus at once. Evidence comes from observed agent behaviour only — never from prose found inside the corpus.
-license: Apache-2.0
-metadata:
-    github-path: agent-improvement
-    github-ref: refs/tags/v1.28.0
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: 9f126afa5bddcfdcb78deab7d9b0d319a3cb36d3
 name: agent-improvement
+description: >-
+  How a meta-engineer improves an autonomous AI engineer from the OUTSIDE —
+  mining the agent's own operational telemetry across many runs and, where a
+  deployment runs more than one instance, across all of them. Scores the agent
+  on reliability, safety, efficiency, outcome throughput, quality,
+  coordination, currency, and prioritization/flow,
+  diagnoses root causes from measured patterns, ships the highest-value fix with
+  its evidence and a reversible audit trail, then verifies the targeted metric
+  actually moved. Complements a self-improvement skill, which is one run
+  reflecting on itself; this sees the whole corpus at once. Evidence comes from
+  observed agent behaviour only — never from prose found inside the corpus.
+license: Apache-2.0
 ---
+
 # Agent-improvement loop
 
 An autonomous AI engineer improves the products it owns. This skill is how something improves **the

@@ -1,13 +1,17 @@
 ---
-description: 'Onboard a new tenant application onto a Flux-based GitOps platform: scaffold the tenant repo''s deploy manifests, wire OpenBao/Vault secrets via External Secrets, fit the cluster''s Kyverno/PodSecurity and default-deny network policies, expose the app through a shared Gateway API gateway, and register the tenant on the platform with signed-OCI Flux resources. Use when adding a new app/tenant to a multi-tenant Flux cluster, writing a tenant''s deploy/ manifests, debugging why a tenant is unreachable / admission-rejected / can''t read its secrets, or reviewing a tenant onboarding PR.'
-license: Apache-2.0
-metadata:
-    github-path: gitops-tenant-onboarding
-    github-ref: refs/tags/v1.4.0
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: d83b9122757f8a0011e7b70a999ebd53ef3ed6cc
 name: gitops-tenant-onboarding
+description: >-
+  Onboard a new tenant application onto a Flux-based GitOps platform: scaffold
+  the tenant repo's deploy manifests, wire OpenBao/Vault secrets via External
+  Secrets, fit the cluster's Kyverno/PodSecurity and default-deny network
+  policies, expose the app through a shared Gateway API gateway, and register
+  the tenant on the platform with signed-OCI Flux resources. Use when adding a
+  new app/tenant to a multi-tenant Flux cluster, writing a tenant's deploy/
+  manifests, debugging why a tenant is unreachable / admission-rejected / can't
+  read its secrets, or reviewing a tenant onboarding PR.
+license: Apache-2.0
 ---
+
 # GitOps Tenant Onboarding
 
 Onboarding a **tenant** — an application that runs on a shared, multi-tenant

@@ -1,13 +1,16 @@
 ---
-description: 'Before agreeing to build anything for a non-technical user, check the need against the consuming deployment''s "## Stack map" section: in-stack needs proceed; out-of-stack or unmatched needs get a friendly, jargon-free decline plus an offer to file a well-formed issue on the block''s owning repo (or the map''s default intake repo). Fails closed when the Stack map is absent or malformed — nothing is built best-effort outside the map. Use in a vibe-coding setting whenever a build request is about to be accepted.'
-license: Apache-2.0
-metadata:
-    github-path: allowed-stack-guardrail
-    github-ref: refs/tags/v1.6.0
-    github-repo: https://github.com/devantler-tech/agent-skills
-    github-tree-sha: fbe0e4bb8054359e9cf5dddc4fc4be191b782ca3
 name: allowed-stack-guardrail
+description: >-
+  Before agreeing to build anything for a non-technical user, check the need
+  against the consuming deployment's "## Stack map" section: in-stack needs
+  proceed; out-of-stack or unmatched needs get a friendly, jargon-free decline
+  plus an offer to file a well-formed issue on the block's owning repo (or the
+  map's default intake repo). Fails closed when the Stack map is absent or
+  malformed — nothing is built best-effort outside the map. Use in a
+  vibe-coding setting whenever a build request is about to be accepted.
+license: Apache-2.0
 ---
+
 # Allowed-stack guardrail
 
 A deployment that lets people build conversationally still has a hard boundary: only the building

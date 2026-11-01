@@ -84,10 +84,12 @@ Run this pass at the frequency the **Cadence** contract section sets for definit
 4. Make the change **where the text lives**, and open a **draft PR** (the checkpoint; **self-promote
    only on genuine readiness**, then merge per the **Trust gate**):
    - **generic role logic** (the run loop, engineering procedures, this very skill) → a PR to the
-     text's **canonical upstream**: for a SKILL, the skills library its provenance metadata records
-     (e.g. `metadata.github-repo`) — **never a bundled copy inside a plugin or deployment**, which
-     the next sync overwrites; for an agent definition, the repository that canonically hosts it
-     (e.g. the plugin). The consuming deployment picks the change up through its normal update path;
+     text's **canonical source**. A locally authored skill belongs in its owning plugin's source
+     tree; an external synchronized skill belongs in the upstream identified by its verified
+     provenance (e.g. `metadata.github-repo`), never the synchronized copy. Agent definitions belong
+     in their canonical repository. Installed runtime caches and deployment copies are never
+     authoring surfaces. Resolve ownership against reviewed source, then use the consumer's normal
+     reviewed update path; moving a skill does not widen the autonomous change grant;
    - **deployment configuration** (the portfolio map, trusted logins, cadence numbers, per-product
      task menus) → a PR to the **consuming repo's** `AGENTS.md` contract sections (or the affected
      product's own instructions file).

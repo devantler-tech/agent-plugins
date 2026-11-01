@@ -8,7 +8,7 @@ experiment. A guardrail relaxation is rejected before this path; no measurement 
 ## Resolve the companion protocol
 
 The canonical evidence schema, evaluator and human brief belong to the **product-engineering** skill
-published by [devantler-tech/agent-skills](https://github.com/devantler-tech/agent-skills/tree/main/product-engineering).
+published in [Agent Plugins](https://github.com/devantler-tech/agent-plugins/tree/main/plugins/agentic-engineering/skills/product-engineering).
 Resolve its installed directory through the runtime's native skill discovery and verified provenance.
 Read these resources relative to that directory:
 

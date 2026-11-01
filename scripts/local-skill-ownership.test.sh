@@ -41,3 +41,12 @@ for scenario in transferred external lookalike undeclared; do
   fi
 done
 echo 'PASS: transferred source is local; external sources remain protected'
+
+# The installed distil procedure must not forbid its new canonical authoring surface.
+route="$root/plugins/agentic-engineering/skills/self-improvement/SKILL.md"
+if grep -qF "never a bundled copy inside a plugin or deployment" "$route"; then
+  echo "FAIL: distil procedure still forbids plugin-authored skill changes" >&2
+  exit 1
+fi
+grep -qF "locally authored skill" "$route"
+grep -qF "external synchronized skill" "$route"

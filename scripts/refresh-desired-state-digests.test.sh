@@ -222,7 +222,8 @@ else
   ( cd "$d" && ./scripts/validate-manifests.sh > /dev/null 2>&1 ); rc=$?
   if [ "$rc" -eq 0 ]; then ok "the untouched copy validates clean (control)"; else ko "the untouched copy validates clean (control, rc=$rc)"; fi
 
-  printf '\n<!-- simulated upstream skill sync -->\n' >> "$SKILL"
+  # Change valid source without growing a near-budget authored skill.
+  perl -pi -e 's/How a meta-engineer/How a test-engineer/' "$SKILL"
   ( cd "$d" && ./scripts/validate-manifests.sh > "$d/v1" 2>&1 ); rc=$?
   if [ "$rc" -ne 0 ] && grep -q 'agent-improvement skill digest must match the bundled skill' "$d/v1"; then
     ok "ABLATION: a synced skill change without a refresh still fails the gate"

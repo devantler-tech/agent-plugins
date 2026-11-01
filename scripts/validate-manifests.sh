@@ -1549,15 +1549,9 @@ validate_desired_state_resources() {
   return "$failed"
 }
 
-# 8. Every bundled SKILL.md carries its upstream provenance frontmatter.
-#    `gh skill install` records the true upstream in each skill's `metadata.github-*`
-#    frontmatter, and AGENTS.md forbids hand-authored/divergent skills — so a bundled
-#    skill MUST carry a real `github-repo` value *inside the `metadata:` block* of the
-#    YAML frontmatter (the lines between the first two `---`). Staying jq/grep-only (no
-#    yq dependency), one awk pass both slices the frontmatter and scopes the lookup to
-#    `metadata:` so a TOP-LEVEL `github-repo:` cannot satisfy it, and rejects an empty,
-#    quoted-empty (`""`/`''`) or comment-only (`# …`) value — each of which can only
-#    come from a hand edit. A skill with no frontmatter yields no match → reject.
+# 8. Authored skills have valid frontmatter and a bounded source size. External
+#    skills retain their installed metadata provenance and licensing checks.
+#    Malformed headers and top-level provenance lookalikes fail closed.
 validate_skill_provenance() {
   local failed=0
   local skill

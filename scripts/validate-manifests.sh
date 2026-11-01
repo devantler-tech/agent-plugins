@@ -1574,7 +1574,7 @@ validate_skill_provenance() {
         fi
       fi
     else
-      echo "::error::$skill: missing upstream provenance (metadata.github-repo) — bundled skills must come from 'gh skill install', never hand-authored"
+      echo "::error::$skill: missing upstream provenance (metadata.github-repo) — authored skills omit install metadata; external copies require complete provenance"
       failed=1
     fi
   done < "$inventory_dir/provenance"

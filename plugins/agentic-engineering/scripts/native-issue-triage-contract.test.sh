@@ -43,7 +43,7 @@ for clause in \
   'Optional label absence alone is not incomplete triage' \
   'Incomplete metadata reads remain UNKNOWN' \
   'PR metadata comes from the consumer contract, not issue types'; do
-  awk -v clause="$clause" 'index($0,clause)==0' "$source_file" >"$tmp/removed.md"
+  awk -v clause="$clause" '{ p=index($0,clause); if (p) $0=substr($0,1,p-1) substr($0,p+length(clause)); print }' "$source_file" >"$tmp/removed.md"
   if check "$tmp/removed.md"; then
     printf 'FAIL: removed obligation accepted: %s\n' "$clause" >&2
     exit 1

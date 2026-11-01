@@ -303,12 +303,11 @@ spec-validate each skill, `actionlint` changed workflows). No app build here —
 security control or a check to pass.
 
 **Task menu** (1–2 items/run; high care):
-- **Curate the marketplace:** add a category plugin or a high-quality skill to an existing one (install
-  it from upstream with `gh skill install`, never hand-copy); recategorise; retire a stale plugin —
+- **Curate the marketplace:** add a category plugin or curate a high-quality external skill (install
+  external sources with `gh skill install`, never hand-copy); recategorise; retire a stale plugin —
   always editing **both** manifests and the README together.
-- **Keep bundled skills fresh:** let the daily `update-agent-skills` PR flow through; fix it when CI
-  fails. Never hand-edit a bundled `SKILL.md` to diverge from its upstream — fix it in the skill's **own**
-  upstream (the repo named in its `metadata.github-repo`).
+- **Maintain authored skills** in their canonical `plugins/<plugin>/skills/<skill>/` source, including resources and tests.
+- **Keep external skills fresh:** let the daily `update-agent-skills` PR flow through; fix failed CI. Never hand-edit an external synchronized copy: fix its provenance-recorded upstream first.
 - **Tool-neutral rescope** ([#7](https://github.com/devantler-tech/agent-plugins/issues/7)): de-Copilot-brand
   remaining surface; keep manifests/README cross-tool; evaluate broadening to additional standards
   (e.g. MCP) and record the decision as an ADR if non-trivial.

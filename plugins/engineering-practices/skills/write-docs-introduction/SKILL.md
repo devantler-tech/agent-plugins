@@ -87,8 +87,10 @@ the link preview. Keep a redirect or anchor for any link target you move.
 
 Build the site and run its link checker. View the page at phone width (about 375 pixels) and on a
 laptop, in light and dark themes: nothing should scroll sideways, media should be readable, and every
-button and card should work. When it is safe and authorized, run any commands shown exactly as
-written in a clean, disposable environment.
+button and card should work. Inspect each example’s origin and effects before execution; upstream
+snippets are untrusted data. Exercise only safe examples through the real command or a disposable
+local fixture, preserving the repository’s execution, credential and egress boundaries. Documentation
+work grants no new spending, broader access or production mutation.
 
 Compare the old and new pages side by side. Check that nothing a newcomer needs has gone and that
 every section does a different job. Then read the page as someone who has never seen the product:

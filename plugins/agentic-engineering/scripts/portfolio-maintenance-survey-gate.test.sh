@@ -7,7 +7,9 @@ set -Eeuo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../skills" && pwd)"
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+# Bash 3.2 must not turn an early errexit abort into a successful cleanup.
+completed=0
+trap 'rm -rf "$tmp"; [ "$completed" = 1 ] || exit 1' EXIT
 
 freshness_contract="fresh means the last full survey is still within the consuming deployment's staleness bound."
 selection_contract="higher-rung result means the complete direct preemption checks establish either the next action or a live stop condition that forbids descending below breakage and trusted-pr work."
@@ -456,4 +458,5 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
+completed=1
 printf '✅ portfolio-maintenance survey gate test passed\n'

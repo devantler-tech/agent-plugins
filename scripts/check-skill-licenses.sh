@@ -92,7 +92,7 @@ while IFS= read -r -d '' skill; do
   plugin=${skill#plugins/}; plugin=${plugin%%/*}
   printf '%s\t%s\n' "$plugin" "$name" >> "$work/bundled"
   if ! repository=$(frontmatter_repository < "$skill"); then
-    echo "::error file=$skill::$name has no metadata.github-repo, so its license cannot be attributed"
+    echo "::error file=$skill::$name has invalid metadata.github-repo or partial install provenance, so its license cannot be attributed"
     failed=1
     continue
   fi

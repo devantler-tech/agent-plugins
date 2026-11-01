@@ -5,10 +5,12 @@ set -Eeuo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../skills" && pwd)"
 reference="portfolio-maintenance/references/upstream-contributions.md"
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+# Bash 3.2 must not turn an early errexit abort into a successful cleanup.
+completed=0
+trap 'rm -rf "$tmp"; [ "$completed" = 1 ] || exit 1' EXIT
 
 check_contract() {
-  local root="$1" flat skill
+  local root="$1" flat skill clause
   [[ -f "$root/$reference" ]] || return 1
   flat="$(tr '\n' ' ' <"$root/$reference" | tr -s '[:space:]')"
   for clause in \
@@ -39,7 +41,10 @@ for skill in portfolio-maintenance product-engineering self-improvement agent-im
 done
 mkdir -p "$tmp/fixture/portfolio-maintenance/references"
 cp "$repo_root/$reference" "$tmp/fixture/$reference"
-check_contract "$tmp/fixture"
+check_contract "$tmp/fixture" || {
+  printf 'FAIL: copied fixture does not satisfy the contract\n' >&2
+  exit 1
+}
 
 # Each regression loses a real obligation; explanatory text elsewhere cannot
 # make a disconnected standalone skill inherit the procedure.
@@ -58,4 +63,5 @@ if check_contract "$tmp/fixture"; then
   printf 'FAIL: disconnected standalone product-engineering skill was accepted\n' >&2
   exit 1
 fi
+completed=1
 printf 'PASS: quiet upstream handoff and received-feedback obligations remain reachable\n'

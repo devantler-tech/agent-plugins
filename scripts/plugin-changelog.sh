@@ -14,6 +14,8 @@ source "$here/plugin-version.lib.sh"
 source "$here/json-object.lib.sh"
 # shellcheck source=scripts/atomic-write.lib.sh
 source "$here/atomic-write.lib.sh"
+# shellcheck source=scripts/frontmatter.lib.sh
+source "$here/frontmatter.lib.sh"
 mode=${1:-}
 base_ref=${2:-}
 fail() { printf 'plugin-changelog: %s\n' "$*" >&2; exit 1; }
@@ -153,7 +155,18 @@ while IFS= read -r dir; do
       metadata="$work/committed-skill.md"
       git cat-file blob "$head:$skill/SKILL.md" > "$metadata" || fail "unreadable skill object: $skill"
     fi
-    source=$(provenance "$metadata" github-repo) || fail "missing source for $skill"
+    source=$(frontmatter_repository < "$metadata") || fail "invalid install provenance for $skill"
+    if [ -z "$source" ]; then
+      # Authored source notes bind to committed Git objects, including removals.
+      if [ "$removed" = true ]; then
+        # shellcheck disable=SC2016 # Literal Markdown code spans.
+        printf '**Removed** — `%s`, previously authored in this marketplace at `%s`.\n\n' "${skill##*/}" "$base" >> "$entry"
+      else
+        # shellcheck disable=SC2016 # Literal Markdown code spans.
+        printf '**Changed** — `%s`, authored in this marketplace at `%s`.\n\n' "${skill##*/}" "$head" >> "$entry"
+      fi
+      continue
+    fi
     ref=$(provenance "$metadata" github-ref) || fail "missing upstream ref for $skill"
     [[ "$source" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail "unsupported source for $skill"
     [[ "$ref" =~ ^[A-Za-z0-9][A-Za-z0-9._/@:+-]*$ ]] || fail "unsupported upstream ref for $skill"

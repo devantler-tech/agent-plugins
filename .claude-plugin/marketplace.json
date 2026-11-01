@@ -1,7 +1,7 @@
 {
   "name": "devantler-plugins",
   "metadata": {
-    "description": "Maintained and curated agent skills bundled by category",
+    "description": "Maintained and curated skills, MCP servers and custom agents bundled by category",
     "version": "2.0.0"
   },
   "owner": {

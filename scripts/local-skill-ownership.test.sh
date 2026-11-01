@@ -6,19 +6,21 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-for scenario in transferred external lookalike; do
+for scenario in transferred external lookalike undeclared; do
   repo=$work/$scenario
   case $scenario in
     transferred) owner=https://github.com/devantler-tech/agent-skills; expected=0 ;;
     external) owner=https://github.com/example/skills; expected=1 ;;
     lookalike) owner=https://github.com/devantler-tech/agent-skills-extra; expected=1 ;;
+    undeclared) owner=https://github.com/devantler-tech/agent-skills; expected=1 ;;
   esac
-  mkdir -p "$repo/plugins/example/skills/example"
+  file=plugins/agentic-engineering/skills/agent-improvement/SKILL.md
+  [ "$scenario" != undeclared ] || file=plugins/example/skills/example/SKILL.md
+  mkdir -p "$repo/$(dirname "$file")"
   git -C "$repo" init -q
   git -C "$repo" config user.name fixture
   git -C "$repo" config user.email fixture@example.invalid
   git -C "$repo" config commit.gpgsign false
-  file=plugins/example/skills/example/SKILL.md
   printf '%s\n' '---' 'name: example' 'description: Example.' 'metadata:' "  github-repo: $owner" '---' 'Before.' > "$repo/$file"
   git -C "$repo" add "$file"
   git -C "$repo" commit -qm before

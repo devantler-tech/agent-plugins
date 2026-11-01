@@ -151,6 +151,28 @@ upstream_at_base() {
   printf '%s\n' "$blob" | frontmatter_repository
 }
 
+# Reviewed paths moved by #618. A self-declared former owner on another skill
+# cannot authorize an ownership transfer.
+transferred_skill() {
+  case "$1" in
+    plugins/agentic-engineering/skills/agent-improvement|\
+    plugins/agentic-engineering/skills/agent-instructions|\
+    plugins/agentic-engineering/skills/portfolio-maintenance|\
+    plugins/agentic-engineering/skills/product-documentation|\
+    plugins/agentic-engineering/skills/product-engineering|\
+    plugins/agentic-engineering/skills/self-improvement|\
+    plugins/engineering-practices/skills/conventional-release|\
+    plugins/engineering-practices/skills/ways-of-working|\
+    plugins/engineering-practices/skills/write-contributing|\
+    plugins/engineering-practices/skills/write-readme|\
+    plugins/gitops-kubernetes/skills/gitops-tenant-onboarding|\
+    plugins/vibe-coding/skills/allowed-stack-guardrail|\
+    plugins/vibe-coding/skills/jargon-free-voice|\
+    plugins/vibe-coding/skills/needs-stack-mapping) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 main() {
   local nul=0
   case "${1:-}" in
@@ -236,7 +258,7 @@ main() {
     # Maintainer-approved source merger (#618). Only the exact former first-party
     # owner may become an authored source. An external owner's metadata remains
     # protected even when this same PR strips it from HEAD.
-    if [ "$upstream" = https://github.com/devantler-tech/agent-skills ]; then
+    if [ "$upstream" = https://github.com/devantler-tech/agent-skills ] && transferred_skill "$d"; then
       local head_blob head_owner
       head_blob=$(git_at show "${HEAD_SHA}:${d}/SKILL.md" 2>/dev/null) || head_blob=""
       if head_owner=$(printf '%s\n' "$head_blob" | frontmatter_repository) && [ -z "$head_owner" ]; then

@@ -21,6 +21,10 @@ The [autonomous engineering setup](plugins/agentic-engineering/README.md) explai
 
 ## Contribute
 
+Maintainers can [review plugin use and usefulness](docs/plugin-effectiveness.md) with native
+OpenTelemetry usage exports and skill evaluation results. The read-only scorecard keeps missing
+evidence visible instead of treating an installed plugin as a useful one.
+
 Maintained first-party skills are authored in their plugins here; curated external skills retain their original authors and upstream update paths. To suggest a bundle or report a problem, [open an issue](https://github.com/devantler-tech/agent-plugins/issues). For a safe first repository change, start with [Contributing](CONTRIBUTING.md).
 
 Maintainers can [prepare and publish a marketplace release](docs/marketplace-releases.md) with a reviewed version proposal, matching manifests, and verified release notes. Actions can explicitly create a signed draft containing only the generated marketplace versions and start normal PR CI. Review and merge remain separate gates. Pull-request CI checks that a version update exactly matches its generated proposal; publication separately requires exact successful main CI. Scheduled proposal creation and publication are independently opt-in.

@@ -6,6 +6,7 @@ complete inventory; read a script's header for its arguments and safeguards.
 | Task | Start here |
 |---|---|
 | Check a change | Follow the [validation steps](validation.md), including dependency installation |
+| Review plugin use and usefulness | [Plugin effectiveness](plugin-effectiveness.md) and `bash scripts/plugin-scorecard.sh`; reads native exports and benchmark artifacts without configuring telemetry |
 | Update versions and release notes | Use [bump-plugin-version.sh](../scripts/bump-plugin-version.sh) and add a matching changelog entry; skill syncs use [plugin-changelog.sh write](../scripts/plugin-changelog.sh) |
 | Refresh generated resource digests | [refresh-desired-state-digests.sh](../scripts/refresh-desired-state-digests.sh) |
 | Synchronize one curated plugin | Dispatch [Update Agent Skills](../.github/workflows/update-agent-skills.yaml) with `agentic-engineering` or `engineering-practices`; [skill-update-scope.sh](../scripts/skill-update-scope.sh) resolves only declared selections before the normal per-skill updater runs. Default and scheduled `all` updates still cover the full catalogue. |

@@ -16,7 +16,7 @@ reject() {
 }
 cat > "$work/usage.json" <<'JSON'
 {"resourceLogs":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"claude-code"}}]},"scopeLogs":[{"logRecords":[
-{"attributes":[{"key":"event.name","value":{"stringValue":"plugin_loaded"}},{"key":"event.timestamp","value":{"stringValue":"2026-10-31T01:00:00Z"}},{"key":"event.sequence","value":{"intValue":"1"}},{"key":"session.id","value":{"stringValue":"private-session"}},{"key":"plugin.name","value":{"stringValue":"engineering-practices"}},{"key":"marketplace.name","value":{"stringValue":"devantler-plugins"}},{"key":"plugin.version","value":{"stringValue":"1.2.0"}},{"key":"safe_mode","value":{"stringValue":"false"}}]},
+{"attributes":[{"key":"event.name","value":{"stringValue":"plugin_loaded"}},{"key":"event.timestamp","value":{"stringValue":"2026-11-01T00:30:00Z"}},{"key":"event.sequence","value":{"intValue":"1"}},{"key":"session.id","value":{"stringValue":"private-session"}},{"key":"plugin.name","value":{"stringValue":"engineering-practices"}},{"key":"marketplace.name","value":{"stringValue":"devantler-plugins"}},{"key":"plugin.version","value":{"stringValue":"1.2.0"}},{"key":"safe_mode","value":{"stringValue":"false"}}]},
 {"attributes":[{"key":"event.name","value":{"stringValue":"skill_activated"}},{"key":"event.timestamp","value":{"stringValue":"2026-11-01T01:00:00Z"}},{"key":"event.sequence","value":{"intValue":"2"}},{"key":"session.id","value":{"stringValue":"private-session"}},{"key":"plugin.name","value":{"stringValue":"engineering-practices"}},{"key":"marketplace.name","value":{"stringValue":"devantler-plugins"}},{"key":"skill.name","value":{"stringValue":"ways-of-working"}},{"key":"skill.source","value":{"stringValue":"plugin"}}]},
 {"body":{"stringValue":"PRIVATE_PROMPT_DO_NOT_PRINT"},"attributes":[{"key":"event.name","value":{"stringValue":"user_prompt"}}]}
 ]}]}]}
@@ -29,8 +29,15 @@ args=(--since 2026-11-01T00:00:00Z --until 2026-11-02T00:00:00Z)
 # Missing evidence is unknown; no export or runtime configuration is read implicitly.
 report
 check 'all(.plugins[]; .usage.activations == null and .benchmarks == [])' 'missing evidence'
+# Native activation identity establishes use without inventing a loaded version.
+jq '(.resourceLogs[0].scopeLogs[0].logRecords) |= [.[1]]' "$work/usage.json" > "$work/activation-only.json"
+report "${args[@]}" --usage "$work/activation-only.json"
+check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==1 and .usage.loaded_versions==[] and .usage.configured_sessions==null' 'direct native activation without inventory'
+printf '%s\n' '{"resourceLogs":null}' > "$work/null.json"
+report "${args[@]}" --usage "$work/null.json"
+check '.coverage.status=="UNKNOWN"' 'valid empty ProtoJSON request'
 report "${args[@]}" --usage "$work/usage.json" --usage "$work/usage.json" --benchmark engineering-practices 1.2.0 "$work/benchmark.json"
-check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==1 and .usage.versions==["1.2.0"] and .benchmarks[0].with_skill.passed==2 and .benchmarks[0].with_skill.total==2 and .benchmarks[0].with_skill.percent==100 and .benchmarks[0].baseline_delta_pp==50' 'native usage and benchmark'
+check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==1 and .usage.loaded_versions==["1.2.0"] and .usage.configured_sessions==1 and .usage.sessions==1 and .benchmarks[0].with_skill.passed==2 and .benchmarks[0].with_skill.total==2 and .benchmarks[0].with_skill.percent==100 and .benchmarks[0].baseline_delta_pp==50' 'native usage and benchmark'
 if grep -Eq 'private-session|PRIVATE_PROMPT_DO_NOT_PRINT' "$work/result"; then printf 'FAIL private content emitted\n'; exit 1; fi
 
 # A load is inventory, not an activation; a foreign marketplace cannot own our usage.
@@ -39,10 +46,10 @@ report "${args[@]}" --usage "$work/load-only.json"
 check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==0' 'load is not use'
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="marketplace.name").value.stringValue)="another-marketplace"' "$work/usage.json" > "$work/foreign.json"
 report "${args[@]}" --usage "$work/foreign.json"
-check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'foreign source'
+check '.coverage.unattributed_activations==0 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==1 and .usage.loaded_versions==[])' 'native activation is independent of foreign inventory'
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[1].attributes[]|select(.key=="marketplace.name").value.stringValue)="another-marketplace"' "$work/usage.json" > "$work/foreign-activation.json"
 report "${args[@]}" --usage "$work/foreign-activation.json"
-check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'activation publisher must match'
+check '.coverage.unattributed_activations==0 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==0)' 'foreign activation cannot count as our use'
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[1].attributes) |= map(select(.key!="marketplace.name"))' "$work/usage.json" > "$work/missing-publisher.json"
 report "${args[@]}" --usage "$work/missing-publisher.json"
 check '.coverage.unattributed_activations==1' 'missing activation publisher is unknown'
@@ -60,7 +67,10 @@ report "${args[@]}" --usage "$work/redacted.json"
 check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'redacted identity'
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="safe_mode").value.stringValue)="true"' "$work/usage.json" > "$work/safe-mode.json"
 report "${args[@]}" --usage "$work/safe-mode.json"
-check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'safe mode is not execution'
+check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==1' 'explicit activation remains direct evidence'
+jq '(.resourceLogs[0].scopeLogs[0].logRecords) |= [.[0]]' "$work/safe-mode.json" > "$work/safe-load-only.json"
+report "${args[@]}" --usage "$work/safe-load-only.json"
+check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==0 and .usage.configured_sessions==1' 'safe-mode inventory is not execution'
 jq '.resourceLogs[0].scopeLogs[0].logRecords += [(.resourceLogs[0].scopeLogs[0].logRecords[0] | (.attributes[]|select(.key=="plugin.version").value.stringValue)="9.9.9")]' "$work/usage.json" > "$work/conflict.json"
 reject "${args[@]}" --usage "$work/conflict.json"
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[1].attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-02T00:00:00Z"' "$work/usage.json" > "$work/outside.json"
@@ -68,10 +78,13 @@ report "${args[@]}" --usage "$work/outside.json"
 check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==0' 'exclusive end'
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-01T01:00:00Z" | (.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="event.sequence").value.intValue)="3"' "$work/usage.json" > "$work/later-load.json"
 report "${args[@]}" --usage "$work/later-load.json"
-check '.coverage.unattributed_activations==1' 'a later load cannot own an earlier activation'
+check '.coverage.activation_versions=="UNKNOWN" and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==1)' 'inventory does not assign an activation version'
+jq '.resourceLogs[0].scopeLogs[0].logRecords += [(.resourceLogs[0].scopeLogs[0].logRecords[0] | .attributes |= map(select(.key!="marketplace.name")) | (.attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-01T00:45:00Z")]' "$work/usage.json" > "$work/unknown-load.json"
+report "${args[@]}" --usage "$work/unknown-load.json"
+check '.coverage.activation_versions=="UNKNOWN" and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==1 and (has("versions")|not))' 'unknown publisher cannot confer an old version on a call'
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="plugin.version").value.stringValue)="PRIVATE_VERSION_DO_NOT_PRINT"' "$work/usage.json" > "$work/invalid-version.json"
 report "${args[@]}" --usage "$work/invalid-version.json"
-check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'unusable version is unknown'
+check '.coverage.activation_versions=="UNKNOWN" and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==1 and .usage.loaded_versions==[])' 'unusable inventory version is not emitted or assigned'
 if grep -q PRIVATE_VERSION_DO_NOT_PRINT "$work/result"; then printf 'FAIL private version emitted\n'; exit 1; fi
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-01T01:00:00.100Z" | (.resourceLogs[0].scopeLogs[0].logRecords[1].attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-01T01:00:00.200Z"' "$work/usage.json" > "$work/fraction.json"
 report --since 2026-11-01T01:00:00.150Z --until 2026-11-01T01:00:00.250Z --usage "$work/fraction.json"
@@ -83,8 +96,15 @@ report "${args[@]}" --usage "$work/empty.json"
 check '.coverage.status=="UNKNOWN" and all(.plugins[];.usage.activations==null)' 'empty export'
 printf '%s\n' '{"resourceLogs":[],"resourceLogs":[]}' > "$work/duplicate.json"
 reject "${args[@]}" --usage "$work/duplicate.json"
-printf '%s\n' '{"resourceLogs":[{}]}' > "$work/partial.json"
-reject "${args[@]}" --usage "$work/partial.json"
+for empty in '{}' '{"resourceLogs":[{}]}' '{"resourceLogs":[{"scopeLogs":null}]}' '{"resourceLogs":[{"scopeLogs":[{"logRecords":null}]}]}'; do
+  printf '%s\n' "$empty" > "$work/empty.json"
+  report "${args[@]}" --usage "$work/empty.json"
+  check '.coverage.status=="UNKNOWN" and all(.plugins[];.usage.activations==null)' 'omitted and null repeated fields'
+done
+for invalid in '{"resourceLogs":false}' '{"resourceLogs":[null]}' '{"resourceLogs":[{"scopeLogs":{}}]}' '{"resourceLogs":[{"scopeLogs":[{"logRecords":false}]}]}'; do
+  printf '%s\n' "$invalid" > "$work/partial.json"
+  reject "${args[@]}" --usage "$work/partial.json"
+done
 reject --usage "$work/usage.json"
 reject --since 2026-11-02T00:00:00Z --until 2026-11-01T00:00:00Z --usage "$work/usage.json"
 reject --since 2026-02-30T00:00:00Z --until 2026-11-01T00:00:00Z --usage "$work/usage.json"

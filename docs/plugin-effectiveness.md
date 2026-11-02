@@ -22,8 +22,8 @@ Keep that declaration and the exact evaluated revision in the private evaluation
 
 | Signal | Meaning |
 | --- | --- |
-| `usage.activations` | Observed skill activations attributable to this marketplace and a preceding plugin load in the same session. Replayed observations are deduplicated. |
-| `usage.versions` | Versions observed at activation time, separate from the catalogue version. |
+| `usage.activations`, `sessions` | Native skill activations explicitly identifying this marketplace and plugin, plus the distinct producer/session count. Replayed observations are deduplicated. No preceding load is required. |
+| `usage.configured_sessions`, `loaded_versions` | Inventory from this marketplace's load events in the window, separate from use and the catalogue version. Only stable semantic versions are listed; missing or unusable versions remain unknown. |
 | `with_skill.percent`, `passed`, `total`, `runs` | Percentage of graded expectations met, alongside its evidence volume. This scores the evaluated skill scenarios, not every resource in the plugin. |
 | `baseline_delta_pp` | Difference in percentage points from a no-skill baseline with matching case/run identifiers and assertion texts. Otherwise unknown. |
 | `coverage` | Observed export scope, unattributed activations and unmeasured surfaces. Never a claim of fleet-wide completeness. |
@@ -45,8 +45,7 @@ before enabling it for an approved private destination. This feature does not en
 Export a bounded, portfolio-only selection as an
 [OTLP/HTTP JSON logs request](https://github.com/open-telemetry/opentelemetry-proto/blob/main/examples/logs.json).
 Retain the native `service.name` resource identity: `claude-code` or `claude-code-desktop`.
-Repeat `--usage` for multiple documents. Include preceding load events needed to attribute activations,
-even when the loads precede `--since`. The activation window is UTC and half-open: start inclusive,
+Repeat `--usage` for multiple documents. The observation window is UTC and half-open: start inclusive,
 end exclusive. Keep `event.name`, `event.timestamp`, `event.sequence`, `session.id`, `plugin.name`,
 `marketplace.name`, `plugin.version`, `skill.source` and `safe_mode` where emitted.
 
@@ -60,9 +59,12 @@ unbounded JSONL stream.
 The current usage adapter covers Claude Code skill activations. Codex, Copilot, agents, hooks and
 MCP activity remain explicitly unmeasured until a native adapter supplies equivalent evidence.
 This matters for plugins used primarily as tool or agent bundles: zero observed skill activations
-cannot establish that the plugin is unused. Redacted, safe-mode, missing-load or foreign-marketplace
-activations stay unattributed. An attribution gap cannot establish a zero.
-An activation needs explicit marketplace identity; a matching plugin name alone is insufficient.
+cannot establish that the plugin is unused. An activation needs explicit marketplace identity;
+a matching plugin name alone is insufficient. Redacted or missing plugin identities stay
+unattributed, and known foreign-marketplace activations are excluded. Non-plugin skill sources are
+outside this plugin report. An attribution gap cannot establish a zero. A safe-mode load establishes
+inventory only. Load events never assign a version to an activation: `coverage.activation_versions`
+stays **UNKNOWN** because the native activation event does not carry that version.
 
 ## Review once a month and after a material change
 

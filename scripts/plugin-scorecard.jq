@@ -13,8 +13,10 @@ def attrs:
   map({key,value:(.value.stringValue // .value.intValue // .value.boolValue // .value.doubleValue)}) | from_entries;
 def events:
   require((.resourceLogs|type)=="array") | .resourceLogs[] |
-  require((.scopeLogs|type)=="array") | .scopeLogs[] |
-  require((.logRecords|type)=="array") | .logRecords[] |
+  require((.scopeLogs|type)=="array" and all(.scopeLogs[];(.logRecords|type)=="array")) |
+  select((.resource.attributes // []|attrs|."service.name") as $service |
+    $service=="claude-code" or $service=="claude-code-desktop") |
+  .scopeLogs[] | .logRecords[] |
   (.attributes // [] | attrs) |
   select(."event.name"=="plugin_loaded" or ."event.name"=="skill_activated") |
   {kind:."event.name",at:(."event.timestamp"|utc),
@@ -65,10 +67,10 @@ require(all(($events|group_by([.session,.at,.sequence,.kind]))[];length==1)) |
 [$events[]|select(.kind=="plugin_loaded")] as $loads |
 [$events[]|select(.kind=="skill_activated" and .at>=$window.start and .at<$window.end)|
   . as $a |
-  ([$loads[]|select(.session==$a.session and .plugin==$a.plugin and
+  ([$loads[]|select(.session==$a.session and .plugin==$a.plugin and .marketplace==$a.marketplace and
     (.at<$a.at or (.at==$a.at and .sequence<$a.sequence)))]|sort_by([.at,.sequence])|
    if length==0 then [] else . as $all | map(select(.at==$all[-1].at and .sequence==$all[-1].sequence)) end) as $owners |
-  if ($owners|length)==1 and $owners[0].marketplace==$c.name and $a.source=="plugin" and
+  if ($owners|length)==1 and $a.marketplace==$c.name and $a.source=="plugin" and
     $owners[0].safe_mode=="false" and ($owners[0].version|version) and
     any($c.plugins[];.name==$a.plugin) then
     {plugin:$a.plugin,version:$owners[0].version,session:$a.session}

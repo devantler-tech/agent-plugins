@@ -15,9 +15,9 @@ reject() {
   [ ! -s "$work/result" ] || { printf 'FAIL partial success output\n'; exit 1; }
 }
 cat > "$work/usage.json" <<'JSON'
-{"resourceLogs":[{"scopeLogs":[{"logRecords":[
+{"resourceLogs":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"claude-code"}}]},"scopeLogs":[{"logRecords":[
 {"attributes":[{"key":"event.name","value":{"stringValue":"plugin_loaded"}},{"key":"event.timestamp","value":{"stringValue":"2026-10-31T01:00:00Z"}},{"key":"event.sequence","value":{"intValue":"1"}},{"key":"session.id","value":{"stringValue":"private-session"}},{"key":"plugin.name","value":{"stringValue":"engineering-practices"}},{"key":"marketplace.name","value":{"stringValue":"devantler-plugins"}},{"key":"plugin.version","value":{"stringValue":"1.2.0"}},{"key":"safe_mode","value":{"stringValue":"false"}}]},
-{"attributes":[{"key":"event.name","value":{"stringValue":"skill_activated"}},{"key":"event.timestamp","value":{"stringValue":"2026-11-01T01:00:00Z"}},{"key":"event.sequence","value":{"intValue":"2"}},{"key":"session.id","value":{"stringValue":"private-session"}},{"key":"plugin.name","value":{"stringValue":"engineering-practices"}},{"key":"skill.name","value":{"stringValue":"ways-of-working"}},{"key":"skill.source","value":{"stringValue":"plugin"}}]},
+{"attributes":[{"key":"event.name","value":{"stringValue":"skill_activated"}},{"key":"event.timestamp","value":{"stringValue":"2026-11-01T01:00:00Z"}},{"key":"event.sequence","value":{"intValue":"2"}},{"key":"session.id","value":{"stringValue":"private-session"}},{"key":"plugin.name","value":{"stringValue":"engineering-practices"}},{"key":"marketplace.name","value":{"stringValue":"devantler-plugins"}},{"key":"skill.name","value":{"stringValue":"ways-of-working"}},{"key":"skill.source","value":{"stringValue":"plugin"}}]},
 {"body":{"stringValue":"PRIVATE_PROMPT_DO_NOT_PRINT"},"attributes":[{"key":"event.name","value":{"stringValue":"user_prompt"}}]}
 ]}]}]}
 JSON
@@ -40,6 +40,21 @@ check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==0' 
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="marketplace.name").value.stringValue)="another-marketplace"' "$work/usage.json" > "$work/foreign.json"
 report "${args[@]}" --usage "$work/foreign.json"
 check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'foreign source'
+jq '(.resourceLogs[0].scopeLogs[0].logRecords[1].attributes[]|select(.key=="marketplace.name").value.stringValue)="another-marketplace"' "$work/usage.json" > "$work/foreign-activation.json"
+report "${args[@]}" --usage "$work/foreign-activation.json"
+check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'activation publisher must match'
+jq '(.resourceLogs[0].scopeLogs[0].logRecords[1].attributes) |= map(select(.key!="marketplace.name"))' "$work/usage.json" > "$work/missing-publisher.json"
+report "${args[@]}" --usage "$work/missing-publisher.json"
+check '.coverage.unattributed_activations==1' 'missing activation publisher is unknown'
+jq '.resourceLogs[0].scopeLogs[0].logRecords += [(.resourceLogs[0].scopeLogs[0].logRecords[0] | (.attributes[]|select(.key=="marketplace.name").value.stringValue)="another-marketplace" | (.attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-01T00:00:00Z")]' "$work/usage.json" > "$work/same-name.json"
+report "${args[@]}" --usage "$work/same-name.json"
+check '.coverage.unattributed_activations==0 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==1)' 'same-named publishers remain separate'
+jq '.resourceLogs[0].resource.attributes[0].value.stringValue="another-service"' "$work/usage.json" > "$work/another-service.json"
+report "${args[@]}" --usage "$work/another-service.json"
+check '.coverage.status=="UNKNOWN" and all(.plugins[];.usage.activations==null)' 'other services cannot impersonate native usage'
+jq '.resourceLogs[0].resource.attributes[0].value.stringValue="claude-code-desktop"' "$work/usage.json" > "$work/desktop.json"
+report "${args[@]}" --usage "$work/desktop.json"
+check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==1' 'native desktop producer'
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[1].attributes[]|select(.key=="plugin.name").value.stringValue)="third-party"' "$work/usage.json" > "$work/redacted.json"
 report "${args[@]}" --usage "$work/redacted.json"
 check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'redacted identity'

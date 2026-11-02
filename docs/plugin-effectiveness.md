@@ -44,6 +44,7 @@ before enabling it for an approved private destination. This feature does not en
 
 Export a bounded, portfolio-only selection as an
 [OTLP/HTTP JSON logs request](https://github.com/open-telemetry/opentelemetry-proto/blob/main/examples/logs.json).
+Retain the native `service.name` resource identity: `claude-code` or `claude-code-desktop`.
 Repeat `--usage` for multiple documents. Include preceding load events needed to attribute activations,
 even when the loads precede `--since`. The activation window is UTC and half-open: start inclusive,
 end exclusive. Keep `event.name`, `event.timestamp`, `event.sequence`, `session.id`, `plugin.name`,
@@ -61,6 +62,7 @@ MCP activity remain explicitly unmeasured until a native adapter supplies equiva
 This matters for plugins used primarily as tool or agent bundles: zero observed skill activations
 cannot establish that the plugin is unused. Redacted, safe-mode, missing-load or foreign-marketplace
 activations stay unattributed. An attribution gap cannot establish a zero.
+An activation needs explicit marketplace identity; a matching plugin name alone is insufficient.
 
 ## Review once a month and after a material change
 

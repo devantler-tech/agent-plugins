@@ -4,7 +4,7 @@
 #
 # Why this exists: validate-manifests.sh treats those digests as a required content
 # gate, but nothing ever wrote them. A branch that legitimately changes a bundled
-# agent, skill, or runtime asset — the daily agent-skills sync being the standing
+# agent, skill, or runtime asset — the daily skill synchronization being the standing
 # case — therefore produces a manifest its own repository rejects, and no amount of
 # re-running the sync fixes it. Only a hand edit did, and a hand edit on a generated
 # branch is force-pushed away on the next sync with no signal that it happened.

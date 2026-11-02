@@ -60,7 +60,7 @@ bash scripts/plugin-changelog-release-boundaries.test.sh # caller identity, comm
 
 # 1c. Every content digest a desired-state resource pins must match the file it pins.
 #     Those digests have a writer: refresh them rather than hand-editing, or the next
-#     agent-skills sync force-pushes the hand edit away. --check reports without writing.
+#     skill synchronization replaces manual edits. --check reports without writing.
 #     The writer completes every inventory and digest before its first resource write;
 #     independently verifies the direct resource inventory, refuses linked roots and
 #     repeated declaration paths, checks declaration shapes and unique asset paths,

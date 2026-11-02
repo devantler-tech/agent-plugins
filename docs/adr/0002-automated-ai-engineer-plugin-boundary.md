@@ -115,7 +115,7 @@ Today the agent improves its **whole** constitution through **same-repo draft PR
 repo, one readiness gate, fast. After extraction, an improvement's path depends on its home:
 
 - **Generic-core** change (run loop, hygiene triad, the self-improvement procedure itself) → an
-  **agent-plugins** PR (and an **agent-skills** PR for a skill body) **plus** a **consumer version-bump**
+  **agent-plugins** PR (originally with a separate skills-source PR for a skill body) **plus** a **consumer version-bump**
   PR. More indirection (release + bump) than a single monorepo PR.
 - **Deployment-config** change (portfolio map, a cadence number, a product card) → an unchanged
   **same-repo** monorepo PR — fast.
@@ -128,9 +128,9 @@ weaken a safety control, in whichever repo the change lands; and all three repos
 gate, so the loop stays fully devantler-tech-autonomous (draft-PR checkpoint, self-promoted on genuine
 readiness).
 
-### D4 — Sequencing and the agent-skills dependency (scope of the follow-up children)
+### D4 — Original sequencing and the separate-source dependency
 
-- **Child 2 — extract:** generalize the three skills into **agent-skills** (contract-section references,
+- **Child 2 — extract:** generalize the three skills into the then-separate skills source (contract-section references,
   no devantler-tech specifics) and author the engineer + surveyor **agent** definitions; assemble
   `plugins/automated-ai-engineer/` — a `plugin.json` carrying only `name` / `description` / `version` /
   `author` / `keywords` (component paths **omitted**, auto-discovered, per ADR-0001 D1), with the skills
@@ -139,8 +139,9 @@ readiness).
 - **Child 3 — consume:** the monorepo installs the plugin; its `AGENTS.md` shrinks to the **deployment
   configuration** + the named contract sections + pointers, and per-product cards stay local.
 
-**Named dependency:** the generalized engineering skills need a canonical home in agent-skills *before*
-the plugin can bundle them — child 2 opens the agent-skills issue for that extraction as its first step.
+**Original dependency:** the generalized engineering skills needed a canonical home in the separate
+source before the plugin could bundle them. Child 2 tracked that extraction there. This dependency
+was retired by [ADR 0006](0006-maintained-skill-ownership.md).
 This ADR itself makes **no** code/manifest change (documentation-only).
 
 ## Considered alternatives
@@ -153,9 +154,9 @@ This ADR itself makes **no** code/manifest change (documentation-only).
 - **Collapse the three skills into one "ai-engineer" mega-skill.** Rejected: `portfolio-maintenance`
   (run loop), `product-engineering` (advance), and `self-improvement` are already the natural, separately
   reusable units; merging them loses that separation and their independent installability.
-- **Put the generalized skills directly in the plugin dir, skipping agent-skills.** Rejected: violates
-  this marketplace's *single-source-of-skills* rule — every bundled skill must have its canonical upstream
-  in agent-skills and is installed via `gh skill install`, never hand-copied.
+- **Put the generalized skills directly in the plugin directory.** Originally rejected under the
+  separate-source rule. [ADR 0006](0006-maintained-skill-ownership.md) supersedes that choice:
+  maintained skills now live in their owning plugins; external skills retain their upstream provenance.
 - **Fold the role into the existing `agentic-engineering` (or `engineering-practices`) plugin.** Rejected:
   those bundle tools for *building* agentic apps / engineering *practices*; the autonomous-engineer role is
   a distinct concern and audience, and co-bundling would blur all three (see *Context*).
@@ -182,5 +183,5 @@ This ADR itself makes **no** code/manifest change (documentation-only).
 ## Follow-up
 
 - **Child 2 (extract)** and **Child 3 (consume)** of #51 — filed when this ADR is accepted.
-- The agent-skills home for the three generalized skills — an agent-skills issue opened at the start of
-  child 2 (the D4 dependency).
+- The original separate-source extraction for the three generalized skills was tracked by child 2
+  (the retired D4 dependency).

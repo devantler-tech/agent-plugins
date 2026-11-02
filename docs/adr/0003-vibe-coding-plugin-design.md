@@ -163,8 +163,9 @@ This ADR itself changes no manifest, skill, or workflow (documentation-only).
 - **Hard-code the devantler-tech stack inside the plugin.** Rejected: the allowed stack is the
   fastest-churning fact in play; baking it in forces a plugin release per portfolio change and breaks
   reuse by any other deployment — the exact anti-pattern ADR-0002 rejected for the engineer role.
-- **Author the skills directly in the plugin directory.** Rejected: violates the marketplace's
-  single-source-of-skills rule; agent-skills is the canonical home and plugins bundle, never hand-copy.
+- **Author the skills directly in the plugin directory.** Originally rejected under the
+  separate-source rule. [ADR 0006](0006-maintained-skill-ownership.md) supersedes that choice:
+  maintained skills now live in their owning plugins; external skills retain their upstream provenance.
 - **Skills-only (no agent persona).** Rejected: voice and elicitation behaviour are exactly what agent
   definitions are for; skills alone cannot own the conversational register, and #38 T1's direction is
   agents+skills bundles.

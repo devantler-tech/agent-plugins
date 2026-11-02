@@ -13,7 +13,7 @@ fixture() {
   for plugin in alpha beta; do
     mkdir -p "$dir/plugins/$plugin/skills/example"
     printf '{"version":"1.2.3"}\n' > "$dir/plugins/$plugin/plugin.json"
-    printf '%s\n' '---' 'name: example' 'metadata:' '  github-repo: https://github.com/devantler-tech/agent-skills' '  github-ref: refs/tags/v1.0.0' '---' 'Example.' > "$dir/plugins/$plugin/skills/example/SKILL.md"
+    printf '%s\n' '---' 'name: example' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' '  github-ref: refs/tags/v1.0.0' '---' 'Example.' > "$dir/plugins/$plugin/skills/example/SKILL.md"
     printf '## 1.2.3 — 2026-01-01\n\nOriginal history.\n' > "$dir/plugins/$plugin/CHANGELOG.md"
   done
   git -C "$dir" add -- plugins; git -C "$dir" commit -qm base

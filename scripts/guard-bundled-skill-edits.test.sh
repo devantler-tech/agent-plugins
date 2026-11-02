@@ -357,7 +357,7 @@ fi
 
 # Body examples are data, and a newline is part of one complete path component.
 mkdir -p "$FIXTURE/plugins/github/skills/body-only"
-printf '%s\n' '---' 'name: body-only' 'description: Local.' '---' '' 'metadata:' '  github-repo: https://github.com/devantler-tech/agent-skills' > "$FIXTURE/plugins/github/skills/body-only/SKILL.md"
+printf '%s\n' '---' 'name: body-only' 'description: Local.' '---' '' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' > "$FIXTURE/plugins/github/skills/body-only/SKILL.md"
 newline_dir=$'plugins/github/skills/line
 break'
 mkdir -p "$FIXTURE/$newline_dir"
@@ -386,9 +386,9 @@ for owner in null malformed nested duplicate unclosed; do
   case $owner in
     null) printf '%s\n' '  github-repo: null' >> "$f" ;;
     malformed) printf '%s\n' '  github-repo: arbitrary-text' >> "$f" ;;
-    nested) printf '%s\n' '  unrelated:' '    github-repo: https://github.com/devantler-tech/agent-skills' >> "$f" ;;
-    duplicate) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' '  github-repo: null' >> "$f" ;;
-    unclosed) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' >> "$f" ;;
+    nested) printf '%s\n' '  unrelated:' '    github-repo: https://github.com/example/fixture-skills' >> "$f" ;;
+    duplicate) printf '%s\n' '  github-repo: https://github.com/example/fixture-skills' '  github-repo: null' >> "$f" ;;
+    unclosed) printf '%s\n' '  github-repo: https://github.com/example/fixture-skills' >> "$f" ;;
   esac
   [ "$owner" = unclosed ] || printf '%s\n' '---' body >> "$f"
   git -C "$FIXTURE" add plugins/github/skills/invalid-owner/SKILL.md

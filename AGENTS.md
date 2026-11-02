@@ -117,7 +117,7 @@ The maintained first-party skills are canonical at `plugins/<plugin>/skills/<ski
 
 External skills retain their original `metadata.github-repo`, `github-path`, `github-ref` and `github-tree-sha`. Install and refresh them through `gh skill install` and the existing `update-agent-skills.yaml` workflow. Never hand-edit an external skill or strip its provenance: fix its owning upstream, then accept the programmed update. The base-tree edit guard retains that boundary even when a PR removes the header. A new skill authored here and an external skill are different authoring paths.
 
-The source merger approved in #618 transfers the exact former suite owner to this repository. The guard recognizes that transition only for `https://github.com/devantler-tech/agent-skills`; external owners and prefix lookalikes remain protected. Historical upstream links in prior decisions and releases remain evidence, not active authoring routes.
+The source merger approved in #618 is complete. The edit guard has no repository-specific ownership-transfer exception: every recorded upstream remains protected, including when a change removes its provenance. Authored skills have no install provenance. Historical decisions describe their original boundary; [ADR 0006](docs/adr/0006-maintained-skill-ownership.md) records current ownership.
 
 The daily updater still refreshes external skills independently with no lockfile. Scopes retain their existing queue and per-skill branch boundaries. For Matt Pocock's skills, required validation still binds the recorded tree to its public source commit and compares the complete distributed LICENSE. A changed notice or incomplete observation refuses validation. Run `bash scripts/check-matt-skill-license.test.sh` for the offline controls.
 

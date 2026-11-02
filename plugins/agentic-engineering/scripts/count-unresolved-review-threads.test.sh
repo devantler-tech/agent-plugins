@@ -138,7 +138,7 @@ page 1 false c1 true | jq -c '.data.repository.pullRequest.reviewThreads.pageInf
 } | scenario repeated-cursor
 page 2 false c1 true true | jq -c '.data.repository.pullRequest.reviewThreads.nodes[1].id=.data.repository.pullRequest.reviewThreads.nodes[0].id' | scenario repeated-thread
 page 1 false c1 true | jq -c 'del(.data.repository.pullRequest.reviewThreads.nodes[0].id)' | scenario no-thread-id
-page 1 false c1 true | jq -c '.data.repository.nameWithOwner="devantler-tech/agent-skills"' | scenario wrong-repo
+page 1 false c1 true | jq -c '.data.repository.nameWithOwner="example/unrelated"' | scenario wrong-repo
 page 1 false c1 true | jq -c '.data.repository.pullRequest.number=1' | scenario wrong-pr
 page 1 false c1 true | jq -c '.data.repository.nameWithOwner="DEVANTLER-TECH/MONOREPO"' | scenario repo-alias
 for s in unfinished no-page-info bad-page-info early-terminal repeated-cursor; do

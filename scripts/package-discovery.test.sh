@@ -13,7 +13,7 @@ fixture() {
   cp "$root/.claude-plugin/marketplace.json" "$root/.github/plugin/marketplace.json"
   printf '%s\n' '{"old-alpha":"alpha"}' > "$root/scripts/marketplace-rename-history.json"
   printf '%s\n' '{"name":"alpha","description":"Alpha","version":"1.0.0"}' > "$root/plugins/alpha/plugin.json"
-  printf '%s\n' '---' 'name: example' 'description: Example.' 'metadata:' '  github-repo: https://github.com/devantler-tech/agent-skills' '---' > "$root/plugins/alpha/skills/example/SKILL.md"
+  printf '%s\n' '---' 'name: example' 'description: Example.' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' '---' > "$root/plugins/alpha/skills/example/SKILL.md"
   # shellcheck disable=SC2016 # Literal catalogue markup.
   printf '| Plugin | Resources | Description |\n|---|---|---|\n| [`alpha`](plugins/alpha/) | `example` | Alpha |\n' > "$root/docs/plugins.md"
 }

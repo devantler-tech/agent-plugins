@@ -101,11 +101,11 @@ contract sections a consumer must supply:
 
 Two consequences for child 2:
 
-1. **Skills' canonical home is [agent-skills](https://github.com/devantler-tech/agent-skills)** — this
-   marketplace's own rule is that agent-skills is the *single source of skills* and plugins bundle them via
-   `gh skill install`, **never hand-copied**. So child 2 first **generalizes** `portfolio-maintenance` /
-   `product-engineering` / `self-improvement` into agent-skills (rewritten to the contract-section
-   references above, with every devantler-tech specific removed), *then* the plugin bundles them.
+1. **The original plan separated skill authoring from plugin assembly.** Child 2 first generalized
+   `portfolio-maintenance` / `product-engineering` / `self-improvement` against the contract-section
+   references above, with deployment-specific facts removed, then bundled them through native installation.
+   The separate-source boundary is retired: [ADR 0006](0006-maintained-skill-ownership.md) now places
+   maintained skill sources directly in their owning plugins. External skills still use native installation.
 2. **The agents bundle in the plugin's `agents/` directory** — realizing the *not-skills-only* capability
    ADR-0001 is proving out, now as a genuine **agents+skills** unit (#38 T1 at real scale).
 

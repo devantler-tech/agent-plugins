@@ -25,7 +25,7 @@ fixture() {
   rm -rf "$root"
   mkdir -p "$root/scripts" "$root/docs" "$root/plugins/alpha/resources"
   cp "$here/check-skill-licenses.sh" "$here/frontmatter.lib.sh" "$here/frontmatter.awk" "$root/scripts/"
-  skill "$root" alpha ours devantler-tech/agent-skills Apache-2.0
+  skill "$root" alpha ours devantler-tech/fixture-skills Apache-2.0
   skill "$root" alpha theirs example/skills MIT
   skill "$root" alpha other example/skills
   cat > "$root/docs/plugins.md" <<'EOF'
@@ -35,7 +35,7 @@ fixture() {
 
 | Skill | Plugin | Upstream | License |
 |-------|--------|----------|---------|
-| `ours` | `alpha` | devantler-tech/agent-skills | Apache-2.0 |
+| `ours` | `alpha` | devantler-tech/fixture-skills | Apache-2.0 |
 | `theirs` | `alpha` | example/skills | MIT |
 | `other` | `alpha` | example/skills | MIT |
 EOF
@@ -166,7 +166,7 @@ expect 'a repository with no skills checks nothing and fails' 2 "$root" 'no bund
 root=$(fixture local-owned)
 sed '/^metadata:/d; /github-repo:/d' "$root/plugins/alpha/skills/ours/SKILL.md" > "$work/local-skill"
 mv "$work/local-skill" "$root/plugins/alpha/skills/ours/SKILL.md"
-sed 's|devantler-tech/agent-skills|devantler-tech/agent-plugins|g' "$root/docs/plugins.md" > "$work/local-catalogue"
+sed 's|devantler-tech/fixture-skills|devantler-tech/agent-plugins|g' "$root/docs/plugins.md" > "$work/local-catalogue"
 mv "$work/local-catalogue" "$root/docs/plugins.md"
 expect 'authored skill uses this marketplace license attribution' 0 "$root" 'license records for 3 bundled skills'
 

@@ -1,5 +1,10 @@
 # Changelog — `agentic-engineering`
 
+## 6.7.1 — 2026-11-02
+
+**Changed** — remove deleted upstream references from validation examples and historical notes.
+Maintained skill interfaces are unchanged.
+
 ## 6.7.0
 
 2026-11-01
@@ -41,15 +46,15 @@ head binding and review/readiness gates remain unchanged.
 
 ## 6.6.8 — 2026-10-25
 
-**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.28.1`.
+**Changed** — sync `portfolio-maintenance` from the former standalone skills source at `refs/tags/v1.28.1`.
 
 ## 6.6.7 — 2026-10-25
 
-**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.28.0`.
+**Changed** — sync `agent-improvement` from the former standalone skills source at `refs/tags/v1.28.0`.
 
 ## 6.6.6 — 2026-10-25
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.27.3`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.27.3`.
 
 ## 6.6.5 — 2026-10-25
 
@@ -76,11 +81,11 @@ infrastructure. Record infeasible automation and validation limits without waivi
 
 ## 6.6.2 — 2026-10-18
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.27.0`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.27.0`.
 
 ## 6.6.1 — 2026-10-18
 
-**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.27.0`.
+**Changed** — sync `portfolio-maintenance` from the former standalone skills source at `refs/tags/v1.27.0`.
 
 ## 6.6.0 — 2026-10-17
 
@@ -99,15 +104,15 @@ upstream release review, assessing every announced change against the product. R
 retire workarounds, useful capabilities are adopted, and applicable breaking changes, deprecations
 and removals receive adaptations. Security fixes, changed defaults, end of life and regressions
 also receive a product-specific disposition. The review is recorded on the update pull request
-([agent-skills#279](https://github.com/devantler-tech/agent-skills/issues/279)).
+(original upstream review 279).
 
 ## 6.4.2 — 2026-10-16
 
-**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.26.0`.
+**Changed** — sync `portfolio-maintenance` from the former standalone skills source at `refs/tags/v1.26.0`.
 
 ## 6.4.1 — 2026-10-15
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.26.0`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.26.0`.
 
 ## 6.4.0 — 2026-10-15
 
@@ -118,7 +123,7 @@ and the consuming deployment's authorization boundaries are unchanged.
 
 ## 6.3.5 — 2026-10-15
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.24.1`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.24.1`.
 
 ## 6.3.4 — 2026-10-12
 
@@ -140,11 +145,11 @@ Portfolio-owned definition repositories retain the existing promotion and merge 
 
 ## 6.3.2 — 2026-10-09
 
-**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.23.0`.
+**Changed** — sync `agent-improvement` from the former standalone skills source at `refs/tags/v1.23.0`.
 
 ## 6.3.1 — 2026-10-08
 
-**Changed** — sync `self-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.22.0`.
+**Changed** — sync `self-improvement` from the former standalone skills source at `refs/tags/v1.22.0`.
 
 ## 6.3.0 — 2026-10-08
 
@@ -157,19 +162,19 @@ separate cohort, not a claim of measured lead-time improvement.
 
 ## 6.2.5 — 2026-10-08
 
-**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.22.0`.
+**Changed** — sync `portfolio-maintenance` from the former standalone skills source at `refs/tags/v1.22.0`.
 
 ## 6.2.4 — 2026-10-08
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.22.0`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.22.0`.
 
 ## 6.2.3 — 2026-10-08
 
-**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.22.0`.
+**Changed** — sync `agent-improvement` from the former standalone skills source at `refs/tags/v1.22.0`.
 
 ## 6.2.2 — 2026-10-08
 
-**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.38`.
+**Changed** — sync `portfolio-maintenance` from the former standalone skills source at `refs/tags/v1.21.38`.
 
 ## 6.2.1 — 2026-10-08
 
@@ -199,15 +204,15 @@ row that dropped a label can no longer make a parked issue read as actionable.
 
 ## 6.1.13 — 2026-10-06
 
-**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.36`.
+**Changed** — sync `agent-improvement` from the former standalone skills source at `refs/tags/v1.21.36`.
 
 ## 6.1.12 — 2026-10-05
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.31`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.21.31`.
 
 ## 6.1.11 — 2026-10-05
 
-**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.29`.
+**Changed** — sync `agent-improvement` from the former standalone skills source at `refs/tags/v1.21.29`.
 
 ## 6.1.10 — 2026-10-05
 
@@ -215,11 +220,11 @@ row that dropped a label can no longer make a parked issue read as actionable.
 
 ## 6.1.9 — 2026-10-05
 
-**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.27`.
+**Changed** — sync `agent-improvement` from the former standalone skills source at `refs/tags/v1.21.27`.
 
 ## 6.1.8 — 2026-10-05
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.27`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.21.27`.
 
 ## 6.1.7 — 2026-10-05
 
@@ -237,15 +242,15 @@ Autonomy recommendations remain offline and advisory.
 
 ## 6.1.5 — 2026-10-04
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.24`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.21.24`.
 
 ## 6.1.4 — 2026-10-04
 
-**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.24`.
+**Changed** — sync `agent-improvement` from the former standalone skills source at `refs/tags/v1.21.24`.
 
 ## 6.1.3 — 2026-10-04
 
-**Changed** — sync `self-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.22`.
+**Changed** — sync `self-improvement` from the former standalone skills source at `refs/tags/v1.21.22`.
 
 ## 6.1.2 — 2026-10-04
 
@@ -290,11 +295,11 @@ Failed batches preserve outside edits detected during recovery and retain the or
 
 ## 5.6.11 — 2026-10-04
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.16`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.21.16`.
 
 ## 5.6.10 — 2026-10-03
 
-**Changed** — sync `agent-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.8`.
+**Changed** — sync `agent-improvement` from the former standalone skills source at `refs/tags/v1.21.8`.
 
 ## 5.6.9 — 2026-10-03
 
@@ -308,31 +313,31 @@ Both bundled remote collectors bind their reads to github.com.
 
 ## 5.6.8 — 2026-10-02
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.21.0`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.21.0`.
 
 ## 5.6.7 — 2026-10-01
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.20.2`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.20.2`.
 
 ## 5.6.6 — 2026-10-01
 
-**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.20.1`.
+**Changed** — sync `portfolio-maintenance` from the former standalone skills source at `refs/tags/v1.20.1`.
 
 ## 5.6.5 — 2026-10-01
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.20.0`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.20.0`.
 
 ## 5.6.4 — 2026-10-01
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.19.0`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.19.0`.
 
 ## 5.6.3 — 2026-10-01
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.18.0`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.18.0`.
 
 ## 5.6.2 — 2026-09-30
 
-**Changed** — sync `agent-instructions` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.17.2`.
+**Changed** — sync `agent-instructions` from the former standalone skills source at `refs/tags/v1.17.2`.
 
 ## 5.6.1 — 2026-09-29
 
@@ -358,15 +363,15 @@ reports an unresolved measurement on its own digest row as a candidate-scoped un
 
 ## 5.5.4 — 2026-09-25
 
-**Changed** — sync `self-improvement` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.17.1`.
+**Changed** — sync `self-improvement` from the former standalone skills source at `refs/tags/v1.17.1`.
 
 ## 5.5.3 — 2026-09-25
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.17.1`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.17.1`.
 
 ## 5.5.2 — 2026-09-25
 
-**Changed** — sync `portfolio-maintenance` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.17.0`.
+**Changed** — sync `portfolio-maintenance` from the former standalone skills source at `refs/tags/v1.17.0`.
 
 ## 5.5.1 — 2026-09-25
 
@@ -408,7 +413,7 @@ while the watcher runs or ends the run and leaves the target to the next invocat
 
 ## 5.3.1 — 2026-09-25
 
-**Changed** — sync `product-engineering` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.14.0`.
+**Changed** — sync `product-engineering` from the former standalone skills source at `refs/tags/v1.14.0`.
 
 ## 5.3.0 — 2026-09-24
 

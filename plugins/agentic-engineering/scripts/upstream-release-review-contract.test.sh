@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Contract test for the upstream release review (devantler-tech/agent-skills#279).
+# Contract test for the upstream release-review procedure.
 #
 # A dependency update merged as a version move alone keeps what it broke and discards what it
 # offers: the fix that makes a workaround removable, the feature that replaces bespoke code, the

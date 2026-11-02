@@ -1,5 +1,11 @@
 # Changelog — `agentic-engineering`
 
+## 6.7.2 — 2026-11-02
+
+**Changed** — require each third-party contribution to enable the requested product outcome.
+Inherited CI failures stay on the original contribution; unrelated upstream maintenance needs
+an explicit request from the consuming maintainer. Required validation and review gates remain.
+
 ## 6.7.1 — 2026-11-02
 
 **Changed** — remove deleted upstream references from validation examples and historical notes.

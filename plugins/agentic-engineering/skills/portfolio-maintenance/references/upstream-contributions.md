@@ -4,6 +4,20 @@ Use this procedure for your own authorized contributions to a repository outside
 portfolio. A portfolio repository that owns a shared definition is still a portfolio repository;
 calling it the definition's upstream does not change its promotion or merge gate.
 
+## Check scope before publishing
+
+Before each upstream issue or PR, establish how it directly enables the requested product
+outcome and why an in-portfolio change cannot deliver that outcome. Check the target's existing
+issues and PRs for the same work; use an existing artifact when appropriate.
+
+An inherited failure in a contribution's CI or tooling does not by itself justify a separate
+upstream repair. Keep unrelated CI, hygiene and cleanup work out of the contribution and do not
+open auxiliary issues or PRs for it unless the consuming maintainer explicitly requests that
+maintenance. Record a blocking failure concisely in the original contribution's description and
+keep the PR draft where the readiness gate requires it. Do not bypass required checks or claim
+they passed. Fix regressions introduced by your own change within its scope; a general instruction
+to finish the product work does not authorize incidental upstream maintenance.
+
 ## Prepare privately
 
 Read the target's contribution, review and AI-assistance policies. Preserve the consumer's

@@ -1,27 +1,31 @@
 #!/usr/bin/env bash
-# The approved source merger transfers only this suite's former skill owner (#618).
-# Exercise the real edit guard against committed before/after trees, including
-# an external source and a prefix lookalike that must remain protected.
+# Authored skills are local; recorded provenance remains protected even when
+# an edit removes it. Exercise the real guard against committed before/after trees.
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-for scenario in transferred external lookalike undeclared; do
+for scenario in local external recorded-self lookalike different-path; do
   repo=$work/$scenario
   case $scenario in
-    transferred) owner=https://github.com/devantler-tech/agent-skills; expected=0 ;;
+    local) owner=''; expected=0 ;;
     external) owner=https://github.com/example/skills; expected=1 ;;
-    lookalike) owner=https://github.com/devantler-tech/agent-skills-extra; expected=1 ;;
-    undeclared) owner=https://github.com/devantler-tech/agent-skills; expected=1 ;;
+    recorded-self) owner=https://github.com/devantler-tech/agent-plugins; expected=1 ;;
+    lookalike) owner=https://github.com/devantler-tech/agent-plugins-extra; expected=1 ;;
+    different-path) owner=https://github.com/example/skills; expected=1 ;;
   esac
   file=plugins/agentic-engineering/skills/agent-improvement/SKILL.md
-  [ "$scenario" != undeclared ] || file=plugins/example/skills/example/SKILL.md
+  [ "$scenario" != different-path ] || file=plugins/example/skills/example/SKILL.md
   mkdir -p "$repo/$(dirname "$file")"
   git -C "$repo" init -q
   git -C "$repo" config user.name fixture
   git -C "$repo" config user.email fixture@example.invalid
   git -C "$repo" config commit.gpgsign false
-  printf '%s\n' '---' 'name: example' 'description: Example.' 'metadata:' "  github-repo: $owner" '---' 'Before.' > "$repo/$file"
+  {
+    printf '%s\n' '---' 'name: example' 'description: Example.'
+    if [ -n "$owner" ]; then printf '%s\n' 'metadata:' "  github-repo: $owner"; fi
+    printf '%s\n' '---' 'Before.'
+  } > "$repo/$file"
   git -C "$repo" add "$file"
   git -C "$repo" commit -qm before
   base=$(git -C "$repo" rev-parse HEAD)
@@ -30,7 +34,7 @@ for scenario in transferred external lookalike undeclared; do
   git -C "$repo" commit -qm after
   head=$(git -C "$repo" rev-parse HEAD)
   rc=0
-  printf '%s\n' "$file" | BASE_SHA="$base" HEAD_SHA="$head" PR_ACTOR=devantler PR_HEAD_BRANCH=codex/consolidate-skills-618 GUARD_REPO_DIR="$repo" bash "$root/scripts/guard-bundled-skill-edits.sh" > "$work/output" 2>&1 || rc=$?
+  printf '%s\n' "$file" | BASE_SHA="$base" HEAD_SHA="$head" PR_ACTOR=devantler PR_HEAD_BRANCH=codex/ownership-check GUARD_REPO_DIR="$repo" bash "$root/scripts/guard-bundled-skill-edits.sh" > "$work/output" 2>&1 || rc=$?
   if [ "$rc" -ne "$expected" ]; then
     printf 'FAIL %s: expected %s, got %s\n' "$scenario" "$expected" "$rc"
     cat "$work/output"
@@ -40,7 +44,7 @@ for scenario in transferred external lookalike undeclared; do
     grep -qF "$owner" "$work/output"
   fi
 done
-echo 'PASS: transferred source is local; external sources remain protected'
+echo 'PASS: authored sources are local; every recorded upstream remains protected'
 
 # The installed distil procedure must not forbid its new canonical authoring surface.
 route="$root/plugins/agentic-engineering/skills/self-improvement/SKILL.md"

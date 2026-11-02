@@ -93,7 +93,7 @@ mkdir -p "$root/plugins/$name/.claude-plugin" "$root/plugins/$name/skills/exampl
 name: example-skill
 description: Example skill.
 metadata:
-    github-repo: https://github.com/devantler-tech/agent-skills
+    github-repo: https://github.com/example/fixture-skills
     github-path: skills/example-skill
     github-ref: refs/heads/main
 ---
@@ -196,7 +196,7 @@ check_pass "valid fixture passes" "$(fresh)"
 
 # A third-party source without its distributed notice must not clear packaging.
 d=$(fresh)
-sed "s|https://github.com/devantler-tech/agent-skills|https://github.com/mattpocock/skills|" \
+sed "s|https://github.com/example/fixture-skills|https://github.com/mattpocock/skills|" \
   "$d/plugins/alpha/skills/example-skill/SKILL.md" > "$d/skill.tmp"
 mv "$d/skill.tmp" "$d/plugins/alpha/skills/example-skill/SKILL.md"
 check_fail "Matt source without a distributed notice is refused" "Matt Pocock license" "$d"
@@ -502,7 +502,7 @@ d=$(fresh)
 cat > "$d/plugins/alpha/skills/example-skill/SKILL.md" <<'EOF'
 ---
 name: example-skill
-github-repo: https://github.com/devantler-tech/agent-skills
+github-repo: https://github.com/example/fixture-skills
 metadata:
     domain: testing
 ---
@@ -679,7 +679,7 @@ make_desired_state() {
 name: agent-improvement
 description: Fixture Agent Improver procedure.
 metadata:
-  github-repo: https://github.com/devantler-tech/agent-skills
+  github-repo: https://github.com/example/fixture-skills
 ---
 Fixture procedure.
 EOF
@@ -2257,10 +2257,10 @@ for owner in null malformed nested duplicate-owner duplicate-metadata unclosed; 
   case $owner in
     null) printf '%s\n' '  github-repo: null' >> "$f" ;;
     malformed) printf '%s\n' '  github-repo: arbitrary-text' >> "$f" ;;
-    nested) printf '%s\n' '  unrelated:' '    github-repo: https://github.com/devantler-tech/agent-skills' >> "$f" ;;
-    duplicate-owner) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' '  github-repo: null' >> "$f" ;;
-    duplicate-metadata) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' 'metadata:' '  unrelated: value' >> "$f" ;;
-    unclosed) printf '%s\n' '  github-repo: https://github.com/devantler-tech/agent-skills' >> "$f" ;;
+    nested) printf '%s\n' '  unrelated:' '    github-repo: https://github.com/example/fixture-skills' >> "$f" ;;
+    duplicate-owner) printf '%s\n' '  github-repo: https://github.com/example/fixture-skills' '  github-repo: null' >> "$f" ;;
+    duplicate-metadata) printf '%s\n' '  github-repo: https://github.com/example/fixture-skills' 'metadata:' '  unrelated: value' >> "$f" ;;
+    unclosed) printf '%s\n' '  github-repo: https://github.com/example/fixture-skills' >> "$f" ;;
   esac
   [ "$owner" = unclosed ] || printf '%s\n' '---' body >> "$f"
   check_fail "skill $owner provenance is refused" 'missing upstream provenance' "$d"

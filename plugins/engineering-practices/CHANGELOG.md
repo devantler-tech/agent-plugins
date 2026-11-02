@@ -1,5 +1,10 @@
 # Changelog — `engineering-practices`
 
+## 1.2.1 — 2026-11-02
+
+**Changed** — remove dead upstream links from historical release notes while retaining their
+versions, dates and recorded changes.
+
 ## 1.2.0
 
 2026-11-01
@@ -9,7 +14,7 @@
 
 ## 1.1.6 — 2026-10-26
 
-**Changed** — sync `write-readme` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.28.1`.
+**Changed** — sync `write-readme` from the former standalone skills source at `refs/tags/v1.28.1`.
 
 ## 1.1.5 — 2026-10-25
 
@@ -23,19 +28,19 @@ and license text of the bundled `git-commit`, `refactor` and `test-driven-develo
 
 ## 1.1.3 — 2026-10-23
 
-**Changed** — sync `ways-of-working` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.27.1`.
+**Changed** — sync `ways-of-working` from the former standalone skills source at `refs/tags/v1.27.1`.
 
 ## 1.1.2 — 2026-10-15
 
-**Changed** — sync `write-readme` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.24.1`.
+**Changed** — sync `write-readme` from the former standalone skills source at `refs/tags/v1.24.1`.
 
 ## 1.1.1 — 2026-10-15
 
-**Changed** — sync `write-contributing` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.24.1`.
+**Changed** — sync `write-contributing` from the former standalone skills source at `refs/tags/v1.24.1`.
 
 ## 1.1.0 — 2026-10-11
 
-**Changed** — sync `write-contributing` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.24.0`.
+**Changed** — sync `write-contributing` from the former standalone skills source at `refs/tags/v1.24.0`.
 
-**Changed** — sync `write-readme` from `https://github.com/devantler-tech/agent-skills` at `refs/tags/v1.24.0`.
+**Changed** — sync `write-readme` from the former standalone skills source at `refs/tags/v1.24.0`.
 

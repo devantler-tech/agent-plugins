@@ -2,12 +2,14 @@
 
 This assessment freezes the marketplace at
 [`00519de5b7836402c087e99c3e498e8e3ab97ed2`](https://github.com/devantler-tech/agent-plugins/tree/00519de5b7836402c087e99c3e498e8e3ab97ed2)
-and the skill source at
-[`5d61a1157328fd1f84218d2509b085cff64ecd52`](https://github.com/devantler-tech/agent-skills/tree/5d61a1157328fd1f84218d2509b085cff64ecd52).
+and the former standalone skill-source revision
+`5d61a1157328fd1f84218d2509b085cff64ecd52`.
 It records the 2026-10-02 decisions for
 [tool maturation](https://github.com/devantler-tech/agent-plugins/issues/102) and the bounded
 [shared-code assessment](https://github.com/devantler-tech/agent-plugins/issues/103).
 These are the observed repository contracts, not a claim of complete portfolio usage or adoption.
+Current maintained-source ownership is recorded in [ADR 0006](adr/0006-maintained-skill-ownership.md);
+the standalone source and its links have been retired.
 
 ## Coverage and method
 
@@ -94,10 +96,11 @@ proposal/publication decisions. Keep them local. The CommonMark companion
 uses the locked existing parser; rewriting its grammar merely to change language is not a demonstrated
 benefit. This assessment grants no new embedded-language exception.
 
-The copied `measure-flow.jq`, `check-evidence.jq` and `accountability-brief.jq` retain their Agent Skills
-owners and documented installed interfaces. Those distribution copies do not count as additional
-independent product needs. The [source assessment](https://github.com/devantler-tech/agent-skills/blob/100ef49575abe177e6275da31331033535714d1f/docs/tool-ownership.md)
-records those contracts and the source repository's remaining helper decisions.
+The `measure-flow.jq`, `check-evidence.jq` and `accountability-brief.jq` resources retain their skill
+boundaries and documented installed interfaces; their maintained sources now live in the owning
+plugins. Distribution copies do not count as additional independent product needs. The original
+source assessment at revision `100ef49575abe177e6275da31331033535714d1f` recorded the contracts and
+helper decisions at the time of this frozen assessment.
 
 The two authored Go tools already share the standard library's `go/parser`, `go/ast` and `go/token`.
 Keep the different entrypoint-classification and guidance-decoding policies local. No incompatible

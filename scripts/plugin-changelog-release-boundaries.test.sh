@@ -23,7 +23,7 @@ fresh() {
     mkdir -p "$d/plugins/$n/.claude-plugin" "$d/plugins/$n/skills/example"
     printf '{"name":"%s","version":"1.2.3"}\n' "$n" > "$d/plugins/$n/plugin.json"
     cp "$d/plugins/$n/plugin.json" "$d/plugins/$n/.claude-plugin/plugin.json"
-    printf '%s\n' '---' 'name: example' 'metadata:' '  github-repo: https://github.com/devantler-tech/agent-skills' '  github-ref: refs/tags/v1.0.0' '---' 'Example.' > "$d/plugins/$n/skills/example/SKILL.md"
+    printf '%s\n' '---' 'name: example' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' '  github-ref: refs/tags/v1.0.0' '---' 'Example.' > "$d/plugins/$n/skills/example/SKILL.md"
     printf '## 1.2.3 — 2026-01-01\n\nOriginal history.\n' > "$d/plugins/$n/CHANGELOG.md"
   done
   printf '%s\n' '{"name":"fixture","plugins":[{"name":"alpha","version":"1.2.3","source":"./plugins/alpha"},{"name":"beta","version":"1.2.3","source":"./plugins/beta"}]}' > "$d/.claude-plugin/marketplace.json"

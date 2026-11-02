@@ -31,7 +31,7 @@ report
 check 'all(.plugins[]; .usage.activations == null and .benchmarks == [])' 'missing evidence'
 report "${args[@]}" --usage "$work/usage.json" --usage "$work/usage.json" --benchmark engineering-practices 1.2.0 "$work/benchmark.json"
 check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==1 and .usage.versions==["1.2.0"] and .benchmarks[0].with_skill.passed==2 and .benchmarks[0].with_skill.total==2 and .benchmarks[0].with_skill.percent==100 and .benchmarks[0].baseline_delta_pp==50' 'native usage and benchmark'
-if rg -q 'private-session|PRIVATE_PROMPT_DO_NOT_PRINT' "$work/result"; then printf 'FAIL private content emitted\n'; exit 1; fi
+if grep -Eq 'private-session|PRIVATE_PROMPT_DO_NOT_PRINT' "$work/result"; then printf 'FAIL private content emitted\n'; exit 1; fi
 
 # A load is inventory, not an activation; a foreign marketplace cannot own our usage.
 jq '(.resourceLogs[0].scopeLogs[0].logRecords) |= [.[0]]' "$work/usage.json" > "$work/load-only.json"
@@ -51,6 +51,16 @@ reject "${args[@]}" --usage "$work/conflict.json"
 jq '(.resourceLogs[0].scopeLogs[0].logRecords[1].attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-02T00:00:00Z"' "$work/usage.json" > "$work/outside.json"
 report "${args[@]}" --usage "$work/outside.json"
 check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==0' 'exclusive end'
+jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-01T01:00:00Z" | (.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="event.sequence").value.intValue)="3"' "$work/usage.json" > "$work/later-load.json"
+report "${args[@]}" --usage "$work/later-load.json"
+check '.coverage.unattributed_activations==1' 'a later load cannot own an earlier activation'
+jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="plugin.version").value.stringValue)="PRIVATE_VERSION_DO_NOT_PRINT"' "$work/usage.json" > "$work/invalid-version.json"
+report "${args[@]}" --usage "$work/invalid-version.json"
+check '.coverage.unattributed_activations==1 and (.plugins[]|select(.name=="engineering-practices")|.usage.activations==null)' 'unusable version is unknown'
+if grep -q PRIVATE_VERSION_DO_NOT_PRINT "$work/result"; then printf 'FAIL private version emitted\n'; exit 1; fi
+jq '(.resourceLogs[0].scopeLogs[0].logRecords[0].attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-01T01:00:00.100Z" | (.resourceLogs[0].scopeLogs[0].logRecords[1].attributes[]|select(.key=="event.timestamp").value.stringValue)="2026-11-01T01:00:00.200Z"' "$work/usage.json" > "$work/fraction.json"
+report --since 2026-11-01T01:00:00.150Z --until 2026-11-01T01:00:00.250Z --usage "$work/fraction.json"
+check '.plugins[]|select(.name=="engineering-practices")|.usage.activations==1' 'fractional timestamp ordering and window'
 
 # Empty/unsupported evidence never establishes full coverage or a retirement decision.
 printf '%s\n' '{"resourceLogs":[]}' > "$work/empty.json"
@@ -67,6 +77,8 @@ reject "${args[@]}" --usage "$work/missing.json"
 
 # Poor and incomplete evidence stays visible; summaries cannot manufacture grades.
 jq '.runs[0].result.total=0' "$work/benchmark.json" > "$work/bad-benchmark.json"
+reject --benchmark engineering-practices 1.2.0 "$work/bad-benchmark.json"
+jq '.metadata.timestamp="PRIVATE_TIMESTAMP_DO_NOT_PRINT"' "$work/benchmark.json" > "$work/bad-benchmark.json"
 reject --benchmark engineering-practices 1.2.0 "$work/bad-benchmark.json"
 jq '.runs[0].result.pass_rate=0.3' "$work/benchmark.json" > "$work/bad-benchmark.json"
 reject --benchmark engineering-practices 1.2.0 "$work/bad-benchmark.json"

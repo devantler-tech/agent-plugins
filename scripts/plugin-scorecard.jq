@@ -1,9 +1,12 @@
 # Reporting only. Evidence never supplies executable instructions or output paths.
 def require($ok): if $ok then . else error("invalid evidence") end;
 def utc:
-  . as $s | require(type=="string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$")) |
-  sub("\\.[0-9]+Z$";"Z") | . as $whole | fromdateiso8601 |
-  require((todateiso8601)==$whole);
+  . as $s | require(type=="string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$")) |
+  sub("\\.[0-9]+Z$";"Z") as $whole | ($whole|fromdateiso8601) as $epoch |
+  require(($epoch|todateiso8601)==$whole) |
+  $s | capture("^(?<base>[^.]+?)(?:\\.(?<fraction>[0-9]+))?Z$") |
+  .base+"."+(((.fraction // "")+"000000000")[0:9])+"Z";
+def version: type=="string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$");
 def attrs:
   require(type=="array" and all(.[];type=="object" and (.key|type)=="string" and (.value|type)=="object")) |
   require((map(.key)|unique|length)==length) |
@@ -14,7 +17,7 @@ def events:
   require((.logRecords|type)=="array") | .logRecords[] |
   (.attributes // [] | attrs) |
   select(."event.name"=="plugin_loaded" or ."event.name"=="skill_activated") |
-  {kind:."event.name",at:(."event.timestamp"|utc),stamp:."event.timestamp",
+  {kind:."event.name",at:(."event.timestamp"|utc),
     sequence:(."event.sequence"|tonumber),session:."session.id",
     plugin:."plugin.name",marketplace:."marketplace.name",version:."plugin.version",
     source:."skill.source",safe_mode:.safe_mode} |
@@ -38,7 +41,7 @@ def totals:
   {runs:length,passed:(map(.result.passed)|add),total:(map(.result.total)|add)} |
   . + {percent:percent};
 def benchmark:
-  . as $b | .data |
+  . as $b | .data | (.metadata.timestamp|utc) as $timestamp |
   require((.runs|type)=="array" and (.runs|length)>0) |
   [.runs[]|require(.configuration=="with_skill" or .configuration=="without_skill")|grade] as $runs |
   require(($runs|map([.configuration,.eval_id,.run_number])|unique|length)==($runs|length)) |
@@ -48,24 +51,25 @@ def benchmark:
   ([$with[]|[.eval_id,.run_number,.result.total,((.expectations // [])|map(.text)|sort)]]|sort) as $wk |
   ([$without[]|[.eval_id,.run_number,.result.total,((.expectations // [])|map(.text)|sort)]]|sort) as $bk |
   {plugin:$b.plugin,declared_version:$b.version,skill:$b.data.metadata.skill_name,
-    timestamp:$b.data.metadata.timestamp,with_skill:$w,without_skill:$base,
+    timestamp:$timestamp,with_skill:$w,without_skill:$base,
     baseline_delta_pp:(if $base!=null and $wk==$bk and all($runs[];has("expectations")) then $w.percent-$base.percent else null end)};
 
 $catalogue[0] | require((.name|type)=="string" and (.plugins|type)=="array") | . as $c |
 require((.plugins|map(.name)|unique|length)==(.plugins|length)) |
 ([$usage[]|events]|unique) as $events |
 # Conflicting replays cannot be silently resolved by latest-wins parsing.
-require(all(($events|group_by([.session,.stamp,.sequence,.kind]))[];length==1)) |
+require(all(($events|group_by([.session,.at,.sequence,.kind]))[];length==1)) |
 (if ($usage|length)>0 then
   ($since|utc) as $start | ($until|utc) as $end | require($start<$end) | {start:$start,end:$end}
  else null end) as $window |
 [$events[]|select(.kind=="plugin_loaded")] as $loads |
 [$events[]|select(.kind=="skill_activated" and .at>=$window.start and .at<$window.end)|
   . as $a |
-  ([$loads[]|select(.session==$a.session and .plugin==$a.plugin and .at<=$a.at)]|sort_by(.at)|
-   if length==0 then [] else . as $all | map(select(.at==$all[-1].at)) end) as $owners |
+  ([$loads[]|select(.session==$a.session and .plugin==$a.plugin and
+    (.at<$a.at or (.at==$a.at and .sequence<$a.sequence)))]|sort_by([.at,.sequence])|
+   if length==0 then [] else . as $all | map(select(.at==$all[-1].at and .sequence==$all[-1].sequence)) end) as $owners |
   if ($owners|length)==1 and $owners[0].marketplace==$c.name and $a.source=="plugin" and
-    $owners[0].safe_mode=="false" and ($owners[0].version|type)=="string" and
+    $owners[0].safe_mode=="false" and ($owners[0].version|version) and
     any($c.plugins[];.name==$a.plugin) then
     {plugin:$a.plugin,version:$owners[0].version,session:$a.session}
   else {plugin:null,version:null,session:$a.session} end] as $activations |

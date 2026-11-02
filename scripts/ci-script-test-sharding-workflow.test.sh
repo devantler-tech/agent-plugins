@@ -62,6 +62,7 @@ check_workflow() {
     'shellcheck "${files[@]}"'
     'go test plugins/agentic-engineering/scripts/autonomy-contract-go/main.go'
     'bash plugins/agentic-engineering/scripts/assess-autonomy.test.sh'
+    'bash scripts/plugin-scorecard.test.sh'
     'go test scripts/gh-json-go/main.go scripts/gh-json-go/main_test.go'
     'go test scripts/mcp-url-go/main.go scripts/mcp-url-go/main_test.go'
     './scripts/check-plugin-version-bump.test.sh || result=1'
@@ -137,6 +138,10 @@ check_workflow "$WORKFLOW"
 sed 's/bash scripts\/package-discovery.test.sh/echo skipped-package-discovery/' \
   "$WORKFLOW" >"$WORK/dropped-command.yaml"
 expect_rejected dropped-command "$WORK/dropped-command.yaml"
+
+sed 's/bash scripts\/plugin-scorecard.test.sh/echo skipped-plugin-scorecard/' \
+  "$WORKFLOW" >"$WORK/dropped-scorecard.yaml"
+expect_rejected dropped-scorecard "$WORK/dropped-scorecard.yaml"
 
 sed 's/bash scripts\/package-boundaries.test.sh/bash scripts\/package-discovery.test.sh/' \
   "$WORKFLOW" >"$WORK/duplicate-command.yaml"

@@ -31,6 +31,9 @@ recovery and failure offline in `lint-scripts`.
 # Install the pinned parser for changelog checks and the offline regression suite (Node.js 22+).
 npm ci --ignore-scripts --no-audit --no-fund
 
+# Offline native usage attribution and benchmark score reporting.
+bash scripts/plugin-scorecard.test.sh
+
 # 1. Marketplace parity, portable ↔ strict-Claude plugin.json parity, catalogue table,
 #    desired-state resources, and skill provenance — the exact checks CI's
 #    "Validate manifests" job runs.

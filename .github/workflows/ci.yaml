@@ -95,6 +95,9 @@ jobs:
             go test plugins/agentic-engineering/scripts/autonomy-contract-go/main.go plugins/agentic-engineering/scripts/autonomy-contract-go/main_test.go plugins/agentic-engineering/scripts/autonomy-contract-go/assessment_boundaries_test.go
           bash plugins/agentic-engineering/scripts/assess-autonomy.test.sh
 
+      - name: 🧪 Verify native plugin usage and quality reporting
+        run: bash scripts/plugin-scorecard.test.sh
+
       - name: 🧪 Self-test the Go guidance decoder
         run: |
           GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \

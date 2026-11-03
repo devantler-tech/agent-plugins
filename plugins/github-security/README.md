@@ -17,6 +17,13 @@ security skills from [`github/awesome-copilot`](https://github.com/github/awesom
 `dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI
 or audits a whole repository.
 
+Install it from the `devantler-plugins` marketplace ([all tools](../../docs/installation.md)):
+
+```sh
+/plugin install github-security@devantler-plugins        # Claude Code
+copilot plugin install github-security@devantler-plugins  # GitHub Copilot CLI
+```
+
 ## The bundled MCP server
 
 The plugin starts `github-ghas-tools`, GitHub's remote MCP server at

@@ -593,15 +593,14 @@ jobs:
     name: CI - Required Checks
     runs-on: ubuntu-latest
     permissions:
-      checks: read
-      statuses: read
-      pull-requests: read
+      actions: read
     timeout-minutes: 5
     needs: [retired-repo-links, validate-manifests, lint-scripts, test-marketplace, test-packages, check-version-bump, check-bundled-skill-edits, validate-spec]
     if: ${{ always() }}
     steps:
-      - uses: devantler-tech/.github/actions/aggregate-job-checks@4b00bd6698af033dc472b39a7e609173fe38dfb1 # v6.0.6
+      - uses: devantler-tech/.github/actions/aggregate-job-checks@da5f0839b418626a8a0b69df1f04ba931a38e371 # v19.1.0
         with:
+          check-workflow-startup: ${{ contains(fromJSON('["pull_request","push","merge_group"]'), github.event_name) }}
           job-results: >-
             ${{ needs.retired-repo-links.result }}
             ${{ needs.validate-manifests.result }}

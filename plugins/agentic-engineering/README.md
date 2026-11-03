@@ -103,13 +103,13 @@ are maintained here.
 | GitHub | `gh-cli`, `github-issues`, `gh-stack` (stacked pull requests), `github-actions-docs`, `github-actions-efficiency` |
 | Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening` |
 | Go | `golang-pro` |
-| Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni), `ksail` |
+| Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni) |
 | Frontend | `astro`, `frontend-design`, `web-design-guidelines` |
 | Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme` |
 
 `dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI or
-audits a whole repository. The `ksail` skill is licensed under PolyForm Shield 1.0.0 by its upstream,
-[`devantler-tech/ksail`](https://github.com/devantler-tech/ksail).
+audits a whole repository. KSail has its own [`ksail`](../ksail/) plugin, made for KSail's users;
+enable it alongside this one when your agents create or operate clusters with KSail.
 
 When the Engineer splits a change into dependent pull requests, the
 [stacked pull requests guide](skills/product-engineering/references/stacked-pull-requests.md) decides
@@ -124,7 +124,6 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 | Server | What it connects to | Needs |
 |---|---|---|
 | `flux-operator-mcp` | A live cluster's Flux resources, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary and cluster access |
-| `ksail` | The KSail CLI's cluster and workload operations | `ksail` on `PATH` |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 

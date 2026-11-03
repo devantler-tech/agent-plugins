@@ -4,6 +4,5 @@
   "go": "agentic-engineering",
   "gitops-kubernetes": "agentic-engineering",
   "engineering-practices": "agentic-engineering",
-  "frontend-design": "agentic-engineering",
-  "ksail": "agentic-engineering"
+  "frontend-design": "agentic-engineering"
 }

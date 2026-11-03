@@ -5,9 +5,10 @@
 **Added** — everything the agents need, in this one plugin
 ([ADR 0017](../../docs/adr/0017-agentic-engineering-bundles-the-agents-toolbox.md)):
 
-- The skills, agent and MCP servers of the retired `github`, `go`, `gitops-kubernetes`,
-  `engineering-practices`, `frontend-design` and `ksail` plugins, unchanged: 26 skills, the
-  `flux-troubleshooter` agent, and the `flux-operator-mcp` and `ksail` servers.
+- The skills, agent and MCP server of the retired `github`, `go`, `gitops-kubernetes`,
+  `engineering-practices` and `frontend-design` plugins, unchanged: 25 skills, the
+  `flux-troubleshooter` agent and the `flux-operator-mcp` server. The `ksail` plugin stays separate;
+  enable it alongside this one when your agents use KSail.
 - `github-actions-efficiency`, `github-actions-hardening`, `dependabot`, `secret-scanning` and
   `codeql` from `https://github.com/github/awesome-copilot` at `refs/heads/main`, and
   `dependency-scanning` from `https://github.com/github/copilot-advanced-security-plugin` at

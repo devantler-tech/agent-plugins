@@ -6,13 +6,6 @@
         "serve"
       ]
     },
-    "ksail": {
-      "command": "ksail",
-      "args": [
-        "open",
-        "mcp"
-      ]
-    },
     "github-ghas-tools": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",

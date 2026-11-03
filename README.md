@@ -15,7 +15,7 @@ Using another tool? Follow the [VS Code](docs/installation.md#vs-code), [Copilot
 
 ## Choose a bundle
 
-There are two bundles. **`agentic-engineering`** is everything an autonomous engineer needs in one install: its agents and workflows, plus skills and tool connections for GitHub and repository security, Go, Kubernetes, Flux, Talos, KSail, frontend design and engineering practices. **`vibe-coding`** is for building a product by conversation alone. The [plugin catalogue](docs/plugins.md) lists every resource.
+There are three bundles. **`agentic-engineering`** is everything an autonomous engineer needs in one install: its agents and workflows, plus skills and tool connections for GitHub and repository security, Go, Kubernetes, Flux, Talos, frontend design and engineering practices. **`ksail`** teaches your assistant the [KSail](https://ksail.devantler.tech) cluster CLI and connects it to KSail's MCP server. **`vibe-coding`** is for building a product by conversation alone. The [plugin catalogue](docs/plugins.md) lists every resource.
 
 The [autonomous engineering setup](plugins/agentic-engineering/README.md) explains how to configure the engineer, surveyor, and improver for your repositories. The [server and agent guide](docs/resources.md) covers bundled connections, prerequisites, and specialist roles.
 

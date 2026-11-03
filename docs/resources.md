@@ -33,18 +33,18 @@ armed, or with a schedule pointing at an entrypoint that no longer resolves. The
 ## MCP servers
 
 A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as skills. The
-[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles four, authored once in its
-[`.mcp.json`](../plugins/agentic-engineering/.mcp.json) (`mcpServers` map):
+[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles three, authored once in its
+[`.mcp.json`](../plugins/agentic-engineering/.mcp.json) (`mcpServers` map), and the
+[`ksail`](../plugins/ksail/) plugin bundles the KSail server, which needs `ksail` on `PATH`:
 
 | Server | What it connects to | Needs |
 |---|---|---|
 | `flux-operator-mcp` | A live cluster's Flux resources, for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary and cluster access |
-| `ksail` | The KSail CLI's cluster and workload operations | `ksail` on `PATH` |
 | `github-ghas-tools` | GitHub's read-only security tools: alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 
 `siderolabs-docs` also offers a `submit_feedback` tool, which sends a report to Sidero Labs. It is
-the only tool among these four that writes anywhere; deny it in your tool permissions if your
+the only tool among these servers that writes anywhere; deny it in your tool permissions if your
 agents must not contact third parties.
 
 How each tool consumes the file differs (per [ADR 0001](../docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):

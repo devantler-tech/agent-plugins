@@ -1,6 +1,6 @@
 # devantler-tech/agent-plugins
 
-A tool-neutral agent-plugin marketplace that owns the suite's maintained skills and bundles them with curated external skills: `agentic-engineering` carries everything the engineering agents need ([ADR 0017](docs/adr/0017-agentic-engineering-bundles-the-agents-toolbox.md)), and `vibe-coding` serves building by conversation. One repository owns authoring, validation and delivery across VS Code, GitHub Copilot CLI and Claude Code through two parity-checked manifests.
+A tool-neutral agent-plugin marketplace that owns the suite's maintained skills and bundles them with curated external skills: `agentic-engineering` carries everything the engineering agents need ([ADR 0017](docs/adr/0017-agentic-engineering-bundles-the-agents-toolbox.md)), `ksail` is the KSail product's plugin, and `vibe-coding` serves building by conversation. One repository owns authoring, validation and delivery across VS Code, GitHub Copilot CLI and Claude Code through two parity-checked manifests.
 
 By design the marketplace is **not scoped to skills-only** — a plugin may bundle any agent resource
 (agent skills today; [MCP](https://modelcontextprotocol.io) servers and custom agents as they prove out

@@ -1,5 +1,20 @@
 # Changelog — `github`
 
+## 2.0.0 — 2026-11-03
+
+**Removed** — `gh-stack`, previously from `https://github.com/github/gh-stack` at `refs/tags/v0.3.0`.
+The suite this marketplace serves does not stack pull requests, and an earlier `gh-stack` update
+carried an unconditional whole-stack merge instruction.
+
+**Added** — `github-actions-efficiency` from `https://github.com/github/awesome-copilot` at
+`refs/heads/main`: audit workflows for wasted runs, missing caches and over-broad triggers, and
+recommend fixes that keep every required check.
+
+### Upgrading to 2.0.0
+
+If you still use stacked pull requests, install `gh-stack` directly from its upstream:
+`gh skill install github/gh-stack`. Nothing else changes.
+
 ## 1.0.8 — 2026-10-27
 
 **Changed** — sync `gh-stack` from `https://github.com/github/gh-stack` at `refs/tags/v0.3.0`.

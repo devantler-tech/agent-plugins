@@ -25,7 +25,7 @@ copilot plugin marketplace add devantler-tech/agent-plugins
 copilot plugin marketplace browse devantler-plugins
 
 # Install a plugin
-copilot plugin install gitops-kubernetes@devantler-plugins
+copilot plugin install agentic-engineering@devantler-plugins
 ```
 
 ## Claude Code
@@ -34,7 +34,7 @@ Add the marketplace, then install a plugin — run these inside Claude Code ([of
 
 ```text
 /plugin marketplace add devantler-tech/agent-plugins
-/plugin install gitops-kubernetes@devantler-plugins
+/plugin install agentic-engineering@devantler-plugins
 ```
 
 Browse everything on offer with `/plugin` (**Discover** tab) or list it with `/plugin list`. The bundled [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) is also discovered automatically when this repo is added as a plugin source.

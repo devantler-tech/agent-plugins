@@ -9,7 +9,7 @@ complete inventory; read a script's header for its arguments and safeguards.
 | Review plugin use and usefulness | [Plugin effectiveness](plugin-effectiveness.md) and `bash scripts/plugin-scorecard.sh`; reads native exports and benchmark artifacts without configuring telemetry |
 | Update versions and release notes | Use [bump-plugin-version.sh](../scripts/bump-plugin-version.sh) and add a matching changelog entry; skill syncs use [plugin-changelog.sh write](../scripts/plugin-changelog.sh) |
 | Refresh generated resource digests | [refresh-desired-state-digests.sh](../scripts/refresh-desired-state-digests.sh) |
-| Synchronize one curated plugin | Dispatch [Update Agent Skills](../.github/workflows/update-agent-skills.yaml) with `agentic-engineering` or `engineering-practices`; [skill-update-scope.sh](../scripts/skill-update-scope.sh) resolves only declared selections before the normal per-skill updater runs. Default and scheduled `all` updates still cover the full catalogue. |
+| Synchronize one curated plugin | Dispatch [Update Agent Skills](../.github/workflows/update-agent-skills.yaml) with `agentic-engineering`; [skill-update-scope.sh](../scripts/skill-update-scope.sh) resolves only declared selections before the normal per-skill updater runs. Default and scheduled `all` updates still cover the full catalogue. |
 | Prepare or inspect a marketplace release | [Release guide](marketplace-releases.md) and [prepare-marketplace-release.sh](../scripts/prepare-marketplace-release.sh) |
 | Propose or publish a marketplace release | [Release guide](marketplace-releases.md), which explains the separate opt-in steps and recovery |
 | Recheck open pull requests after changing CI | [recheck-open-prs.sh](../scripts/recheck-open-prs.sh) |
@@ -19,8 +19,7 @@ version changes, changelogs, generated writes, release observations and instruct
 The [validation guide](validation.md) explains which checks to run and what they establish.
 
 The scope resolver also passes the temporary reviewed `git-commit` pin for full-catalogue
-and `engineering-practices` updates. The `agentic-engineering` selection receives no pin
-outside its directory. This hold is tracked in
+and `agentic-engineering` updates, the two selections that contain the skill. This hold is tracked in
 [platform#5224](https://github.com/devantler-tech/platform/issues/5224): all other skills keep
 updating through the same programmed proposals. Removing the hold requires an upstream
 repair and a reviewed updater change that clears the installed pin; deleting its declaration

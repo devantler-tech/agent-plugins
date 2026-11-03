@@ -1,5 +1,18 @@
 {
   "mcpServers": {
+    "flux-operator-mcp": {
+      "command": "flux-operator-mcp",
+      "args": [
+        "serve"
+      ]
+    },
+    "ksail": {
+      "command": "ksail",
+      "args": [
+        "open",
+        "mcp"
+      ]
+    },
     "github-ghas-tools": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",
@@ -7,6 +20,10 @@
         "X-MCP-Toolsets": "code_security,secret_protection,security_advisories,dependabot"
       },
       "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\""
+    },
+    "siderolabs-docs": {
+      "type": "http",
+      "url": "https://docs.siderolabs.com/mcp"
     }
   }
 }

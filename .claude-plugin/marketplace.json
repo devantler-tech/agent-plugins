@@ -9,62 +9,26 @@
     "url": "https://github.com/devantler-tech"
   },
   "renames": {
-    "automated-ai-engineer": "agentic-engineering"
+    "automated-ai-engineer": "agentic-engineering",
+    "github": "agentic-engineering",
+    "go": "agentic-engineering",
+    "gitops-kubernetes": "agentic-engineering",
+    "engineering-practices": "agentic-engineering",
+    "frontend-design": "agentic-engineering",
+    "ksail": "agentic-engineering"
   },
   "plugins": [
     {
-      "name": "gitops-kubernetes",
-      "description": "Flux CD debugging, knowledge, and tenant onboarding — skills plus the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging",
-      "version": "1.1.0",
-      "source": "./plugins/gitops-kubernetes"
-    },
-    {
-      "name": "github",
-      "description": "GitHub CLI, Actions docs and efficiency, and issue management skills",
-      "version": "2.0.0",
-      "source": "./plugins/github"
-    },
-    {
-      "name": "github-security",
-      "description": "GitHub security for repositories you maintain — Dependabot and dependency vulnerability checks, secret scanning, CodeQL, and GitHub Actions hardening, with GitHub's read-only security MCP tools",
-      "version": "1.0.0",
-      "source": "./plugins/github-security"
-    },
-    {
       "name": "agentic-engineering",
-      "description": "The autonomous engineering system for repository portfolios — engineer, read-only surveyor, and meta-engineer agents; portfolio, product, spend, and improvement workflows; cross-tool instruction architecture and skill discovery; configured by the consumer AGENTS.md",
-      "version": "6.7.2",
+      "description": "The autonomous engineering system for repository portfolios and everything its agents need — engineer, read-only surveyor, meta-engineer and Flux troubleshooter agents; portfolio, product, spend and improvement workflows; GitHub, security, Go, Kubernetes, Flux, Talos, KSail, frontend and engineering-practice skills; and the MCP servers they use; configured by the consumer AGENTS.md",
+      "version": "6.8.0",
       "source": "./plugins/agentic-engineering"
-    },
-    {
-      "name": "go",
-      "description": "Go best practices, concurrency, generics, interfaces, and testing skills",
-      "version": "1.0.2",
-      "source": "./plugins/go"
-    },
-    {
-      "name": "engineering-practices",
-      "description": "Git commits, conventional releases, refactoring, test-driven development, and engineering ways of working skills",
-      "version": "1.2.1",
-      "source": "./plugins/engineering-practices"
-    },
-    {
-      "name": "frontend-design",
-      "description": "Astro, frontend design, and web design guidelines skills",
-      "version": "1.0.2",
-      "source": "./plugins/frontend-design"
     },
     {
       "name": "vibe-coding",
       "description": "Build a product by conversation alone — a plain-language build companion agent plus skills for needs-to-stack translation, an allowed-stack guardrail, and a jargon-free voice; for people with no technical background",
       "version": "1.1.0",
       "source": "./plugins/vibe-coding"
-    },
-    {
-      "name": "ksail",
-      "description": "KSail CLI expertise and MCP server — create and operate Kubernetes clusters (Kind, K3d, Talos, vCluster, KWOK, EKS) and GitOps workloads declaratively",
-      "version": "1.0.0",
-      "source": "./plugins/ksail"
     }
   ]
 }

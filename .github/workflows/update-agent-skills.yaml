@@ -10,7 +10,6 @@ on:
         options:
           - all
           - agentic-engineering
-          - engineering-practices
   schedule:
     - cron: "0 6 * * *"
 

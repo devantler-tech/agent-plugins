@@ -1,5 +1,31 @@
 # Changelog — `agentic-engineering`
 
+## 6.8.0 — 2026-11-04
+
+**Added** — everything the agents need, in this one plugin
+([ADR 0017](../../docs/adr/0017-agentic-engineering-bundles-the-agents-toolbox.md)):
+
+- The skills, agent and MCP servers of the retired `github`, `go`, `gitops-kubernetes`,
+  `engineering-practices`, `frontend-design` and `ksail` plugins, unchanged: 26 skills, the
+  `flux-troubleshooter` agent, and the `flux-operator-mcp` and `ksail` servers.
+- `github-actions-efficiency`, `github-actions-hardening`, `dependabot`, `secret-scanning` and
+  `codeql` from `https://github.com/github/awesome-copilot` at `refs/heads/main`, and
+  `dependency-scanning` from `https://github.com/github/copilot-advanced-security-plugin` at
+  `refs/heads/main`.
+- `siderolabs` (Talos Linux and Omni) from `https://github.com/siderolabs/docs` at `refs/heads/main`.
+- `github-ghas-tools`, GitHub's remote MCP server limited to its read-only security toolsets, signed
+  in from Claude Code through `scripts/github-mcp-headers.sh`; and `siderolabs-docs`, Sidero Labs'
+  public documentation search. See the [README](README.md#bundled-mcp-servers).
+- A [stacked pull requests guide](skills/product-engineering/references/stacked-pull-requests.md)
+  for `product-engineering` and PR driving: when a stack pays off, and merging one layer at a time,
+  bottom first, never with `gh stack merge`.
+
+### Upgrading to 6.8.0
+
+If you installed any of the retired plugins, enable `agentic-engineering@devantler-plugins` and
+remove the retired ones. Runtimes that honour the marketplace's `renames` map move the installs for
+you; check afterwards that `agentic-engineering` is enabled wherever the old plugins were.
+
 ## 6.7.2 — 2026-11-02
 
 **Changed** — require each third-party contribution to enable the requested product outcome.

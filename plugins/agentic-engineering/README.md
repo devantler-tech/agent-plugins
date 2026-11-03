@@ -1,9 +1,11 @@
 # `agentic-engineering`
 
-The primary autonomous-engineering plugin for a repository portfolio. It carries the engineer that
-operates and advances the portfolio, the read-only surveyor that gathers current state, and the
-meta-engineer that improves the system from measured evidence. The generic role lives here; each
-consumer supplies its organization-specific configuration through its canonical `AGENTS.md`.
+The primary autonomous-engineering plugin for a repository portfolio, and the one install its agents
+need. It carries the engineer that operates and advances the portfolio, the read-only surveyor that
+gathers current state, and the meta-engineer that improves the system from measured evidence, plus
+the [engineering toolbox](#the-engineering-toolbox) and [MCP servers](#bundled-mcp-servers) those
+agents work with. The generic role lives here; each consumer supplies its organization-specific
+configuration through its canonical `AGENTS.md`.
 
 Released versions and the upgrade steps each breaking release needs are in the
 [changelog](CHANGELOG.md). A plugin's version is its cache key, so an install that never moves off an
@@ -12,7 +14,7 @@ assuming it has a change the changelog lists.
 
 ## What it includes
 
-Three agents:
+Four agents:
 
 - **`agentic-engineer`** — the actor that runs the survey → select → act → report loop, operates
   the portfolio, finishes started work and pulls important Ready work within Kanban capacity, and — after explicit maintainer opt-in and a
@@ -20,6 +22,8 @@ Three agents:
 - **`portfolio-surveyor`** — a delegated, read-only agent that returns a compact current-state digest.
 - **`agent-improver`** — a meta-engineer that evaluates deployed instances and improves their shared
   definition from evidence.
+- **`flux-troubleshooter`** — a delegated, read-only Flux CD triage agent that diagnoses a failing
+  live cluster through the bundled `flux-operator-mcp` server and hands the fix back.
 
 Six core skills:
 
@@ -40,7 +44,7 @@ drift, and dispatch failures that no single run can see.
 The supplemental [`product-documentation`](skills/product-documentation/SKILL.md) skill helps the
 Engineer build and maintain user documentation sites: practical tutorials, task guides, reference,
 explanations and checks of the built and published result. It works with the product's existing
-framework guidance, such as the Astro skill in the frontend-design plugin. The Engineer loads it
+framework guidance, such as the bundled `astro` skill. The Engineer loads it
 when that work applies; it is not part of the three skills preloaded for every run.
 
 ### Matt Pocock's engineering techniques
@@ -87,9 +91,72 @@ validation resolves each imported skill's upstream ref, verifies its recorded tr
 notice with LICENSE from that exact commit. A changed notice or incomplete upstream observation
 refuses the update; a licensing change requires a reviewed curation update.
 
-The license, copyright notice and license text of every third-party skill in this plugin, including
-`find-skills`, are recorded in
-[`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.md).
+### The engineering toolbox
+
+The skills the agents use to do the work itself. The Engineer loads one when its task matches; none
+is preloaded for every run. Most are curated from their upstreams and keep updating from there;
+`conventional-release`, `gitops-tenant-onboarding`, `ways-of-working` and the three `write-*` skills
+are maintained here.
+
+| Area | Skills |
+|---|---|
+| GitHub | `gh-cli`, `github-issues`, `gh-stack` (stacked pull requests), `github-actions-docs`, `github-actions-efficiency` |
+| Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening` |
+| Go | `golang-pro` |
+| Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni), `ksail` |
+| Frontend | `astro`, `frontend-design`, `web-design-guidelines` |
+| Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme` |
+
+`dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI or
+audits a whole repository. The `ksail` skill is licensed under PolyForm Shield 1.0.0 by its upstream,
+[`devantler-tech/ksail`](https://github.com/devantler-tech/ksail).
+
+When the Engineer splits a change into dependent pull requests, the
+[stacked pull requests guide](skills/product-engineering/references/stacked-pull-requests.md) decides
+whether a stack pays off and governs how its layers are reviewed and merged. Where it differs from
+the bundled `gh-stack` skill, it wins.
+
+The license, copyright notice and license text of every third-party skill in this plugin are
+recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.md).
+
+## Bundled MCP servers
+
+| Server | What it connects to | Needs |
+|---|---|---|
+| `flux-operator-mcp` | A live cluster's Flux resources, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary and cluster access |
+| `ksail` | The KSail CLI's cluster and workload operations | `ksail` on `PATH` |
+| `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
+| `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
+
+A local server whose binary is missing reports a failed connection and leaves the rest working.
+`siderolabs-docs` also offers `submit_feedback`, which sends a report to Sidero Labs; it is the only
+tool among these servers that writes anywhere, so deny it in your tool permissions if your agents
+must not contact third parties.
+
+`github-ghas-tools` is GitHub's remote MCP server at `https://api.githubcopilot.com/mcp/`, limited to
+the `code_security`, `secret_protection`, `security_advisories` and `dependabot` toolsets — the server
+definition from GitHub's [Advanced Security plugin](https://github.com/github/copilot-advanced-security-plugin).
+Every tool those toolsets expose is read-only: listing and reading alerts and advisories, and
+`check_dependency_vulnerabilities`, which looks up package versions in the GitHub Advisory Database.
+When an agent uses it, the repository owner and name, and any package names and versions it checks,
+go to GitHub. How it signs in depends on the tool:
+
+- **GitHub Copilot CLI and VS Code** sign in automatically with your Copilot session.
+- **Claude Code** signs in with your GitHub CLI login. The plugin's
+  [`scripts/github-mcp-headers.sh`](scripts/github-mcp-headers.sh) runs as the server's
+  `headersHelper` and sends the token from `gh auth token`, because GitHub's sign-in service does
+  not offer the automatic client registration Claude Code would otherwise use. Run `gh auth login`
+  first. To use a narrower token instead, set `GITHUB_SECURITY_MCP_TOKEN` in the environment Claude
+  Code starts in. If neither is available, Claude Code reports a failed connection for this server;
+  the same alerts and advisories stay reachable through `gh api`.
+- **Other tools** that do not run `headersHelper` need their own `Authorization: Bearer <token>`
+  header for this server.
+
+GitHub's Advanced Security plugin also requests the `run_secret_scanning` tool, which scans file
+contents for secrets before you commit. GitHub's server rejects that request for a GitHub CLI token,
+and asking for it makes the whole connection fail, so this plugin does not request it. The
+`secret-scanning` skill still mentions that tool; it is available only through GitHub's own Advanced
+Security plugin in Copilot.
 
 ## Validation choices
 

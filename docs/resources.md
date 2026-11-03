@@ -33,16 +33,25 @@ armed, or with a schedule pointing at an entrypoint that no longer resolves. The
 ## MCP servers
 
 A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as skills. The
-[`gitops-kubernetes`](../plugins/gitops-kubernetes/) plugin bundles the **Flux MCP server**
-([`flux-operator-mcp`](https://github.com/controlplaneio-fluxcd/flux-operator/tree/main/cmd/mcp))
-so its `gitops-cluster-debug` skill — which `Requires flux-operator-mcp` — can connect to a live cluster once the server binary and cluster access are configured.
+[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles four, authored once in its
+[`.mcp.json`](../plugins/agentic-engineering/.mcp.json) (`mcpServers` map):
 
-The server is authored once as the plugin's [`.mcp.json`](../plugins/gitops-kubernetes/.mcp.json)
-(`mcpServers` map). How each tool consumes it differs (per [ADR 0001](../docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
+| Server | What it connects to | Needs |
+|---|---|---|
+| `flux-operator-mcp` | A live cluster's Flux resources, for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary and cluster access |
+| `ksail` | The KSail CLI's cluster and workload operations | `ksail` on `PATH` |
+| `github-ghas-tools` | GitHub's read-only security tools: alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
+| `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
+
+`siderolabs-docs` also offers a `submit_feedback` tool, which sends a report to Sidero Labs. It is
+the only tool among these four that writes anywhere; deny it in your tool permissions if your
+agents must not contact third parties.
+
+How each tool consumes the file differs (per [ADR 0001](../docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 
 - **Claude Code**, **Copilot CLI**, and **VS Code** — the bundled `.mcp.json` is loaded automatically
-  when the plugin is installed. The server binary must be installed separately and have access to
-  the intended cluster.
+  when the plugin is installed. Local servers' binaries must be installed separately; the Flux
+  server also needs access to the intended cluster.
 
 You only need to write MCP config by hand if you are **not** installing this as a plugin — then add the
 server to your workspace `.vscode/mcp.json` (note the key there is `servers`, not `mcpServers`):
@@ -62,18 +71,17 @@ github.com/controlplaneio-fluxcd/flux-operator/cmd/mcp@latest` (it reads your ku
 [Flux MCP docs](https://fluxcd.control-plane.io/operator/mcp/) for read-only mode and remote
 transport.
 
-The [`github-security`](../plugins/github-security/) plugin bundles a **remote** server instead:
-`github-ghas-tools`, GitHub's MCP server limited to its read-only security toolsets. Nothing needs
-installing. Copilot CLI and VS Code sign in to it with your Copilot session; Claude Code runs the
-plugin's `headersHelper`, which sends your GitHub CLI login token. The
-[plugin README](../plugins/github-security/README.md#the-bundled-mcp-server) covers sign-in for each
-tool and the optional narrower token.
+`github-ghas-tools` is GitHub's remote MCP server limited to its read-only security toolsets, so
+nothing needs installing. Copilot CLI and VS Code sign in to it with your Copilot session; Claude
+Code runs the plugin's `headersHelper`, which sends your GitHub CLI login token. The
+[plugin README](../plugins/agentic-engineering/README.md#bundled-mcp-servers) covers sign-in for
+each tool and the optional narrower token.
 
 ## Custom agents
 
-A plugin may also bundle **custom agents** (subagents). The
-[`gitops-kubernetes`](../plugins/gitops-kubernetes/) plugin bundles
-[`flux-troubleshooter`](../plugins/gitops-kubernetes/agents/flux-troubleshooter.agent.md) — a **read-only**
+A plugin may also bundle **custom agents** (subagents). Besides its engineer, surveyor and improver
+roles, the [`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles
+[`flux-troubleshooter`](../plugins/agentic-engineering/agents/flux-troubleshooter.agent.md) — a **read-only**
 Flux CD triage agent that traces the GitOps dependency chain (source → Kustomization/HelmRelease →
 workloads), reads status conditions and controller logs via the bundled `flux-operator-mcp` server,
 and returns a root-cause diagnosis plus the human-applied fix. It has no apply/reconcile/suspend/
@@ -90,7 +98,7 @@ ignores entries it does not recognise (per
 
 - **Claude Code**, **Copilot CLI**, and **VS Code** — the bundled `agents/` directory is loaded
   automatically when the plugin is installed; in Claude Code the agent is namespaced
-  `gitops-kubernetes:flux-troubleshooter`.
+  `agentic-engineering:flux-troubleshooter`.
 
 As with MCP, hand-placing an agent at `.github/agents/<name>.agent.md` is only for setups that aren't
 installing this as a plugin.

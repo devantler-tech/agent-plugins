@@ -62,6 +62,13 @@ github.com/controlplaneio-fluxcd/flux-operator/cmd/mcp@latest` (it reads your ku
 [Flux MCP docs](https://fluxcd.control-plane.io/operator/mcp/) for read-only mode and remote
 transport.
 
+The [`github-security`](../plugins/github-security/) plugin bundles a **remote** server instead:
+`github-ghas-tools`, GitHub's MCP server limited to its read-only security toolsets. Nothing needs
+installing. Copilot CLI and VS Code sign in to it with your Copilot session; Claude Code runs the
+plugin's `headersHelper`, which sends your GitHub CLI login token. The
+[plugin README](../plugins/github-security/README.md#the-bundled-mcp-server) covers sign-in for each
+tool and the optional narrower token.
+
 ## Custom agents
 
 A plugin may also bundle **custom agents** (subagents). The

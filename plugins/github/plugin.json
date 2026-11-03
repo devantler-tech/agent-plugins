@@ -1,7 +1,7 @@
 {
   "name": "github",
-  "description": "GitHub CLI, stacked PRs, Actions docs, and issue management skills",
-  "version": "1.0.8",
+  "description": "GitHub CLI, Actions docs and efficiency, and issue management skills",
+  "version": "2.0.0",
   "author": {
     "name": "devantler-tech",
     "url": "https://github.com/devantler-tech"
@@ -11,7 +11,6 @@
     "git",
     "gh-cli",
     "pull-requests",
-    "stacked-prs",
     "github-actions",
     "workflows",
     "issues",

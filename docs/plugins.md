@@ -7,7 +7,8 @@ A **skill** teaches an assistant a task. An **agent** gives it a specialized rol
 | Plugin | Resources | Description |
 |--------|-----------|-------------|
 | [`gitops-kubernetes`](../plugins/gitops-kubernetes/) | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding` (skills) · `flux-operator-mcp` (MCP server) · `flux-troubleshooter` (agent) | Flux CD debugging, knowledge, and tenant onboarding — bundles the Flux MCP server and a read-only Flux troubleshooter agent for live-cluster debugging |
-| [`github`](../plugins/github/) | `gh-cli`, `gh-stack`, `github-actions-docs`, `github-issues` | GitHub CLI, stacked PRs, Actions docs, and issue management |
+| [`github`](../plugins/github/) | `gh-cli`, `github-actions-docs`, `github-actions-efficiency`, `github-issues` | GitHub CLI, Actions docs and efficiency, and issue management |
+| [`github-security`](../plugins/github-security/) | `codeql`, `dependabot`, `dependency-scanning`, `github-actions-hardening`, `secret-scanning` (skills) · `github-ghas-tools` (MCP server) | Dependabot and dependency vulnerability checks, secret scanning, CodeQL, and GitHub Actions hardening — bundles GitHub's read-only security MCP tools, signed in through your GitHub CLI login in Claude Code |
 | [`agentic-engineering`](../plugins/agentic-engineering/) | `agent-improvement`, `agent-instructions`, `find-skills`, `grilling`, `portfolio-maintenance`, `product-documentation`, `product-engineering`, `prototype`, `self-improvement` (skills) · `agent-improver`, `agentic-engineer`, `portfolio-surveyor` (agents) | The autonomous engineering system for a whole repository portfolio — engineer, read-only surveyor, and meta-engineer agents, operating and improvement workflows, product documentation, and selected Matt Pocock discovery and prototyping techniques; configured by the consumer's `AGENTS.md` |
 | [`go`](../plugins/go/) | `golang-pro` | Go best practices, concurrency, generics, interfaces, and testing |
 | [`engineering-practices`](../plugins/engineering-practices/) | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme` | Git commits, conventional releases, refactoring, TDD, engineering ways of working, and newcomer-facing documentation |
@@ -45,9 +46,14 @@ license file the plugin ships; keep both when you copy or redistribute those ski
 | `frontend-design` | `frontend-design` | anthropics/skills | Apache-2.0 |
 | `web-design-guidelines` | `frontend-design` | vercel-labs/agent-skills | MIT |
 | `gh-cli` | `github` | github/awesome-copilot | MIT |
-| `gh-stack` | `github` | github/gh-stack | MIT |
 | `github-actions-docs` | `github` | xixu-me/skills | MIT |
+| `github-actions-efficiency` | `github` | github/awesome-copilot | MIT |
 | `github-issues` | `github` | github/awesome-copilot | MIT |
+| `codeql` | `github-security` | github/awesome-copilot | MIT |
+| `dependabot` | `github-security` | github/awesome-copilot | MIT |
+| `dependency-scanning` | `github-security` | github/copilot-advanced-security-plugin | MIT |
+| `github-actions-hardening` | `github-security` | github/awesome-copilot | MIT |
+| `secret-scanning` | `github-security` | github/awesome-copilot | MIT |
 | `gitops-cluster-debug` | `gitops-kubernetes` | fluxcd/agent-skills | Apache-2.0 |
 | `gitops-knowledge` | `gitops-kubernetes` | fluxcd/agent-skills | Apache-2.0 |
 | `gitops-tenant-onboarding` | `gitops-kubernetes` | devantler-tech/agent-plugins | Apache-2.0 |

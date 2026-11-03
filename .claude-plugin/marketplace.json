@@ -20,9 +20,15 @@
     },
     {
       "name": "github",
-      "description": "GitHub CLI, stacked PRs, Actions docs, and issue management skills",
-      "version": "1.0.8",
+      "description": "GitHub CLI, Actions docs and efficiency, and issue management skills",
+      "version": "2.0.0",
       "source": "./plugins/github"
+    },
+    {
+      "name": "github-security",
+      "description": "GitHub security for repositories you maintain — Dependabot and dependency vulnerability checks, secret scanning, CodeQL, and GitHub Actions hardening, with GitHub's read-only security MCP tools",
+      "version": "1.0.0",
+      "source": "./plugins/github-security"
     },
     {
       "name": "agentic-engineering",

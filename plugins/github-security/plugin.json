@@ -1,0 +1,22 @@
+{
+  "name": "github-security",
+  "description": "GitHub security for repositories you maintain — Dependabot and dependency vulnerability checks, secret scanning, CodeQL, and GitHub Actions hardening, with GitHub's read-only security MCP tools",
+  "version": "1.0.0",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "keywords": [
+    "github",
+    "security",
+    "dependabot",
+    "dependencies",
+    "vulnerabilities",
+    "secret-scanning",
+    "codeql",
+    "code-scanning",
+    "github-actions",
+    "supply-chain",
+    "mcp"
+  ]
+}

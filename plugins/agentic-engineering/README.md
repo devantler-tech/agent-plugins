@@ -151,9 +151,12 @@ names and versions it checks, go to GitHub. How it signs in depends on the tool:
   (`gh auth token --hostname github.com`), so run `gh auth login --hostname github.com` first. To
   use a narrower token instead, write it to `github-token` in this plugin's data directory
   (`${CLAUDE_PLUGIN_DATA}`), which for an install from this marketplace is
-  `~/.claude/plugins/data/agentic-engineering-devantler-plugins/github-token`. Once that file exists
-  the helper never falls back to your CLI login: an unreadable, empty or malformed file, a dangling
-  link or an unsearchable directory fails the connection instead. Claude Code runs a plugin's
+  `plugins/data/agentic-engineering-devantler-plugins/github-token` under your Claude configuration
+  directory (`${CLAUDE_CONFIG_DIR:-~/.claude}`). Once that file exists the helper never falls back to
+  your CLI login: an unreadable, empty or malformed file, a dangling link or an unsearchable
+  directory fails the connection instead. The file is found only on a Claude Code version that
+  substitutes `${CLAUDE_PLUGIN_DATA}` in a plugin's `headersHelper` (2.1.317 does); on one that does
+  not, the helper receives no data directory and uses your CLI login. Claude Code runs a plugin's
   helper without any credential-named environment variable, so a token in your environment is never
   used. If no token is available, Claude Code reports a failed connection for this server; the same
   alerts and advisories stay reachable through `gh api`.

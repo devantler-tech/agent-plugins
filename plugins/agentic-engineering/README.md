@@ -132,7 +132,7 @@ The Flux server starts with `--read-only`, so it can read, trace and diff but ne
 reconcile, suspend or resume; hand fixes to your GitOps delivery instead. `flux-operator-mcp`
 refuses to start unless the `KUBECONFIG` environment variable is set, so the plugin starts it
 through `sh`, which sets `KUBECONFIG` to `$HOME/.kube/config` when your environment leaves it
-unset and passes any value you set unchanged. It reads whichever cluster that kubeconfig's current
+unset or empty and passes any non-empty value unchanged. It reads whichever cluster that kubeconfig's current
 context names. `siderolabs-docs` also
 offers `submit_feedback`, which sends a report to Sidero Labs; it is the only tool among these
 servers that writes anywhere, so deny it in your tool permissions if your agents must not contact

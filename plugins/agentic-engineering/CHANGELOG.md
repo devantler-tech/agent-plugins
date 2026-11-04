@@ -6,8 +6,8 @@
 
 - `flux-operator-mcp` refuses to start without a `KUBECONFIG` environment variable, so on a host
   that relies on the default `~/.kube/config` it never connected. The plugin now starts it through
-  `sh`, which sets `KUBECONFIG` to `$HOME/.kube/config` only when it is unset and keeps any value
-  you set, including a list of paths. The server still runs `--read-only`. It needs a POSIX `sh`.
+  `sh`, which sets `KUBECONFIG` to `$HOME/.kube/config` only when it is unset or empty and keeps
+  any non-empty value, including a list of paths. The server still runs `--read-only`. It needs a POSIX `sh`.
 - `flux-troubleshooter` allowlisted the Flux tools only as `mcp__flux-operator-mcp__<tool>`, which
   matches a server you configured by hand, not the one this plugin bundles, which Claude Code names
   `mcp__plugin_agentic-engineering_flux-operator-mcp__<tool>`. It now lists both

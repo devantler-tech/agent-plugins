@@ -23,7 +23,9 @@ The [autonomous engineering setup](plugins/agentic-engineering/README.md) explai
 
 Maintainers can [review plugin use and usefulness](docs/plugin-effectiveness.md) with native
 OpenTelemetry usage exports and skill evaluation results. The read-only scorecard keeps missing
-evidence visible instead of treating an installed plugin as a useful one.
+evidence visible instead of treating an installed plugin as a useful one. The
+[skill coverage record](docs/skill-coverage.md) maps the bundled skills to the portfolio's work and
+records which gaps to fill.
 
 Maintained first-party skills are authored in their plugins here; curated external skills retain their original authors and upstream update paths. To suggest a bundle or report a problem, [open an issue](https://github.com/devantler-tech/agent-plugins/issues). For a safe first repository change, start with [Contributing](CONTRIBUTING.md).
 

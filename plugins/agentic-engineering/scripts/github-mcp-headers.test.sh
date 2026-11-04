@@ -123,4 +123,34 @@ fi
 run 2 "$work/data" extra -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123
 [ ! -s "$work/out" ] || fail "printed output for a usage error"
 
+# 11. The two servers this helper signs in keep their limits. github's exclusions remove the
+#     tools that bypass a consumer's command-line rules; GitHub offers some of them only to some
+#     clients (delete_repository needs MCP 2026-07-28 with elicitation), so a probe cannot stand in
+#     for this list. github-ghas-tools stays read-only on its own URL, which Claude Code needs to
+#     load both servers.
+servers_keep_limits() { # mcp-json
+  jq -e '
+    def excluded: (.mcpServers.github.headers["X-MCP-Exclude-Tools"] // "") | split(",");
+    ["merge_pull_request", "update_pull_request", "pull_request_review_write",
+     "add_comment_to_pending_review", "update_pull_request_branch", "create_repository",
+     "fork_repository", "delete_repository", "push_files", "create_or_update_file",
+     "delete_file", "actions_run_trigger"] - excluded == [] and
+    .mcpServers.github.url == "https://api.githubcopilot.com/mcp/" and
+    .mcpServers["github-ghas-tools"].url == "https://api.githubcopilot.com/mcp/readonly" and
+    .mcpServers["github-ghas-tools"].headers["X-MCP-Readonly"] == "true" and
+    .mcpServers["github-ghas-tools"].headers["X-MCP-Toolsets"] ==
+      "code_security,secret_protection,security_advisories,dependabot" and
+    ([.mcpServers.github.headersHelper, .mcpServers["github-ghas-tools"].headersHelper] |
+      all(. == "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\" \"${CLAUDE_PLUGIN_DATA}\""))
+  ' "$1" > /dev/null
+}
+mcp_json="$here/../.mcp.json"
+servers_keep_limits "$mcp_json" || fail "the bundled GitHub servers lost a limit in .mcp.json"
+jq '.mcpServers.github.headers["X-MCP-Exclude-Tools"] |= (split(",") - ["delete_repository"] | join(","))' \
+  "$mcp_json" > "$work/fewer-exclusions.json"
+if servers_keep_limits "$work/fewer-exclusions.json"; then fail "accepted github without delete_repository excluded"; fi
+jq '.mcpServers["github-ghas-tools"].url = "https://api.githubcopilot.com/mcp/"' \
+  "$mcp_json" > "$work/shared-url.json"
+if servers_keep_limits "$work/shared-url.json"; then fail "accepted github-ghas-tools on github's URL"; fi
+
 printf 'github-mcp-headers: PASS\n'

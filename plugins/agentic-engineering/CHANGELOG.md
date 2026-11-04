@@ -1,5 +1,13 @@
 # Changelog — `agentic-engineering`
 
+## 7.1.1 — 2026-11-04
+
+**Fixed** — the README now says why `github` excludes `delete_repository` although a plain probe
+never lists it: GitHub offers it only to clients that speak MCP protocol 2026-07-28 and declare
+elicitation, as Claude Code 2.1.317 does. A self-test now fails if any excluded tool leaves
+`github`'s list, or if `github-ghas-tools` loses its read-only endpoint, its read-only header or
+its toolsets.
+
 ## 7.1.0 — 2026-11-04
 
 The plugin now carries the agents' wider workspace: design, product management, marketing,

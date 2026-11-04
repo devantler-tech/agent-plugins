@@ -12,7 +12,8 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GUARD="$SCRIPT_DIR/validate-manifests.sh"
-PUBLISHED_RENAMES='{"automated-ai-engineer":"agentic-engineering"}'
+# ADR 0017 folds five category plugins into agentic-engineering; ksail and vibe-coding stay.
+PUBLISHED_RENAMES='{"automated-ai-engineer":"agentic-engineering","github":"agentic-engineering","go":"agentic-engineering","gitops-kubernetes":"agentic-engineering","engineering-practices":"agentic-engineering","frontend-design":"agentic-engineering"}'
 
 pass=0
 fail=0

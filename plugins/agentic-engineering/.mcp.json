@@ -1,10 +1,10 @@
 {
   "mcpServers": {
     "flux-operator-mcp": {
-      "command": "flux-operator-mcp",
+      "command": "sh",
       "args": [
-        "serve",
-        "--read-only"
+        "-c",
+        "[ -n \"$KUBECONFIG\" ] || KUBECONFIG=\"$HOME/.kube/config\"; export KUBECONFIG; exec flux-operator-mcp serve --read-only"
       ]
     },
     "github-ghas-tools": {

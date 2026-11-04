@@ -1,5 +1,13 @@
 {
   "mcpServers": {
+    "aws-knowledge": {
+      "type": "http",
+      "url": "https://knowledge-mcp.global.api.aws"
+    },
+    "cloudflare-docs": {
+      "type": "http",
+      "url": "https://docs.mcp.cloudflare.com/mcp"
+    },
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
@@ -16,7 +24,7 @@
       "url": "https://api.githubcopilot.com/mcp/",
       "headers": {
         "X-MCP-Toolsets": "context,repos,issues,pull_requests,users,actions,labels,projects",
-        "X-MCP-Exclude-Tools": "merge_pull_request,create_repository,fork_repository,push_files,create_or_update_file,delete_file,update_pull_request_branch,update_pull_request,pull_request_review_write,add_comment_to_pending_review,actions_run_trigger"
+        "X-MCP-Exclude-Tools": "merge_pull_request,create_repository,fork_repository,push_files,create_or_update_file,delete_file,update_pull_request_branch,update_pull_request,pull_request_review_write,add_comment_to_pending_review,actions_run_trigger,delete_repository"
       },
       "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\" \"${CLAUDE_PLUGIN_DATA}\""
     },
@@ -29,6 +37,13 @@
       },
       "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\" \"${CLAUDE_PLUGIN_DATA}\""
     },
+    "kubescape": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "[ -n \"$KUBECONFIG\" ] || { [ -n \"$HOME\" ] || { echo 'kubescape: set KUBECONFIG or HOME' >&2; exit 1; }; KUBECONFIG=\"$HOME/.kube/config\"; }; export KUBECONFIG; exec kubescape mcpserver"
+      ]
+    },
     "siderolabs-docs": {
       "type": "http",
       "url": "https://docs.siderolabs.com/mcp"
@@ -40,6 +55,14 @@
     "svelte": {
       "type": "http",
       "url": "https://mcp.svelte.dev/mcp"
+    },
+    "terraform-registry": {
+      "command": "terraform-mcp-server",
+      "args": [
+        "stdio",
+        "--toolsets",
+        "registry"
+      ]
     }
   }
 }

@@ -16,7 +16,7 @@ git -C "$work/base" config user.name Fixture
 git -C "$work/base" config user.email fixture@example.invalid
 git -C "$work/base" remote add origin https://github.com/devantler-tech/agent-plugins.git
 paths=(.claude-plugin/marketplace.json .github/plugin/marketplace.json
-  "$plugin/plugin.json" "$plugin/.claude-plugin/plugin.json"
+  "$plugin/plugin.json" "$plugin/.claude-plugin/plugin.json" "$plugin/.codex-plugin/plugin.json"
   "$plugin/resources/provider-neutral.desired-state.json" "$plugin/CHANGELOG.md")
 for path in "${paths[@]}"; do
   mkdir -p "$work/base/$(dirname "$path")"
@@ -153,7 +153,7 @@ publish
 [ "$(git -C "$FIXTURE" write-tree)" = "$before_tree" ]
 git -C "$FIXTURE" diff >"$STATE/unstaged-after"
 cmp "$STATE/unstaged-before" "$STATE/unstaged-after"
-jq -e '.variables.input.fileChanges.additions|length==6 and all(.[];.path!="unrelated")' "$STATE/request" >/dev/null
+jq -e '.variables.input.fileChanges.additions|length==7 and all(.[];.path!="unrelated")' "$STATE/request" >/dev/null
 printf 'PASS: one signed request reproduces every staged byte and preserves the caller\n'
 
 # A changelog can outgrow Linux's per-argument limit and macOS's total argument budget.

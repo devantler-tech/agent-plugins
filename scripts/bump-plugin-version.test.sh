@@ -58,6 +58,9 @@ versions_of() {
   local root="$1" name="$2"
   jq -r '.version' "$root/plugins/$name/plugin.json"
   jq -r '.version' "$root/plugins/$name/.claude-plugin/plugin.json"
+  if [ -f "$root/plugins/$name/.codex-plugin/plugin.json" ]; then
+    jq -r '.version' "$root/plugins/$name/.codex-plugin/plugin.json"
+  fi
   jq -r --arg n "$name" '.plugins[]|select(.name==$n)|.version' "$root/.claude-plugin/marketplace.json"
   jq -r --arg n "$name" '.plugins[]|select(.name==$n)|.version' "$root/.github/plugin/marketplace.json"
 }
@@ -229,6 +232,34 @@ if [ "$rc" -ne 0 ] && [ -z "$(git -C "$d" status --porcelain --untracked-files=a
   ok "a bad later plugin prevents every manifest write"
 else ko "a bad later plugin prevents every manifest write (rc=$rc)"; fi
 
+
+# --- a Codex manifest, when a plugin ships one, moves in step and guards the same way ---
+with_codex() {
+  local root=$1
+  mkdir -p "$root/plugins/alpha/.codex-plugin"
+  jq '. + {skills: "./skills/"}' "$root/plugins/alpha/plugin.json" > "$root/plugins/alpha/.codex-plugin/plugin.json"
+}
+d=$(fresh); with_codex "$d"; (cd "$d" && "$BUMP" alpha minor >/dev/null)
+expect_all "a Codex manifest is bumped with the other four" "$d" alpha "1.3.0"
+if jq -e '.skills == "./skills/"' "$d/plugins/alpha/.codex-plugin/plugin.json" >/dev/null; then
+  ok "the Codex manifest keeps its own fields"
+else ko "the Codex manifest keeps its own fields"; fi
+
+d=$(fresh); with_codex "$d"
+jq '.version = "9.9.9"' "$d/plugins/alpha/.codex-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.codex-plugin/plugin.json"
+find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec cksum {} + | sort > "$WORK/before"
+(cd "$d" && "$BUMP" alpha patch > "$WORK/out" 2>&1); rc=$?
+find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec cksum {} + | sort > "$WORK/after"
+if [ "$rc" -ne 0 ] && cmp -s "$WORK/before" "$WORK/after"; then
+  ok "Codex manifest version drift is refused before any write"
+else ko "Codex manifest version drift is refused before any write (rc=$rc)"; fi
+
+d=$(fresh); mkdir -p "$WORK/elsewhere-$$"; ln -s "$WORK/elsewhere-$$" "$d/plugins/alpha/.codex-plugin"
+jq . "$d/plugins/alpha/plugin.json" > "$WORK/elsewhere-$$/plugin.json"
+(cd "$d" && "$BUMP" alpha patch > "$WORK/out" 2>&1); rc=$?
+if [ "$rc" -ne 0 ] && [ "$(jq -r .version "$d/plugins/alpha/plugin.json")" = 1.2.3 ]; then
+  ok "a symlinked Codex manifest folder is refused"
+else ko "a symlinked Codex manifest folder is refused (rc=$rc)"; fi
 echo "-----------------------------------------"
 echo "bump-plugin-version.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

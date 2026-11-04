@@ -1,5 +1,83 @@
 # Changelog — `agentic-engineering`
 
+## 7.1.0 — 2026-11-04
+
+The plugin now carries the agents' wider workspace: design, product management, marketing,
+finance and productivity skills beside the engineering ones, servers for more of the platform's
+services, and the official mail, calendar, LinkedIn and Codex Security connections, offered by a
+new Codex manifest and named by a new skill wherever a plugin cannot switch them on.
+
+**Added — skills**
+
+- 43 skills from `https://github.com/anthropics/knowledge-work-plugins` at `refs/heads/main`:
+  - Engineering: `architecture`, `debug`, `deploy-checklist`, `documentation`,
+    `incident-response`, `standup`, `system-design`, `tech-debt` and `testing-strategy`.
+  - Design: `accessibility-review`, `design-critique`, `design-handoff`, `design-system`,
+    `research-synthesis`, `user-research` and `ux-copy`.
+  - Product Management: `competitive-brief`, `metrics-review`, `product-brainstorming`,
+    `roadmap-update`, `sprint-planning`, `stakeholder-update`, `synthesize-research` and
+    `write-spec`.
+  - Marketing: `brand-review`, `campaign-plan`, `content-creation`, `draft-content`,
+    `email-sequence`, `performance-report` and `seo-audit`.
+  - Finance: `audit-support`, `close-management`, `financial-statements`, `journal-entry`,
+    `journal-entry-prep`, `reconciliation`, `sox-testing` and `variance-analysis`.
+  - Productivity: `memory-management`, `start`, `task-management` and `update`.
+- `check-skills` from `https://github.com/openai/codex-security` at `refs/tags/npm-v0.8.3`: a
+  read-only safety review of a skill before it is installed.
+- `workspace-conventions`, maintained here: the productivity skills keep their state in
+  `CLAUDE.md`, `memory/`, `TASKS.md` and `dashboard.html`; this sends it to `AGENTS.md`, the
+  agent's native memory and the project's issue tracker instead.
+- `connector-setup`, maintained here: which official connector to ask for when a task needs mail,
+  calendar, LinkedIn or a Codex Security cloud scan, how to request it in Claude and in Codex, and
+  never to work around a missing one.
+
+Not bundled: those plugins' connectors (Asana, Atlassian, Linear, Notion, Slack, Figma, HubSpot,
+Snowflake and others), the Productivity dashboard template, Anthropic's Engineering `code-review`
+(CodeRabbit's `code-review` has the name) and Marketing's `competitive-brief` (Product
+Management's has the name), and Codex Security's other skills, which need that plugin's own server.
+
+**Added — MCP servers** for the platform's services:
+
+- `kubescape`: the Kubescape CLI's own read-only server (`kubescape mcpserver`), for the results
+  the in-cluster operator stores, started through the same `KUBECONFIG` wrapper as the Flux server.
+  It needs the `kubescape` CLI, and it downloads Kubescape's released policy bundle from GitHub at
+  start.
+- `terraform-registry`: HashiCorp's `terraform-mcp-server` with only its `registry` toolset, for
+  public provider and module documentation. It needs the `terraform-mcp-server` binary.
+- `cloudflare-docs` and `aws-knowledge`: Cloudflare's and AWS's hosted documentation servers,
+  read-only and needing no account.
+
+Not bundled: FleetDM's `fleet-gitops` skill, whose helper is a Python script; FleetDM is disabled
+on the platform. Coroot's MCP endpoint waits for a read-only service account the auth proxy lets
+through. Cilium, Kyverno, Crossplane, CloudNativePG, OpenBao, Hetzner and the smaller services have
+no official or maintained read-only resource yet.
+
+**Added — Codex manifest.** `.codex-plugin/plugin.json` repeats the portable manifest and adds an
+`.app.json` offering iCloud Mail, iCloud Calendar, LinkedIn and Codex Security Cloud as optional
+apps, so Codex lists them with the plugin. Each still needs the user's own sign-in.
+
+**Added — `CONNECTORS.md`**, which maps the `~~category` placeholders in Anthropic's skills to what
+this plugin provides.
+
+**Changed**
+
+- The marketplace's skill-spec check accepts the `argument-hint` and `user-invocable` frontmatter
+  fields Claude Code and VS Code read, which many of the new skills use, and still rejects every
+  other field the Agent Skills specification does not define. CI also reads each skill and its
+  spec view with `skills-ref read-properties` and fails unless they match.
+- `github` also excludes `delete_repository`. A Claude Code session on 7.0.0 received it although
+  direct probes of the same toolsets did not, so 7.0.0 exposed it there.
+- `validate-manifests.sh` checks a Codex manifest and its app list, and `bump-plugin-version.sh`
+  moves a Codex manifest's version with the other four manifests. The daily skill sync stages and
+  publishes it too.
+
+### Upgrading to 7.1.0
+
+Nothing is required. Install `kubescape` and `terraform-mcp-server` (for example with Homebrew)
+where the agents should use those servers; until then each reports a failed connection. To give
+the agents mail, calendar or LinkedIn, connect the official connector `connector-setup` names: in
+Claude through claude.ai's connector settings, and in Codex from the apps the plugin now offers.
+
 ## 7.0.0 — 2026-11-04
 
 SvelteKit replaces Astro as the frontend stack the agents are equipped for, and the plugin now

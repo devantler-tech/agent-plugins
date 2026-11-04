@@ -27,6 +27,18 @@ attempts and 5/10-second backoff. A persistent installation failure blocks the j
 runs once after installation and remains required. `scripts/install-skills-ref.test.sh` exercises
 recovery and failure offline in `lint-scripts`.
 
+The validator judges each skill through `scripts/skill-spec-view.sh`, which copies the skill and
+drops exactly two top-level frontmatter fields the spec does not define, `argument-hint` and
+`user-invocable`. Claude Code and VS Code both read them, and Anthropic's own skills use them. The
+maintainer chose to accept those two on 2026-11-04 so such skills can be bundled unmodified. Every
+other field, and every other spec rule, is still checked. The view refuses to strip a field it
+cannot remove whole: a block, empty, flow, anchored or tagged value, a quote that does not close
+on its line, a continuation line, even after a blank or comment line, or a repeat. CI then reads
+both the skill and its view with `skills-ref read-properties` and fails unless they match, so the
+view can never hand the validator frontmatter the skill does not have.
+`scripts/skill-spec-view.test.sh` covers the view, and
+`scripts/ci-skill-validation-workflow.test.sh` keeps the CI job on both checks.
+
 ```bash
 # Install the pinned parser for changelog checks and the offline regression suite (Node.js 22+).
 npm ci --ignore-scripts --no-audit --no-fund
@@ -95,11 +107,18 @@ bash scripts/check-instruction-size.test.sh
 # 2. Validate each bundled skill against the agentskills.io spec (the consolidated CI check). Pin to the
 #    SAME agentskills commit CI uses (AGENTSKILLS_REF in .github/workflows/ci.yaml) so local matches CI.
 AGENTSKILLS_REF=8d8fcbc69e0c42e05922c2ffc287a3bbdef7b0a3 bash scripts/install-skills-ref.sh
+views=$(mktemp -d)
 find plugins -mindepth 4 -maxdepth 4 -name SKILL.md -exec sh -c '
+  views=$1; shift
   for skill_file do
-    skills-ref validate "${skill_file%/SKILL.md}" || exit
+    skill=${skill_file%/SKILL.md}
+    view=$(bash scripts/skill-spec-view.sh "$skill" "$views/$(printf %s "$skill" | tr / _)") || exit
+    skills-ref read-properties "$skill" > "$views/original.json" || exit
+    skills-ref read-properties "$view" > "$views/view.json" || exit
+    cmp -s "$views/original.json" "$views/view.json" || { echo "view differs: $skill"; exit 1; }
+    skills-ref validate "$view" || exit
   done
-' sh {} +
+' sh "$views" {} +
 
 # 3. (local only) Lint changed workflows.
 actionlint

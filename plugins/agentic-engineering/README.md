@@ -102,13 +102,19 @@ are maintained here.
 |---|---|
 | GitHub | `gh-cli`, `github-issues`, `gh-stack` (stacked pull requests), `github-actions-docs`, `github-actions-efficiency` |
 | Code review (CodeRabbit) | `code-review` (a local review with the CodeRabbit CLI), `autofix` (work through CodeRabbit's review threads on a pull request) |
-| Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening` |
+| Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening`, `check-skills` (review a skill before installing it) |
 | Library documentation | `context7-mcp` (current documentation for any library or framework, through the `context7` server) |
 | Go | `golang-pro` |
 | Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni) |
 | Frontend (SvelteKit) | `svelte-core-bestpractices`, `frontend-design`, `web-design-guidelines` |
 | Payments (Stripe) | `stripe-best-practices`, `stripe-docs`, `upgrade-stripe` |
-| Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme` |
+| Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme`, `architecture`, `debug`, `deploy-checklist`, `documentation`, `incident-response`, `standup`, `system-design`, `tech-debt`, `testing-strategy` |
+| Design | `accessibility-review`, `design-critique`, `design-handoff`, `design-system`, `research-synthesis`, `user-research`, `ux-copy` |
+| Product management | `competitive-brief`, `metrics-review`, `product-brainstorming`, `roadmap-update`, `sprint-planning`, `stakeholder-update`, `synthesize-research`, `write-spec` |
+| Marketing | `brand-review`, `campaign-plan`, `content-creation`, `draft-content`, `email-sequence`, `performance-report`, `seo-audit` |
+| Finance | `audit-support`, `close-management`, `financial-statements`, `journal-entry`, `journal-entry-prep`, `reconciliation`, `sox-testing`, `variance-analysis` |
+| Productivity | `memory-management`, `start`, `task-management`, `update`, `workspace-conventions` (where their notes and tasks go) |
+| Connectors | `connector-setup` (which official mail, calendar, LinkedIn or security connector to ask for) |
 
 `dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI or
 audits a whole repository. KSail has its own [`ksail`](../ksail/) plugin, made for KSail's users;
@@ -129,6 +135,36 @@ skills or its plugin's hooks; install [Stripe's plugin](https://docs.stripe.com/
 those. Context7's `find-docs` and `context7-cli` skills are not bundled because they run the
 `ctx7` CLI through `npx`; `context7-mcp` does the same lookups through the bundled server.
 
+The design, product-management, marketing, finance and productivity skills, and the
+`architecture` to `testing-strategy` engineering skills, come from the Engineering, Design,
+Product Management, Marketing, Finance and Productivity plugins in
+[`anthropics/knowledge-work-plugins`](https://github.com/anthropics/knowledge-work-plugins). Their
+connectors (Asana, Atlassian, Linear, Notion, Slack, Figma, HubSpot, Snowflake and others) are not
+bundled. The skills name them as `~~category` placeholders, such as `~~project tracker`, and work
+with whichever server in that category the session has, or without one. Anthropic's Engineering
+`code-review` skill is not bundled because CodeRabbit's `code-review` has the same name, and
+Marketing's `competitive-brief` is not bundled because Product Management's has the same name. The
+four productivity skills keep their state in `CLAUDE.md`, a `memory/` folder, `TASKS.md` and a
+`dashboard.html` viewer. `workspace-conventions` sends that state to `AGENTS.md`, the agent's
+native memory and the project's issue tracker instead, and the dashboard template is not bundled.
+The finance skills prepare accounting work such as journal entries and reconciliations; they move
+no money and give no investment advice. OpenAI's `check-skills` is the one skill from
+[Codex Security](https://github.com/openai/codex-security) that works outside that plugin: its
+other skills need the plugin's own server and files.
+
+Many of these skills use the `argument-hint` and `user-invocable` frontmatter fields, which
+Claude Code and VS Code read but the Agent Skills specification does not define. This marketplace's spec check accepts
+exactly those two fields and still rejects every other unknown field; see
+[Validation](../../docs/validation.md).
+
+Mail, calendar, LinkedIn and Codex Security's cloud scans come from the providers' own connectors,
+which a plugin cannot switch on: each needs the user's sign-in. In Codex, this plugin's
+[`.codex-plugin/plugin.json`](.codex-plugin/plugin.json) offers iCloud Mail, iCloud Calendar,
+LinkedIn and Codex Security Cloud as optional apps through its [`.app.json`](.app.json), so Codex
+lists them with the plugin. Claude Code has no such field, so there `connector-setup` tells the
+agents which connector to ask for, through the connector directory, and to say so when none
+exists, as for iCloud in Claude today.
+
 When the Engineer splits a change into dependent pull requests, the
 [stacked pull requests guide](skills/product-engineering/references/stacked-pull-requests.md) decides
 whether a stack pays off and governs how its layers are reviewed and merged. Where it differs from
@@ -141,17 +177,36 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 
 | Server | What it connects to | Needs |
 |---|---|---|
+| `aws-knowledge` | AWS's hosted knowledge server: AWS documentation, regional availability and AWS's own guidance, read-only | Nothing; it works without an AWS account |
+| `cloudflare-docs` | Cloudflare's hosted documentation search: DNS, certificates, R2 and the rest of Cloudflare, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
-| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, file writes and workflow runs are excluded | A GitHub sign-in, below |
+| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
+| `kubescape` | A live cluster's Kubescape results, read-only: vulnerabilities, configuration scans, SBOMs, network and RBAC exposure | The [`kubescape`](https://kubescape.io/docs/install-cli/) CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server: Stripe documentation, reads and writes on your Stripe account, analytics, and money movement | A Stripe sign-in, below |
 | `svelte` | The Svelte team's hosted server: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
+| `terraform-registry` | HashiCorp's Terraform server limited to its `registry` toolset: provider and module documentation from the public Terraform Registry, read-only | The [`terraform-mcp-server`](https://github.com/hashicorp/terraform-mcp-server) binary |
 
-Every server but `flux-operator-mcp` is hosted by a third party, so every call to one, including a
-documentation search, reaches that service. If your agents must not contact a third party, disable
-its server in your tool's MCP settings; denying single tools does not stop the connection.
+`flux-operator-mcp` talks only to your clusters. `kubescape` also downloads Kubescape's released
+policy bundle from GitHub each time it starts, falling back to a local cache, and
+`terraform-registry` runs locally but looks providers and modules up in the public Terraform
+Registry. Every other server is
+hosted by a third party, so every call to one, including a documentation search, reaches that
+service. If your agents must not contact a third party, disable its server in your tool's MCP
+settings; denying single tools does not stop the connection.
+
+`kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through the same `sh` wrapper as
+the Flux server, so it reads every cluster in your kubeconfig the same way. Its tools read the
+cluster and the results the in-cluster Kubescape operator stores. Its only write-shaped calls are
+server-side dry-run patches, which change nothing; its remediation tool never applies a fix, and
+its admission-policy tool only drafts YAML. Its stored results exist only on a cluster that runs
+the Kubescape operator. `terraform-registry` needs no token in
+the `registry` toolset; the plugin leaves HashiCorp's HCP Terraform and Terraform Enterprise
+toolsets off. `cloudflare-docs` and `aws-knowledge` only search documentation. Install the two
+local binaries with, for example, `brew install kubescape terraform-mcp-server`; until then each
+reports a failed connection.
 
 `svelte` is the Svelte team's official MCP server at `https://mcp.svelte.dev/mcp`, from
 [`sveltejs/ai-tools`](https://github.com/sveltejs/ai-tools). The plugin uses the hosted server rather
@@ -210,10 +265,13 @@ only the first of two plugin servers with the same URL, whatever their headers.
 toolsets instead: `context`, `repos`, `issues`, `pull_requests`, `users`, `actions`, `labels` and
 `projects`, the tools the bundled `github-issues` skill uses. Its `X-MCP-Exclude-Tools` header
 removes the tools that merge, edit or promote a pull request, write or resolve reviews, update a
-pull request branch, create or fork repositories, write files and run workflows:
+pull request branch, create, fork or delete repositories, write files and run workflows:
 `merge_pull_request`, `update_pull_request`, `pull_request_review_write`,
 `add_comment_to_pending_review`, `update_pull_request_branch`, `create_repository`,
-`fork_repository`, `push_files`, `create_or_update_file`, `delete_file` and `actions_run_trigger`.
+`fork_repository`, `delete_repository`, `push_files`, `create_or_update_file`, `delete_file` and
+`actions_run_trigger`. GitHub does not offer every tool to every connection: a Claude Code
+session received `delete_repository` although direct probes of the same toolsets did not, so the
+list names it anyway.
 Do those through `gh` and git, where a consumer's merge, readiness, review, signing and repository
 rules apply. What stays can still write as the signed-in account: issues and sub-issues (including
 closing them), labels (including deleting them), comments and replies, branches, new pull requests

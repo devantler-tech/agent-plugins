@@ -81,7 +81,7 @@ while IFS=$'\t' read -r status path extra || [ -n "${status}${path}${extra}" ]; 
     fail 'metadata changes must be regular-file additions or modifications'
   fi
   case "$path" in
-  .claude-plugin/marketplace.json | .github/plugin/marketplace.json | "plugins/$plugin/plugin.json" | "plugins/$plugin/.claude-plugin/plugin.json" | "plugins/$plugin/CHANGELOG.md") ;;
+  .claude-plugin/marketplace.json | .github/plugin/marketplace.json | "plugins/$plugin/plugin.json" | "plugins/$plugin/.claude-plugin/plugin.json" | "plugins/$plugin/.codex-plugin/plugin.json" | "plugins/$plugin/CHANGELOG.md") ;;
   "plugins/$plugin/resources/"*)
     resource=${path#"plugins/$plugin/resources/"}
     [[ "$resource" =~ ^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.desired-state\.json$ ]] || fail 'unexpected resource path'

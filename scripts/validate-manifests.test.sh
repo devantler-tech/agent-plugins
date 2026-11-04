@@ -2288,6 +2288,80 @@ for owner in null malformed nested duplicate-owner duplicate-metadata unclosed; 
   check_fail "skill $owner provenance is refused" 'missing upstream provenance' "$d"
 done
 
+# --- optional Codex manifest and the apps it offers ---
+# Codex reads .codex-plugin/plugin.json before .claude-plugin/plugin.json, so a Codex manifest must
+# repeat the portable manifest exactly, add only Codex's component paths and listing, and offer
+# only optional apps.
+codex_fixture() {
+  local d p
+  d=$(fresh); p=$d/plugins/alpha
+  mkdir -p "$p/.codex-plugin"
+  jq '. + {skills: "./skills/", apps: "./.app.json", interface: {displayName: "Alpha"}}' \
+    "$p/plugin.json" > "$p/.codex-plugin/plugin.json"
+  printf '%s\n' '{"apps":{"mail":{"id":"connector_abc123","required":false},"people":{"id":"asdk_app_def456","required":false}}}' \
+    > "$p/.app.json"
+  printf '%s' "$d"
+}
+codex_edit() { # dir jq-filter file-relative-to-alpha
+  jq "$2" "$1/plugins/alpha/$3" > "$1/tmp" && mv "$1/tmp" "$1/plugins/alpha/$3"
+}
+
+check_pass "a Codex manifest offering optional apps passes" "$(codex_fixture)"
+
+d=$(codex_fixture); codex_edit "$d" '.version = "9.9.9"' .codex-plugin/plugin.json
+check_fail "Codex manifest version drift fails" \
+  "plugins/alpha/.codex-plugin/plugin.json differs from plugins/alpha/plugin.json" "$d"
+
+d=$(codex_fixture); codex_edit "$d" '.hooks = "./hooks.json"' .codex-plugin/plugin.json
+check_fail "a Codex manifest field beyond its component paths fails" \
+  "plugins/alpha/.codex-plugin/plugin.json differs from plugins/alpha/plugin.json" "$d"
+
+d=$(codex_fixture); codex_edit "$d" 'del(.skills)' .codex-plugin/plugin.json
+check_fail "a Codex manifest that hides the bundled skills fails" \
+  "plugins/alpha/.codex-plugin/plugin.json: 'skills' must be \"./skills/\"" "$d"
+
+d=$(codex_fixture); codex_edit "$d" '.mcpServers = "./.mcp.json"' .codex-plugin/plugin.json
+check_fail "a Codex manifest naming an MCP file the plugin lacks fails" \
+  "plugins/alpha/.codex-plugin/plugin.json: 'mcpServers' must be omitted" "$d"
+
+d=$(codex_fixture); codex_edit "$d" '.apps = "./apps.json"' .codex-plugin/plugin.json
+check_fail "a Codex manifest pointing apps elsewhere fails" \
+  "plugins/alpha/.codex-plugin/plugin.json: 'apps' must be \"./.app.json\"" "$d"
+
+d=$(codex_fixture); codex_edit "$d" '.interface = "Alpha"' .codex-plugin/plugin.json
+check_fail "a non-object Codex interface fails" \
+  "plugins/alpha/.codex-plugin/plugin.json: 'interface' must be an object" "$d"
+
+d=$(codex_fixture); codex_edit "$d" '.apps.mail.required = true' .app.json
+check_fail "an app that installing the plugin would require fails" \
+  "plugins/alpha/.app.json: every app needs" "$d"
+
+d=$(codex_fixture); codex_edit "$d" '.apps.mail.id = "https://example.com/mcp"' .app.json
+check_fail "an app id that is not a Codex connector or app id fails" \
+  "plugins/alpha/.app.json: every app needs" "$d"
+
+d=$(codex_fixture); codex_edit "$d" '.apps.people.id = .apps.mail.id' .app.json
+check_fail "two app names for one connector fail" "plugins/alpha/.app.json: every app needs" "$d"
+
+d=$(codex_fixture); codex_edit "$d" '.apps = {}' .app.json
+check_fail "an empty app list fails" "plugins/alpha/.app.json: every app needs" "$d"
+
+d=$(codex_fixture); codex_edit "$d" 'del(.apps)' .codex-plugin/plugin.json
+check_fail "an app file no Codex manifest declares fails" \
+  "plugins/alpha/.app.json: Codex apps must be declared" "$d"
+
+d=$(codex_fixture); rm -r "$d/plugins/alpha/.codex-plugin"
+check_fail "an app file without a Codex manifest fails" \
+  "plugins/alpha/.app.json: Codex apps must be declared" "$d"
+
+d=$(codex_fixture); mv "$d/plugins/alpha/.codex-plugin/plugin.json" "$d/codex.json"
+ln -s ../../../codex.json "$d/plugins/alpha/.codex-plugin/plugin.json"
+check_fail "a symlinked Codex manifest fails" \
+  "plugins/alpha/.codex-plugin/plugin.json: the Codex manifest must be a regular packaged file" "$d"
+
+d=$(codex_fixture); printf '%s\n' '{"name":"alpha","name":"other"}' > "$d/plugins/alpha/.codex-plugin/plugin.json"
+check_fail "an ambiguous Codex manifest fails" "Invalid plugins/alpha/.codex-plugin/plugin.json" "$d"
+
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

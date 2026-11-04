@@ -422,6 +422,70 @@ validate_component_paths() {
   done
 }
 
+# An optional Codex manifest (ADR 0019). Codex reads .codex-plugin/plugin.json before
+# .claude-plugin/plugin.json and resolves only the component paths it declares, so it must repeat
+# the portable manifest exactly, name the plugin's own skills/ and .mcp.json, and add nothing else
+# but an app list and a listing interface. Every app it offers is optional: installing the plugin
+# must never require a connector the user has not chosen.
+validate_codex_manifest() {
+  local pj="$1" plugin_dir="$2" codex_pj="$2/.codex-plugin/plugin.json" apps="$2/.app.json"
+  local portable_json codex_json ok=1
+  if [ ! -e "$codex_pj" ] && [ ! -L "$codex_pj" ]; then
+    if [ -e "$apps" ] || [ -L "$apps" ]; then
+      echo "::error::$apps: Codex apps must be declared by $codex_pj"; return 1
+    fi
+    return 0
+  fi
+  if ! regular_packaged_file "$codex_pj"; then
+    echo "::error::$codex_pj: the Codex manifest must be a regular packaged file"; return 1
+  fi
+  if ! json_object_unique "$codex_pj"; then echo "::error::Invalid $codex_pj"; return 1; fi
+  if ! portable_json=$(jq -S . "$pj") ||
+     ! codex_json=$(jq -S 'del(.skills, .mcpServers, .apps, .interface)' "$codex_pj"); then
+    echo "::error::Could not normalize $codex_pj"; return 1
+  fi
+  if [ "$portable_json" != "$codex_json" ]; then
+    echo "::error::$codex_pj differs from $pj beyond Codex's skills, mcpServers, apps and interface"
+    ok=0
+  fi
+  if [ -e "$plugin_dir/skills" ] || [ -L "$plugin_dir/skills" ]; then
+    jq -e '.skills == "./skills/"' "$codex_pj" > /dev/null ||
+      { echo "::error::$codex_pj: 'skills' must be \"./skills/\" so Codex loads the bundled skills"; ok=0; }
+  elif ! jq -e 'has("skills") | not' "$codex_pj" > /dev/null; then
+    echo "::error::$codex_pj: 'skills' must be omitted when the plugin has no skills/"; ok=0
+  fi
+  if [ -e "$plugin_dir/.mcp.json" ] || [ -L "$plugin_dir/.mcp.json" ]; then
+    jq -e '.mcpServers == "./.mcp.json"' "$codex_pj" > /dev/null ||
+      { echo "::error::$codex_pj: 'mcpServers' must be \"./.mcp.json\" so Codex loads the bundled servers"; ok=0; }
+  elif ! jq -e 'has("mcpServers") | not' "$codex_pj" > /dev/null; then
+    echo "::error::$codex_pj: 'mcpServers' must be omitted when the plugin has no .mcp.json"; ok=0
+  fi
+  if ! jq -e '(has("interface") | not) or (.interface | type == "object")' "$codex_pj" > /dev/null; then
+    echo "::error::$codex_pj: 'interface' must be an object"; ok=0
+  fi
+  if jq -e 'has("apps")' "$codex_pj" > /dev/null; then
+    if ! jq -e '.apps == "./.app.json"' "$codex_pj" > /dev/null; then
+      echo "::error::$codex_pj: 'apps' must be \"./.app.json\""; ok=0
+    elif ! regular_packaged_file "$apps"; then
+      echo "::error::$apps: the Codex app list must be a regular packaged file"; ok=0
+    elif ! json_object_unique "$apps" || ! jq -e '
+        (keys == ["apps"]) and (.apps | type == "object" and length > 0) and
+        ([.apps[] | .id] | length == (unique | length)) and
+        all(.apps | to_entries[];
+          (.key | test("\\A[a-z0-9]+(-[a-z0-9]+)*\\z")) and
+          (.value | type == "object") and
+          ((.value | keys) - ["id", "required", "category", "capabilities"] | length == 0) and
+          (.value.id | type == "string" and test("\\A(connector|asdk_app)_[A-Za-z0-9_]+\\z")) and
+          (.value.required == false))' "$apps" > /dev/null; then
+      echo "::error::$apps: every app needs a kebab-case name, its own connector_ or asdk_app_ id and \"required\": false"
+      ok=0
+    fi
+  elif [ -e "$apps" ] || [ -L "$apps" ]; then
+    echo "::error::$apps: Codex apps must be declared by $codex_pj"; ok=0
+  fi
+  [ "$ok" -eq 1 ]
+}
+
 # 4. Every plugins/<name>/plugin.json is complete and well-shaped, has an equivalent
 #    .claude-plugin/plugin.json for strict Claude marketplace ingestion, and declares
 #    at least one recognized resource (skills/, a bundled .mcp.json, or agents/) —
@@ -465,6 +529,7 @@ validate_plugin_json() {
     elif ! validate_json_parity "$pj" "$claude_pj" "$claude_pj differs from $pj"; then
       ok=0
     fi
+    if ! validate_codex_manifest "$pj" "$plugin_dir"; then ok=0; fi
     # This marketplace's portable component-path contract requires arrays when
     # skills/agents are declared. Omission retains default directory discovery.
     # This is a packaging policy; individual consumers may support other forms.

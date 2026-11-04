@@ -138,6 +138,9 @@ jobs:
       - name: 🧪 Guard consolidated skill-spec validation
         run: bash scripts/ci-skill-validation-workflow.test.sh
 
+      - name: 🧪 Self-test the skill spec view
+        run: bash scripts/skill-spec-view.test.sh
+
       - name: 🧪 Guard complete script-test sharding
         run: bash scripts/ci-script-test-sharding-workflow.test.sh
 
@@ -531,8 +534,21 @@ jobs:
           fi
 
           printf 'Validating %s skill(s).\n' "${#skills[@]}"
-          for skill in "${skills[@]}"; do
-            echo "::group::Validate $skill"
+          # Each skill is judged through a copy without the `argument-hint` and `user-invocable`
+          # fields Claude Code and VS Code read, which the spec does not define; every other field is still
+          # checked (scripts/skill-spec-view.sh, maintainer decision 2026-11-04).
+          views="$RUNNER_TEMP/skill-spec-views"
+          for skill_path in "${skills[@]}"; do
+            echo "::group::Validate $skill_path"
+            skill=$(bash scripts/skill-spec-view.sh "$skill_path" "$views/${skill_path//\//_}")
+            # The view must read as exactly the skill's own properties, so dropping the two
+            # fields can never hand the validator frontmatter the skill does not have.
+            skills-ref read-properties "$skill_path" > "$views/original.json"
+            skills-ref read-properties "$skill" > "$views/view.json"
+            if ! cmp -s "$views/original.json" "$views/view.json"; then
+              echo "::error file=$skill_path/SKILL.md::its spec view reads differently from the skill itself"
+              exit 1
+            fi
             skills-ref validate "$skill"
             echo "::endgroup::"
           done

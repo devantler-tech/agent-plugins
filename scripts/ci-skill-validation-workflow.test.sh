@@ -46,6 +46,15 @@ check_workflow() {
   require 'validator installer runs once in the consolidated job' \
     'run: bash scripts/install-skills-ref.sh' "$validate"
   require 'each discovered path is validated' 'skills-ref validate "$skill"' "$validate"
+  require 'each skill is judged through the reviewed spec view' \
+    'skill=$(bash scripts/skill-spec-view.sh "$skill_path" ' "$validate"
+  require 'the view loop covers every discovered path' 'for skill_path in "${skills[@]}"; do' "$validate"
+  require 'the view is proven to read as the skill itself' \
+    'if ! cmp -s "$views/original.json" "$views/view.json"; then' "$validate"
+  require 'the original skill is read by the same parser' \
+    'skills-ref read-properties "$skill_path" > "$views/original.json"' "$validate"
+  require 'the view is read by the same parser' \
+    'skills-ref read-properties "$skill" > "$views/view.json"' "$validate"
   require 'validation failures stop the job' 'set -euo pipefail' "$validate"
   require 'required aggregate waits for validation' 'validate-spec]' "$required"
   require 'required aggregate consumes the validation result' \
@@ -84,6 +93,15 @@ expect_rejected replaced-validator "$WORK/replaced-validator.yaml"
 sed 's/skills-ref validate "$skill"/skills-ref validate "$skill" || true/' \
   "$WORKFLOW" >"$WORK/tolerated-failure.yaml"
 expect_rejected tolerated-failure "$WORK/tolerated-failure.yaml"
+
+sed 's|bash scripts/skill-spec-view.sh|bash scripts/strip-all-fields.sh|' "$WORKFLOW" >"$WORK/replaced-view.yaml"
+expect_rejected replaced-view "$WORK/replaced-view.yaml"
+
+sed '/if ! cmp -s "$views\/original.json" "$views\/view.json"; then/,/^            fi$/d' "$WORKFLOW" >"$WORK/unproven-view.yaml"
+expect_rejected unproven-view "$WORK/unproven-view.yaml"
+
+sed 's/skills-ref read-properties "$skill" > "$views\/view.json"/skills-ref read-properties "$skill_path" > "$views\/view.json"/' "$WORKFLOW" >"$WORK/self-compared.yaml"
+expect_rejected self-compared "$WORK/self-compared.yaml"
 
 sed 's/, validate-spec]/]/' "$WORKFLOW" >"$WORK/missing-aggregate.yaml"
 expect_rejected missing-aggregate "$WORK/missing-aggregate.yaml"

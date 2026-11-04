@@ -393,6 +393,21 @@ dir="$(fixture unknown-symlinked-png)"
 printf '\x89PNG\r\n\x1a\n\0\0\0\rIHDR' > "${dir}/real.png"
 ln -s "${dir}/real.png" "${dir}/plugins/p/agents/icon.png"
 expect 2 "a symlinked .png is UNKNOWN even when its target is an image" "${dir}"
+dir="$(fixture unknown-fifo-png)"
+mkfifo "${dir}/plugins/p/agents/icon.png"
+expect 2 "a .png that is not a regular file (a FIFO) is UNKNOWN" "${dir}"
+dir="$(fixture unknown-uppercase-png)"
+printf '\x89PNG\r\n\x1a\n\0\0\0\rIHDR' > "${dir}/plugins/p/agents/icon.PNG"
+expect 2 "an uppercase .PNG is not a recognised image extension and is UNKNOWN" "${dir}"
+# An unreadable image cannot have its signature read, so it is UNKNOWN. Root reads it regardless of
+# its mode, so the case only proves something when the file really is unreadable.
+dir="$(fixture unknown-unreadable-png)"
+printf '\x89PNG\r\n\x1a\n\0\0\0\rIHDR' > "${dir}/plugins/p/agents/icon.png"
+chmod 000 "${dir}/plugins/p/agents/icon.png"
+if [ ! -r "${dir}/plugins/p/agents/icon.png" ]; then
+  expect 2 "an unreadable .png is UNKNOWN" "${dir}"
+fi
+chmod 600 "${dir}/plugins/p/agents/icon.png"
 
 # Native skill runtime metadata is YAML. Decode supported mappings rather than treating
 # their quotes as shell syntax or permitting escaped prescriptions to go unseen.

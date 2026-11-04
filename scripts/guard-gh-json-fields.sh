@@ -14,8 +14,9 @@
 # Usage: guard-gh-json-fields.sh [ROOT]      (ROOT defaults to this repository)
 # Scans every *.md, *.txt, *.json, *.jq, *.go, *.yaml and *.yml under ROOT/plugins; any other non-script file is UNKNOWN. Shell
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
-# silently misleads every agent that reads it. Raster images (*.png, *.jpg, *.jpeg, *.webp — listing
-# icons) are skipped only when they are regular files that begin with that format's signature.
+# silently misleads every agent that reads it. Raster images (*.png, *.jpg, *.jpeg, *.webp, such as
+# listing icons, anywhere under plugins/) are skipped only when they are regular files that begin with
+# that format's signature; the bytes after the signature are not inspected.
 # Go 1.22+ is required: only the installed observer is built. Literal adjacent shell quotes are
 # joined without evaluating inspected text; expansions are UNKNOWN. JSON requires unique decoded
 # keys. Normalized text is bounded to 8 MiB. The Go decoder reads comments, decoded literal
@@ -59,10 +60,12 @@ ensure_decoder() {
   fi
 }
 
-# A raster image is pixels, not prose an agent reads, so it cannot prescribe a `gh` field. Its name
-# alone proves nothing: a text file called icon.png would hide its prescriptions from this guard. So
-# an image is skipped only when it is a regular, unlinked file whose leading bytes are the signature
-# of the format its extension names. Anything else — including an unreadable file — is not an image.
+# An agent opens a raster image as pixels, not as prose to follow, so it is not a surface this guard
+# scans. Its name alone proves nothing: a plain text file called icon.png would hide its prescriptions.
+# So an image is skipped only when it is a regular, unlinked file whose leading bytes are the
+# signature of the format its extension names; anything else, including an unreadable file, is
+# UNKNOWN. Only the signature is checked: text placed after it, or in a PNG text chunk, is not
+# inspected, because no agent reads an image file as instructions.
 raster_image() {
   local path="$1" magic
   [ -f "${path}" ] && [ ! -L "${path}" ] || return 1

@@ -102,13 +102,19 @@ are maintained here.
 |---|---|
 | GitHub | `gh-cli`, `github-issues`, `gh-stack` (stacked pull requests), `github-actions-docs`, `github-actions-efficiency` |
 | Code review (CodeRabbit) | `code-review` (a local review with the CodeRabbit CLI), `autofix` (work through CodeRabbit's review threads on a pull request) |
-| Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening` |
+| Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening`, `check-skills` (review a skill before installing it) |
 | Library documentation | `context7-mcp` (current documentation for any library or framework, through the `context7` server) |
 | Go | `golang-pro` |
 | Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni) |
 | Frontend (SvelteKit) | `svelte-core-bestpractices`, `frontend-design`, `web-design-guidelines` |
 | Payments (Stripe) | `stripe-best-practices`, `stripe-docs`, `upgrade-stripe` |
-| Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme` |
+| Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme`, `architecture`, `debug`, `deploy-checklist`, `documentation`, `incident-response`, `standup`, `system-design`, `tech-debt`, `testing-strategy` |
+| Design | `accessibility-review`, `design-critique`, `design-handoff`, `design-system`, `research-synthesis`, `user-research`, `ux-copy` |
+| Product management | `competitive-brief`, `metrics-review`, `product-brainstorming`, `roadmap-update`, `sprint-planning`, `stakeholder-update`, `synthesize-research`, `write-spec` |
+| Marketing | `brand-review`, `campaign-plan`, `content-creation`, `draft-content`, `email-sequence`, `performance-report`, `seo-audit` |
+| Finance | `audit-support`, `close-management`, `financial-statements`, `journal-entry`, `journal-entry-prep`, `reconciliation`, `sox-testing`, `variance-analysis` |
+| Productivity | `memory-management`, `start`, `task-management`, `update`, `workspace-conventions` (where their notes and tasks go) |
+| Connectors | `connector-setup` (which official mail, calendar, LinkedIn or security connector to ask for) |
 
 `dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI or
 audits a whole repository. KSail has its own [`ksail`](../ksail/) plugin, made for KSail's users;
@@ -128,6 +134,33 @@ other businesses, buy services or find businesses to pay (`stripe-pay`, `stripe-
 skills or its plugin's hooks; install [Stripe's plugin](https://docs.stripe.com/agents/plugin) for
 those. Context7's `find-docs` and `context7-cli` skills are not bundled because they run the
 `ctx7` CLI through `npx`; `context7-mcp` does the same lookups through the bundled server.
+
+The design, product-management, marketing, finance and productivity skills, and the
+`architecture` to `testing-strategy` engineering skills, come from the Engineering, Design,
+Product Management, Marketing, Finance and Productivity plugins in
+[`anthropics/knowledge-work-plugins`](https://github.com/anthropics/knowledge-work-plugins). Their
+connectors (Asana, Atlassian, Linear, Notion, Slack, Figma, HubSpot, Snowflake and others) are not
+bundled. The skills name them as `~~category` placeholders, such as `~~project tracker`, and work
+with whichever server in that category the session has, or without one. Anthropic's Engineering
+`code-review` skill is not bundled because CodeRabbit's `code-review` has the same name, and
+Marketing's `competitive-brief` is not bundled because Product Management's has the same name. The
+four productivity skills keep their state in `CLAUDE.md`, a `memory/` folder, `TASKS.md` and a
+`dashboard.html` viewer. `workspace-conventions` sends that state to `AGENTS.md`, the agent's
+native memory and the project's issue tracker instead, and the dashboard template is not bundled.
+The finance skills prepare accounting work such as journal entries and reconciliations; they move
+no money and give no investment advice. OpenAI's `check-skills` is the one skill from
+[Codex Security](https://github.com/openai/codex-security) that works outside that plugin: its
+other skills need the plugin's own server and files.
+
+Many of these skills use the `argument-hint` and `user-invocable` frontmatter fields, which
+Claude Code and VS Code read but the Agent Skills specification does not define. This marketplace's spec check accepts
+exactly those two fields and still rejects every other unknown field; see
+[Validation](../../docs/validation.md).
+
+Mail, calendar, LinkedIn and Codex Security's cloud scans come from the providers' own connectors,
+which a plugin cannot switch on: each needs the user's sign-in. `connector-setup` tells the agents
+which one to ask for, in Claude (through the connector directory) and in Codex (as a plugin from
+OpenAI's catalogue), and to say so when none exists, as for iCloud in Claude today.
 
 When the Engineer splits a change into dependent pull requests, the
 [stacked pull requests guide](skills/product-engineering/references/stacked-pull-requests.md) decides

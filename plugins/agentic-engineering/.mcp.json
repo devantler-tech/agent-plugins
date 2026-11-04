@@ -4,7 +4,7 @@
       "command": "sh",
       "args": [
         "-c",
-        "[ -n \"$KUBECONFIG\" ] || KUBECONFIG=\"$HOME/.kube/config\"; export KUBECONFIG; exec flux-operator-mcp serve --read-only"
+        "[ -n \"$KUBECONFIG\" ] || { [ -n \"$HOME\" ] || { echo 'flux-operator-mcp: set KUBECONFIG or HOME' >&2; exit 1; }; KUBECONFIG=\"$HOME/.kube/config\"; }; export KUBECONFIG; exec flux-operator-mcp serve --read-only"
       ]
     },
     "github-ghas-tools": {

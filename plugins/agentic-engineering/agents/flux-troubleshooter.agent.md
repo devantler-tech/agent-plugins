@@ -9,7 +9,7 @@ description: >-
   against the Git manifests, and returns a structured diagnosis plus the exact
   human-applied fix. It never applies, reconciles, suspends, resumes, or deletes —
   hand any remediation back to the caller.
-# Every tool is listed in BOTH spellings on purpose: Claude Code names the built-ins
+# Every tool is listed in each surface's spelling on purpose: Claude Code names the built-ins
 # Read/Grep/Glob and allowlists MCP tools as mcp__<server>__<tool>, while VS Code /
 # Copilot CLI use lower-case built-in identifiers (read, search) and <server>/<tool>
 # for MCP. Claude Code names the tools of a server a plugin bundles

@@ -11,7 +11,7 @@ says what each placeholder maps to here.
 | `~~CI/CD` | GitHub Actions, read through the `github` server's `actions` toolset or `gh` | Another CI system's own connector |
 | `~~project tracker` | GitHub Issues and Projects, through the `github` server or `gh` | Another tracker's own connector, if the user has one |
 | `~~knowledge base` | The repository's own documentation and `AGENTS.md`; `context7` for library documentation | Another knowledge base's own connector |
-| `~~monitoring` | Live cluster state through `flux-operator-mcp` and `kubescape` | Metrics, logs and traces need the user's own connector |
+| `~~monitoring` | Live cluster state through `flux-operator-mcp` and `kubescape`; metrics, logs, traces and alerts through `coroot` once it is set up | Another monitoring tool's own connector |
 | `~~design tool`, `~~design` | Nothing bundled | A design tool's own connector |
 | `~~chat` | Nothing bundled | A chat tool's own connector |
 | `~~incident management` | Nothing bundled | An incident tool's own connector |

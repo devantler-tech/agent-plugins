@@ -1,5 +1,21 @@
 # Changelog — `agentic-engineering`
 
+## 7.2.0 — 2026-11-05
+
+**Added** — `coroot`, the MCP endpoint at `/mcp` that Coroot v1.28 and later serve themselves:
+application topology, alerts, SLO incidents, traces, PromQL metrics and logs. Coroot checks every
+tool call against the caller's role, so with a service account in the Viewer role the agents can
+investigate but cannot resolve alerts. The server reads its address from `COROOT_URL` in Claude
+Code's environment, and the new `scripts/coroot-mcp-headers.sh` sends the service account's API
+key from `coroot-api-key` in the plugin data directory, so neither goes into any repository.
+
+### Upgrading to 7.2.0
+
+Nothing is required. Until `COROOT_URL` and the key file are set, `coroot` shows a
+missing-variable warning or a failed connection and the other servers keep working. To use it, set
+them up as the README's *Bundled MCP servers* section describes. Copilot CLI, VS Code and Codex
+need their own MCP settings for Coroot.
+
 ## 7.1.1 — 2026-11-04
 
 **Fixed** — the README now says why `github` excludes `delete_repository` although a plain probe

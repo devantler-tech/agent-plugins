@@ -180,6 +180,7 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 | `aws-knowledge` | AWS's hosted knowledge server: AWS documentation, regional availability and AWS's own guidance, read-only | Nothing; it works without an AWS account |
 | `cloudflare-docs` | Cloudflare's hosted documentation search: DNS, certificates, R2 and the rest of Cloudflare, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
+| `coroot` | Your own Coroot instance's MCP endpoint: application topology, alerts, incidents, traces, metrics and logs, read-only with a Viewer key | `COROOT_URL` in your environment and a service-account API key, below |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
@@ -192,10 +193,31 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 `flux-operator-mcp` talks only to your clusters. `kubescape` also downloads Kubescape's released
 policy bundle from GitHub each time it starts, falling back to a local cache, and
 `terraform-registry` runs locally but looks providers and modules up in the public Terraform
-Registry. Every other server is
+Registry, and `coroot` reaches only the Coroot instance you point it at. Every other server is
 hosted by a third party, so every call to one, including a documentation search, reaches that
 service. If your agents must not contact a third party, disable its server in your tool's MCP
 settings; denying single tools does not stop the connection.
+
+`coroot` connects to the MCP endpoint at `/mcp` that Coroot (v1.28 or later) serves itself. That
+endpoint needs a bearer token on every request and checks each tool call against the caller's
+role, so give the agents a Coroot **service account with the Viewer role**: it can investigate
+but cannot resolve alerts, the one tool that changes anything. To use it in Claude Code:
+
+1. Create the service account and its API key, in Coroot's UI or, with the Kubernetes operator,
+   through the `Coroot` resource's `spec.serviceAccounts`.
+2. Make sure an agent can reach `https://<your-coroot>/mcp` without your browser sign-in; the
+   endpoint's own key check is what protects it.
+3. Set `COROOT_URL` to your Coroot's address, without `/mcp`, in the environment Claude Code runs
+   in, for example under `env` in your user `settings.json`. The address stays out of any
+   repository.
+4. Write the API key to `coroot-api-key` in this plugin's data directory, the same directory as the
+   optional `github-token` below, readable only by you. The plugin's
+   [`scripts/coroot-mcp-headers.sh`](scripts/coroot-mcp-headers.sh) sends it as the bearer token and
+   never falls back to anything else.
+
+Until both are set, Claude Code shows a missing-variable warning or a failed connection for
+`coroot` and the rest keep working. Copilot CLI, VS Code and Codex neither expand `COROOT_URL` in a
+plugin's server nor run its `headersHelper`; configure Coroot for them with their own MCP settings.
 
 `kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through the same `sh` wrapper as
 the Flux server, so it reads every cluster in your kubeconfig the same way. Its tools read the

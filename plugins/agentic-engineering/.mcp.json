@@ -12,6 +12,11 @@
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
     },
+    "coroot": {
+      "type": "http",
+      "url": "${COROOT_URL}/mcp",
+      "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/coroot-mcp-headers.sh\" \"${CLAUDE_PLUGIN_DATA}\""
+    },
     "flux-operator-mcp": {
       "command": "sh",
       "args": [

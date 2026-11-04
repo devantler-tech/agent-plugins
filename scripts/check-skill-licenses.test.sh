@@ -174,6 +174,38 @@ root=$(fixture partial-install)
 printf "%s\n" "---" "name: ours" "description: Invalid install." "metadata:" "  github-path: orphaned" "---" "Body." > "$root/plugins/alpha/skills/ours/SKILL.md"
 expect 'orphaned provenance cannot borrow marketplace licensing' 1 "$root" 'license cannot be attributed'
 
+# Upstream installs may carry a list of plain values under a metadata key (CodeRabbit's
+# `triggers`). That list must not hide, replace or forge the provenance it sits beside.
+listed() { # root skill-name lines...
+  local file=$1/plugins/alpha/skills/$2/SKILL.md; shift 2
+  printf '%s\n' "---" "name: theirs" "description: Fixture skill." "metadata:" "$@" "---" "# theirs" > "$file"
+}
+root=$(fixture metadata-list)
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:" "        - theirs.?fix" "        - review.?theirs" "    version: 0.1.0"
+expect 'a list of plain values under a metadata key keeps the provenance' 0 "$root" 'license records for 3 bundled skills'
+listed "$root" theirs "    triggers:" "        - theirs.?fix" "    github-repo: https://github.com/example/skills"
+expect 'a list before the provenance key keeps the provenance' 0 "$root" 'license records for 3 bundled skills'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:" "        - github-repo: https://github.com/elsewhere/skills"
+expect 'a mapping inside a metadata list fails' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    triggers:" "        - github-repo: https://github.com/example/skills"
+expect 'provenance written as a list item is not provenance' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    - theirs.?fix" "    github-repo: https://github.com/example/skills"
+expect 'a list directly under metadata fails' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    github-path:" "        - skills/theirs"
+expect 'a list under an installer field fails' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:" "    - theirs.?fix"
+expect 'an indentless list is refused, narrower than YAML' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers: theirs" "        - theirs.?fix"
+expect 'a value continued by a list item is refused, narrower than YAML' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:" "        - a" "      - b"
+expect 'list items at different indents fail' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:" "        - a" "        sub: x"
+expect 'a key after list items fails' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:#c" "        - a"
+expect 'a colon followed directly by # opens no list' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers: # a comment" "        - a" "        - b" "    version: 0.1.0"
+expect 'a key with a spaced comment still opens a list' 0 "$root" 'license records for 3 bundled skills'
+
 if [ "$failures" -ne 0 ]; then
   echo "check-skill-licenses self-test: $failures failure(s)" >&2
   exit 1

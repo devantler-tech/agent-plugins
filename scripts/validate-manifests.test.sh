@@ -544,6 +544,27 @@ printf '%s\n' '{ "mcpServers": { "test-mcp": { "command": "test-mcp", "args": ["
 sed 's/`example-skill` | Alpha plugin/`example-skill`, `test-mcp` | Alpha plugin/' "$d/docs/plugins.md" > "$d/tmp" && mv "$d/tmp" "$d/docs/plugins.md"
 check_pass "plugin bundling a valid .mcp.json passes (MCP server in README resources)" "$d"
 
+# Claude Code loads only the first of two plugin servers that share a URL, whatever their headers,
+# so two names for one endpoint silently lose the second server's tools.
+while read -r first second; do
+  d=$(fresh)
+  jq -n --arg a "$first" --arg b "$second" '{mcpServers: {one: {type: "http", url: $a, headers: {"X-A": "1"}}, two: {type: "http", url: $b, headers: {"X-B": "2"}}}}' \
+    > "$d/plugins/alpha/.mcp.json"
+  # shellcheck disable=SC2016
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `one`, `two` | Alpha plugin/' "$d/docs/plugins.md" > "$d/tmp" && mv "$d/tmp" "$d/docs/plugins.md"
+  check_fail "two remote servers on one URL ($first, $second) fail" "two remote MCP servers share a URL" "$d"
+done <<'URLS'
+https://example.com/mcp https://example.com/mcp
+https://example.com/mcp/ https://example.com/mcp
+https://example.com/mcp HTTPS://EXAMPLE.com/mcp
+https://example.com/mcp https://example.com/mcp/#section
+URLS
+d=$(fresh)
+printf '%s\n' '{ "mcpServers": { "one": { "type": "http", "url": "https://example.com/mcp/" }, "two": { "type": "http", "url": "https://example.com/mcp/readonly" } } }' > "$d/plugins/alpha/.mcp.json"
+# shellcheck disable=SC2016
+sed 's/`example-skill` | Alpha plugin/`example-skill`, `one`, `two` | Alpha plugin/' "$d/docs/plugins.md" > "$d/tmp" && mv "$d/tmp" "$d/docs/plugins.md"
+check_pass "two remote servers on different paths of one host pass" "$d"
+
 # A remote (url) MCP server is equally valid.
 d=$(fresh)
 printf '%s\n' '{ "mcpServers": { "test-mcp": { "type": "http", "url": "https://example.com/mcp" } } }' > "$d/plugins/alpha/.mcp.json"

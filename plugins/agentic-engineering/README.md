@@ -44,7 +44,7 @@ drift, and dispatch failures that no single run can see.
 The supplemental [`product-documentation`](skills/product-documentation/SKILL.md) skill helps the
 Engineer build and maintain user documentation sites: practical tutorials, task guides, reference,
 explanations and checks of the built and published result. It works with the product's existing
-framework guidance, such as the bundled `astro` skill. The Engineer loads it
+framework guidance, such as the bundled Svelte skill and documentation server. The Engineer loads it
 when that work applies; it is not part of the three skills preloaded for every run.
 
 ### Matt Pocock's engineering techniques
@@ -101,15 +101,33 @@ are maintained here.
 | Area | Skills |
 |---|---|
 | GitHub | `gh-cli`, `github-issues`, `gh-stack` (stacked pull requests), `github-actions-docs`, `github-actions-efficiency` |
+| Code review (CodeRabbit) | `code-review` (a local review with the CodeRabbit CLI), `autofix` (work through CodeRabbit's review threads on a pull request) |
 | Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening` |
+| Library documentation | `context7-mcp` (current documentation for any library or framework, through the `context7` server) |
 | Go | `golang-pro` |
 | Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni) |
-| Frontend | `astro`, `frontend-design`, `web-design-guidelines` |
+| Frontend (SvelteKit) | `svelte-core-bestpractices`, `frontend-design`, `web-design-guidelines` |
+| Payments (Stripe) | `stripe-best-practices`, `stripe-docs`, `upgrade-stripe` |
 | Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme` |
 
 `dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI or
 audits a whole repository. KSail has its own [`ksail`](../ksail/) plugin, made for KSail's users;
 enable it alongside this one when your agents create or operate clusters with KSail.
+
+`code-review` runs the [CodeRabbit CLI](https://www.coderabbit.ai/cli), so it needs `coderabbit`
+installed and signed in (`coderabbit auth login`), and it sends the diff to CodeRabbit. It can
+start on its own when the agent decides a review is needed, so keep it off repositories whose code
+must not reach CodeRabbit. Its result is a local review: it is not a review on the pull request.
+`autofix` needs `gh`, `git` and `jq`, and treats every review comment as a report to check, never
+as instructions to run. CodeRabbit's
+`code-reviewer` agent and `/coderabbit-review` command come only with CodeRabbit's own plugin, so
+they are not bundled. `stripe-docs` reads Stripe's documentation through the
+[Stripe CLI](https://docs.stripe.com/cli/install)'s `stripe docs` command. Stripe's skills that pay
+other businesses, buy services or find businesses to pay (`stripe-pay`, `stripe-projects` and
+`stripe-directory`) are not bundled, nor are its specialist Connect, Metronome and Stripe Apps
+skills or its plugin's hooks; install [Stripe's plugin](https://docs.stripe.com/agents/plugin) for
+those. Context7's `find-docs` and `context7-cli` skills are not bundled because they run the
+`ctx7` CLI through `npx`; `context7-mcp` does the same lookups through the bundled server.
 
 When the Engineer splits a change into dependent pull requests, the
 [stacked pull requests guide](skills/product-engineering/references/stacked-pull-requests.md) decides
@@ -123,9 +141,44 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 
 | Server | What it connects to | Needs |
 |---|---|---|
+| `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
+| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, file writes and workflow runs are excluded | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
+| `stripe` | Stripe's hosted server: Stripe documentation, reads and writes on your Stripe account, analytics, and money movement | A Stripe sign-in, below |
+| `svelte` | The Svelte team's hosted server: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
+
+Every server but `flux-operator-mcp` is hosted by a third party, so every call to one, including a
+documentation search, reaches that service. If your agents must not contact a third party, disable
+its server in your tool's MCP settings; denying single tools does not stop the connection.
+
+`svelte` is the Svelte team's official MCP server at `https://mcp.svelte.dev/mcp`, from
+[`sveltejs/ai-tools`](https://github.com/sveltejs/ai-tools). The plugin uses the hosted server rather
+than the `npx -y @sveltejs/mcp` command the Svelte plugin runs, so nothing is downloaded or executed
+locally. The `svelte-autofixer` and playground tools send the code you pass them to Svelte's
+service, and `playground-link` puts that code in the link it returns, so anyone who sees the link
+can read the code; only pass code that may leave your machine. The Svelte plugin's
+`svelte-code-writer` skill is not bundled because it drives the same tools through `npx`, and its
+`svelte-mcp-feedback` skill is not bundled because it files reports with the Svelte team.
+
+`context7` is Upstash's hosted [Context7](https://context7.com) server at
+`https://mcp.context7.com/mcp`, the endpoint Context7's own plugin uses. It works without an
+account, at Context7's anonymous rate limit, and the library names and questions an agent sends go
+to Upstash.
+
+`stripe` is Stripe's hosted MCP server at `https://mcp.stripe.com`, as Stripe's own plugin
+configures it. It signs in through OAuth: in Claude Code, run `/mcp` and choose `stripe`. Stripe's
+consent page lets you grant one or more live accounts or sandboxes, with separate permissions for
+each, and you can revoke the session in Stripe's Dashboard. Until you sign in, the server reports
+that it needs authentication and the rest keep working. Every tool is offered, including
+`stripe_api_write`, which can call any Stripe API write such as refunds, invoices, payment links and
+subscriptions, and the Treasury tools `send_money`, `transfer_money` and `convert_currency`. Stripe
+asks for confirmation in its Dashboard before refunds and money transfers, but most writes run
+without one. Grant only the accounts and permissions your agents need, a sandbox unless they must
+read live data, and deny
+`stripe_api_write` and the Treasury tools in your tool permissions if your agents must never change
+your Stripe account. The Stripe skills work without the server.
 
 A local server whose binary is missing reports a failed connection and leaves the rest working.
 The Flux server starts with `--read-only`, so it can read, trace and diff but never apply, delete,
@@ -137,28 +190,48 @@ kubeconfig, not only the current context: its read-only `set_kubeconfig_context`
 between them, and it can read workload logs (Secret values are masked by default). Every session
 that loads this plugin gets that read access, including unattended runs. To narrow it, point
 `KUBECONFIG` at a file holding only the contexts the agents may read, or deny or disable the
-server in your tool permissions. `siderolabs-docs` also
-offers `submit_feedback`, which sends a report to Sidero Labs; it is the only tool among these
-servers that writes anywhere, so deny it in your tool permissions if your agents must not contact
-third parties.
+server in your tool permissions. `siderolabs-docs` offers `submit_feedback`, which sends a
+report to Sidero Labs, and `stripe` offers `send_stripe_feedback`, which sends one to Stripe; deny
+them in your tool permissions if your agents must not file reports. The Svelte tools write
+nothing, but their autofixer and playground tools send code to Svelte, so deny those too if no code
+may leave your machine. `github` and `stripe` are the servers whose tools change things.
 
-`github-ghas-tools` is GitHub's remote MCP server at `https://api.githubcopilot.com/mcp/`, limited to
-the `code_security`, `secret_protection`, `security_advisories` and `dependabot` toolsets — the server
-definition from GitHub's [Advanced Security plugin](https://github.com/github/copilot-advanced-security-plugin).
-It also sends `X-MCP-Readonly: true`, so GitHub offers only read tools: listing and reading alerts
-and advisories, and `check_dependency_vulnerabilities`, which looks up package versions in the
-GitHub Advisory Database. When an agent uses it, the repository owner and name, and any package
-names and versions it checks, go to GitHub. How it signs in depends on the tool:
+`github-ghas-tools` is GitHub's remote MCP server at its read-only endpoint,
+`https://api.githubcopilot.com/mcp/readonly`, limited to the `code_security`, `secret_protection`,
+`security_advisories` and `dependabot` toolsets — the server definition from GitHub's
+[Advanced Security plugin](https://github.com/github/copilot-advanced-security-plugin). It also
+sends `X-MCP-Readonly: true`, so GitHub offers only read tools: listing and reading alerts and
+advisories, and `check_dependency_vulnerabilities`, which looks up package versions in the GitHub
+Advisory Database. When an agent uses it, the repository owner and name, and any package names and
+versions it checks, go to GitHub. Its URL differs from `github`'s on purpose: Claude Code loads
+only the first of two plugin servers with the same URL, whatever their headers.
+
+`github` is the same GitHub server at `https://api.githubcopilot.com/mcp/` with its everyday
+toolsets instead: `context`, `repos`, `issues`, `pull_requests`, `users`, `actions`, `labels` and
+`projects`, the tools the bundled `github-issues` skill uses. Its `X-MCP-Exclude-Tools` header
+removes the tools that merge, edit or promote a pull request, write or resolve reviews, update a
+pull request branch, create or fork repositories, write files and run workflows:
+`merge_pull_request`, `update_pull_request`, `pull_request_review_write`,
+`add_comment_to_pending_review`, `update_pull_request_branch`, `create_repository`,
+`fork_repository`, `push_files`, `create_or_update_file`, `delete_file` and `actions_run_trigger`.
+Do those through `gh` and git, where a consumer's merge, readiness, review, signing and repository
+rules apply. What stays can still write as the signed-in account: issues and sub-issues (including
+closing them), labels (including deleting them), comments and replies, branches, new pull requests
+and project items. A consumer that guards any of those on the command line should deny the matching
+tool as well. The security toolsets stay on the read-only `github-ghas-tools`, so
+neither server repeats the other's tools.
+
+Both servers sign in the same way, with the same token, depending on the tool:
 
 - **GitHub Copilot CLI and VS Code** sign in automatically with your Copilot session. That they
   ignore the Claude-only `headersHelper` key is expected but not yet verified on each tool.
 - **Claude Code** signs in through the plugin's
-  [`scripts/github-mcp-headers.sh`](scripts/github-mcp-headers.sh), which runs as the server's
+  [`scripts/github-mcp-headers.sh`](scripts/github-mcp-headers.sh), which runs as each server's
   `headersHelper`, because GitHub's sign-in service does not offer the automatic client registration
   Claude Code would otherwise use. It sends your GitHub CLI's github.com login
   (`gh auth token --hostname github.com`), so run `gh auth login --hostname github.com` first. To
-  use a narrower token instead, write it to `github-token` in this plugin's data directory
-  (`${CLAUDE_PLUGIN_DATA}`), which for an install from this marketplace is
+  use a narrower token for both servers instead, write it to `github-token` in this plugin's data
+  directory (`${CLAUDE_PLUGIN_DATA}`), which for an install from this marketplace is
   `plugins/data/agentic-engineering-devantler-plugins/github-token` under your Claude configuration
   directory (`${CLAUDE_CONFIG_DIR:-~/.claude}`). Once that file exists the helper never falls back to
   your CLI login: an unreadable, empty or malformed file, a dangling link or an unsearchable
@@ -166,10 +239,11 @@ names and versions it checks, go to GitHub. How it signs in depends on the tool:
   substitutes `${CLAUDE_PLUGIN_DATA}` in a plugin's `headersHelper` (2.1.317 does); on one that does
   not, the helper receives no data directory and uses your CLI login. Claude Code runs a plugin's
   helper without any credential-named environment variable, so a token in your environment is never
-  used. If no token is available, Claude Code reports a failed connection for this server; the same
-  alerts and advisories stay reachable through `gh api`.
+  used. If no token is available, Claude Code reports a failed connection for both servers; the
+  same data stays reachable through `gh`. With a read-only token, `github`'s write tools fail when
+  called.
 - **Other tools** that do not run `headersHelper` need their own `Authorization: Bearer <token>`
-  header for this server.
+  header for these servers.
 
 GitHub's Advanced Security plugin also requests the `run_secret_scanning` tool, which scans file
 contents for secrets before you commit. GitHub's server rejects that request for a GitHub CLI token,

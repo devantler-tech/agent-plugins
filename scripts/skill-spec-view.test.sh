@@ -94,6 +94,9 @@ expect_refused 'a flow value is refused' 1 "$src"
 src=$(skill anchor '---' 'name: anchor' 'description: Fixture.' 'argument-hint: &x y' '---' '# anchor')
 expect_refused 'an anchored value is refused' 1 "$src"
 
+src=$(skill commentonly '---' 'name: commentonly' 'description: Fixture.' 'argument-hint: # c' '---' '# commentonly')
+expect_refused 'a value that is only a comment is refused' 1 "$src"
+
 src=$(skill quoted '---' 'name: quoted' 'description: Fixture.' "argument-hint: 'it''s <file>' # hint" 'user-invocable: "false"' '---' '# quoted')
 expect_view 'closed single- and double-quoted values are dropped' "$src" '---' 'name: quoted' 'description: Fixture.' '---' '# quoted'
 

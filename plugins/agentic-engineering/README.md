@@ -181,7 +181,7 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 | `cloudflare-docs` | Cloudflare's hosted documentation search: DNS, certificates, R2 and the rest of Cloudflare, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
-| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, file writes and workflow runs are excluded | A GitHub sign-in, below |
+| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `kubescape` | A live cluster's Kubescape results, read-only: vulnerabilities, configuration scans, SBOMs, network and RBAC exposure | The [`kubescape`](https://kubescape.io/docs/install-cli/) CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
@@ -265,10 +265,12 @@ only the first of two plugin servers with the same URL, whatever their headers.
 toolsets instead: `context`, `repos`, `issues`, `pull_requests`, `users`, `actions`, `labels` and
 `projects`, the tools the bundled `github-issues` skill uses. Its `X-MCP-Exclude-Tools` header
 removes the tools that merge, edit or promote a pull request, write or resolve reviews, update a
-pull request branch, create or fork repositories, write files and run workflows:
+pull request branch, create, fork or delete repositories, write files and run workflows:
 `merge_pull_request`, `update_pull_request`, `pull_request_review_write`,
 `add_comment_to_pending_review`, `update_pull_request_branch`, `create_repository`,
-`fork_repository`, `push_files`, `create_or_update_file`, `delete_file` and `actions_run_trigger`.
+`fork_repository`, `delete_repository`, `push_files`, `create_or_update_file`, `delete_file` and
+`actions_run_trigger`. GitHub offers some tools only to some clients: `delete_repository` reaches
+Claude Code but not a plain MCP client, so the list names it anyway.
 Do those through `gh` and git, where a consumer's merge, readiness, review, signing and repository
 rules apply. What stays can still write as the signed-in account: issues and sub-issues (including
 closing them), labels (including deleting them), comments and replies, branches, new pull requests

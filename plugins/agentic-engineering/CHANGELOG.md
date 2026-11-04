@@ -65,6 +65,8 @@ this plugin provides.
   fields Claude Code and VS Code read, which many of the new skills use, and still rejects every
   other field the Agent Skills specification does not define. CI also reads each skill and its
   spec view with `skills-ref read-properties` and fails unless they match.
+- `github` also excludes `delete_repository`, which GitHub offers to Claude Code but not to a plain
+  MCP client.
 - `validate-manifests.sh` checks a Codex manifest and its app list, and `bump-plugin-version.sh`
   moves a Codex manifest's version with the other four manifests. The daily skill sync stages and
   publishes it too.

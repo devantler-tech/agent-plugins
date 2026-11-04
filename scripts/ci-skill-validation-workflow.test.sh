@@ -53,6 +53,8 @@ check_workflow() {
     'if ! cmp -s "$views/original.json" "$views/view.json"; then' "$validate"
   require 'the original skill is read by the same parser' \
     'skills-ref read-properties "$skill_path" > "$views/original.json"' "$validate"
+  require 'the view is read by the same parser' \
+    'skills-ref read-properties "$skill" > "$views/view.json"' "$validate"
   require 'validation failures stop the job' 'set -euo pipefail' "$validate"
   require 'required aggregate waits for validation' 'validate-spec]' "$required"
   require 'required aggregate consumes the validation result' \
@@ -97,6 +99,9 @@ expect_rejected replaced-view "$WORK/replaced-view.yaml"
 
 sed '/if ! cmp -s "$views\/original.json" "$views\/view.json"; then/,/^            fi$/d' "$WORKFLOW" >"$WORK/unproven-view.yaml"
 expect_rejected unproven-view "$WORK/unproven-view.yaml"
+
+sed 's/skills-ref read-properties "$skill" > "$views\/view.json"/skills-ref read-properties "$skill_path" > "$views\/view.json"/' "$WORKFLOW" >"$WORK/self-compared.yaml"
+expect_rejected self-compared "$WORK/self-compared.yaml"
 
 sed 's/, validate-spec]/]/' "$WORKFLOW" >"$WORK/missing-aggregate.yaml"
 expect_rejected missing-aggregate "$WORK/missing-aggregate.yaml"

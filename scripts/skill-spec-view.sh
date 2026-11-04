@@ -69,7 +69,7 @@ awk '
         if (value !~ /^\047([^\047]|\047\047)*\047[ \t]*(#.*)?$/) refuse(key " has a single-quoted value that does not close on its line")
       } else {
         sub(/[ \t]+#.*$/, "", value); sub(/[ \t]+$/, "", value)
-        if (value == "" || value ~ /^[|>]/) refuse(key " has no single-line value")
+        if (value == "" || value ~ /^[|>#]/) refuse(key " has no single-line value")
         # Flow collections, anchors, aliases and tags are YAML structure, not a plain hint.
         if (value ~ /^[\[\]{}&*!%@`]/) refuse(key " has a value this view cannot read safely")
       }

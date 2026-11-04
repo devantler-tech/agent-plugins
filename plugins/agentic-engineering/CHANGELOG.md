@@ -1,5 +1,26 @@
 # Changelog — `agentic-engineering`
 
+## 6.8.1 — 2026-11-04
+
+**Fixed** — the bundled Flux tooling now works out of the box:
+
+- `flux-operator-mcp` refuses to start without a `KUBECONFIG` environment variable, so on a host
+  that relies on the default `~/.kube/config` it never connected. The plugin now starts it through
+  `sh`, which sets `KUBECONFIG` to `$HOME/.kube/config` only when it is unset or empty and keeps
+  any non-empty value, including a list of paths. With neither `KUBECONFIG` nor `HOME` set it
+  exits with a message. The server still runs `--read-only`.
+- **This widens what such a host's sessions can read.** Where the server used to fail to start,
+  every session that loads the plugin, unattended runs included, can now read every cluster in
+  `~/.kube/config`: the read-only `set_kubeconfig_context` tool switches between its contexts, and
+  workload logs are readable (Secret values are masked by default). To narrow it, set `KUBECONFIG`
+  to a file holding only the contexts the agents may read, or deny or disable the server.
+- **Windows regression:** the server now needs a POSIX `sh` on `PATH`. A Windows host without one,
+  which could start the server before when `KUBECONFIG` was set, no longer can.
+- `flux-troubleshooter` allowlisted the Flux tools only as `mcp__flux-operator-mcp__<tool>`, which
+  matches a server you configured by hand, not the one this plugin bundles, which Claude Code names
+  `mcp__plugin_agentic-engineering_flux-operator-mcp__<tool>`. It now lists both
+  ([#635](https://github.com/devantler-tech/agent-plugins/issues/635)).
+
 ## 6.8.0 — 2026-11-04
 
 **Added** — everything the agents need, in this one plugin

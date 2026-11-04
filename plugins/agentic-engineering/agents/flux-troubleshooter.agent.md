@@ -9,10 +9,14 @@ description: >-
   against the Git manifests, and returns a structured diagnosis plus the exact
   human-applied fix. It never applies, reconciles, suspends, resumes, or deletes —
   hand any remediation back to the caller.
-# Every tool is listed in BOTH spellings on purpose: Claude Code names the built-ins
+# Every tool is listed in each surface's spelling on purpose: Claude Code names the built-ins
 # Read/Grep/Glob and allowlists MCP tools as mcp__<server>__<tool>, while VS Code /
 # Copilot CLI use lower-case built-in identifiers (read, search) and <server>/<tool>
-# for MCP. Each loader tolerates allowlist entries it does not recognise (Claude Code
+# for MCP. Claude Code names the tools of a server a plugin bundles
+# mcp__plugin_<plugin>_<server>__<tool>, so the bundled server needs the
+# mcp__plugin_agentic-engineering_flux-operator-mcp__ entries; the plain mcp__ entries
+# keep serving a server the user configured by hand (#635). Each loader tolerates
+# allowlist entries it does not recognise (Claude Code
 # fails only if NO entry resolves) — so one file serves all three surfaces, and
 # dropping either spelling would leave the agent unable to read or search the
 # repository on the surface that uses it. The YAML LIST form is what the VS Code /
@@ -25,6 +29,11 @@ tools:
   - Glob
   - read
   - search
+  - mcp__plugin_agentic-engineering_flux-operator-mcp__get_flux_instance
+  - mcp__plugin_agentic-engineering_flux-operator-mcp__get_kubeconfig_contexts
+  - mcp__plugin_agentic-engineering_flux-operator-mcp__get_kubernetes_api_versions
+  - mcp__plugin_agentic-engineering_flux-operator-mcp__get_kubernetes_resources
+  - mcp__plugin_agentic-engineering_flux-operator-mcp__get_kubernetes_logs
   - mcp__flux-operator-mcp__get_flux_instance
   - mcp__flux-operator-mcp__get_kubeconfig_contexts
   - mcp__flux-operator-mcp__get_kubernetes_api_versions

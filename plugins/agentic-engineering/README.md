@@ -123,13 +123,21 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 
 | Server | What it connects to | Needs |
 |---|---|---|
-| `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary and cluster access |
+| `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 
 A local server whose binary is missing reports a failed connection and leaves the rest working.
 The Flux server starts with `--read-only`, so it can read, trace and diff but never apply, delete,
-reconcile, suspend or resume; hand fixes to your GitOps delivery instead. `siderolabs-docs` also
+reconcile, suspend or resume; hand fixes to your GitOps delivery instead. `flux-operator-mcp`
+refuses to start unless the `KUBECONFIG` environment variable is set, so the plugin starts it
+through `sh`, which sets `KUBECONFIG` to `$HOME/.kube/config` when your environment leaves it
+unset or empty and passes any non-empty value unchanged. It can read every cluster in that
+kubeconfig, not only the current context: its read-only `set_kubeconfig_context` tool switches
+between them, and it can read workload logs (Secret values are masked by default). Every session
+that loads this plugin gets that read access, including unattended runs. To narrow it, point
+`KUBECONFIG` at a file holding only the contexts the agents may read, or deny or disable the
+server in your tool permissions. `siderolabs-docs` also
 offers `submit_feedback`, which sends a report to Sidero Labs; it is the only tool among these
 servers that writes anywhere, so deny it in your tool permissions if your agents must not contact
 third parties.

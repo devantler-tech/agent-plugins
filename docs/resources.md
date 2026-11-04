@@ -39,7 +39,7 @@ A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as sk
 
 | Server | What it connects to | Needs |
 |---|---|---|
-| `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary and cluster access |
+| `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary, a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
 | `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 
@@ -59,15 +59,22 @@ server to your workspace `.vscode/mcp.json` (note the key there is `servers`, no
 ```json
 {
   "servers": {
-    "flux-operator-mcp": { "command": "flux-operator-mcp", "args": ["serve"] }
+    "flux-operator-mcp": {
+      "command": "flux-operator-mcp",
+      "args": ["serve", "--read-only"],
+      "env": { "KUBECONFIG": "${userHome}/.kube/config" }
+    }
   }
 }
 ```
 
 Every path invokes the same `flux-operator-mcp` binary, so install it first — e.g.
 `brew install controlplaneio-fluxcd/tap/flux-operator-mcp` or `go install
-github.com/controlplaneio-fluxcd/flux-operator/cmd/mcp@latest` (it reads your kubeconfig from
-`KUBECONFIG` / `~/.kube/config`). See the
+github.com/controlplaneio-fluxcd/flux-operator/cmd/mcp@latest`. It refuses to start unless the
+`KUBECONFIG` environment variable is set, which is why the hand-written entry sets it; the bundled
+plugin's `sh` wrapper sets it to `$HOME/.kube/config` when it is unset or empty. It can read every
+context in that kubeconfig, starting at the current one, because its read-only
+`set_kubeconfig_context` tool switches between them. See the
 [Flux MCP docs](https://fluxcd.control-plane.io/operator/mcp/) for read-only mode and remote
 transport.
 
@@ -91,9 +98,10 @@ The agent is authored once as `agents/<name>.agent.md` (Markdown + YAML frontmat
 `name`/`description`/`tools`/`model` core). The `.agent.md` filename is what VS Code and Copilot
 discover inside a plugin's `agents/` directory; Claude Code is filename-agnostic (it reads any
 Markdown in `agents/` and takes the agent's name from frontmatter), so one file serves all three
-tools. The same goes for the `tools:` allowlist: MCP tools are listed in both spellings — Claude
-Code's `mcp__<server>__<tool>` and VS Code / Copilot's `<server>/<tool>` — because each tool
-ignores entries it does not recognise (per
+tools. The same goes for the `tools:` allowlist: MCP tools are listed in three spellings — Claude
+Code's `mcp__plugin_<plugin>_<server>__<tool>` for the server this plugin bundles, its
+`mcp__<server>__<tool>` for a server you configure by hand, and VS Code / Copilot's
+`<server>/<tool>` — because each tool ignores entries it does not recognise (per
 [ADR 0001](../docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 
 - **Claude Code**, **Copilot CLI**, and **VS Code** — the bundled `agents/` directory is loaded

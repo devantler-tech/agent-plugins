@@ -1,5 +1,13 @@
 {
   "mcpServers": {
+    "aws-knowledge": {
+      "type": "http",
+      "url": "https://knowledge-mcp.global.api.aws"
+    },
+    "cloudflare-docs": {
+      "type": "http",
+      "url": "https://docs.mcp.cloudflare.com/mcp"
+    },
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
@@ -28,6 +36,13 @@
       },
       "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\" \"${CLAUDE_PLUGIN_DATA}\""
     },
+    "kubescape": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "[ -n \"$KUBECONFIG\" ] || { [ -n \"$HOME\" ] || { echo 'kubescape: set KUBECONFIG or HOME' >&2; exit 1; }; KUBECONFIG=\"$HOME/.kube/config\"; }; export KUBECONFIG; exec kubescape mcpserver"
+      ]
+    },
     "siderolabs-docs": {
       "type": "http",
       "url": "https://docs.siderolabs.com/mcp"
@@ -39,6 +54,14 @@
     "svelte": {
       "type": "http",
       "url": "https://mcp.svelte.dev/mcp"
+    },
+    "terraform-registry": {
+      "command": "terraform-mcp-server",
+      "args": [
+        "stdio",
+        "--toolsets",
+        "registry"
+      ]
     }
   }
 }

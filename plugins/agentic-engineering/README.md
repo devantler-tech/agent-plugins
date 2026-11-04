@@ -158,9 +158,12 @@ exactly those two fields and still rejects every other unknown field; see
 [Validation](../../docs/validation.md).
 
 Mail, calendar, LinkedIn and Codex Security's cloud scans come from the providers' own connectors,
-which a plugin cannot switch on: each needs the user's sign-in. `connector-setup` tells the agents
-which one to ask for, in Claude (through the connector directory) and in Codex (as a plugin from
-OpenAI's catalogue), and to say so when none exists, as for iCloud in Claude today.
+which a plugin cannot switch on: each needs the user's sign-in. In Codex, this plugin's
+[`.codex-plugin/plugin.json`](.codex-plugin/plugin.json) offers iCloud Mail, iCloud Calendar,
+LinkedIn and Codex Security Cloud as optional apps through its [`.app.json`](.app.json), so Codex
+lists them with the plugin. Claude Code has no such field, so there `connector-setup` tells the
+agents which connector to ask for, through the connector directory, and to say so when none
+exists, as for iCloud in Claude today.
 
 When the Engineer splits a change into dependent pull requests, the
 [stacked pull requests guide](skills/product-engineering/references/stacked-pull-requests.md) decides
@@ -174,17 +177,34 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 
 | Server | What it connects to | Needs |
 |---|---|---|
+| `aws-knowledge` | AWS's hosted knowledge server: AWS documentation, regional availability and AWS's own guidance, read-only | Nothing; it works without an AWS account |
+| `cloudflare-docs` | Cloudflare's hosted documentation search: DNS, certificates, R2 and the rest of Cloudflare, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read and write | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
+| `kubescape` | A live cluster's Kubescape results, read-only: vulnerabilities, configuration scans, SBOMs, network and RBAC exposure | The [`kubescape`](https://kubescape.io/docs/install-cli/) CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server: Stripe documentation, reads and writes on your Stripe account, analytics, and money movement | A Stripe sign-in, below |
 | `svelte` | The Svelte team's hosted server: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
+| `terraform-registry` | HashiCorp's Terraform server limited to its `registry` toolset: provider and module documentation from the public Terraform Registry, read-only | The [`terraform-mcp-server`](https://github.com/hashicorp/terraform-mcp-server) binary |
 
-Every server but `flux-operator-mcp` is hosted by a third party, so every call to one, including a
-documentation search, reaches that service. If your agents must not contact a third party, disable
-its server in your tool's MCP settings; denying single tools does not stop the connection.
+`flux-operator-mcp` and `kubescape` talk only to your clusters, and `terraform-registry` runs
+locally but looks providers and modules up in the public Terraform Registry. Every other server is
+hosted by a third party, so every call to one, including a documentation search, reaches that
+service. If your agents must not contact a third party, disable its server in your tool's MCP
+settings; denying single tools does not stop the connection.
+
+`kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through the same `sh` wrapper as
+the Flux server, so it reads every cluster in your kubeconfig the same way. Its tools read the
+cluster and the results the in-cluster Kubescape operator stores. Its only write-shaped calls are
+server-side dry-run patches, which change nothing; its remediation tool never applies a fix, and
+its admission-policy tool only drafts YAML. Its stored results exist only on a cluster that runs
+the Kubescape operator. `terraform-registry` needs no token in
+the `registry` toolset; the plugin leaves HashiCorp's HCP Terraform and Terraform Enterprise
+toolsets off. `cloudflare-docs` and `aws-knowledge` only search documentation. Install the two
+local binaries with, for example, `brew install kubescape terraform-mcp-server`; until then each
+reports a failed connection.
 
 `svelte` is the Svelte team's official MCP server at `https://mcp.svelte.dev/mcp`, from
 [`sveltejs/ai-tools`](https://github.com/sveltejs/ai-tools). The plugin uses the hosted server rather

@@ -1,0 +1,20 @@
+{
+  "apps": {
+    "icloud-mail": {
+      "id": "connector_6a99cb6846448190875813bf1e8e5504",
+      "required": false
+    },
+    "icloud-calendar": {
+      "id": "connector_6a99cb684648819088fe4d6a0e373614",
+      "required": false
+    },
+    "linkedin": {
+      "id": "asdk_app_69949aa62bf48191be5e57a01202beca",
+      "required": false
+    },
+    "codex-security-cloud": {
+      "id": "connector_openai_defense_factory",
+      "required": false
+    }
+  }
+}

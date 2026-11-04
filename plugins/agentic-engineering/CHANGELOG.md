@@ -3,8 +3,9 @@
 ## 7.1.0 — 2026-11-04
 
 The plugin now carries the agents' wider workspace: design, product management, marketing,
-finance and productivity skills beside the engineering ones, plus guidance for the official mail,
-calendar, LinkedIn and Codex Security connectors a plugin cannot switch on by itself.
+finance and productivity skills beside the engineering ones, servers for more of the platform's
+services, and the official mail, calendar, LinkedIn and Codex Security connections, offered by a
+new Codex manifest and named by a new skill wherever a plugin cannot switch them on.
 
 **Added — skills**
 
@@ -35,15 +36,39 @@ Snowflake and others), the Productivity dashboard template, Anthropic's Engineer
 (CodeRabbit's `code-review` has the name) and Marketing's `competitive-brief` (Product
 Management's has the name), and Codex Security's other skills, which need that plugin's own server.
 
-**Changed** — the marketplace's skill-spec check accepts the `argument-hint` and
-`user-invocable` frontmatter fields Claude Code and VS Code read, which many of the new skills use, and still rejects every
-other field the Agent Skills specification does not define.
+**Added — MCP servers** for the platform's services:
+
+- `kubescape`: the Kubescape CLI's own read-only server (`kubescape mcpserver`), for the results
+  the in-cluster operator stores, started through the same `KUBECONFIG` wrapper as the Flux server.
+  It needs the `kubescape` CLI.
+- `terraform-registry`: HashiCorp's `terraform-mcp-server` with only its `registry` toolset, for
+  public provider and module documentation. It needs the `terraform-mcp-server` binary.
+- `cloudflare-docs` and `aws-knowledge`: Cloudflare's and AWS's hosted documentation servers,
+  read-only and needing no account.
+
+Not bundled: FleetDM's `fleet-gitops` skill, whose helper is a Python script; FleetDM is disabled
+on the platform. Coroot's MCP endpoint waits for a read-only service account the auth proxy lets
+through. Cilium, Kyverno, Crossplane, CloudNativePG, OpenBao, Hetzner and the smaller services have
+no official or maintained read-only resource yet.
+
+**Added — Codex manifest.** `.codex-plugin/plugin.json` repeats the portable manifest and adds an
+`.app.json` offering iCloud Mail, iCloud Calendar, LinkedIn and Codex Security Cloud as optional
+apps, so Codex lists them with the plugin. Each still needs the user's own sign-in.
+
+**Changed**
+
+- The marketplace's skill-spec check accepts the `argument-hint` and `user-invocable` frontmatter
+  fields Claude Code and VS Code read, which many of the new skills use, and still rejects every
+  other field the Agent Skills specification does not define.
+- `validate-manifests.sh` checks a Codex manifest and its app list, and `bump-plugin-version.sh`
+  moves a Codex manifest's version with the other four manifests.
 
 ### Upgrading to 7.1.0
 
-Nothing is required. To give the agents mail, calendar or LinkedIn, connect the official connector
-`connector-setup` names: in Claude through claude.ai's connector settings, and in Codex by adding
-`icloud-mail`, `icloud-calendar` or `codex-security` from `openai-curated-remote`.
+Nothing is required. Install `kubescape` and `terraform-mcp-server` (for example with Homebrew)
+where the agents should use those servers; until then each reports a failed connection. To give
+the agents mail, calendar or LinkedIn, connect the official connector `connector-setup` names: in
+Claude through claude.ai's connector settings, and in Codex from the apps the plugin now offers.
 
 ## 7.0.0 — 2026-11-04
 

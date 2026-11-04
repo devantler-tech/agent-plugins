@@ -149,8 +149,11 @@ names and versions it checks, go to GitHub. How it signs in depends on the tool:
   `headersHelper`, because GitHub's sign-in service does not offer the automatic client registration
   Claude Code would otherwise use. It sends your GitHub CLI's github.com login
   (`gh auth token --hostname github.com`), so run `gh auth login --hostname github.com` first. To
-  use a narrower token instead, write it to a file named `github-token` in this plugin's data
-  directory (`${CLAUDE_PLUGIN_DATA}`, under `~/.claude/plugins/data/`). Claude Code runs a plugin's
+  use a narrower token instead, write it to `github-token` in this plugin's data directory
+  (`${CLAUDE_PLUGIN_DATA}`), which for an install from this marketplace is
+  `~/.claude/plugins/data/agentic-engineering-devantler-plugins/github-token`. Once that file exists
+  the helper never falls back to your CLI login: an unreadable, empty or malformed file, a dangling
+  link or an unsearchable directory fails the connection instead. Claude Code runs a plugin's
   helper without any credential-named environment variable, so a token in your environment is never
   used. If no token is available, Claude Code reports a failed connection for this server; the same
   alerts and advisories stay reachable through `gh api`.

@@ -29,10 +29,18 @@ fi
 
 token_file=
 if [ -n "${1:-}" ]; then
+  # A data directory that exists but cannot be searched hides whether a token file is there, so
+  # it fails closed rather than falling back to the broader login.
+  if { [ -e "$1" ] || [ -L "$1" ]; } && ! { [ -d "$1" ] && [ -x "$1" ]; }; then
+    echo 'github-mcp-headers: cannot search the plugin data directory' >&2
+    exit 1
+  fi
   token_file="$1/github-token"
 fi
 
-if [ -n "$token_file" ] && [ -e "$token_file" ]; then
+# A dangling symlink counts as a configured token file: it is a narrow token the user set up but
+# cannot be read now, never a reason to send the broader login.
+if [ -n "$token_file" ] && { [ -e "$token_file" ] || [ -L "$token_file" ]; }; then
   # Bash's own file read, so the helper needs nothing on PATH to read its token.
   if ! [ -f "$token_file" ] || ! [ -r "$token_file" ] || ! token=$(< "$token_file"); then
     echo 'github-mcp-headers: cannot read github-token in the plugin data directory' >&2

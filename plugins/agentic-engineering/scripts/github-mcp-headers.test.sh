@@ -72,19 +72,36 @@ grep -q 'gh auth login --hostname github.com' "$work/err" || fail "failed login 
 run 1 "$work/nodata" -- PATH="$work/empty"
 [ ! -s "$work/out" ] || fail "printed output without any token source"
 
+# A configured token file that cannot be used must fail without consulting gh, so a working gh is
+# on PATH for these cases: a helper that fell back to it would exit 0 and be caught.
+refused_without_fallback() { # description helper-arg
+  run 1 "$2" -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123
+  [ ! -s "$work/out" ] || fail "printed output for $1"
+  [ ! -e "$work/gh-calls" ] || fail "fell back to gh for $1"
+}
+
 # 7. An empty token, from gh or from the file, is refused.
 run 1 -- PATH="$work/bin" STUB_TOKEN=
 [ ! -s "$work/out" ] || fail "printed output for an empty gh token"
 : > "$work/data/github-token"
-run 1 "$work/data" -- PATH="$work/empty"
-[ ! -s "$work/out" ] || fail "printed output for an empty token file"
+refused_without_fallback "an empty token file" "$work/data"
 
 # 8. A value that could break out of the JSON string is refused, from either source.
 run 1 -- PATH="$work/bin" STUB_TOKEN='abc","X-Evil":"1'
 [ ! -s "$work/out" ] || fail "printed output for a malformed gh token"
 printf 'abc def\n' > "$work/data/github-token"
-run 1 "$work/data" -- PATH="$work/empty"
-[ ! -s "$work/out" ] || fail "printed output for a malformed token file"
+refused_without_fallback "a malformed token file" "$work/data"
+
+# 8a. A token file that is a dangling symlink, as for a secret on an unmounted volume, is a
+#     configured token that cannot be read, never a reason to fall back.
+rm -f "$work/data/github-token"
+ln -s "$work/missing/github-token" "$work/data/github-token"
+refused_without_fallback "a dangling token-file symlink" "$work/data"
+rm -f "$work/data/github-token"
+
+# 8b. A data-directory argument that is not a directory fails closed.
+printf 'not a directory\n' > "$work/notadir"
+refused_without_fallback "a data path that is not a directory" "$work/notadir"
 
 # 9. An unreadable token file is a failure, not a silent fallback to the broader login.
 if [ "$(id -u)" -ne 0 ]; then
@@ -94,6 +111,12 @@ if [ "$(id -u)" -ne 0 ]; then
   [ ! -s "$work/out" ] || fail "printed output for an unreadable token file"
   [ ! -e "$work/gh-calls" ] || fail "fell back to gh for an unreadable token file"
   chmod 600 "$work/data/github-token"
+  # 9a. A data directory that cannot be searched hides the token file, so it fails closed.
+  mkdir -p "$work/locked"
+  printf 'github_pat_Narrow_42\n' > "$work/locked/github-token"
+  chmod 600 "$work/locked"
+  refused_without_fallback "an unsearchable data directory" "$work/locked"
+  chmod 700 "$work/locked"
 fi
 
 # 10. More than one argument is a usage error.

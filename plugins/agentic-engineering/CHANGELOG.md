@@ -2,28 +2,64 @@
 
 ## 7.0.0 — 2026-11-04
 
-SvelteKit replaces Astro as the frontend stack the agents are equipped for.
+SvelteKit replaces Astro as the frontend stack the agents are equipped for, and the plugin now
+carries the GitHub, CodeRabbit, Context7 and Stripe tooling the agents otherwise needed separate
+plugins or connectors for.
 
 **Removed** — `astro`, previously from `https://github.com/astrolicious/agent-skills`. The
 portfolio this plugin serves builds its sites with SvelteKit.
 
-**Added**
+**Added — skills**
 
 - `svelte-core-bestpractices` from `https://github.com/sveltejs/ai-tools` at
   `refs/tags/@sveltejs/mcp@0.1.30`: the Svelte team's guidance on writing modern Svelte 5 code.
-- `svelte`, the Svelte team's hosted MCP server at `https://mcp.svelte.dev/mcp`: Svelte 5 and
-  SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only and needing no
-  sign-in. The hosted server is used instead of `npx -y @sveltejs/mcp`, so nothing is downloaded or
-  run locally. The autofixer and playground tools send the code they are given to Svelte's service.
+- `code-review` and `autofix` from `https://github.com/coderabbitai/skills` at `refs/tags/v1.1.1`:
+  a local review with the CodeRabbit CLI, and working through CodeRabbit's review threads on a pull
+  request.
+- `context7-mcp` from `https://github.com/upstash/context7` at
+  `refs/tags/@upstash/context7-mcp@4.5.0`: looking up current library documentation through the
+  `context7` server.
+- `stripe-best-practices`, `stripe-docs` and `upgrade-stripe` from `https://github.com/stripe/ai`
+  at `refs/heads/main`: Stripe integration guidance, Stripe's documentation through the Stripe CLI,
+  and API and SDK upgrades.
 
-The Svelte plugin's `svelte-code-writer` skill is not bundled because it drives the same tools
-through `npx`, and its `svelte-mcp-feedback` skill is not bundled because it files reports with the
-Svelte team.
+**Added — MCP servers**
+
+- `svelte`, the Svelte team's hosted server at `https://mcp.svelte.dev/mcp`: Svelte 5 and SvelteKit
+  documentation, the `svelte-autofixer` and playground links, all read-only and needing no
+  sign-in. The hosted server is used instead of `npx -y @sveltejs/mcp`, so nothing is downloaded or
+  run locally. The autofixer and playground tools send the code they are given to Svelte's service,
+  and the playground link carries that code.
+- `github`, GitHub's remote server with the `context`, `repos`, `issues`, `pull_requests`, `users`,
+  `actions`, `labels` and `projects` toolsets and its write tools enabled, signed in like
+  `github-ghas-tools`. **It can write to GitHub as the signed-in account.**
+- `context7`, Upstash's hosted Context7 server at `https://mcp.context7.com/mcp`, read-only and
+  needing no account.
+- `stripe`, Stripe's hosted server at `https://mcp.stripe.com`, signed in through OAuth. **Every
+  tool is offered, including `stripe_api_write` and the Treasury tools that move money**; grant only
+  the accounts and permissions your agents need on Stripe's consent page.
+
+Not bundled: the Svelte plugin's `svelte-code-writer` skill, which drives the same tools through
+`npx`, and its `svelte-mcp-feedback` skill, which files reports with the Svelte team; CodeRabbit's
+agent and slash command, which come only with its plugin; Context7's `find-docs` and `context7-cli`
+skills, which run its CLI through `npx`; and Stripe's paying, purchasing and payee-lookup skills, its
+Connect, Metronome and Stripe Apps skills and its plugin's hooks.
+
+**Changed** — every hosted server reaches its third party on every call, so the documentation now
+says to disable a server, not deny single tools, when your agents must not contact that party.
 
 ### Upgrading to 7.0.0
 
-If your agents still work on Astro sites, install the `astro` skill from its upstream yourself:
-`gh skill install astrolicious/agent-skills astro`. Nothing else changes.
+If your agents still work on Astro sites, install the `astro` skill from its upstream yourself, at
+user scope and for your agent, for example
+`gh skill install astrolicious/agent-skills astro --scope user --agent claude-code`. A
+non-interactive install otherwise goes to the current project only, and for GitHub Copilot.
+
+The new `github` and `stripe` servers can change things. Before your agents' next run, decide what
+they may do: deny `github` or `stripe` tools in your tool permissions, or disable either server,
+where the plugin should not write. Sign in to `stripe` through `/mcp` in Claude Code when you want
+it; until then it reports that it needs authentication. If you used CodeRabbit's, Context7's or
+Stripe's own plugins or connectors only for what this release bundles, you can remove them.
 
 ## 6.8.1 — 2026-11-04
 

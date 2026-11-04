@@ -1,11 +1,23 @@
 {
   "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
     "flux-operator-mcp": {
       "command": "sh",
       "args": [
         "-c",
         "[ -n \"$KUBECONFIG\" ] || { [ -n \"$HOME\" ] || { echo 'flux-operator-mcp: set KUBECONFIG or HOME' >&2; exit 1; }; KUBECONFIG=\"$HOME/.kube/config\"; }; export KUBECONFIG; exec flux-operator-mcp serve --read-only"
       ]
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "X-MCP-Toolsets": "context,repos,issues,pull_requests,users,actions,labels,projects"
+      },
+      "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\" \"${CLAUDE_PLUGIN_DATA}\""
     },
     "github-ghas-tools": {
       "type": "http",
@@ -19,6 +31,10 @@
     "siderolabs-docs": {
       "type": "http",
       "url": "https://docs.siderolabs.com/mcp"
+    },
+    "stripe": {
+      "type": "http",
+      "url": "https://mcp.stripe.com"
     },
     "svelte": {
       "type": "http",

@@ -1,6 +1,6 @@
 {
   "name": "agentic-engineering",
-  "description": "The autonomous engineering system for repository portfolios and everything its agents need — engineer, read-only surveyor, meta-engineer and Flux troubleshooter agents; portfolio, product, spend and improvement workflows; GitHub, security, Go, Kubernetes, Flux, Talos, SvelteKit frontend and engineering-practice skills; and the MCP servers they use; configured by the consumer AGENTS.md",
+  "description": "The autonomous engineering system for repository portfolios and everything its agents need — engineer, read-only surveyor, meta-engineer and Flux troubleshooter agents; portfolio, product, spend and improvement workflows; GitHub, CodeRabbit review, security, library documentation, Go, Kubernetes, Flux, Talos, SvelteKit frontend, Stripe payments and engineering-practice skills; and the MCP servers they use; configured by the consumer AGENTS.md",
   "version": "7.0.0",
   "author": {
     "name": "devantler-tech",
@@ -30,6 +30,12 @@
     "mcp",
     "svelte",
     "sveltekit",
-    "frontend"
+    "frontend",
+    "coderabbit",
+    "code-review",
+    "context7",
+    "documentation",
+    "stripe",
+    "payments"
   ]
 }

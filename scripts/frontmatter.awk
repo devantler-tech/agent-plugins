@@ -145,11 +145,24 @@ function scalar(s, q,i,c,escaped,tail) {
   # Unsupported top-level YAML syntax cannot hide a second effective identity.
   if ($0 !~ /^[[:space:]]/) { bad=1; next }
   if ((mode != "repository" && mode != "metadata") || !in_metadata || $0 ~ /^[[:space:]]*(#.*)?$/) next
-  if ($0 !~ /^[ ]+[A-Za-z_][A-Za-z0-9_-]*:/) { bad=1; next }
   match($0,/[^ ]/); indent=RSTART-1
+  # A list of plain scalars may follow a metadata key that has no value of its own and is
+  # not an installer field. Its items are never keys, so they cannot hide or forge one.
+  if ($0 ~ /^[ ]+-([ \t]|$)/) {
+    if (!list_owner || indent <= depth) { bad=1; next }
+    scalar(substr($0,indent+2))
+    if (!scalar_ok) bad=1
+    next
+  }
+  if ($0 !~ /^[ ]+[A-Za-z_][A-Za-z0-9_-]*:/) { bad=1; next }
   if (!depth) depth=indent
   if (indent < depth) { bad=1; next }
   key=trim($0); sub(/:.*/,"",key)
+  list_owner=0
+  if (indent == depth && key !~ /^github-/) {
+    raw=$0; sub(/^[ ]+[A-Za-z_][A-Za-z0-9_-]*:/,"",raw); raw=trim(raw); sub(/^#.*/,"",raw)
+    list_owner=(raw == "")
+  }
   # A partial installer record is never evidence of local authorship.
   if (mode == "repository" && key ~ /^github-/) install_fields++
   target=(mode == "repository" ? "github-repo" : field)

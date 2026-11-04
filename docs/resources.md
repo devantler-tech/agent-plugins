@@ -33,21 +33,30 @@ armed, or with a schedule pointing at an entrypoint that no longer resolves. The
 ## MCP servers
 
 A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as skills. The
-[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles four, authored once in its
+[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles seven, authored once in its
 [`.mcp.json`](../plugins/agentic-engineering/.mcp.json) (`mcpServers` map), and the
 [`ksail`](../plugins/ksail/) plugin bundles the KSail server, which needs `ksail` on `PATH`:
 
 | Server | What it connects to | Needs |
 |---|---|---|
+| `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary, a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
+| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read and write | A GitHub sign-in; see below |
 | `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
+| `stripe` | Stripe's hosted server at `https://mcp.stripe.com`: Stripe documentation, reads and writes on your Stripe account, analytics and money movement | A Stripe sign-in through OAuth |
 | `svelte` | The Svelte team's hosted server at `https://mcp.svelte.dev/mcp`: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
 
-`siderolabs-docs` also offers a `submit_feedback` tool, which sends a report to Sidero Labs. With
-the other servers held read-only, it is the only tool among these servers that writes anywhere;
-deny it in your tool permissions if your agents must not contact third parties. The Svelte
-autofixer and playground tools write nothing but send the code they are given to Svelte's service.
+Every server but `flux-operator-mcp` is hosted by a third party, so every call to one, including a
+documentation search, reaches that service. If your agents must not contact a third party, disable
+its server in your tool's MCP settings; denying single tools does not stop the connection. Among
+the servers you keep, `github` and `stripe` can change things: `github` writes to GitHub as the
+signed-in account, and `stripe` writes to your Stripe account and can move money. The
+`siderolabs-docs` `submit_feedback` and `stripe` `send_stripe_feedback` tools send reports to Sidero
+Labs and Stripe. The Svelte autofixer and playground tools send the code they are given to Svelte's
+service, and the playground link carries that code. The
+[plugin README](../plugins/agentic-engineering/README.md#bundled-mcp-servers) covers each server's
+sign-in and what to deny.
 
 How each tool consumes the file differs (per [ADR 0001](../docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 
@@ -80,9 +89,10 @@ context in that kubeconfig, starting at the current one, because its read-only
 [Flux MCP docs](https://fluxcd.control-plane.io/operator/mcp/) for read-only mode and remote
 transport.
 
-`github-ghas-tools` is GitHub's remote MCP server limited to its read-only security toolsets, so
-nothing needs installing. Copilot CLI and VS Code sign in to it with your Copilot session; Claude
-Code runs the plugin's `headersHelper`, which sends your GitHub CLI login token. The
+`github` and `github-ghas-tools` are both GitHub's remote MCP server, so nothing needs installing:
+`github` with its everyday toolsets and write tools, `github-ghas-tools` limited to its read-only
+security toolsets. Copilot CLI and VS Code sign in to them with your Copilot session; Claude Code
+runs the plugin's `headersHelper`, which sends your GitHub CLI login token. The
 [plugin README](../plugins/agentic-engineering/README.md#bundled-mcp-servers) covers sign-in for
 each tool and the optional narrower token.
 

@@ -31,8 +31,11 @@ portfolio this plugin serves builds its sites with SvelteKit.
   run locally. The autofixer and playground tools send the code they are given to Svelte's service,
   and the playground link carries that code.
 - `github`, GitHub's remote server with the `context`, `repos`, `issues`, `pull_requests`, `users`,
-  `actions`, `labels` and `projects` toolsets and its write tools enabled, signed in like
-  `github-ghas-tools`. **It can write to GitHub as the signed-in account.**
+  `actions`, `labels` and `projects` toolsets, signed in like `github-ghas-tools`. **It can write to
+  GitHub as the signed-in account**: issues, pull requests, comments, reviews, labels, branches and
+  project items. Merging, creating or forking repositories, writing files, updating a pull request
+  branch and running workflows are excluded, so they stay on `gh` and git, where a consumer's rules
+  apply.
 - `context7`, Upstash's hosted Context7 server at `https://mcp.context7.com/mcp`, read-only and
   needing no account.
 - `stripe`, Stripe's hosted server at `https://mcp.stripe.com`, signed in through OAuth. **Every
@@ -45,8 +48,13 @@ agent and slash command, which come only with its plugin; Context7's `find-docs`
 skills, which run its CLI through `npx`; and Stripe's paying, purchasing and payee-lookup skills, its
 Connect, Metronome and Stripe Apps skills and its plugin's hooks.
 
-**Changed** — every hosted server reaches its third party on every call, so the documentation now
-says to disable a server, not deny single tools, when your agents must not contact that party.
+**Changed**
+
+- `github-ghas-tools` now uses GitHub's read-only endpoint, `https://api.githubcopilot.com/mcp/readonly`.
+  Claude Code loads only the first of two plugin servers with the same URL, so sharing `github`'s
+  URL would have dropped it; `validate-manifests.sh` now refuses two servers with one URL.
+- Every hosted server reaches its third party on every call, so the documentation now says to
+  disable a server, not deny single tools, when your agents must not contact that party.
 
 ### Upgrading to 7.0.0
 

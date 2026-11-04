@@ -150,6 +150,10 @@ function scalar(s, q,i,c,escaped,tail) {
   # not an installer field. Its items are never keys, so they cannot hide or forge one.
   if ($0 ~ /^[ ]+-([ \t]|$)/) {
     if (!list_owner || indent <= depth) { bad=1; next }
+    # Every item of one list sits at the first item's indentation.
+    if (!item_indent) item_indent=indent
+    else if (indent != item_indent) { bad=1; next }
+    in_list=1
     scalar(substr($0,indent+2))
     if (!scalar_ok) bad=1
     next
@@ -157,11 +161,14 @@ function scalar(s, q,i,c,escaped,tail) {
   if ($0 !~ /^[ ]+[A-Za-z_][A-Za-z0-9_-]*:/) { bad=1; next }
   if (!depth) depth=indent
   if (indent < depth) { bad=1; next }
+  # A list holds plain scalars only, so a deeper key after its items is malformed.
+  if (in_list && indent > depth) { bad=1; next }
   key=trim($0); sub(/:.*/,"",key)
-  list_owner=0
+  list_owner=0; in_list=0; item_indent=0
   if (indent == depth && key !~ /^github-/) {
-    raw=$0; sub(/^[ ]+[A-Za-z_][A-Za-z0-9_-]*:/,"",raw); raw=trim(raw); sub(/^#.*/,"",raw)
-    list_owner=(raw == "")
+    # Only nothing, or whitespace and then a comment, may follow the colon of a list's key.
+    raw=$0; sub(/^[ ]+[A-Za-z_][A-Za-z0-9_-]*:/,"",raw)
+    list_owner=(raw ~ /^[ \t]*$/ || raw ~ /^[ \t]+#/)
   }
   # A partial installer record is never evidence of local authorship.
   if (mode == "repository" && key ~ /^github-/) install_fields++

@@ -282,6 +282,12 @@ validate_mcp_json() {
   if ! remote_urls=$(jq -c '[.mcpServers[] | select(has("url")) | .url]' <<< "$document"); then
     echo "::error::$mcp: cannot completely observe remote MCP URLs"; return 1
   fi
+  # Claude Code keeps only the first of two plugin servers with the same URL, whatever their
+  # headers, and treats URLs differing only by trailing slashes as the same.
+  if ! jq -e 'map(sub("/+$"; "")) | length == (unique | length)' <<< "$remote_urls" > /dev/null; then
+    echo "::error::$mcp: two remote MCP servers share a URL; Claude Code would load only the first"
+    return 1
+  fi
   if [ "$remote_urls" != '[]' ]; then
     if [ ! -x "$inventory_dir/mcp-url-validator" ]; then
       if ! GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \

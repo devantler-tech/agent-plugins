@@ -41,7 +41,7 @@ A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as sk
 |---|---|---|
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary, a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
-| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read and write | A GitHub sign-in; see below |
+| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read and most writes (merging, repository creation, file writes and workflow runs are excluded) | A GitHub sign-in; see below |
 | `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server at `https://mcp.stripe.com`: Stripe documentation, reads and writes on your Stripe account, analytics and money movement | A Stripe sign-in through OAuth |
@@ -90,8 +90,9 @@ context in that kubeconfig, starting at the current one, because its read-only
 transport.
 
 `github` and `github-ghas-tools` are both GitHub's remote MCP server, so nothing needs installing:
-`github` with its everyday toolsets and write tools, `github-ghas-tools` limited to its read-only
-security toolsets. Copilot CLI and VS Code sign in to them with your Copilot session; Claude Code
+`github` with its everyday toolsets and most write tools, `github-ghas-tools` on the read-only
+endpoint with only its security toolsets. Copilot CLI and VS Code sign in to them with your Copilot
+session; Claude Code
 runs the plugin's `headersHelper`, which sends your GitHub CLI login token. The
 [plugin README](../plugins/agentic-engineering/README.md#bundled-mcp-servers) covers sign-in for
 each tool and the optional narrower token.

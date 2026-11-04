@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Print the Authorization header Claude Code sends to the bundled GitHub security MCP server.
+# Print the Authorization header Claude Code sends to the bundled GitHub MCP servers.
 #
-# Claude Code runs this as the `headersHelper` of `github-ghas-tools` in ../.mcp.json on every
-# connection and merges its output into the request headers. GitHub's remote MCP server points
+# Claude Code runs this as the `headersHelper` of both `github` and `github-ghas-tools` in
+# ../.mcp.json on every connection and merges its output into the request headers, so one token
+# signs in to both. GitHub's remote MCP server points
 # OAuth at github.com/login/oauth, which offers no dynamic client registration, so Claude Code
 # cannot sign in to it on its own. GitHub Copilot and VS Code authenticate the server themselves
 # and do not run this helper.
@@ -10,9 +11,11 @@
 # Claude Code runs a plugin's helper without any environment variable whose name looks like a
 # credential (TOKEN, SECRET, KEY, AUTH, ...), so the token never comes from the environment. It is
 # the contents of `github-token` in the plugin data directory, passed as the first argument, when
-# that file exists; that is where you put a narrowly scoped token. Otherwise it is the GitHub CLI's
-# github.com login (`gh auth token --hostname github.com`), never another host's token. The server
-# definition also asks GitHub for read-only tools (`X-MCP-Readonly`).
+# that file exists; that is where you put a narrowly scoped token, which then serves both servers.
+# Otherwise it is the GitHub CLI's github.com login (`gh auth token --hostname github.com`), never
+# another host's token. `github-ghas-tools` uses GitHub's read-only endpoint and also sends
+# `X-MCP-Readonly`. `github` can write, except for the tools its `X-MCP-Exclude-Tools` header
+# removes; what a token allows bounds both.
 #
 # The script prints one JSON object and nothing else, and never writes the token to stderr. When
 # no usable token exists it prints nothing and exits 1, so Claude Code reports a failed helper

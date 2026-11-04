@@ -143,7 +143,7 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 |---|---|---|
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
-| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read and write | A GitHub sign-in, below |
+| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read and most writes (merging, repository creation, file writes and workflow runs are excluded) | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server: Stripe documentation, reads and writes on your Stripe account, analytics, and money movement | A Stripe sign-in, below |
@@ -196,20 +196,26 @@ them in your tool permissions if your agents must not file reports. The Svelte t
 nothing, but their autofixer and playground tools send code to Svelte, so deny those too if no code
 may leave your machine. `github` and `stripe` are the servers whose tools change things.
 
-`github-ghas-tools` is GitHub's remote MCP server at `https://api.githubcopilot.com/mcp/`, limited to
-the `code_security`, `secret_protection`, `security_advisories` and `dependabot` toolsets — the server
-definition from GitHub's [Advanced Security plugin](https://github.com/github/copilot-advanced-security-plugin).
-It also sends `X-MCP-Readonly: true`, so GitHub offers only read tools: listing and reading alerts
-and advisories, and `check_dependency_vulnerabilities`, which looks up package versions in the
-GitHub Advisory Database. When an agent uses it, the repository owner and name, and any package
-names and versions it checks, go to GitHub.
+`github-ghas-tools` is GitHub's remote MCP server at its read-only endpoint,
+`https://api.githubcopilot.com/mcp/readonly`, limited to the `code_security`, `secret_protection`,
+`security_advisories` and `dependabot` toolsets — the server definition from GitHub's
+[Advanced Security plugin](https://github.com/github/copilot-advanced-security-plugin). It also
+sends `X-MCP-Readonly: true`, so GitHub offers only read tools: listing and reading alerts and
+advisories, and `check_dependency_vulnerabilities`, which looks up package versions in the GitHub
+Advisory Database. When an agent uses it, the repository owner and name, and any package names and
+versions it checks, go to GitHub. Its URL differs from `github`'s on purpose: Claude Code loads
+only the first of two plugin servers with the same URL, whatever their headers.
 
-`github` is the same GitHub server with its everyday toolsets instead: `context`, `repos`, `issues`,
-`pull_requests`, `users`, `actions`, `labels` and `projects`, the tools the bundled `github-issues`
-skill uses. Its write tools are enabled, so it can create and edit issues, pull requests, branches,
-files and labels, run workflows and merge pull requests as the signed-in account, with the same
-reach as that account's `gh` login. The security toolsets stay on the read-only
-`github-ghas-tools`, so neither server repeats the other's tools.
+`github` is the same GitHub server at `https://api.githubcopilot.com/mcp/` with its everyday
+toolsets instead: `context`, `repos`, `issues`, `pull_requests`, `users`, `actions`, `labels` and
+`projects`, the tools the bundled `github-issues` skill uses. It can write as the signed-in
+account: create and edit issues, pull requests, comments, reviews, labels, branches and project
+items. Its `X-MCP-Exclude-Tools` header removes the tools that would bypass checks a consumer may
+enforce on the command line: `merge_pull_request`, `create_repository`, `fork_repository`,
+`push_files`, `create_or_update_file`, `delete_file`, `update_pull_request_branch` and
+`actions_run_trigger`. Do those through `gh` and git, where the consumer's merge, signing and
+repository rules apply. The security toolsets stay on the read-only `github-ghas-tools`, so
+neither server repeats the other's tools.
 
 Both servers sign in the same way, with the same token, depending on the tool:
 

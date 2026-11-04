@@ -194,9 +194,17 @@ expect 'a list directly under metadata fails' 1 "$root" 'license cannot be attri
 listed "$root" theirs "    github-repo: https://github.com/example/skills" "    github-path:" "        - skills/theirs"
 expect 'a list under an installer field fails' 1 "$root" 'license cannot be attributed'
 listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:" "    - theirs.?fix"
-expect 'a list item that is not indented past its key fails' 1 "$root" 'license cannot be attributed'
+expect 'an indentless list is refused, narrower than YAML' 1 "$root" 'license cannot be attributed'
 listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers: theirs" "        - theirs.?fix"
-expect 'a list under a key that already has a value fails' 1 "$root" 'license cannot be attributed'
+expect 'a value continued by a list item is refused, narrower than YAML' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:" "        - a" "      - b"
+expect 'list items at different indents fail' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:" "        - a" "        sub: x"
+expect 'a key after list items fails' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers:#c" "        - a"
+expect 'a colon followed directly by # opens no list' 1 "$root" 'license cannot be attributed'
+listed "$root" theirs "    github-repo: https://github.com/example/skills" "    triggers: # a comment" "        - a" "        - b" "    version: 0.1.0"
+expect 'a key with a spaced comment still opens a list' 0 "$root" 'license records for 3 bundled skills'
 
 if [ "$failures" -ne 0 ]; then
   echo "check-skill-licenses self-test: $failures failure(s)" >&2

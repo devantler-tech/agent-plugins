@@ -13,15 +13,15 @@ for scenario in healthy empty-resources canonical-internal canonical-external ca
   root="$work/$scenario"; mkdir -p "$root"
   tar -xf "$work/package.tar" -C "$root"
   canonical="$root/plugins/agentic-engineering/resources/provider-neutral.desired-state.json"
-  # The go plugin's resources directory is replaced below, so start each scenario from a known
+  # The vibe-coding plugin's resources directory is replaced below, so start each scenario from a known
   # state rather than from whatever the package ships there.
-  go_resources="$root/plugins/go/resources"
+  other_resources="$root/plugins/vibe-coding/resources"
   candidate="$root/plugins/agentic-engineering/resources/other.desired-state.json"
   diagnostic='regular packaged desired-state file'
   expected=reject
   case "$scenario" in
     healthy) expected=pass ;;
-    empty-resources) rm -rf "$go_resources"; mkdir -p "$go_resources"; expected=pass ;;
+    empty-resources) rm -rf "$other_resources"; mkdir -p "$other_resources"; expected=pass ;;
     canonical-internal)
       mv "$canonical" "$root/plugins/agentic-engineering/original.json"
       ln -s ../original.json "$canonical" ;;
@@ -46,10 +46,10 @@ for scenario in healthy empty-resources canonical-internal canonical-external ca
     optional-parent|optional-parent-empty)
       mkdir -p "$root/original-resources"
       if [ "$scenario" = optional-parent ]; then cp "$canonical" "$root/original-resources/other.desired-state.json"; fi
-      rm -rf "$go_resources"; ln -s "$root/original-resources" "$go_resources"
+      rm -rf "$other_resources"; ln -s "$root/original-resources" "$other_resources"
       diagnostic='regular packaged resources directory' ;;
     resources-file)
-      rm -rf "$go_resources"; printf 'not a directory\n' > "$go_resources"
+      rm -rf "$other_resources"; printf 'not a directory\n' > "$other_resources"
       diagnostic='regular packaged resources directory' ;;
   esac
   rc=0
@@ -92,7 +92,7 @@ chmod +x "$work/bin/find"
 for mode in partial-failure truncated empty-record; do
   root="$work/parents-$mode"; mkdir -p "$root"
   tar -xf "$work/package.tar" -C "$root"
-  mkdir -p "$root/plugins/go/resources"
+  mkdir -p "$root/plugins/vibe-coding/resources"
   case "$mode" in
     partial-failure) diagnostic='Could not enumerate desired-state resource parents' ;;
     truncated) diagnostic='Incomplete record in desired-state resource parents' ;;

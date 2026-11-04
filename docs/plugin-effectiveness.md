@@ -11,7 +11,7 @@ There is no new frontmatter, plugin manifest field, logging hook, or composite r
 bash scripts/plugin-scorecard.sh \
   --since 2026-11-01T00:00:00Z --until 2026-12-01T00:00:00Z \
   --usage /private/exports/plugin-events.json \
-  --benchmark engineering-practices 1.2.0 /private/evals/ways-of-working/benchmark.json
+  --benchmark agentic-engineering 6.8.0 /private/evals/ways-of-working/benchmark.json
 ```
 
 Run it from a reviewed repository checkout. The command reads explicit files, prints aggregate JSON, and changes nothing. It never discovers

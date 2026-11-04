@@ -25,7 +25,7 @@ copilot plugin marketplace add devantler-tech/agent-plugins
 copilot plugin marketplace browse devantler-plugins
 
 # Install a plugin
-copilot plugin install gitops-kubernetes@devantler-plugins
+copilot plugin install agentic-engineering@devantler-plugins
 ```
 
 ## Claude Code
@@ -34,7 +34,7 @@ Add the marketplace, then install a plugin — run these inside Claude Code ([of
 
 ```text
 /plugin marketplace add devantler-tech/agent-plugins
-/plugin install gitops-kubernetes@devantler-plugins
+/plugin install agentic-engineering@devantler-plugins
 ```
 
 Browse everything on offer with `/plugin` (**Discover** tab) or list it with `/plugin list`. The bundled [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) is also discovered automatically when this repo is added as a plugin source.
@@ -60,6 +60,21 @@ npx skills add devantler-tech/agent-plugins --skill gitops-knowledge --agent cur
 > install the [MCP servers](resources.md#mcp-servers) or [custom agents](resources.md#custom-agents). To get everything a
 > plugin bundles, install it as a plugin in **VS Code**, **Copilot CLI**, or **Claude Code** above —
 > all three load a plugin's bundled `.mcp.json` and `agents/` automatically.
+
+## Moving from the retired category plugins
+
+The `github`, `go`, `gitops-kubernetes`, `engineering-practices` and `frontend-design` plugins were
+folded into `agentic-engineering` 6.8.0 ([ADR 0017](adr/0017-agentic-engineering-bundles-the-agents-toolbox.md)).
+If you installed any of them, install `agentic-engineering@devantler-plugins` with the command for
+your tool above, enable it, and uninstall the retired plugins. The marketplace records each retired
+name as a rename, but Claude Code may report the migrated plugin as not cached until you install it
+once, and other tools may not read renames at all.
+
+The move widens what you run. Besides the skills you had, you get the engineering agents and three
+MCP servers: Flux (read-only), GitHub's read-only security tools signed in with your github.com
+login, and Sidero Labs' public documentation search. The
+[bundled servers and agents](resources.md) guide describes each, and your tool permissions can deny
+any you do not want.
 
 
 [Plugin catalogue](plugins.md) · [Bundled servers and agents](resources.md)

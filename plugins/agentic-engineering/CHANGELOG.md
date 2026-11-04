@@ -1,5 +1,47 @@
 # Changelog — `agentic-engineering`
 
+## 6.8.0 — 2026-11-04
+
+**Added** — everything the agents need, in this one plugin
+([ADR 0017](../../docs/adr/0017-agentic-engineering-bundles-the-agents-toolbox.md)):
+
+- The skills, agent and MCP server of the retired `github`, `go`, `gitops-kubernetes`,
+  `engineering-practices` and `frontend-design` plugins: 19 skills and the `flux-troubleshooter`
+  agent, unchanged, and the `flux-operator-mcp` server, which now starts with `--read-only`. The
+  `ksail` plugin stays separate; enable it alongside this one when your agents use KSail.
+- `github-actions-efficiency`, `github-actions-hardening`, `dependabot`, `secret-scanning` and
+  `codeql` from `https://github.com/github/awesome-copilot` at `refs/heads/main`, and
+  `dependency-scanning` from `https://github.com/github/copilot-advanced-security-plugin` at
+  `refs/heads/main`.
+- `siderolabs` (Talos Linux and Omni) from `https://github.com/siderolabs/docs` at `refs/heads/main`.
+- `github-ghas-tools`, GitHub's remote MCP server limited to its security toolsets and held
+  read-only by `X-MCP-Readonly`, signed in from Claude Code through `scripts/github-mcp-headers.sh`
+  with the github.com GitHub CLI login or a `github-token` file in the plugin data directory; and
+  `siderolabs-docs`, Sidero Labs' public documentation search. See the
+  [README](README.md#bundled-mcp-servers).
+- A [stacked pull requests guide](skills/product-engineering/references/stacked-pull-requests.md)
+  for `product-engineering` and PR driving: when a stack pays off, and merging one layer at a time,
+  bottom first, never with `gh stack merge`.
+
+### Upgrading to 6.8.0
+
+If you installed any of the retired plugins, install and enable `agentic-engineering@devantler-plugins`
+and remove the retired ones. The marketplace's `renames` map points every retired name at this
+plugin, but do not rely on it alone:
+
+- **Claude Code** may report the migrated plugin as not cached until you install it once:
+  `/plugin install agentic-engineering@devantler-plugins`. Check afterwards that it is enabled
+  wherever the old plugins were, including at user scope.
+- **GitHub Copilot CLI and VS Code** have no record of the rename for you to read here, because this
+  note ships inside the plugin you are moving to. The
+  [installation guide](../../docs/installation.md#moving-from-the-retired-category-plugins) carries
+  the same steps.
+- **The migration widens what you run.** Someone who had only `go` or `frontend-design` now also
+  gets the four agents, the GitHub sign-in helper (a bash script Claude Code runs on each
+  connection), GitHub's remote MCP server carrying your github.com login, and Sidero Labs' public
+  documentation server. Review the [bundled MCP servers](README.md#bundled-mcp-servers) and deny
+  the servers or tools you do not want in your tool permissions.
+
 ## 6.7.2 — 2026-11-02
 
 **Changed** — require each third-party contribution to enable the requested product outcome.

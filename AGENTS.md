@@ -1,6 +1,6 @@
 # devantler-tech/agent-plugins
 
-A tool-neutral agent-plugin marketplace that owns the suite's maintained skills and bundles curated external skills into category-based plugins. One repository owns authoring, validation and delivery across VS Code, GitHub Copilot CLI and Claude Code through two parity-checked manifests.
+A tool-neutral agent-plugin marketplace that owns the suite's maintained skills and bundles them with curated external skills: `agentic-engineering` carries everything the engineering agents need ([ADR 0017](docs/adr/0017-agentic-engineering-bundles-the-agents-toolbox.md)), `ksail` is the KSail product's plugin, and `vibe-coding` serves building by conversation. One repository owns authoring, validation and delivery across VS Code, GitHub Copilot CLI and Claude Code through two parity-checked manifests.
 
 By design the marketplace is **not scoped to skills-only** — a plugin may bundle any agent resource
 (agent skills today; [MCP](https://modelcontextprotocol.io) servers and custom agents as they prove out
@@ -303,9 +303,10 @@ spec-validate each skill, `actionlint` changed workflows). No app build here —
 security control or a check to pass.
 
 **Task menu** (1–2 items/run; high care):
-- **Curate the marketplace:** add a category plugin or curate a high-quality external skill (install
-  external sources with `gh skill install`, never hand-copy); recategorise; retire a stale plugin —
-  always editing **both** manifests and the README together.
+- **Curate the marketplace:** curate a high-quality external skill into the plugin whose users need
+  it — the agents' toolbox goes into `agentic-engineering` (install external sources with
+  `gh skill install`, never hand-copy, and never repackage another project's plugin); retire a stale
+  resource — always editing **both** manifests and the README together.
 - **Maintain authored skills** in their canonical `plugins/<plugin>/skills/<skill>/` source, including resources and tests.
 - **Keep external skills fresh:** let the daily `update-agent-skills` PR flow through; fix failed CI. Never hand-edit an external synchronized copy: fix its provenance-recorded upstream first.
 - **Tool-neutral rescope** ([#7](https://github.com/devantler-tech/agent-plugins/issues/7)): de-Copilot-brand

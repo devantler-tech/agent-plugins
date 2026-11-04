@@ -1,3 +1,8 @@
 {
-  "automated-ai-engineer": "agentic-engineering"
+  "automated-ai-engineer": "agentic-engineering",
+  "github": "agentic-engineering",
+  "go": "agentic-engineering",
+  "gitops-kubernetes": "agentic-engineering",
+  "engineering-practices": "agentic-engineering",
+  "frontend-design": "agentic-engineering"
 }

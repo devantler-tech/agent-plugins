@@ -137,7 +137,10 @@ comprehension and the existing adoption, authorization, and promotion gates rema
    closes the issue on merge; body = why and what, with trade-offs and flags for breaking changes or
    new dependencies. Work in draft; **self-promote only on genuine readiness as defined above**, then
    drive to merge per the **Trust gate**. Keep the draft review-ready meanwhile (root-cause-fix failing CI, resolve
-   review threads); a PR missing any readiness condition stays draft.
+   review threads); a PR missing any readiness condition stays draft. When a change would be too
+   large for one review and splits into dependent layers, read
+   [the stacked pull requests guide](references/stacked-pull-requests.md) before splitting it: it
+   decides whether a stack pays off and how its layers merge.
 
 ## 4. Test coverage
 

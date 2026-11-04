@@ -4,18 +4,18 @@ A plugin marketplace: ready-to-install bundles that teach your AI coding assista
 
 ## Start here
 
-In **Claude Code**, add the marketplace and install the GitHub tools bundle:
+In **Claude Code**, add the marketplace and install the agentic engineering bundle:
 
 ```text
 /plugin marketplace add devantler-tech/agent-plugins
-/plugin install github@devantler-plugins
+/plugin install agentic-engineering@devantler-plugins
 ```
 
 Using another tool? Follow the [VS Code](docs/installation.md#vs-code), [Copilot CLI](docs/installation.md#copilot-cli), [Claude Code](docs/installation.md#claude-code), or [skills-only installation guide](docs/installation.md#any-other-agent--skills-only-via-npx-skills).
 
 ## Choose a bundle
 
-Browse the [full plugin catalogue](docs/plugins.md) for GitHub workflows, Kubernetes operations, KSail cluster tooling, Go development, frontend design, engineering practices, autonomous engineering, and building by conversation.
+There are three bundles. **`agentic-engineering`** is everything an autonomous engineer needs in one install: its agents and workflows, plus skills and tool connections for GitHub and repository security, Go, Kubernetes, Flux, Talos, frontend design and engineering practices. **`ksail`** teaches your assistant the [KSail](https://ksail.devantler.tech) cluster CLI and connects it to KSail's MCP server. **`vibe-coding`** is for building a product by conversation alone. The [plugin catalogue](docs/plugins.md) lists every resource.
 
 The [autonomous engineering setup](plugins/agentic-engineering/README.md) explains how to configure the engineer, surveyor, and improver for your repositories. The [server and agent guide](docs/resources.md) covers bundled connections, prerequisites, and specialist roles.
 

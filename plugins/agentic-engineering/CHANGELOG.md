@@ -40,7 +40,8 @@ Management's has the name), and Codex Security's other skills, which need that p
 
 - `kubescape`: the Kubescape CLI's own read-only server (`kubescape mcpserver`), for the results
   the in-cluster operator stores, started through the same `KUBECONFIG` wrapper as the Flux server.
-  It needs the `kubescape` CLI.
+  It needs the `kubescape` CLI, and it downloads Kubescape's released policy bundle from GitHub at
+  start.
 - `terraform-registry`: HashiCorp's `terraform-mcp-server` with only its `registry` toolset, for
   public provider and module documentation. It needs the `terraform-mcp-server` binary.
 - `cloudflare-docs` and `aws-knowledge`: Cloudflare's and AWS's hosted documentation servers,
@@ -55,13 +56,18 @@ no official or maintained read-only resource yet.
 `.app.json` offering iCloud Mail, iCloud Calendar, LinkedIn and Codex Security Cloud as optional
 apps, so Codex lists them with the plugin. Each still needs the user's own sign-in.
 
+**Added — `CONNECTORS.md`**, which maps the `~~category` placeholders in Anthropic's skills to what
+this plugin provides.
+
 **Changed**
 
 - The marketplace's skill-spec check accepts the `argument-hint` and `user-invocable` frontmatter
   fields Claude Code and VS Code read, which many of the new skills use, and still rejects every
-  other field the Agent Skills specification does not define.
+  other field the Agent Skills specification does not define. CI also reads each skill and its
+  spec view with `skills-ref read-properties` and fails unless they match.
 - `validate-manifests.sh` checks a Codex manifest and its app list, and `bump-plugin-version.sh`
-  moves a Codex manifest's version with the other four manifests.
+  moves a Codex manifest's version with the other four manifests. The daily skill sync stages and
+  publishes it too.
 
 ### Upgrading to 7.1.0
 

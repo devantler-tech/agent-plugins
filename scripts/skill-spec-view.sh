@@ -50,15 +50,29 @@ awk '
   !closed && /^---[ \t]*\r?$/ { closed=1; print; next }
   closed { print; next }
   {
+    # Blank and comment lines can sit inside a multi-line value, so they keep a drop open.
+    if (/^[ \t]*\r?$/ || /^[ \t]*#/) { print; next }
     # A continuation of a dropped field would be left behind on its own.
     if (dropping && /^[ \t]/) refuse("a dropped field continues onto another line")
     dropping=0
-    if (match($0, /^(argument-hint|user-invocable):/)) {
-      key=substr($0, 1, RLENGTH - 1)
+    # A key needs whitespace or the end of the line after its colon; `key:value` is no key.
+    if (match($0, /^(argument-hint|user-invocable):([ \t]|\r?$)/)) {
+      key=$0; sub(/:.*/, "", key)
       if (seen[key]++) refuse(key " appears more than once")
-      value=substr($0, RLENGTH + 1)
-      sub(/^[ \t]+/, "", value); sub(/[ \t]+(#.*)?\r?$/, "", value); sub(/\r$/, "", value)
-      if (value == "" || value ~ /^[|>]/) refuse(key " has no single-line value")
+      value=substr($0, length(key) + 2)
+      sub(/\r$/, "", value); sub(/^[ \t]+/, "", value)
+      first=substr(value, 1, 1)
+      if (first == "\"") {
+        # A double-quoted value must close on this line, with only a comment after it.
+        if (value !~ /^"([^"\\]|\\.)*"[ \t]*(#.*)?$/) refuse(key " has a double-quoted value that does not close on its line")
+      } else if (first == "\047") {
+        if (value !~ /^\047([^\047]|\047\047)*\047[ \t]*(#.*)?$/) refuse(key " has a single-quoted value that does not close on its line")
+      } else {
+        sub(/[ \t]+#.*$/, "", value); sub(/[ \t]+$/, "", value)
+        if (value == "" || value ~ /^[|>]/) refuse(key " has no single-line value")
+        # Flow collections, anchors, aliases and tags are YAML structure, not a plain hint.
+        if (value ~ /^[\[\]{}&*!%@`]/) refuse(key " has a value this view cannot read safely")
+      }
       dropping=1
       next
     }

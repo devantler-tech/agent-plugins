@@ -75,6 +75,32 @@ expect_refused 'an empty value introducing a nested node is refused' 1 "$src"
 src=$(skill twice '---' 'name: twice' 'description: Fixture.' 'user-invocable: true' 'user-invocable: false' '---' '# twice')
 expect_refused 'a repeated field is refused' 1 "$src"
 
+# A dropped value must not leave part of itself behind for the validator to read as something else.
+src=$(skill blankcont '---' 'name: blankcont' 'description:' 'argument-hint: one' '' '  Text.' '---' '# blankcont')
+expect_refused 'a continuation after a blank line is refused' 1 "$src"
+
+src=$(skill commentcont '---' 'name: commentcont' 'description: Fixture.' 'argument-hint: one' '# note' '  more' '---' '# commentcont')
+expect_refused 'a continuation after a comment line is refused' 1 "$src"
+
+src=$(skill openquote '---' 'name: openquote' 'argument-hint: "a' 'description: only in view' '---' '# openquote')
+expect_refused 'a quoted value that runs onto the next line is refused' 1 "$src"
+
+src=$(skill unclosed1 '---' 'name: unclosed1' 'description: Fixture.' 'argument-hint: "<file>' '---' '# unclosed1')
+expect_refused 'an unclosed double-quoted value is refused' 1 "$src"
+
+src=$(skill flow '---' 'name: flow' 'description: Fixture.' 'argument-hint: [a, b]' '---' '# flow')
+expect_refused 'a flow value is refused' 1 "$src"
+
+src=$(skill anchor '---' 'name: anchor' 'description: Fixture.' 'argument-hint: &x y' '---' '# anchor')
+expect_refused 'an anchored value is refused' 1 "$src"
+
+src=$(skill quoted '---' 'name: quoted' 'description: Fixture.' "argument-hint: 'it''s <file>' # hint" 'user-invocable: "false"' '---' '# quoted')
+expect_view 'closed single- and double-quoted values are dropped' "$src" '---' 'name: quoted' 'description: Fixture.' '---' '# quoted'
+
+src=$(skill nospace '---' 'name: nospace' 'description: Fixture.' 'user-invocable:false' '---' '# nospace')
+expect_view 'a key without a space after its colon is not a field to drop' "$src" \
+  '---' 'name: nospace' 'description: Fixture.' 'user-invocable:false' '---' '# nospace'
+
 src=$(skill unclosed '---' 'name: unclosed' 'description: Fixture.' 'argument-hint: x')
 expect_refused 'unterminated frontmatter is refused' 1 "$src"
 

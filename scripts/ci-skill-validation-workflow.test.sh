@@ -49,6 +49,10 @@ check_workflow() {
   require 'each skill is judged through the reviewed spec view' \
     'skill=$(bash scripts/skill-spec-view.sh "$skill_path" ' "$validate"
   require 'the view loop covers every discovered path' 'for skill_path in "${skills[@]}"; do' "$validate"
+  require 'the view is proven to read as the skill itself' \
+    'if ! cmp -s "$views/original.json" "$views/view.json"; then' "$validate"
+  require 'the original skill is read by the same parser' \
+    'skills-ref read-properties "$skill_path" > "$views/original.json"' "$validate"
   require 'validation failures stop the job' 'set -euo pipefail' "$validate"
   require 'required aggregate waits for validation' 'validate-spec]' "$required"
   require 'required aggregate consumes the validation result' \
@@ -90,6 +94,9 @@ expect_rejected tolerated-failure "$WORK/tolerated-failure.yaml"
 
 sed 's|bash scripts/skill-spec-view.sh|bash scripts/strip-all-fields.sh|' "$WORKFLOW" >"$WORK/replaced-view.yaml"
 expect_rejected replaced-view "$WORK/replaced-view.yaml"
+
+sed '/if ! cmp -s "$views\/original.json" "$views\/view.json"; then/,/^            fi$/d' "$WORKFLOW" >"$WORK/unproven-view.yaml"
+expect_rejected unproven-view "$WORK/unproven-view.yaml"
 
 sed 's/, validate-spec]/]/' "$WORKFLOW" >"$WORK/missing-aggregate.yaml"
 expect_rejected missing-aggregate "$WORK/missing-aggregate.yaml"

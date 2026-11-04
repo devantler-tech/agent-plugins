@@ -72,6 +72,7 @@ check_workflow() {
     'bash scripts/check-instruction-size.test.sh || result=1'
     'bash scripts/install-skills-ref.test.sh'
     'bash scripts/ci-skill-validation-workflow.test.sh'
+    'bash scripts/skill-spec-view.test.sh'
     'bash scripts/ci-script-test-sharding-workflow.test.sh'
     'bash scripts/marketplace-caller-context.test.sh'
     'bash scripts/prepare-marketplace-release.test.sh'

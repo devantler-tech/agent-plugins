@@ -51,9 +51,11 @@ A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as sk
 | `svelte` | The Svelte team's hosted server at `https://mcp.svelte.dev/mcp`: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
 | `terraform-registry` | HashiCorp's Terraform server, `registry` toolset only: public provider and module documentation, read-only | The `terraform-mcp-server` binary |
 
-`flux-operator-mcp` and `kubescape` talk only to your clusters, and `terraform-registry` runs locally
-but queries the public Terraform Registry. Every other server is hosted by a third party, so every
-call to one, including a documentation search, reaches that service. If your agents must not contact a third party, disable
+`flux-operator-mcp` talks only to your clusters. `kubescape` also downloads Kubescape's released
+policy bundle from GitHub each time it starts, and `terraform-registry` runs locally but queries the
+public Terraform Registry. Every other server is hosted by a third party, so every call to one,
+including a documentation search, reaches that service. If your agents must not contact a third
+party, disable
 its server in your tool's MCP settings; denying single tools does not stop the connection. Among
 the servers you keep, `github` and `stripe` can change things: `github` writes to GitHub as the
 signed-in account, and `stripe` writes to your Stripe account and can move money. The

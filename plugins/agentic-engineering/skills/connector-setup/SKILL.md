@@ -14,7 +14,9 @@ the right one in the right place.
 
 Never work around a missing connector. Do not install an unofficial server, scrape a website,
 reuse browser cookies or ask the user for a password. Ask for the official connector, or say
-plainly that none exists yet.
+plainly that none exists yet. Where a connector signs in with a password, such as an Apple
+app-specific password for iCloud, the user types it only into that connector's own sign-in, never
+into the conversation.
 
 ## Which connector to ask for
 

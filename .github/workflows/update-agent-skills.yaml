@@ -143,7 +143,8 @@ jobs:
           # The publisher independently rejects anything outside this skill's plugin metadata.
           git add -- '*.desired-state.json'
           git add -- .claude-plugin/marketplace.json .github/plugin/marketplace.json \
-            'plugins/*/plugin.json' 'plugins/*/.claude-plugin/plugin.json' 'plugins/*/CHANGELOG.md'
+            'plugins/*/plugin.json' 'plugins/*/.claude-plugin/plugin.json' \
+            'plugins/*/.codex-plugin/plugin.json' 'plugins/*/CHANGELOG.md'
 
       - name: ✍️ Publish one App-signed metadata commit
         id: publish-metadata

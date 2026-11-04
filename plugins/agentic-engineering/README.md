@@ -189,8 +189,10 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 | `svelte` | The Svelte team's hosted server: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
 | `terraform-registry` | HashiCorp's Terraform server limited to its `registry` toolset: provider and module documentation from the public Terraform Registry, read-only | The [`terraform-mcp-server`](https://github.com/hashicorp/terraform-mcp-server) binary |
 
-`flux-operator-mcp` and `kubescape` talk only to your clusters, and `terraform-registry` runs
-locally but looks providers and modules up in the public Terraform Registry. Every other server is
+`flux-operator-mcp` talks only to your clusters. `kubescape` also downloads Kubescape's released
+policy bundle from GitHub each time it starts, falling back to a local cache, and
+`terraform-registry` runs locally but looks providers and modules up in the public Terraform
+Registry. Every other server is
 hosted by a third party, so every call to one, including a documentation search, reaches that
 service. If your agents must not contact a third party, disable its server in your tool's MCP
 settings; denying single tools does not stop the connection.

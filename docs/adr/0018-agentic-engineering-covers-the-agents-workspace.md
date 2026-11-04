@@ -38,7 +38,7 @@ Claude Code plugin manifest cannot declare.
 
 - The plugin is no longer engineering-only. Its description, README and catalogue say so, and
   `vibe-coding` and `ksail` stay separate as before.
-- The bundle grows to 89 skills, so a session lists many more skill descriptions. If that crowds
+- This plugin grows to 87 skills, so a session lists many more skill descriptions. If that crowds
   out the engineering ones, splitting off a productivity plugin is the planned next step.
 - Mail, calendar and LinkedIn need one sign-in each by the user, and unattended runs never wait
   for one. Codex can install the iCloud and Codex Security plugins; Claude has no iCloud connector

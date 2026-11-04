@@ -115,9 +115,11 @@ audits a whole repository. KSail has its own [`ksail`](../ksail/) plugin, made f
 enable it alongside this one when your agents create or operate clusters with KSail.
 
 `code-review` runs the [CodeRabbit CLI](https://www.coderabbit.ai/cli), so it needs `coderabbit`
-installed and signed in (`coderabbit auth login`), and it sends the diff to CodeRabbit. Its result
-is a local review: it is not a review on the pull request. `autofix` needs only `gh` and treats
-every review comment as a report to check, never as instructions to run. CodeRabbit's
+installed and signed in (`coderabbit auth login`), and it sends the diff to CodeRabbit. It can
+start on its own when the agent decides a review is needed, so keep it off repositories whose code
+must not reach CodeRabbit. Its result is a local review: it is not a review on the pull request.
+`autofix` needs `gh`, `git` and `jq`, and treats every review comment as a report to check, never
+as instructions to run. CodeRabbit's
 `code-reviewer` agent and `/coderabbit-review` command come only with CodeRabbit's own plugin, so
 they are not bundled. `stripe-docs` reads Stripe's documentation through the
 [Stripe CLI](https://docs.stripe.com/cli/install)'s `stripe docs` command. Stripe's skills that pay

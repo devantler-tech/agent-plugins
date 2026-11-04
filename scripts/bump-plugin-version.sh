@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Bump a plugin's version across all four manifests that must agree.
+# Bump a plugin's version across all the manifests that must agree.
 #
 # A plugin's version lives in four places — the portable manifest, the strict Claude manifest,
-# and one entry in each of the two marketplace manifests — and validate-manifests.sh fails if
-# they disagree. Doing that by hand is four edits and an easy way to ship a half-bumped plugin,
+# and one entry in each of the two marketplace manifests — plus a Codex manifest when the plugin
+# ships one, and validate-manifests.sh fails if they disagree. Doing that by hand is four edits and an easy way to ship a half-bumped plugin,
 # so this is the one supported way to move a version.
 #
 # Consumers cache plugins by version, so a content change that leaves the version untouched
@@ -48,12 +48,21 @@ for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
   cp "$snapshot" "$work/$(basename "$(dirname "$manifest")").json"
 done
 
-# Validate one plugin's four-manifest parity and stage its increment without changing the checkout.
+# Validate one plugin's manifest parity and stage its increment without changing the checkout.
 plan_one() {
   local name="$1" level="$2" dir="plugins/$1" current='' new manifest staged entry observed original
+  local -a manifests
   [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { echo '::error::Invalid plugin identity.' >&2; return 1; }
   plugin_version_local_parents "$name" || return 1
-  for manifest in "$dir/plugin.json" "$dir/.claude-plugin/plugin.json"; do
+  manifests=("$dir/plugin.json" "$dir/.claude-plugin/plugin.json")
+  # Codex reads its own manifest before the Claude one when a plugin ships it, so it moves in step.
+  if [ -e "$dir/.codex-plugin" ] || [ -L "$dir/.codex-plugin" ]; then
+    if [ ! -d "$dir/.codex-plugin" ] || [ -L "$dir/.codex-plugin" ]; then
+      echo '::error::Manifest parent must be a real checkout directory.' >&2; return 1
+    fi
+    manifests+=("$dir/.codex-plugin/plugin.json")
+  fi
+  for manifest in "${manifests[@]}"; do
     [ -f "$manifest" ] && [ ! -L "$manifest" ] || return 1
     original="$work/original-$name-$(basename "$(dirname "$manifest")")"
     cp "$manifest" "$original" || return 1
@@ -77,7 +86,7 @@ plan_one() {
   # Changed-since must validate even a plugin already bumped on the branch.
   if [ "$level" = keep ]; then return 0; fi
   new=$(plugin_version_next "$current" "$level") || return 1
-  for manifest in "$dir/plugin.json" "$dir/.claude-plugin/plugin.json"; do
+  for manifest in "${manifests[@]}"; do
     entry="$work/plugin-$(wc -c < "$work/changes" | tr -d ' ')"
     original="$work/original-$name-$(basename "$(dirname "$manifest")")"
     jq --arg v "$new" '.version = $v' "$original" > "$entry" || return 1

@@ -6,9 +6,9 @@ license: Apache-2.0
 
 # Connector setup
 
-This plugin bundles the servers its agents need for engineering: GitHub, CodeRabbit's skills,
-Context7, Stripe, Svelte, Sidero Labs and Flux. Mail, calendar, LinkedIn and Codex Security's
-cloud scans come from the providers' own connectors instead. A plugin cannot switch those on by
+This plugin bundles the servers its agents need for engineering: GitHub, Context7, Stripe, Svelte,
+Sidero Labs, Flux, Kubescape, Terraform, Cloudflare and AWS documentation. Mail, calendar,
+LinkedIn and Codex Security's cloud scans come from the providers' own connectors instead. A plugin cannot switch those on by
 itself: each needs the user's own sign-in. Your job is to notice when one is missing and ask for
 the right one in the right place.
 
@@ -26,8 +26,9 @@ Checked 2026-11-04. Re-check the directory before telling the user a connector i
 | iCloud Calendar | No official connector | `icloud-calendar@openai-curated-remote` (OpenAI; signs in with an Apple app-specific password) |
 | Gmail | The **Gmail** connector | `gmail@openai-curated-remote` |
 | Google Calendar | The **Google Calendar** connector | `google-calendar@openai-curated-remote` |
+| Looking up a professional on LinkedIn | None | The **LinkedIn** plugin by LinkedIn (`app-69949aa62bf48191be5e57a01202beca@openai-curated-remote`): title, company, location and follower count |
 | Posting a LinkedIn job | The **LinkedIn Hiring Pro** connector, which drafts and posts one free job | None |
-| Reading LinkedIn profiles, feed or messages | None. LinkedIn's terms forbid automated access, so do not scrape | None |
+| Reading a LinkedIn feed or messages | None. LinkedIn's terms forbid automated access, so do not scrape | None |
 | Codex Security scans | Not available | `codex-security@openai-curated-remote`, whose Cloud scans are billed per token beyond the plan allowance |
 
 ## How to ask
@@ -45,10 +46,11 @@ Checked 2026-11-04. Re-check the directory before telling the user a connector i
 Without those tools, tell the user to open claude.ai → **Settings** → **Connectors** and connect
 the named entry.
 
-**In Codex**, tell the user the plugin to add, for example
-`codex plugin add icloud-mail@openai-curated-remote`, or to install it from the Codex app's
-**Plugins** page. Codex asks for the sign-in during installation. Do not run the command for them
-without asking: it changes their Codex setup.
+**In Codex**, this plugin's Codex manifest offers iCloud Mail, iCloud Calendar, LinkedIn and Codex
+Security Cloud as optional apps, so Codex lists them with the plugin. If one is still missing, tell
+the user the plugin to add, for example `codex plugin add icloud-mail@openai-curated-remote`, or
+to install it from the Codex app's **Plugins** page. Codex asks for the sign-in during
+installation. Do not run the command for them without asking: it changes their Codex setup.
 
 **In an unattended run**, nobody can click Connect. Do not wait. Note the missing connector where
 the deployment collects things for its maintainer, and carry on with the rest of the work.

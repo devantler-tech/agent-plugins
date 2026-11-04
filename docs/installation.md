@@ -41,6 +41,23 @@ Browse everything on offer with `/plugin` (**Discover** tab) or list it with `/p
 
 Claude Desktop can add the same GitHub repository from **Plugins → Personal**. That path validates the marketplace remotely in strict mode; every plugin therefore includes the canonical `.claude-plugin/plugin.json` manifest it requires.
 
+## Codex
+
+Add the marketplace, then install a plugin, from a terminal:
+
+```bash
+codex plugin marketplace add https://github.com/devantler-tech/agent-plugins.git
+codex plugin add agentic-engineering@devantler-plugins
+```
+
+Codex reads a plugin's `.codex-plugin/plugin.json` before its `.claude-plugin/plugin.json`. The
+`agentic-engineering` plugin ships one so that it can also offer the official Codex apps its agents
+use: iCloud Mail, iCloud Calendar, LinkedIn and Codex Security Cloud, all optional, listed in its
+[`.app.json`](../plugins/agentic-engineering/.app.json). Each still needs your own sign-in.
+`scripts/validate-manifests.sh` keeps that manifest identical to the portable one apart from its
+component paths, app list and listing, and `scripts/bump-plugin-version.sh` moves its version
+with the others.
+
 ## Any other agent — skills only, via `npx skills`
 
 [`npx skills`](https://github.com/vercel-labs/skills) reads this repo's [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) and installs the bundled **skills** into its supported agents — useful when your agent isn't one of the three above:

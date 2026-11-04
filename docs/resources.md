@@ -33,22 +33,27 @@ armed, or with a schedule pointing at an entrypoint that no longer resolves. The
 ## MCP servers
 
 A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as skills. The
-[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles seven, authored once in its
+[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles eleven, authored once in its
 [`.mcp.json`](../plugins/agentic-engineering/.mcp.json) (`mcpServers` map), and the
 [`ksail`](../plugins/ksail/) plugin bundles the KSail server, which needs `ksail` on `PATH`:
 
 | Server | What it connects to | Needs |
 |---|---|---|
+| `aws-knowledge` | AWS's hosted knowledge server: AWS documentation and regional availability, read-only | Nothing; it works without an AWS account |
+| `cloudflare-docs` | Cloudflare's hosted documentation search, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary, a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, file writes and workflow runs are excluded | A GitHub sign-in; see below |
 | `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
+| `kubescape` | A live cluster's Kubescape results, read-only (`kubescape mcpserver`): vulnerabilities, configuration scans, SBOMs and exposure checks | The `kubescape` CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server at `https://mcp.stripe.com`: Stripe documentation, reads and writes on your Stripe account, analytics and money movement | A Stripe sign-in through OAuth |
 | `svelte` | The Svelte team's hosted server at `https://mcp.svelte.dev/mcp`: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
+| `terraform-registry` | HashiCorp's Terraform server, `registry` toolset only: public provider and module documentation, read-only | The `terraform-mcp-server` binary |
 
-Every server but `flux-operator-mcp` is hosted by a third party, so every call to one, including a
-documentation search, reaches that service. If your agents must not contact a third party, disable
+`flux-operator-mcp` and `kubescape` talk only to your clusters, and `terraform-registry` runs locally
+but queries the public Terraform Registry. Every other server is hosted by a third party, so every
+call to one, including a documentation search, reaches that service. If your agents must not contact a third party, disable
 its server in your tool's MCP settings; denying single tools does not stop the connection. Among
 the servers you keep, `github` and `stripe` can change things: `github` writes to GitHub as the
 signed-in account, and `stripe` writes to your Stripe account and can move money. The

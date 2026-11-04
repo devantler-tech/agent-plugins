@@ -269,9 +269,10 @@ pull request branch, create, fork or delete repositories, write files and run wo
 `merge_pull_request`, `update_pull_request`, `pull_request_review_write`,
 `add_comment_to_pending_review`, `update_pull_request_branch`, `create_repository`,
 `fork_repository`, `delete_repository`, `push_files`, `create_or_update_file`, `delete_file` and
-`actions_run_trigger`. GitHub does not offer every tool to every connection: a Claude Code
-session received `delete_repository` although direct probes of the same toolsets did not, so the
-list names it anyway.
+`actions_run_trigger`. GitHub does not offer every tool to every client: it offers
+`delete_repository` only to clients that speak MCP protocol 2026-07-28 and declare elicitation, as
+Claude Code 2.1.317 does, so an older probe never sees it. The list names it anyway, and a test
+keeps every name on it.
 Do those through `gh` and git, where a consumer's merge, readiness, review, signing and repository
 rules apply. What stays can still write as the signed-in account: issues and sub-issues (including
 closing them), labels (including deleting them), comments and replies, branches, new pull requests

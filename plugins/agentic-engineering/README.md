@@ -269,8 +269,9 @@ pull request branch, create, fork or delete repositories, write files and run wo
 `merge_pull_request`, `update_pull_request`, `pull_request_review_write`,
 `add_comment_to_pending_review`, `update_pull_request_branch`, `create_repository`,
 `fork_repository`, `delete_repository`, `push_files`, `create_or_update_file`, `delete_file` and
-`actions_run_trigger`. GitHub offers some tools only to some clients: `delete_repository` reaches
-Claude Code but not a plain MCP client, so the list names it anyway.
+`actions_run_trigger`. GitHub does not offer every tool to every connection: a Claude Code
+session received `delete_repository` although direct probes of the same toolsets did not, so the
+list names it anyway.
 Do those through `gh` and git, where a consumer's merge, readiness, review, signing and repository
 rules apply. What stays can still write as the signed-in account: issues and sub-issues (including
 closing them), labels (including deleting them), comments and replies, branches, new pull requests

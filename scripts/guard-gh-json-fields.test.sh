@@ -367,6 +367,33 @@ dir="$(fixture unknown-unscanned-type)"
 printf '%s\n' 'cmd: gh pr view 42 --json state,merged' > "${dir}/plugins/p/agents/case.ini"
 expect 2 "an unscanned file type is UNKNOWN" "${dir}"
 
+# Listing icons are raster images: skipped only when their bytes carry that format's signature.
+dir="$(fixture good-png-icon)"
+mkdir -p "${dir}/plugins/p/.claude-plugin"
+printf '\x89PNG\r\n\x1a\n\0\0\0\rIHDR' > "${dir}/plugins/p/.claude-plugin/icon.png"
+expect 0 "a PNG with the PNG signature is skipped" "${dir}"
+dir="$(fixture good-jpeg-icon)"
+printf '\xff\xd8\xff\xe0\0\x10JFIF' > "${dir}/plugins/p/agents/logo.jpg"
+printf '\xff\xd8\xff\xe0\0\x10JFIF' > "${dir}/plugins/p/agents/logo.jpeg"
+expect 0 "a JPEG with the JPEG signature is skipped" "${dir}"
+dir="$(fixture good-webp-icon)"
+printf 'RIFF\x24\0\0\0WEBPVP8 ' > "${dir}/plugins/p/agents/logo.webp"
+expect 0 "a WebP with the RIFF/WEBP signature is skipped" "${dir}"
+# A name proves nothing: text called icon.png would carry prescriptions past the scan.
+dir="$(fixture unknown-text-named-png)"
+printf '%s\n' 'gh pr view 42 --json state,merged' > "${dir}/plugins/p/agents/icon.png"
+expect 2 "text named .png is UNKNOWN, never skipped" "${dir}"
+dir="$(fixture unknown-wrong-signature)"
+printf '\x89PNG\r\n\x1a\n\0\0\0\rIHDR' > "${dir}/plugins/p/agents/icon.webp"
+expect 2 "an image whose signature does not match its extension is UNKNOWN" "${dir}"
+dir="$(fixture unknown-empty-png)"
+: > "${dir}/plugins/p/agents/icon.png"
+expect 2 "an empty .png is UNKNOWN" "${dir}"
+dir="$(fixture unknown-symlinked-png)"
+printf '\x89PNG\r\n\x1a\n\0\0\0\rIHDR' > "${dir}/real.png"
+ln -s "${dir}/real.png" "${dir}/plugins/p/agents/icon.png"
+expect 2 "a symlinked .png is UNKNOWN even when its target is an image" "${dir}"
+
 # Native skill runtime metadata is YAML. Decode supported mappings rather than treating
 # their quotes as shell syntax or permitting escaped prescriptions to go unseen.
 for extension in yaml yml; do

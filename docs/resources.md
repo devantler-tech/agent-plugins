@@ -42,10 +42,10 @@ A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as sk
 | `aws-knowledge` | AWS's hosted knowledge server: AWS documentation and regional availability, read-only | Nothing; it works without an AWS account |
 | `cloudflare-docs` | Cloudflare's hosted documentation search, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
-| `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary, a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
+| `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary, `bash`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in; see below |
 | `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
-| `kubescape` | A live cluster's Kubescape results, read-only (`kubescape mcpserver`): vulnerabilities, configuration scans, SBOMs and exposure checks | The `kubescape` CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
+| `kubescape` | A live cluster's Kubescape results, read-only (`kubescape mcpserver`): vulnerabilities, configuration scans, SBOMs and exposure checks | The `kubescape` CLI (v4 or later), `bash`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server at `https://mcp.stripe.com`: Stripe documentation, reads and writes on your Stripe account, analytics and money movement | A Stripe sign-in through OAuth |
 | `svelte` | The Svelte team's hosted server at `https://mcp.svelte.dev/mcp`: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
@@ -90,7 +90,8 @@ Every path invokes the same `flux-operator-mcp` binary, so install it first — 
 `brew install controlplaneio-fluxcd/tap/flux-operator-mcp` or `go install
 github.com/controlplaneio-fluxcd/flux-operator/cmd/mcp@latest`. It refuses to start unless the
 `KUBECONFIG` environment variable is set, which is why the hand-written entry sets it; the bundled
-plugin's `sh` wrapper sets it to `$HOME/.kube/config` when it is unset or empty. It can read every
+plugin starts it through its `scripts/flux-operator-mcp.sh` launcher, which sets it to
+`$HOME/.kube/config` when it is unset or empty. It can read every
 context in that kubeconfig, starting at the current one, because its read-only
 `set_kubeconfig_context` tool switches between them. See the
 [Flux MCP docs](https://fluxcd.control-plane.io/operator/mcp/) for read-only mode and remote

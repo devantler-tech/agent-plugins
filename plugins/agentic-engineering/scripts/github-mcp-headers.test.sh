@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Hermetic contract for github-mcp-headers.sh: a stub `gh` stands in for the GitHub CLI, so no
 # network and no real credential is used.
+#
+# The stub tokens are deliberately not shaped like GitHub tokens (no `gho_`, `ghp_` or
+# `github_pat_` prefix). The helper accepts any token of letters, digits and underscores, so the
+# shape proves nothing here, while a realistic one makes secret scanners, the Claude plugin
+# directory's among them, report this shipped file as holding a secret.
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 helper="$here/github-mcp-headers.sh"
@@ -43,25 +48,25 @@ expect_header() { # token description
 }
 
 # 1. The GitHub CLI's github.com login supplies the token when no data directory is given.
-run 0 -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123
-expect_header gho_cliToken123 "gh token header"
+run 0 -- PATH="$work/bin" STUB_TOKEN=stubCliLoginToken
+expect_header stubCliLoginToken "gh token header"
 [ "$(cat "$work/gh-calls")" = "auth token --hostname github.com" ] ||
   fail "gh was not asked for exactly the github.com token: $(cat "$work/gh-calls")"
 
 # 2. A github-token file in the data directory wins, and gh is never consulted.
-printf 'github_pat_Narrow_42\n' > "$work/data/github-token"
-run 0 "$work/data" -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123
-expect_header github_pat_Narrow_42 "token file header"
+printf 'stubNarrowFileToken\n' > "$work/data/github-token"
+run 0 "$work/data" -- PATH="$work/bin" STUB_TOKEN=stubCliLoginToken
+expect_header stubNarrowFileToken "token file header"
 [ ! -e "$work/gh-calls" ] || fail "gh was called although the token file exists"
 
 # 3. A data directory without the file falls back to the github.com login.
-run 0 "$work/nodata" -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123
-expect_header gho_cliToken123 "fallback header"
+run 0 "$work/nodata" -- PATH="$work/bin" STUB_TOKEN=stubCliLoginToken
+expect_header stubCliLoginToken "fallback header"
 
 # 4. A credential-named variable is never read: Claude Code strips those from a plugin helper, so
 #    relying on one would silently send the broader login instead.
-run 0 -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123 GITHUB_SECURITY_MCP_TOKEN=github_pat_Ignored_1
-expect_header gho_cliToken123 "credential variable ignored"
+run 0 -- PATH="$work/bin" STUB_TOKEN=stubCliLoginToken GITHUB_SECURITY_MCP_TOKEN=stubIgnoredEnvToken
+expect_header stubCliLoginToken "credential variable ignored"
 
 # 5. A failing GitHub CLI login yields no output and exit 1, never an empty bearer.
 run 1 -- PATH="$work/bin" STUB_FAIL=1
@@ -75,7 +80,7 @@ run 1 "$work/nodata" -- PATH="$work/empty"
 # A configured token file that cannot be used must fail without consulting gh, so a working gh is
 # on PATH for these cases: a helper that fell back to it would exit 0 and be caught.
 refused_without_fallback() { # description helper-arg
-  run 1 "$2" -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123
+  run 1 "$2" -- PATH="$work/bin" STUB_TOKEN=stubCliLoginToken
   [ ! -s "$work/out" ] || fail "printed output for $1"
   [ ! -e "$work/gh-calls" ] || fail "fell back to gh for $1"
 }
@@ -105,22 +110,22 @@ refused_without_fallback "a data path that is not a directory" "$work/notadir"
 
 # 9. An unreadable token file is a failure, not a silent fallback to the broader login.
 if [ "$(id -u)" -ne 0 ]; then
-  printf 'github_pat_Narrow_42\n' > "$work/data/github-token"
+  printf 'stubNarrowFileToken\n' > "$work/data/github-token"
   chmod 000 "$work/data/github-token"
-  run 1 "$work/data" -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123
+  run 1 "$work/data" -- PATH="$work/bin" STUB_TOKEN=stubCliLoginToken
   [ ! -s "$work/out" ] || fail "printed output for an unreadable token file"
   [ ! -e "$work/gh-calls" ] || fail "fell back to gh for an unreadable token file"
   chmod 600 "$work/data/github-token"
   # 9a. A data directory that cannot be searched hides the token file, so it fails closed.
   mkdir -p "$work/locked"
-  printf 'github_pat_Narrow_42\n' > "$work/locked/github-token"
+  printf 'stubNarrowFileToken\n' > "$work/locked/github-token"
   chmod 600 "$work/locked"
   refused_without_fallback "an unsearchable data directory" "$work/locked"
   chmod 700 "$work/locked"
 fi
 
 # 10. More than one argument is a usage error.
-run 2 "$work/data" extra -- PATH="$work/bin" STUB_TOKEN=gho_cliToken123
+run 2 "$work/data" extra -- PATH="$work/bin" STUB_TOKEN=stubCliLoginToken
 [ ! -s "$work/out" ] || fail "printed output for a usage error"
 
 # 11. The two servers this helper signs in keep their limits. github's exclusions remove the

@@ -7,10 +7,21 @@ the [engineering toolbox](#the-engineering-toolbox) and [MCP servers](#bundled-m
 agents work with. The generic role lives here; each consumer supplies its organization-specific
 configuration through its canonical `AGENTS.md`.
 
+Install it in Claude Code (2.1.275 or later) with:
+
+```text
+/plugin install agentic-engineering --marketplace devantler-tech/agent-plugins
+```
+
+The [installation guide](../../docs/installation.md) covers Copilot CLI, VS Code and Codex.
+
 Released versions and the upgrade steps each breaking release needs are in the
 [changelog](CHANGELOG.md). A plugin's version is its cache key, so an install that never moves off an
 old version keeps serving that version's definitions — check what a deployment actually loaded before
 assuming it has a change the changelog lists.
+
+[Privacy](https://github.com/devantler-tech/agent-plugins/blob/main/plugins/agentic-engineering/PRIVACY.md):
+the plugin collects no data itself; that policy lists what each bundled server sends and to whom.
 
 ## What it includes
 
@@ -180,10 +191,10 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 | `aws-knowledge` | AWS's hosted knowledge server: AWS documentation, regional availability and AWS's own guidance, read-only | Nothing; it works without an AWS account |
 | `cloudflare-docs` | Cloudflare's hosted documentation search: DNS, certificates, R2 and the rest of Cloudflare, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
-| `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
+| `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, `bash`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
-| `kubescape` | A live cluster's Kubescape results, read-only: vulnerabilities, configuration scans, SBOMs, network and RBAC exposure | The [`kubescape`](https://kubescape.io/docs/install-cli/) CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
+| `kubescape` | A live cluster's Kubescape results, read-only: vulnerabilities, configuration scans, SBOMs, network and RBAC exposure | The [`kubescape`](https://kubescape.io/docs/install-cli/) CLI (v4 or later), `bash`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server: Stripe documentation, reads and writes on your Stripe account, analytics, and money movement | A Stripe sign-in, below |
 | `svelte` | The Svelte team's hosted server: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
@@ -197,8 +208,9 @@ hosted by a third party, so every call to one, including a documentation search,
 service. If your agents must not contact a third party, disable its server in your tool's MCP
 settings; denying single tools does not stop the connection.
 
-`kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through the same `sh` wrapper as
-the Flux server, so it reads every cluster in your kubeconfig the same way. Its tools read the
+`kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through
+[`scripts/kubescape-mcp.sh`](scripts/kubescape-mcp.sh), which resolves the kubeconfig the same way
+as the Flux server's launcher, so it reads every cluster in your kubeconfig the same way. Its tools read the
 cluster and the results the in-cluster Kubescape operator stores. Its only write-shaped calls are
 server-side dry-run patches, which change nothing; its remediation tool never applies a fix, and
 its admission-policy tool only drafts YAML. Its stored results exist only on a cluster that runs
@@ -239,8 +251,13 @@ A local server whose binary is missing reports a failed connection and leaves th
 The Flux server starts with `--read-only`, so it can read, trace and diff but never apply, delete,
 reconcile, suspend or resume; hand fixes to your GitOps delivery instead. `flux-operator-mcp`
 refuses to start unless the `KUBECONFIG` environment variable is set, so the plugin starts it
-through `sh`, which sets `KUBECONFIG` to `$HOME/.kube/config` when your environment leaves it
-unset or empty and passes any non-empty value unchanged. It can read every cluster in that
+through [`scripts/flux-operator-mcp.sh`](scripts/flux-operator-mcp.sh), which sets `KUBECONFIG` to
+`$HOME/.kube/config` when your environment leaves it unset or empty and passes any non-empty value
+unchanged. Both cluster servers start from a script the plugin ships, named by
+`${CLAUDE_PLUGIN_ROOT}`, rather than from an inline shell program, so a plugin directory's
+validator can read what they run. A tool that does not substitute `${CLAUDE_PLUGIN_ROOT}` in a
+server's arguments reports both as failed connections and leaves the rest working; Claude Code
+and VS Code substitute it. It can read every cluster in that
 kubeconfig, not only the current context: its read-only `set_kubeconfig_context` tool switches
 between them, and it can read workload logs (Secret values are masked by default). Every session
 that loads this plugin gets that read access, including unattended runs. To narrow it, point

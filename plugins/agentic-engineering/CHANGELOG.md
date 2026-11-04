@@ -1,5 +1,29 @@
 # Changelog — `agentic-engineering`
 
+## 7.1.2 — 2026-11-04
+
+The plugin now passes the Claude plugin directory's blocking checks and carries the listing
+details it asks for. Nothing a consumer configures changes.
+
+**Fixed**
+
+- `flux-operator-mcp` and `kubescape` start from scripts the plugin ships,
+  [`scripts/flux-operator-mcp.sh`](scripts/flux-operator-mcp.sh) and
+  [`scripts/kubescape-mcp.sh`](scripts/kubescape-mcp.sh), run by `bash` at
+  `${CLAUDE_PLUGIN_ROOT}`, instead of an inline `sh -c` program the directory's validator cannot
+  follow. They resolve `KUBECONFIG` exactly as before: `$HOME/.kube/config` when it is unset or
+  empty, any other value unchanged. A tool that does not substitute `${CLAUDE_PLUGIN_ROOT}` in a
+  server's arguments now reports these two servers as failed connections.
+- The `github-mcp-headers.sh` self-test no longer ships stub values shaped like GitHub tokens, which
+  the directory's secret scan reported as a secret in a shipped file.
+
+**Added**
+
+- [`PRIVACY.md`](PRIVACY.md): the plugin collects no data itself; the policy lists what each bundled
+  server sends and to whom. The README links it.
+- `.claude-plugin/icon.png`, the Devantler Tech orb at 512 × 512, for the directory listing.
+- The README's Claude Code install line.
+
 ## 7.1.1 — 2026-11-04
 
 **Fixed** — the README now says why `github` excludes `delete_repository` although a plain probe

@@ -283,8 +283,14 @@ validate_mcp_json() {
     echo "::error::$mcp: cannot completely observe remote MCP URLs"; return 1
   fi
   # Claude Code keeps only the first of two plugin servers with the same URL, whatever their
-  # headers, and treats URLs differing only by trailing slashes as the same.
-  if ! jq -e 'map(sub("/+$"; "")) | length == (unique | length)' <<< "$remote_urls" > /dev/null; then
+  # headers or transport. It compares scheme and host without case and ignores a fragment and
+  # trailing slashes; path and query stay significant.
+  if ! jq -e '
+      def same_server:
+        sub("#.*$"; "") | sub("/+$"; "") |
+        (capture("^(?<origin>[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*)(?<rest>.*)$") // {origin: "", rest: .}) |
+        (.origin | ascii_downcase) + .rest;
+      map(same_server) | length == (unique | length)' <<< "$remote_urls" > /dev/null; then
     echo "::error::$mcp: two remote MCP servers share a URL; Claude Code would load only the first"
     return 1
   fi

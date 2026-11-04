@@ -556,6 +556,8 @@ while read -r first second; do
 done <<'URLS'
 https://example.com/mcp https://example.com/mcp
 https://example.com/mcp/ https://example.com/mcp
+https://example.com/mcp HTTPS://EXAMPLE.com/mcp
+https://example.com/mcp https://example.com/mcp/#section
 URLS
 d=$(fresh)
 printf '%s\n' '{ "mcpServers": { "one": { "type": "http", "url": "https://example.com/mcp/" }, "two": { "type": "http", "url": "https://example.com/mcp/readonly" } } }' > "$d/plugins/alpha/.mcp.json"

@@ -143,7 +143,7 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 |---|---|---|
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
-| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read and most writes (merging, repository creation, file writes and workflow runs are excluded) | A GitHub sign-in, below |
+| `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, file writes and workflow runs are excluded | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server: Stripe documentation, reads and writes on your Stripe account, analytics, and money movement | A Stripe sign-in, below |
@@ -208,13 +208,17 @@ only the first of two plugin servers with the same URL, whatever their headers.
 
 `github` is the same GitHub server at `https://api.githubcopilot.com/mcp/` with its everyday
 toolsets instead: `context`, `repos`, `issues`, `pull_requests`, `users`, `actions`, `labels` and
-`projects`, the tools the bundled `github-issues` skill uses. It can write as the signed-in
-account: create and edit issues, pull requests, comments, reviews, labels, branches and project
-items. Its `X-MCP-Exclude-Tools` header removes the tools that would bypass checks a consumer may
-enforce on the command line: `merge_pull_request`, `create_repository`, `fork_repository`,
-`push_files`, `create_or_update_file`, `delete_file`, `update_pull_request_branch` and
-`actions_run_trigger`. Do those through `gh` and git, where the consumer's merge, signing and
-repository rules apply. The security toolsets stay on the read-only `github-ghas-tools`, so
+`projects`, the tools the bundled `github-issues` skill uses. Its `X-MCP-Exclude-Tools` header
+removes the tools that merge, edit or promote a pull request, write or resolve reviews, update a
+pull request branch, create or fork repositories, write files and run workflows:
+`merge_pull_request`, `update_pull_request`, `pull_request_review_write`,
+`add_comment_to_pending_review`, `update_pull_request_branch`, `create_repository`,
+`fork_repository`, `push_files`, `create_or_update_file`, `delete_file` and `actions_run_trigger`.
+Do those through `gh` and git, where a consumer's merge, readiness, review, signing and repository
+rules apply. What stays can still write as the signed-in account: issues and sub-issues (including
+closing them), labels (including deleting them), comments and replies, branches, new pull requests
+and project items. A consumer that guards any of those on the command line should deny the matching
+tool as well. The security toolsets stay on the read-only `github-ghas-tools`, so
 neither server repeats the other's tools.
 
 Both servers sign in the same way, with the same token, depending on the tool:

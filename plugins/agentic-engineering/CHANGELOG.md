@@ -32,10 +32,10 @@ portfolio this plugin serves builds its sites with SvelteKit.
   and the playground link carries that code.
 - `github`, GitHub's remote server with the `context`, `repos`, `issues`, `pull_requests`, `users`,
   `actions`, `labels` and `projects` toolsets, signed in like `github-ghas-tools`. **It can write to
-  GitHub as the signed-in account**: issues, pull requests, comments, reviews, labels, branches and
-  project items. Merging, creating or forking repositories, writing files, updating a pull request
-  branch and running workflows are excluded, so they stay on `gh` and git, where a consumer's rules
-  apply.
+  GitHub as the signed-in account**: issues and sub-issues, labels, comments and replies, branches,
+  new pull requests and project items. Merging, editing or promoting a pull request, writing or
+  resolving reviews, updating a pull request branch, creating or forking repositories, writing files
+  and running workflows are excluded, so they stay on `gh` and git, where a consumer's rules apply.
 - `context7`, Upstash's hosted Context7 server at `https://mcp.context7.com/mcp`, read-only and
   needing no account.
 - `stripe`, Stripe's hosted server at `https://mcp.stripe.com`, signed in through OAuth. **Every

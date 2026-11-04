@@ -39,13 +39,13 @@ A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as sk
 
 | Server | What it connects to | Needs |
 |---|---|---|
-| `flux-operator-mcp` | A live cluster's Flux resources, for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary and cluster access |
-| `github-ghas-tools` | GitHub's read-only security tools: alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
+| `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary and cluster access |
+| `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 
-`siderolabs-docs` also offers a `submit_feedback` tool, which sends a report to Sidero Labs. It is
-the only tool among these servers that writes anywhere; deny it in your tool permissions if your
-agents must not contact third parties.
+`siderolabs-docs` also offers a `submit_feedback` tool, which sends a report to Sidero Labs. With
+the other two servers held read-only, it is the only tool among these servers that writes anywhere;
+deny it in your tool permissions if your agents must not contact third parties.
 
 How each tool consumes the file differs (per [ADR 0001](../docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 

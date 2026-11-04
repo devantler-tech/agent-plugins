@@ -123,31 +123,37 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 
 | Server | What it connects to | Needs |
 |---|---|---|
-| `flux-operator-mcp` | A live cluster's Flux resources, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary and cluster access |
+| `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary and cluster access |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 
 A local server whose binary is missing reports a failed connection and leaves the rest working.
-`siderolabs-docs` also offers `submit_feedback`, which sends a report to Sidero Labs; it is the only
-tool among these servers that writes anywhere, so deny it in your tool permissions if your agents
-must not contact third parties.
+The Flux server starts with `--read-only`, so it can read, trace and diff but never apply, delete,
+reconcile, suspend or resume; hand fixes to your GitOps delivery instead. `siderolabs-docs` also
+offers `submit_feedback`, which sends a report to Sidero Labs; it is the only tool among these
+servers that writes anywhere, so deny it in your tool permissions if your agents must not contact
+third parties.
 
 `github-ghas-tools` is GitHub's remote MCP server at `https://api.githubcopilot.com/mcp/`, limited to
 the `code_security`, `secret_protection`, `security_advisories` and `dependabot` toolsets — the server
 definition from GitHub's [Advanced Security plugin](https://github.com/github/copilot-advanced-security-plugin).
-Every tool those toolsets expose is read-only: listing and reading alerts and advisories, and
-`check_dependency_vulnerabilities`, which looks up package versions in the GitHub Advisory Database.
-When an agent uses it, the repository owner and name, and any package names and versions it checks,
-go to GitHub. How it signs in depends on the tool:
+It also sends `X-MCP-Readonly: true`, so GitHub offers only read tools: listing and reading alerts
+and advisories, and `check_dependency_vulnerabilities`, which looks up package versions in the
+GitHub Advisory Database. When an agent uses it, the repository owner and name, and any package
+names and versions it checks, go to GitHub. How it signs in depends on the tool:
 
-- **GitHub Copilot CLI and VS Code** sign in automatically with your Copilot session.
-- **Claude Code** signs in with your GitHub CLI login. The plugin's
-  [`scripts/github-mcp-headers.sh`](scripts/github-mcp-headers.sh) runs as the server's
-  `headersHelper` and sends the token from `gh auth token`, because GitHub's sign-in service does
-  not offer the automatic client registration Claude Code would otherwise use. Run `gh auth login`
-  first. To use a narrower token instead, set `GITHUB_SECURITY_MCP_TOKEN` in the environment Claude
-  Code starts in. If neither is available, Claude Code reports a failed connection for this server;
-  the same alerts and advisories stay reachable through `gh api`.
+- **GitHub Copilot CLI and VS Code** sign in automatically with your Copilot session. That they
+  ignore the Claude-only `headersHelper` key is expected but not yet verified on each tool.
+- **Claude Code** signs in through the plugin's
+  [`scripts/github-mcp-headers.sh`](scripts/github-mcp-headers.sh), which runs as the server's
+  `headersHelper`, because GitHub's sign-in service does not offer the automatic client registration
+  Claude Code would otherwise use. It sends your GitHub CLI's github.com login
+  (`gh auth token --hostname github.com`), so run `gh auth login --hostname github.com` first. To
+  use a narrower token instead, write it to a file named `github-token` in this plugin's data
+  directory (`${CLAUDE_PLUGIN_DATA}`, under `~/.claude/plugins/data/`). Claude Code runs a plugin's
+  helper without any credential-named environment variable, so a token in your environment is never
+  used. If no token is available, Claude Code reports a failed connection for this server; the same
+  alerts and advisories stay reachable through `gh api`.
 - **Other tools** that do not run `headersHelper` need their own `Authorization: Bearer <token>`
   header for this server.
 

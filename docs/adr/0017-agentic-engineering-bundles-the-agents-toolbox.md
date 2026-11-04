@@ -38,6 +38,14 @@ carries a working equivalent and says how it differs.
   reviewed definition refresh that [ADR 0002](0002-automated-ai-engineer-plugin-boundary.md) D3
   expected to be rare happens with each skill sync. ADR 0002's split of role from deployment
   configuration still holds; its assumption that the plugin changes slowly does not.
-- Interactive users who wanted only one category can no longer install it alone.
+- Interactive users who wanted only one category can no longer install it alone, and the migration
+  widens what they run: the engineering agents, a GitHub sign-in helper that Claude Code runs on each
+  connection, GitHub's read-only security server carrying their github.com login, and Sidero Labs'
+  documentation server. The local Flux server and GitHub's server are held read-only to keep that
+  widening to reads.
+- The `renames` map is not a complete migration. Claude Code may report a renamed plugin from a
+  git-hosted marketplace as not cached until it is installed once, and Copilot CLI and VS Code users
+  never see the changelog of a plugin they do not have, so the installation guide carries the
+  migration steps.
 - Skill names share one namespace (`agentic-engineering:<skill>`), so a curated skill whose name
   collides with an existing one needs a decision before it can join.

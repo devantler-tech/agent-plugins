@@ -3,16 +3,18 @@
     "flux-operator-mcp": {
       "command": "flux-operator-mcp",
       "args": [
-        "serve"
+        "serve",
+        "--read-only"
       ]
     },
     "github-ghas-tools": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",
       "headers": {
-        "X-MCP-Toolsets": "code_security,secret_protection,security_advisories,dependabot"
+        "X-MCP-Toolsets": "code_security,secret_protection,security_advisories,dependabot",
+        "X-MCP-Readonly": "true"
       },
-      "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\""
+      "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\" \"${CLAUDE_PLUGIN_DATA}\""
     },
     "siderolabs-docs": {
       "type": "http",

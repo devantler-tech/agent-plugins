@@ -56,13 +56,15 @@ everything above it.
   conventions; `gh stack` uses branch names exactly as given.
 - Use only the non-interactive command forms `gh-stack` lists, such as `gh stack view --json` and
   `gh stack submit --auto`. A bare command can block on a prompt. Never pass `--open`: every layer
-  starts as a draft.
+  starts as a draft. In a checkout with more than one remote, pass `--remote <name>` to `push`,
+  `submit`, `sync` and `rebase` unless `remote.pushDefault` is set.
 - Give each layer the normal pull request conventions: title, disclosure line and any metadata the
   consumer requires. Its body states its place in the stack, for example "Layer 2 of 3; builds on
   #41, and #43 builds on this." Only the layer that completes the issue says `Fixes #N`; the others
   reference it.
 - Fix a review finding in the layer that introduced the code, then `gh stack rebase` to carry the
-  fix upward. Never patch a lower layer's problem in a higher one.
+  fix upward and `gh stack push` to publish every layer. Never patch a lower layer's problem in a
+  higher one.
 
 ## Merge the stack
 
@@ -78,11 +80,14 @@ This section replaces `gh-stack`'s own merging advice.
   merge method and pins no head commit. It can land a layer whose current head nobody reviewed.
   `gh-stack` says `gh pr merge` "cannot merge a stack"; that is about merging a whole stack at once,
   which this guide forbids anyway. The bottom layer's base is the default branch, so merging it is
-  an ordinary merge.
+  an ordinary merge. If GitHub refuses that merge anyway, park the layer on a named blocker; never
+  fall back to `gh stack merge`.
 - **After each merge, run `gh stack sync`.** It rebases the remaining layers onto the updated
   default branch and drops the merged commits, including after a squash merge (see `gh-stack`'s
-  `references/troubleshooting.md`). Push, then let checks and review run again at the new heads.
-  The next layer is now the bottom: merge it only on its own fresh readiness.
+  `references/troubleshooting.md`). A non-interactive sync can exit 0 with `Sync aborted` and change
+  nothing, so check its output for that message before treating the stack as synced. Push, then let
+  checks and review run again at the new heads. The next layer is now the bottom: merge it only on
+  its own fresh readiness.
 - **Restructure instead of merging around a problem.** If a lower layer is abandoned or its
   approach changes, rebuild the stack (`gh stack unstack`, then `gh stack init`) rather than merge
   an upper layer that depends on code that will not land.

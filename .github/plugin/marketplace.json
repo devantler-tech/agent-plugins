@@ -19,8 +19,8 @@
   "plugins": [
     {
       "name": "agentic-engineering",
-      "description": "The autonomous engineering system for repository portfolios and everything its agents need — engineer, read-only surveyor, meta-engineer and Flux troubleshooter agents; portfolio, product, spend and improvement workflows; GitHub, security, Go, Kubernetes, Flux, Talos, frontend and engineering-practice skills; and the MCP servers they use; configured by the consumer AGENTS.md",
-      "version": "6.8.1",
+      "description": "The autonomous engineering system for repository portfolios and everything its agents need — engineer, read-only surveyor, meta-engineer and Flux troubleshooter agents; portfolio, product, spend and improvement workflows; GitHub, security, Go, Kubernetes, Flux, Talos, SvelteKit frontend and engineering-practice skills; and the MCP servers they use; configured by the consumer AGENTS.md",
+      "version": "7.0.0",
       "source": "./plugins/agentic-engineering"
     },
     {

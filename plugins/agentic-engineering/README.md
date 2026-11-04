@@ -44,7 +44,7 @@ drift, and dispatch failures that no single run can see.
 The supplemental [`product-documentation`](skills/product-documentation/SKILL.md) skill helps the
 Engineer build and maintain user documentation sites: practical tutorials, task guides, reference,
 explanations and checks of the built and published result. It works with the product's existing
-framework guidance, such as the bundled `astro` skill. The Engineer loads it
+framework guidance, such as the bundled Svelte skill and documentation server. The Engineer loads it
 when that work applies; it is not part of the three skills preloaded for every run.
 
 ### Matt Pocock's engineering techniques
@@ -104,7 +104,7 @@ are maintained here.
 | Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening` |
 | Go | `golang-pro` |
 | Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni) |
-| Frontend | `astro`, `frontend-design`, `web-design-guidelines` |
+| Frontend (SvelteKit) | `svelte-core-bestpractices`, `frontend-design`, `web-design-guidelines` |
 | Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme` |
 
 `dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI or
@@ -126,6 +126,15 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
+| `svelte` | The Svelte team's hosted server: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
+
+`svelte` is the Svelte team's official MCP server at `https://mcp.svelte.dev/mcp`, from
+[`sveltejs/ai-tools`](https://github.com/sveltejs/ai-tools). The plugin uses the hosted server rather
+than the `npx -y @sveltejs/mcp` command the Svelte plugin runs, so nothing is downloaded or executed
+locally. The `svelte-autofixer` and playground tools send the code you pass them to Svelte's
+service; only pass code that may leave your machine. The Svelte plugin's `svelte-code-writer` skill
+is not bundled because it drives the same tools through `npx`, and its `svelte-mcp-feedback` skill
+is not bundled because it files reports with the Svelte team.
 
 A local server whose binary is missing reports a failed connection and leaves the rest working.
 The Flux server starts with `--read-only`, so it can read, trace and diff but never apply, delete,
@@ -140,7 +149,8 @@ that loads this plugin gets that read access, including unattended runs. To narr
 server in your tool permissions. `siderolabs-docs` also
 offers `submit_feedback`, which sends a report to Sidero Labs; it is the only tool among these
 servers that writes anywhere, so deny it in your tool permissions if your agents must not contact
-third parties.
+third parties. The Svelte tools write nothing, but their autofixer and playground tools send code
+to Svelte, so deny those too if no code may leave your machine.
 
 `github-ghas-tools` is GitHub's remote MCP server at `https://api.githubcopilot.com/mcp/`, limited to
 the `code_security`, `secret_protection`, `security_advisories` and `dependabot` toolsets — the server

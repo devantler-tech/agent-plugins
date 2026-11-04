@@ -6,7 +6,7 @@ A **skill** teaches an assistant a task. An **agent** gives it a specialized rol
 
 | Plugin | Resources | Description |
 |--------|-----------|-------------|
-| [`agentic-engineering`](../plugins/agentic-engineering/) | `agent-improvement`, `agent-instructions`, `astro`, `codeql`, `conventional-release`, `dependabot`, `dependency-scanning`, `find-skills`, `frontend-design`, `gh-cli`, `gh-stack`, `git-commit`, `github-actions-docs`, `github-actions-efficiency`, `github-actions-hardening`, `github-issues`, `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `golang-pro`, `grilling`, `portfolio-maintenance`, `product-documentation`, `product-engineering`, `prototype`, `refactor`, `secret-scanning`, `self-improvement`, `siderolabs`, `test-driven-development`, `ways-of-working`, `web-design-guidelines`, `write-contributing`, `write-docs-introduction`, `write-readme` (skills) · `agent-improver`, `agentic-engineer`, `flux-troubleshooter`, `portfolio-surveyor` (agents) · `flux-operator-mcp`, `github-ghas-tools`, `siderolabs-docs` (MCP servers) | The autonomous engineering system for a whole repository portfolio, and everything its agents need — engineer, read-only surveyor, meta-engineer and Flux troubleshooter agents; operating, product, spend and improvement workflows; GitHub, security, Go, Kubernetes, Flux, Talos, frontend and engineering-practice skills; and the MCP servers they use. Configured by the consumer's `AGENTS.md` |
+| [`agentic-engineering`](../plugins/agentic-engineering/) | `agent-improvement`, `agent-instructions`, `codeql`, `conventional-release`, `dependabot`, `dependency-scanning`, `find-skills`, `frontend-design`, `gh-cli`, `gh-stack`, `git-commit`, `github-actions-docs`, `github-actions-efficiency`, `github-actions-hardening`, `github-issues`, `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `golang-pro`, `grilling`, `portfolio-maintenance`, `product-documentation`, `product-engineering`, `prototype`, `refactor`, `secret-scanning`, `self-improvement`, `siderolabs`, `svelte-core-bestpractices`, `test-driven-development`, `ways-of-working`, `web-design-guidelines`, `write-contributing`, `write-docs-introduction`, `write-readme` (skills) · `agent-improver`, `agentic-engineer`, `flux-troubleshooter`, `portfolio-surveyor` (agents) · `flux-operator-mcp`, `github-ghas-tools`, `siderolabs-docs`, `svelte` (MCP servers) | The autonomous engineering system for a whole repository portfolio, and everything its agents need — engineer, read-only surveyor, meta-engineer and Flux troubleshooter agents; operating, product, spend and improvement workflows; GitHub, security, Go, Kubernetes, Flux, Talos, SvelteKit frontend and engineering-practice skills; and the MCP servers they use. Configured by the consumer's `AGENTS.md` |
 | [`vibe-coding`](../plugins/vibe-coding/) | `needs-stack-mapping`, `allowed-stack-guardrail`, `jargon-free-voice` (skills) · `vibe-coding-companion` (agent) | Build a product by conversation alone — plain-language companion agent + guardrailed needs-to-stack skills for people with no technical background |
 | [`ksail`](../plugins/ksail/) | `ksail` (skill) · `ksail` (MCP server) | Create and operate Kubernetes clusters and GitOps workloads with the KSail CLI — needs `ksail` on `PATH`; PolyForm Shield licensed |
 
@@ -21,7 +21,6 @@ license file the plugin ships; keep both when you copy or redistribute those ski
 |-------|--------|----------|---------|
 | `agent-improvement` | `agentic-engineering` | devantler-tech/agent-plugins | Apache-2.0 |
 | `agent-instructions` | `agentic-engineering` | devantler-tech/agent-plugins | Apache-2.0 |
-| `astro` | `agentic-engineering` | astrolicious/agent-skills | MIT |
 | `codeql` | `agentic-engineering` | github/awesome-copilot | MIT |
 | `conventional-release` | `agentic-engineering` | devantler-tech/agent-plugins | Apache-2.0 |
 | `dependabot` | `agentic-engineering` | github/awesome-copilot | MIT |
@@ -49,6 +48,7 @@ license file the plugin ships; keep both when you copy or redistribute those ski
 | `secret-scanning` | `agentic-engineering` | github/awesome-copilot | MIT |
 | `self-improvement` | `agentic-engineering` | devantler-tech/agent-plugins | Apache-2.0 |
 | `siderolabs` | `agentic-engineering` | siderolabs/docs | Apache-2.0 |
+| `svelte-core-bestpractices` | `agentic-engineering` | sveltejs/ai-tools | MIT |
 | `test-driven-development` | `agentic-engineering` | obra/superpowers | MIT |
 | `ways-of-working` | `agentic-engineering` | devantler-tech/agent-plugins | Apache-2.0 |
 | `web-design-guidelines` | `agentic-engineering` | vercel-labs/agent-skills | MIT |

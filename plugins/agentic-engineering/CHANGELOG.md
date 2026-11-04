@@ -1,5 +1,30 @@
 # Changelog — `agentic-engineering`
 
+## 7.0.0 — 2026-11-04
+
+SvelteKit replaces Astro as the frontend stack the agents are equipped for.
+
+**Removed** — `astro`, previously from `https://github.com/astrolicious/agent-skills`. The
+portfolio this plugin serves builds its sites with SvelteKit.
+
+**Added**
+
+- `svelte-core-bestpractices` from `https://github.com/sveltejs/ai-tools` at
+  `refs/tags/@sveltejs/mcp@0.1.30`: the Svelte team's guidance on writing modern Svelte 5 code.
+- `svelte`, the Svelte team's hosted MCP server at `https://mcp.svelte.dev/mcp`: Svelte 5 and
+  SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only and needing no
+  sign-in. The hosted server is used instead of `npx -y @sveltejs/mcp`, so nothing is downloaded or
+  run locally. The autofixer and playground tools send the code they are given to Svelte's service.
+
+The Svelte plugin's `svelte-code-writer` skill is not bundled because it drives the same tools
+through `npx`, and its `svelte-mcp-feedback` skill is not bundled because it files reports with the
+Svelte team.
+
+### Upgrading to 7.0.0
+
+If your agents still work on Astro sites, install the `astro` skill from its upstream yourself:
+`gh skill install astrolicious/agent-skills astro`. Nothing else changes.
+
 ## 6.8.1 — 2026-11-04
 
 **Fixed** — the bundled Flux tooling now works out of the box:

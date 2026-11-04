@@ -19,6 +19,10 @@
     "siderolabs-docs": {
       "type": "http",
       "url": "https://docs.siderolabs.com/mcp"
+    },
+    "svelte": {
+      "type": "http",
+      "url": "https://mcp.svelte.dev/mcp"
     }
   }
 }

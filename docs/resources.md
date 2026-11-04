@@ -33,7 +33,7 @@ armed, or with a schedule pointing at an entrypoint that no longer resolves. The
 ## MCP servers
 
 A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as skills. The
-[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles three, authored once in its
+[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles four, authored once in its
 [`.mcp.json`](../plugins/agentic-engineering/.mcp.json) (`mcpServers` map), and the
 [`ksail`](../plugins/ksail/) plugin bundles the KSail server, which needs `ksail` on `PATH`:
 
@@ -42,10 +42,12 @@ A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as sk
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary, a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
 | `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
+| `svelte` | The Svelte team's hosted server at `https://mcp.svelte.dev/mcp`: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
 
 `siderolabs-docs` also offers a `submit_feedback` tool, which sends a report to Sidero Labs. With
-the other two servers held read-only, it is the only tool among these servers that writes anywhere;
-deny it in your tool permissions if your agents must not contact third parties.
+the other servers held read-only, it is the only tool among these servers that writes anywhere;
+deny it in your tool permissions if your agents must not contact third parties. The Svelte
+autofixer and playground tools write nothing but send the code they are given to Svelte's service.
 
 How each tool consumes the file differs (per [ADR 0001](../docs/adr/0001-bundling-mcp-servers-and-custom-agents.md)):
 

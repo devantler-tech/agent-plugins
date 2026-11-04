@@ -62,7 +62,7 @@ server to your workspace `.vscode/mcp.json` (note the key there is `servers`, no
     "flux-operator-mcp": {
       "command": "flux-operator-mcp",
       "args": ["serve", "--read-only"],
-      "env": { "KUBECONFIG": "${env:HOME}/.kube/config" }
+      "env": { "KUBECONFIG": "${userHome}/.kube/config" }
     }
   }
 }

@@ -42,7 +42,7 @@ A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as sk
 | `aws-knowledge` | AWS's hosted knowledge server: AWS documentation and regional availability, read-only | Nothing; it works without an AWS account |
 | `cloudflare-docs` | Cloudflare's hosted documentation search, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
-| `coroot` | Your own Coroot instance's `/mcp` endpoint: topology, alerts, incidents, traces, metrics and logs, read-only with a Viewer key | `COROOT_URL` and a service-account API key; see the plugin README |
+| `coroot` | Your own Coroot instance's `/mcp` endpoint: topology, alerts, incidents, traces, metrics and logs; a Viewer key cannot resolve alerts, and in the Enterprise Edition can save an investigation onto an incident | `COROOT_URL`, a pinned address and a service-account API key; see the plugin README |
 | `flux-operator-mcp` | A live cluster's Flux resources, read-only (`serve --read-only`), for the `gitops-cluster-debug` skill and the `flux-troubleshooter` agent | The `flux-operator-mcp` binary, a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in; see below |
 | `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
@@ -59,7 +59,9 @@ other server is hosted by a third party, so every call to one, including a docum
 reaches that service. If your agents must not contact a third party, disable its server in your
 tool's MCP settings; denying single tools does not stop the connection. Among
 the servers you keep, `github` and `stripe` can change things: `github` writes to GitHub as the
-signed-in account, and `stripe` writes to your Stripe account and can move money. The
+signed-in account, and `stripe` writes to your Stripe account and can move money. With a Viewer
+key, `coroot`'s Enterprise Edition `investigate_anomaly` can save its analysis onto an incident.
+The
 `siderolabs-docs` `submit_feedback` and `stripe` `send_stripe_feedback` tools send reports to Sidero
 Labs and Stripe. The Svelte autofixer and playground tools send the code they are given to Svelte's
 service, and the playground link carries that code. The

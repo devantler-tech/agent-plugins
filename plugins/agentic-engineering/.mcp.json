@@ -20,8 +20,7 @@
     "flux-operator-mcp": {
       "command": "sh",
       "args": [
-        "-c",
-        "[ -n \"$KUBECONFIG\" ] || { [ -n \"$HOME\" ] || { echo 'flux-operator-mcp: set KUBECONFIG or HOME' >&2; exit 1; }; KUBECONFIG=\"$HOME/.kube/config\"; }; export KUBECONFIG; exec flux-operator-mcp serve --read-only"
+        "${CLAUDE_PLUGIN_ROOT}/scripts/flux-operator-mcp.sh"
       ]
     },
     "github": {
@@ -45,8 +44,7 @@
     "kubescape": {
       "command": "sh",
       "args": [
-        "-c",
-        "[ -n \"$KUBECONFIG\" ] || { [ -n \"$HOME\" ] || { echo 'kubescape: set KUBECONFIG or HOME' >&2; exit 1; }; KUBECONFIG=\"$HOME/.kube/config\"; }; export KUBECONFIG; exec kubescape mcpserver"
+        "${CLAUDE_PLUGIN_ROOT}/scripts/kubescape-mcp.sh"
       ]
     },
     "siderolabs-docs": {

@@ -7,10 +7,21 @@ the [engineering toolbox](#the-engineering-toolbox) and [MCP servers](#bundled-m
 agents work with. The generic role lives here; each consumer supplies its organization-specific
 configuration through its canonical `AGENTS.md`.
 
+Install it in Claude Code (2.1.275 or later) with:
+
+```text
+/plugin install agentic-engineering --marketplace devantler-tech/agent-plugins
+```
+
+The [installation guide](../../docs/installation.md) covers Copilot CLI, VS Code and Codex.
+
 Released versions and the upgrade steps each breaking release needs are in the
 [changelog](CHANGELOG.md). A plugin's version is its cache key, so an install that never moves off an
 old version keeps serving that version's definitions — check what a deployment actually loaded before
 assuming it has a change the changelog lists.
+
+[Privacy](https://github.com/devantler-tech/agent-plugins/blob/main/plugins/agentic-engineering/PRIVACY.md):
+the plugin collects no data itself; that policy lists what each bundled server sends and to whom.
 
 ## What it includes
 
@@ -230,8 +241,12 @@ Until all three are set, Claude Code shows a missing-variable warning or a faile
 Claude-only `headersHelper`, which is not yet verified on each tool; configure Coroot for them with
 their own MCP settings.
 
-`kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through the same `sh` wrapper as
-the Flux server, so it reads every cluster in your kubeconfig the same way. Its tools read the
+`kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through
+[`scripts/kubescape-mcp.sh`](scripts/kubescape-mcp.sh), which resolves the kubeconfig the same way
+as the Flux server's launcher, so it reads every cluster in your kubeconfig the same way. The
+launcher also sets `KS_SKIP_UPDATE_CHECK=true` unless you set it yourself, so the agents' scans
+send no version check to Kubescape's update service; that check would carry a cluster ID, the node
+count, the frameworks scanned and the client version. Its tools read the
 cluster and the results the in-cluster Kubescape operator stores. Its only write-shaped calls are
 server-side dry-run patches, which change nothing; despite its name, `apply_remediation` never
 applies a fix (Kubescape v4.0.17 sends every patch it makes as a server-side dry run), and
@@ -273,8 +288,18 @@ A local server whose binary is missing reports a failed connection and leaves th
 The Flux server starts with `--read-only`, so it can read, trace and diff but never apply, delete,
 reconcile, suspend or resume; hand fixes to your GitOps delivery instead. `flux-operator-mcp`
 refuses to start unless the `KUBECONFIG` environment variable is set, so the plugin starts it
-through `sh`, which sets `KUBECONFIG` to `$HOME/.kube/config` when your environment leaves it
-unset or empty and passes any non-empty value unchanged. It can read every cluster in that
+through [`scripts/flux-operator-mcp.sh`](scripts/flux-operator-mcp.sh), which sets `KUBECONFIG` to
+`$HOME/.kube/config` when your environment leaves it unset or empty and passes any non-empty value
+unchanged. Both cluster servers start from a POSIX `sh` script the plugin ships rather than from an
+inline shell program, so a plugin directory's validator can read what they run. `.mcp.json` names
+each script by `${CLAUDE_PLUGIN_ROOT}`, which Claude Code and VS Code substitute. Codex substitutes
+no such variable, so it loads [`.codex-plugin/mcp.json`](.codex-plugin/mcp.json) instead: the same
+servers, with the two scripts named relative to the plugin, run from the plugin's own directory.
+`validate-manifests.sh` keeps that file a mirror of `.mcp.json`. Copilot CLI's handling of
+`${CLAUDE_PLUGIN_ROOT}` in a plugin's `.mcp.json` is not verified; a tool that does not substitute
+it reports both cluster servers as failed connections and leaves the rest working. Under Codex,
+`kubescape` resolves a relative path you give its local-scan tools against the plugin's directory,
+so give those tools absolute paths. `flux-operator-mcp` can read every cluster in that
 kubeconfig, not only the current context: its read-only `set_kubeconfig_context` tool switches
 between them, and it can read workload logs (Secret values are masked by default). Every session
 that loads this plugin gets that read access, including unattended runs. To narrow it, point

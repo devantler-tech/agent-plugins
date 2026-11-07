@@ -1,5 +1,37 @@
 # Changelog — `agentic-engineering`
 
+## 7.2.1 — 2026-11-07
+
+The plugin now passes the Claude plugin directory's blocking checks and carries the listing
+details it asks for. Nothing a consumer configures changes.
+
+**Fixed**
+
+- `flux-operator-mcp` and `kubescape` start from POSIX `sh` scripts the plugin ships,
+  [`scripts/flux-operator-mcp.sh`](scripts/flux-operator-mcp.sh) and
+  [`scripts/kubescape-mcp.sh`](scripts/kubescape-mcp.sh), instead of an inline `sh -c` program the
+  directory's validator cannot follow. They resolve `KUBECONFIG` exactly as before:
+  `$HOME/.kube/config` when it is unset or empty, any other value unchanged. `.mcp.json` names them
+  by `${CLAUDE_PLUGIN_ROOT}`, which Claude Code and VS Code substitute. Codex does not, so it now
+  loads [`.codex-plugin/mcp.json`](.codex-plugin/mcp.json), a mirror of `.mcp.json` that runs the
+  two scripts by their plugin-relative paths from the plugin's directory. Copilot CLI's handling of
+  `${CLAUDE_PLUGIN_ROOT}` there is not verified.
+- The `github-mcp-headers.sh` self-test no longer ships stub values shaped like GitHub tokens, which
+  the directory's secret scan reported as a secret in a shipped file.
+
+**Changed**
+
+- `kubescape` scans no longer send Kubescape's version check, which carries a cluster ID and the
+  node count, to Kubescape's update service: the launcher sets `KS_SKIP_UPDATE_CHECK=true` unless
+  you set it yourself.
+
+**Added**
+
+- [`PRIVACY.md`](PRIVACY.md): the plugin collects no data itself; the policy lists what each bundled
+  server sends and to whom. The README links it.
+- `.claude-plugin/icon.png`, the Devantler Tech orb at 512 × 512, for the directory listing.
+- The README's Claude Code install line.
+
 ## 7.2.0 — 2026-11-05
 
 **Added** — `coroot`, the MCP endpoint at `/mcp` that Coroot serves itself, which accepts

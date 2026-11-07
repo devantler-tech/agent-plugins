@@ -92,7 +92,8 @@ Every path invokes the same `flux-operator-mcp` binary, so install it first — 
 `brew install controlplaneio-fluxcd/tap/flux-operator-mcp` or `go install
 github.com/controlplaneio-fluxcd/flux-operator/cmd/mcp@latest`. It refuses to start unless the
 `KUBECONFIG` environment variable is set, which is why the hand-written entry sets it; the bundled
-plugin's `sh` wrapper sets it to `$HOME/.kube/config` when it is unset or empty. It can read every
+plugin starts it through its `scripts/flux-operator-mcp.sh` launcher, which sets it to
+`$HOME/.kube/config` when it is unset or empty. It can read every
 context in that kubeconfig, starting at the current one, because its read-only
 `set_kubeconfig_context` tool switches between them. See the
 [Flux MCP docs](https://fluxcd.control-plane.io/operator/mcp/) for read-only mode and remote

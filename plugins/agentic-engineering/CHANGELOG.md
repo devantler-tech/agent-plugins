@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.1.2 — 2026-11-07
+
+**Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.
+
 ## 7.1.1 — 2026-11-04
 
 **Fixed** — the README now says why `github` excludes `delete_repository` although a plain probe

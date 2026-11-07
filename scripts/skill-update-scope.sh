@@ -3,9 +3,12 @@
 set -euo pipefail
 refuse() { printf 'skill update scope: unsupported dispatch\n' >&2; exit 2; }
 [[ $# -ge 1 && $# -le 2 ]] || refuse
-# Temporary upstream hold tracked by devantler-tech/platform#5224. Emit it only
-# for scopes containing the skill: the updater refuses a pin outside its dir.
-pin='plugins/agentic-engineering/skills/git-commit e24be77e6f203409cf99ab7d5a67e1540cb386d3'
+# A skill held at a reviewed upstream commit, as `<skill-dir> <40-character commit>`,
+# naming its tracking issue. None is held: the git-commit hold (#598) ended when
+# upstream repaired the skill. A hold suits only scopes containing the skill, since
+# the updater refuses a pin outside its dir. Emptying it does not release the
+# installed skill, which keeps its pinned metadata: dispatch once with `unpin`.
+pin=''
 case "$1:${2:-all}" in
   schedule:all|workflow_dispatch:all) printf 'dir=plugins\nbranch=deps/agent-skills-update\npins=%s\n' "$pin" ;;
   workflow_dispatch:agentic-engineering) printf 'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills\npins=%s\n' "$pin" ;;

@@ -2362,6 +2362,65 @@ check_fail "a symlinked Codex manifest fails" \
 d=$(codex_fixture); printf '%s\n' '{"name":"alpha","name":"other"}' > "$d/plugins/alpha/.codex-plugin/plugin.json"
 check_fail "an ambiguous Codex manifest fails" "Invalid plugins/alpha/.codex-plugin/plugin.json" "$d"
 
+# Codex substitutes no ${CLAUDE_PLUGIN_ROOT} in a server's command or arguments; it only joins a
+# relative cwd onto the plugin root. A plugin that starts a server from that variable gives Codex its
+# own .codex-plugin/mcp.json, mirroring .mcp.json with those launch paths made plugin-relative.
+# shellcheck disable=SC2016
+root_launch='{"mcpServers":{"local":{"command":"sh","args":["${CLAUDE_PLUGIN_ROOT}/scripts/run.sh"]},"remote":{"type":"http","url":"https://example.com/mcp","headersHelper":"sh \"${CLAUDE_PLUGIN_ROOT}/h.sh\""}}}'
+codex_mcp_fixture() { # Codex fixture whose .mcp.json starts a server from ${CLAUDE_PLUGIN_ROOT}, with a correct mirror
+  local d p
+  d=$(codex_fixture); p=$d/plugins/alpha
+  printf '%s\n' "$root_launch" > "$p/.mcp.json"
+  # shellcheck disable=SC2016
+  sed 's/`example-skill` | Alpha plugin/`example-skill`, `local`, `remote` | Alpha plugin/' "$d/docs/plugins.md" > "$d/tmp" && mv "$d/tmp" "$d/docs/plugins.md"
+  # shellcheck disable=SC2016
+  printf '%s\n' '{"mcpServers":{"local":{"command":"sh","args":["scripts/run.sh"],"cwd":"."},"remote":{"type":"http","url":"https://example.com/mcp","headersHelper":"sh \"${CLAUDE_PLUGIN_ROOT}/h.sh\""}}}' \
+    > "$p/.codex-plugin/mcp.json"
+  codex_edit "$d" '.mcpServers = "./.codex-plugin/mcp.json"' .codex-plugin/plugin.json
+  printf '%s' "$d"
+}
+check_pass "a Codex MCP mirror with plugin-relative launch paths passes" "$(codex_mcp_fixture)"
+
+d=$(codex_mcp_fixture); rm "$d/plugins/alpha/.codex-plugin/mcp.json"
+codex_edit "$d" '.mcpServers = "./.mcp.json"' .codex-plugin/plugin.json
+check_fail "Codex loading a \${CLAUDE_PLUGIN_ROOT} launch path fails" \
+  "which Codex does not substitute" "$d"
+
+d=$(codex_mcp_fixture); codex_edit "$d" '.mcpServers = "./.mcp.json"' .codex-plugin/plugin.json
+check_fail "a Codex manifest that ignores its MCP mirror fails" \
+  "'mcpServers' must be \"./.codex-plugin/mcp.json\"" "$d"
+
+# shellcheck disable=SC2016
+for edit in 'del(.mcpServers.remote)' '.mcpServers.local.args = ["${CLAUDE_PLUGIN_ROOT}/scripts/run.sh"]' \
+  'del(.mcpServers.local.cwd)' '.mcpServers.local.cwd = "scripts"' '.mcpServers.local.args = ["scripts/other.sh"]' \
+  '.mcpServers.local.command = "bash"' '.mcpServers.local.env = {"X": "1"}' '.mcpServers.remote.url = "https://example.com/other"' \
+  '.extra = true'; do
+  d=$(codex_mcp_fixture); codex_edit "$d" "$edit" .codex-plugin/mcp.json
+  check_fail "a Codex MCP mirror that drifts ($edit) fails" \
+    "plugins/alpha/.codex-plugin/mcp.json must mirror plugins/alpha/.mcp.json" "$d"
+done
+
+# A command that names the variable cannot be made plugin-relative, so no mirror can carry it.
+d=$(codex_mcp_fixture)
+# shellcheck disable=SC2016
+codex_edit "$d" '.mcpServers.local = {"command": "${CLAUDE_PLUGIN_ROOT}/bin/run"}' .mcp.json
+# shellcheck disable=SC2016
+codex_edit "$d" '.mcpServers.local = {"command": "${CLAUDE_PLUGIN_ROOT}/bin/run", "cwd": ".", "args": []}' .codex-plugin/mcp.json
+check_fail "a mirror still naming \${CLAUDE_PLUGIN_ROOT} fails" \
+  "plugins/alpha/.codex-plugin/mcp.json must mirror plugins/alpha/.mcp.json" "$d"
+
+d=$(codex_mcp_fixture); printf '%s\n' 'not json' > "$d/plugins/alpha/.codex-plugin/mcp.json"
+check_fail "an unreadable Codex MCP mirror fails" "plugins/alpha/.codex-plugin/mcp.json" "$d"
+
+d=$(codex_mcp_fixture); mv "$d/plugins/alpha/.codex-plugin/mcp.json" "$d/mirror.json"
+ln -s ../../../mirror.json "$d/plugins/alpha/.codex-plugin/mcp.json"
+check_fail "a symlinked Codex MCP mirror fails" \
+  "plugins/alpha/.codex-plugin/mcp.json: the Codex MCP file must be a regular packaged file" "$d"
+
+d=$(codex_fixture); printf '%s\n' '{"mcpServers":{"local":{"command":"sh","args":["scripts/run.sh"],"cwd":"."}}}' \
+  > "$d/plugins/alpha/.codex-plugin/mcp.json"
+check_fail "a Codex MCP mirror without .mcp.json fails" "a Codex MCP file needs the .mcp.json it mirrors" "$d"
+
 echo "-----------------------------------------"
 echo "validate-manifests.sh self-test: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -45,7 +45,7 @@
     "connectors"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
+  "mcpServers": "./.codex-plugin/mcp.json",
   "apps": "./.app.json",
   "interface": {
     "displayName": "Agentic Engineering",

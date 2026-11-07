@@ -13,7 +13,7 @@
       "url": "https://mcp.context7.com/mcp"
     },
     "flux-operator-mcp": {
-      "command": "bash",
+      "command": "sh",
       "args": [
         "${CLAUDE_PLUGIN_ROOT}/scripts/flux-operator-mcp.sh"
       ]
@@ -37,7 +37,7 @@
       "headersHelper": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/github-mcp-headers.sh\" \"${CLAUDE_PLUGIN_DATA}\""
     },
     "kubescape": {
-      "command": "bash",
+      "command": "sh",
       "args": [
         "${CLAUDE_PLUGIN_ROOT}/scripts/kubescape-mcp.sh"
       ]

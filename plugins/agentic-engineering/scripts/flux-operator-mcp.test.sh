@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Hermetic contract for flux-operator-mcp.sh: a stub `flux-operator-mcp` stands in for the server,
-# so no cluster and no real kubeconfig is used.
+# so no cluster and no real kubeconfig is used. The launcher runs under `sh`, as both MCP files
+# start it.
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+plugin_root=$(cd "$here/.." && pwd)
 launcher="$here/flux-operator-mcp.sh"
 bash_bin=$(command -v bash)
+sh_bin=$(command -v sh)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/bin" "$work/empty" "$work/home"
@@ -13,9 +16,10 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # The stub records its arguments and the KUBECONFIG it received, then echoes stdin to stdout the
 # way a stdio MCP server answers, so a test can prove the launcher passes the protocol streams
-# through untouched. It uses bash builtins only: the hermetic PATH holds nothing but the stub.
+# through untouched. It uses bash builtins only: the hermetic PATH holds nothing but the stub. It runs
+# as `bash -p`, which reads no BASH_ENV file, so anything that file prints came from the launcher.
 cat > "$work/bin/flux-operator-mcp" <<STUB
-#!$bash_bin
+#!$bash_bin -p
 printf '%s\n' "\$*" > "$work/args"
 printf '%s' "\${KUBECONFIG-<unset>}" > "$work/kubeconfig"
 while IFS= read -r line || [ -n "\$line" ]; do printf '%s\n' "\$line"; done
@@ -29,7 +33,7 @@ run() { # expected-exit launcher-args... -- env-assignments...
   [ $# -gt 0 ] && shift
   rm -f "$work/args" "$work/kubeconfig"
   printf '{"jsonrpc":"2.0","id":1,"method":"ping"}\n' |
-    env -i "$@" "$bash_bin" "$launcher" ${args[@]+"${args[@]}"} > "$work/out" 2> "$work/err" ||
+    env -i "$@" "$sh_bin" "$launcher" ${args[@]+"${args[@]}"} > "$work/out" 2> "$work/err" ||
     status=$?
   [ "$status" -eq "$expected" ] || fail "exit $status, expected $expected: $(cat "$work/err")"
 }
@@ -69,5 +73,23 @@ run 2 --read-write -- PATH="$work/bin" HOME="$work/home"
 # 6. A missing server binary fails with the shell's not-found status and no stdout.
 run 127 -- PATH="$work/empty" HOME="$work/home"
 [ ! -s "$work/out" ] || fail "wrote to stdout without a server binary"
+
+# 7. A BASH_ENV file that prints must not reach the protocol stream: `sh` never reads it.
+printf '%s\n' 'echo from-bash-env' > "$work/bash-env"
+run 0 -- PATH="$work/bin" HOME="$work/home" BASH_ENV="$work/bash-env"
+expect_server "$work/home/.kube/config" "BASH_ENV set"
+
+# 8. Both MCP files start this launcher with `sh`: Claude Code and VS Code by its
+#    ${CLAUDE_PLUGIN_ROOT} path, Codex by its plugin-relative path from cwd ".", which Codex joins
+#    onto the plugin root. Each spelling must name this file.
+jq -e '.mcpServers["flux-operator-mcp"] == {command: "sh", args: ["${CLAUDE_PLUGIN_ROOT}/scripts/flux-operator-mcp.sh"]}' \
+  "$plugin_root/.mcp.json" > /dev/null || fail ".mcp.json does not start flux-operator-mcp through this launcher"
+jq -e '.mcpServers["flux-operator-mcp"] == {command: "sh", args: ["scripts/flux-operator-mcp.sh"], cwd: "."}' \
+  "$plugin_root/.codex-plugin/mcp.json" > /dev/null || fail ".codex-plugin/mcp.json does not start flux-operator-mcp through this launcher"
+[ "$plugin_root/scripts/flux-operator-mcp.sh" -ef "$launcher" ] || fail "the configured path is not this launcher"
+rm -f "$work/args"
+(cd "$plugin_root" && printf '\n' | env -i PATH="$work/bin" HOME="$work/home" "$sh_bin" scripts/flux-operator-mcp.sh) \
+  > /dev/null 2>&1 || fail "the Codex spelling does not start the server from the plugin root"
+[ "$(cat "$work/args")" = "serve --read-only" ] || fail "the Codex spelling started something else"
 
 printf 'flux-operator-mcp: PASS\n'

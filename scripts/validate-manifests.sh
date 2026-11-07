@@ -422,6 +422,36 @@ validate_component_paths() {
   done
 }
 
+# Codex's own MCP file mirrors .mcp.json server for server. A stdio server whose command or arguments
+# use ${CLAUDE_PLUGIN_ROOT} is the only difference allowed: Codex runs it from cwd "." (which it joins
+# onto the plugin root) with every argument's leading "${CLAUDE_PLUGIN_ROOT}/" removed. Nothing in the
+# Codex file may still name the variable, since Codex would pass it through literally.
+validate_codex_mcp_mirror() {
+  local claude_mcp="$1" codex_mcp="$2" mirrors
+  if ! regular_packaged_file "$codex_mcp"; then
+    echo "::error::$codex_mcp: the Codex MCP file must be a regular packaged file"; return 1
+  fi
+  if ! json_object_unique "$codex_mcp"; then echo "::error::Invalid $codex_mcp"; return 1; fi
+  validate_mcp_json "$codex_mcp" || return 1
+  if ! mirrors=$(jq -r --slurpfile claude "$claude_mcp" '
+      def names_root: type == "string" and contains("${CLAUDE_PLUGIN_ROOT}");
+      def starts_from_root: ((.command // "") | names_root) or any((.args // [])[]; names_root);
+      def codex_form:
+        if starts_from_root then
+          . + {cwd: ".", args: [(.args // [])[] | if type == "string" then sub("^\\$\\{CLAUDE_PLUGIN_ROOT\\}/"; "") else . end]}
+        else . end;
+      (($claude[0] | del(.mcpServers)) == del(.mcpServers)) and
+      (($claude[0].mcpServers | map_values(codex_form)) == .mcpServers) and
+      all(.mcpServers[]; starts_from_root | not)' "$codex_mcp" 2>/dev/null) ||
+     { [ "$mirrors" != true ] && [ "$mirrors" != false ]; }; then
+    echo "::error::$codex_mcp: cannot compare the Codex MCP file with $claude_mcp"; return 1
+  fi
+  if [ "$mirrors" != true ]; then
+    echo "::error::$codex_mcp must mirror $claude_mcp, with each \${CLAUDE_PLUGIN_ROOT} launch path made plugin-relative under cwd \".\""
+    return 1
+  fi
+}
+
 # An optional Codex manifest (ADR 0019). Codex reads .codex-plugin/plugin.json before
 # .claude-plugin/plugin.json and resolves only the component paths it declares, so it must repeat
 # the portable manifest exactly, name the plugin's own skills/ and .mcp.json, and add nothing else
@@ -454,11 +484,32 @@ validate_codex_manifest() {
   elif ! jq -e 'has("skills") | not' "$codex_pj" > /dev/null; then
     echo "::error::$codex_pj: 'skills' must be omitted when the plugin has no skills/"; ok=0
   fi
+  # Codex substitutes no ${CLAUDE_PLUGIN_ROOT} in a server's command or arguments; it only joins a
+  # relative cwd onto the plugin root. A plugin whose .mcp.json starts a server from that variable
+  # therefore gives Codex its own .codex-plugin/mcp.json, which must mirror .mcp.json exactly except
+  # that those launch paths are plugin-relative and run from cwd ".".
+  local codex_mcp="$plugin_dir/.codex-plugin/mcp.json" uses_root
   if [ -e "$plugin_dir/.mcp.json" ] || [ -L "$plugin_dir/.mcp.json" ]; then
-    jq -e '.mcpServers == "./.mcp.json"' "$codex_pj" > /dev/null ||
-      { echo "::error::$codex_pj: 'mcpServers' must be \"./.mcp.json\" so Codex loads the bundled servers"; ok=0; }
+    if [ -e "$codex_mcp" ] || [ -L "$codex_mcp" ]; then
+      jq -e '.mcpServers == "./.codex-plugin/mcp.json"' "$codex_pj" > /dev/null ||
+        { echo "::error::$codex_pj: 'mcpServers' must be \"./.codex-plugin/mcp.json\" so Codex loads its own launch paths"; ok=0; }
+      validate_codex_mcp_mirror "$plugin_dir/.mcp.json" "$codex_mcp" || ok=0
+    else
+      jq -e '.mcpServers == "./.mcp.json"' "$codex_pj" > /dev/null ||
+        { echo "::error::$codex_pj: 'mcpServers' must be \"./.mcp.json\" so Codex loads the bundled servers"; ok=0; }
+      if ! uses_root=$(jq -r '[.mcpServers[]? | ((.command // ""), (.args // [])[]) | strings
+            | select(contains("${CLAUDE_PLUGIN_ROOT}"))] | length > 0' "$plugin_dir/.mcp.json" 2>/dev/null) ||
+         { [ "$uses_root" != true ] && [ "$uses_root" != false ]; }; then
+        echo "::error::$plugin_dir/.mcp.json: cannot tell whether a server starts from \${CLAUDE_PLUGIN_ROOT}"; ok=0
+      elif [ "$uses_root" = true ]; then
+        echo "::error::$plugin_dir/.mcp.json starts a server from \${CLAUDE_PLUGIN_ROOT}, which Codex does not substitute; add .codex-plugin/mcp.json with plugin-relative launch paths"
+        ok=0
+      fi
+    fi
   elif ! jq -e 'has("mcpServers") | not' "$codex_pj" > /dev/null; then
     echo "::error::$codex_pj: 'mcpServers' must be omitted when the plugin has no .mcp.json"; ok=0
+  elif [ -e "$codex_mcp" ] || [ -L "$codex_mcp" ]; then
+    echo "::error::$codex_mcp: a Codex MCP file needs the .mcp.json it mirrors"; ok=0
   fi
   if ! jq -e '(has("interface") | not) or (.interface | type == "object")' "$codex_pj" > /dev/null; then
     echo "::error::$codex_pj: 'interface' must be an object"; ok=0

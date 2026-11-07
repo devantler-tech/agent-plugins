@@ -1,5 +1,9 @@
 # Changelog — `ksail`
 
+## 1.0.2 — 2026-11-07
+
+**Changed** — sync `ksail` from `https://github.com/devantler-tech/ksail` at `refs/tags/v7.212.9`.
+
 ## 1.0.1 — 2026-11-04
 
 - Add the KSail app icon at `.claude-plugin/icon.png` (1024 × 1024 PNG, copied from

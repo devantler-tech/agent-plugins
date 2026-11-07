@@ -6,17 +6,16 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 for event in schedule workflow_dispatch; do
   bash "$here/skill-update-scope.sh" "$event" >"$work/out"
-  [[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update\npins=plugins/agentic-engineering/skills/git-commit e24be77e6f203409cf99ab7d5a67e1540cb386d3' ]] || {
-    printf 'FAIL: full-catalogue update must retain the reviewed git-commit pin\n' >&2
+  [[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update\npins=' ]] || {
+    printf 'FAIL: full-catalogue update must hold no skill now that the git-commit hold (#598) ended\n' >&2
     exit 1
   }
 done
 bash "$here/skill-update-scope.sh" workflow_dispatch all >"$work/out"
-[[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update\npins=plugins/agentic-engineering/skills/git-commit e24be77e6f203409cf99ab7d5a67e1540cb386d3' ]]
-# git-commit lives in agentic-engineering, so that scope must carry its pin too.
+[[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update\npins=' ]]
 bash "$here/skill-update-scope.sh" workflow_dispatch agentic-engineering >"$work/out"
-[[ $(cat "$work/out") == $'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills\npins=plugins/agentic-engineering/skills/git-commit e24be77e6f203409cf99ab7d5a67e1540cb386d3' ]] || {
-  printf 'FAIL: the agentic-engineering scope must retain the reviewed git-commit pin\n' >&2
+[[ $(cat "$work/out") == $'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills\npins=' ]] || {
+  printf 'FAIL: the agentic-engineering scope must hold no skill now that the git-commit hold (#598) ended\n' >&2
   exit 1
 }
 # A scoped producer must still create the canonical per-skill branch accepted
@@ -54,6 +53,14 @@ printf '%s\n' "$workflow" | jq -se 'length == 1 and (.[0] |
   .jobs.update.with.pins == "${{ needs.scope.outputs.pins }}" and
   .jobs.update.permissions == {contents:"write","pull-requests":"write"} and
   .jobs."bump-versions".permissions == {contents:"read"})' >/dev/null
+# Releasing a hold is a deliberate, manual act: only a dispatch that sets `unpin`
+# clears pinned metadata, and the scheduled run never does.
+printf '%s\n' "$workflow" | jq -se 'length == 1 and (.[0] |
+  (.on.workflow_dispatch.inputs.unpin | .type == "boolean" and .default == false) and
+  .jobs.update.with.unpin == "${{ inputs.unpin == true }}")' >/dev/null || {
+  printf 'FAIL: unpin must be an opt-in dispatch input, default false, passed only as inputs.unpin == true\n' >&2
+  exit 1
+}
 # Inspect the declared Git calls; this is a regression guard, not an arbitrary shell parser.
 has_local_git_write() {
   jq -e '[.jobs."bump-versions".steps[] | .run // ""]

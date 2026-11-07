@@ -18,12 +18,14 @@ The directory also contains checks for package discovery, skill provenance and l
 version changes, changelogs, generated writes, release observations and instruction size.
 The [validation guide](validation.md) explains which checks to run and what they establish.
 
-The scope resolver also passes the temporary reviewed `git-commit` pin for full-catalogue
-and `agentic-engineering` updates, the two selections that contain the skill. This hold is tracked in
-[platform#5224](https://github.com/devantler-tech/platform/issues/5224): all other skills keep
-updating through the same programmed proposals. Removing the hold requires an upstream
-repair and a reviewed updater change that clears the installed pin; deleting its declaration
-alone leaves native pinned metadata in place.
+The scope resolver also passes any reviewed skill hold, as `<skill-dir> <commit>`, to
+full-catalogue and `agentic-engineering` updates. None is held today: the temporary `git-commit`
+hold from [platform#5224](https://github.com/devantler-tech/platform/issues/5224) ended under
+[#598](https://github.com/devantler-tech/agent-plugins/issues/598) once upstream repaired the skill.
+Deleting a hold's declaration alone leaves native pinned metadata in place, so releasing one also
+takes a single manual dispatch of the updater with `unpin` set. That run proposes releasing every
+skill pinned in its metadata, including `check-skills` at its release tag: close the proposal for
+any pin that should stay.
 
 Files ending in `.test.sh` contain regression cases. Shared `.lib.sh`, `.jq`, `.cjs` and Go
 files support the helpers; they are not all standalone commands. Follow the calling script's

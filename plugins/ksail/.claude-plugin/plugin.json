@@ -1,7 +1,7 @@
 {
   "name": "ksail",
   "description": "KSail CLI expertise and MCP server — create and operate Kubernetes clusters (Kind, K3d, Talos, vCluster, KWOK, EKS) and GitOps workloads declaratively",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "devantler-tech",
     "url": "https://github.com/devantler-tech"

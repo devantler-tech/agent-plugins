@@ -1,5 +1,14 @@
 # Changelog — `agentic-engineering`
 
+## 7.2.4 — 2026-11-07
+
+**Fixed** — the README named only one place for the files the `coroot` and GitHub helpers read:
+`plugins/data/agentic-engineering-devantler-plugins`. The Code tab of the Claude desktop app can
+run its own managed copy of the plugin, which reads `plugins/data/agentic-engineering-inline`
+instead, so files put only in the first directory left `coroot` failing there with "Dynamic Client
+Registration rejected (HTTP 401)". The README now names both directories and explains that error.
+Nothing a consumer configures changes.
+
 ## 7.2.3 — 2026-11-07
 
 **Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.

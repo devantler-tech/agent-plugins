@@ -241,10 +241,11 @@ Until all three are set, Claude Code shows a missing-variable warning or a faile
 rejected (HTTP 401)", the helper refused to send the key and Claude Code connected without one. The
 files may be missing, malformed or pinned to another address than `COROOT_URL`, or they may be in
 another copy's data directory: the desktop app can run a managed copy of the plugin with its own
-data directory, described for `github-token` below. Copilot CLI, VS Code and Codex are not expected
-to run the
-Claude-only `headersHelper`, which is not yet verified on each tool; configure Coroot for them with
-their own MCP settings.
+data directory, described for `github-token` below. If it fails with "Server rejected the
+Authorization header minted by the configured headersHelper" instead, the key was sent and Coroot
+refused it, for example because it was deleted. Copilot CLI, VS Code and Codex are not expected to
+run the Claude-only `headersHelper`, which is not yet verified on each tool; configure Coroot for
+them with their own MCP settings.
 
 `kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through
 [`scripts/kubescape-mcp.sh`](scripts/kubescape-mcp.sh), which resolves the kubeconfig the same way

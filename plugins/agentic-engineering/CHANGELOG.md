@@ -7,8 +7,8 @@
 run its own managed copy of the plugin, which reads `plugins/data/agentic-engineering-inline`
 instead, so files put only in the first directory left `coroot` failing there with "Dynamic Client
 Registration rejected (HTTP 401)". The README now names both directories, says that
-`CLAUDE_CODE_PLUGIN_CACHE_DIR` moves them, and explains that error. Nothing a consumer configures
-changes.
+`CLAUDE_CODE_PLUGIN_CACHE_DIR` moves them, and tells that error apart from the one Claude Code
+reports when Coroot refuses a key it was sent. Nothing a consumer configures changes.
 
 ## 7.2.3 — 2026-11-07
 

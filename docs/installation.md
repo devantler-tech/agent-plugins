@@ -54,7 +54,8 @@ Codex reads a plugin's `.codex-plugin/plugin.json` before its `.claude-plugin/pl
 `agentic-engineering` plugin ships one so that it can also offer the official Codex apps its agents
 use: iCloud Mail, iCloud Calendar, LinkedIn and Codex Security Cloud, all optional, listed in its
 [`.app.json`](../plugins/agentic-engineering/.app.json). Each still needs your own sign-in.
-`scripts/validate-manifests.sh` keeps that manifest identical to the portable one apart from its
+The `ksail` plugin ships one for its OpenAI plugin directory listing; it offers no apps.
+`scripts/validate-manifests.sh` keeps each Codex manifest identical to the portable one apart from its
 component paths, app list and listing, and `scripts/bump-plugin-version.sh` moves its version
 with the others.
 

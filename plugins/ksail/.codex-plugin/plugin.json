@@ -1,0 +1,51 @@
+{
+  "name": "ksail",
+  "description": "KSail CLI expertise and MCP server — create and operate Kubernetes clusters (Kind, K3d, Talos, vCluster, KWOK, EKS) and GitOps workloads declaratively",
+  "version": "1.0.1",
+  "author": {
+    "name": "devantler-tech",
+    "url": "https://github.com/devantler-tech"
+  },
+  "license": "PolyForm-Shield-1.0.0",
+  "homepage": "https://ksail.devantler.tech",
+  "repository": "https://github.com/devantler-tech/ksail",
+  "keywords": [
+    "kubernetes",
+    "k8s",
+    "gitops",
+    "ksail",
+    "kind",
+    "k3d",
+    "talos",
+    "vcluster",
+    "eks",
+    "flux",
+    "argocd",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "KSail",
+    "shortDescription": "Create Kubernetes clusters",
+    "longDescription": "KSail is one CLI for creating and operating Kubernetes clusters and the GitOps workloads on them. This plugin teaches Codex to use it: scaffold a KSail project, create Kind, K3d, Talos, vCluster or KWOK clusters locally in Docker (Talos also on Hetzner and Omni), bootstrap Flux or ArgoCD, apply, validate and watch workloads, manage SOPS-encrypted secrets, and back up or restore cluster resources. It needs the ksail CLI on your PATH and, for local clusters, a running Docker daemon.",
+    "developerName": "Devantler Tech",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://ksail.devantler.tech/",
+    "supportURL": "https://github.com/devantler-tech/ksail/issues",
+    "defaultPrompt": [
+      "Create a local Kubernetes cluster with KSail and Flux, then deploy the manifests in k8s/",
+      "Scaffold a KSail project for a Talos cluster and explain each file it writes",
+      "Encrypt the Kubernetes secrets in this repository with SOPS using ksail workload cipher"
+    ],
+    "brandColor": "#143150",
+    "brandColorDark": "#2EC4E6",
+    "composerIcon": "./.claude-plugin/icon.png",
+    "logo": "./.claude-plugin/icon.png"
+  }
+}

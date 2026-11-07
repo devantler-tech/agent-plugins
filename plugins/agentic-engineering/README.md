@@ -191,10 +191,11 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 | `aws-knowledge` | AWS's hosted knowledge server: AWS documentation, regional availability and AWS's own guidance, read-only | Nothing; it works without an AWS account |
 | `cloudflare-docs` | Cloudflare's hosted documentation search: DNS, certificates, R2 and the rest of Cloudflare, read-only | Nothing; it is public |
 | `context7` | Upstash's Context7: current documentation and code examples for libraries and frameworks, read-only | Nothing; it works without an account |
-| `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, `bash`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
+| `coroot` | Your own Coroot instance's MCP endpoint: application topology, alerts, incidents, traces, metrics and logs; a Viewer key cannot resolve alerts, and in the Enterprise Edition its one write saves an investigation onto an incident | `COROOT_URL` in your environment, plus the pinned address and a service-account API key in the plugin data directory, below |
+| `flux-operator-mcp` | A live cluster's Flux resources, read-only, for `gitops-cluster-debug` and `flux-troubleshooter` | The [`flux-operator-mcp`](https://fluxcd.control-plane.io/operator/mcp/) binary, a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
-| `kubescape` | A live cluster's Kubescape results, read-only: vulnerabilities, configuration scans, SBOMs, network and RBAC exposure | The [`kubescape`](https://kubescape.io/docs/install-cli/) CLI (v4 or later), `bash`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
+| `kubescape` | A live cluster's Kubescape results, read-only: vulnerabilities, configuration scans, SBOMs, network and RBAC exposure | The [`kubescape`](https://kubescape.io/docs/install-cli/) CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server: Stripe documentation, reads and writes on your Stripe account, analytics, and money movement | A Stripe sign-in, below |
 | `svelte` | The Svelte team's hosted server: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
@@ -203,16 +204,52 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 `flux-operator-mcp` talks only to your clusters. `kubescape` also downloads Kubescape's released
 policy bundle from GitHub each time it starts, falling back to a local cache, and
 `terraform-registry` runs locally but looks providers and modules up in the public Terraform
-Registry. Every other server is
+Registry, and `coroot` reaches only the Coroot instance you point it at. Every other server is
 hosted by a third party, so every call to one, including a documentation search, reaches that
 service. If your agents must not contact a third party, disable its server in your tool's MCP
 settings; denying single tools does not stop the connection.
 
+`coroot` connects to the MCP endpoint at `/mcp` that Coroot serves itself, which accepts
+service-account API keys from Coroot v1.26.8. That endpoint needs a bearer token on every request and
+checks each tool call against the caller's role, so give the agents a Coroot **service account
+with the Viewer role**. A Viewer can investigate but cannot resolve alerts, which in the Community
+Edition is the only tool that changes anything. In the Enterprise Edition, `investigate_anomaly`
+called with an `incident_key` also saves its root-cause analysis onto that incident, and a Viewer
+may do that; deny that tool in your tool's settings if your agents must not write anything. To
+use it in Claude Code:
+
+1. Create the service account and its API key, in Coroot's UI or, with the Kubernetes operator,
+   through the `Coroot` resource's `spec.serviceAccounts`.
+2. Make sure an agent can reach exactly `<your-coroot>/mcp` without your browser sign-in;
+   the endpoint's own key check is what protects it. If your Coroot gives anonymous visitors a
+   role, expose only that exact path, never the whole host.
+3. Set `COROOT_URL` to your Coroot's address, without `/mcp` and without a trailing slash, in the
+   environment Claude Code runs in, for example under `env` in your user `settings.json`. The
+   address stays out of any repository.
+4. In this plugin's data directory, the same directory as the optional `github-token` below,
+   write the same address to `coroot-url` and the API key to `coroot-api-key`, readable only by
+   you. The plugin's [`scripts/coroot-mcp-headers.sh`](scripts/coroot-mcp-headers.sh) sends the
+   key as the bearer token only when Claude Code is connecting to that pinned address followed by
+   `/mcp`, so a changed `COROOT_URL` cannot send it elsewhere; that does not protect against
+   someone who controls Claude Code's whole environment, such as its proxy and trusted
+   certificates. It accepts only an `https://` address whose host is an ASCII DNS name or IPv4
+   address, or plain `http://` to `localhost`, `127.0.0.1` or `[::1]`, for example through a port
+   forward, and never falls back to anything else.
+
+Until all three are set, Claude Code shows a missing-variable warning or a failed connection for
+`coroot` and the rest keep working. Copilot CLI, VS Code and Codex are not expected to run the
+Claude-only `headersHelper`, which is not yet verified on each tool; configure Coroot for them with
+their own MCP settings.
+
 `kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through
 [`scripts/kubescape-mcp.sh`](scripts/kubescape-mcp.sh), which resolves the kubeconfig the same way
-as the Flux server's launcher, so it reads every cluster in your kubeconfig the same way. Its tools read the
+as the Flux server's launcher, so it reads every cluster in your kubeconfig the same way. The
+launcher also sets `KS_SKIP_UPDATE_CHECK=true` unless you set it yourself, so the agents' scans
+send no version check to Kubescape's update service; that check would carry a cluster ID, the node
+count, the frameworks scanned and the client version. Its tools read the
 cluster and the results the in-cluster Kubescape operator stores. Its only write-shaped calls are
-server-side dry-run patches, which change nothing; its remediation tool never applies a fix, and
+server-side dry-run patches, which change nothing; despite its name, `apply_remediation` never
+applies a fix (Kubescape v4.0.17 sends every patch it makes as a server-side dry run), and
 its admission-policy tool only drafts YAML. Its stored results exist only on a cluster that runs
 the Kubescape operator. `terraform-registry` needs no token in
 the `registry` toolset; the plugin leaves HashiCorp's HCP Terraform and Terraform Enterprise
@@ -253,11 +290,16 @@ reconcile, suspend or resume; hand fixes to your GitOps delivery instead. `flux-
 refuses to start unless the `KUBECONFIG` environment variable is set, so the plugin starts it
 through [`scripts/flux-operator-mcp.sh`](scripts/flux-operator-mcp.sh), which sets `KUBECONFIG` to
 `$HOME/.kube/config` when your environment leaves it unset or empty and passes any non-empty value
-unchanged. Both cluster servers start from a script the plugin ships, named by
-`${CLAUDE_PLUGIN_ROOT}`, rather than from an inline shell program, so a plugin directory's
-validator can read what they run. A tool that does not substitute `${CLAUDE_PLUGIN_ROOT}` in a
-server's arguments reports both as failed connections and leaves the rest working; Claude Code
-and VS Code substitute it. It can read every cluster in that
+unchanged. Both cluster servers start from a POSIX `sh` script the plugin ships rather than from an
+inline shell program, so a plugin directory's validator can read what they run. `.mcp.json` names
+each script by `${CLAUDE_PLUGIN_ROOT}`, which Claude Code and VS Code substitute. Codex substitutes
+no such variable, so it loads [`.codex-plugin/mcp.json`](.codex-plugin/mcp.json) instead: the same
+servers, with the two scripts named relative to the plugin, run from the plugin's own directory.
+`validate-manifests.sh` keeps that file a mirror of `.mcp.json`. Copilot CLI's handling of
+`${CLAUDE_PLUGIN_ROOT}` in a plugin's `.mcp.json` is not verified; a tool that does not substitute
+it reports both cluster servers as failed connections and leaves the rest working. Under Codex,
+`kubescape` resolves a relative path you give its local-scan tools against the plugin's directory,
+so give those tools absolute paths. `flux-operator-mcp` can read every cluster in that
 kubeconfig, not only the current context: its read-only `set_kubeconfig_context` tool switches
 between them, and it can read workload logs (Secret values are masked by default). Every session
 that loads this plugin gets that read access, including unattended runs. To narrow it, point

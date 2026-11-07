@@ -22,7 +22,16 @@ terms rather than this policy.
 - **Cluster servers.** [`scripts/flux-operator-mcp.sh`](scripts/flux-operator-mcp.sh) and
   [`scripts/kubescape-mcp.sh`](scripts/kubescape-mcp.sh) start the Flux and Kubescape servers against
   the clusters in your kubeconfig. They talk to your clusters, and Kubescape also downloads its
-  released policy bundle from GitHub each time it starts.
+  released policy bundle from GitHub each time it starts. Kubescape's scans would also send a
+  version check to Kubescape's update service, carrying a cluster ID, the node count, the
+  frameworks scanned and the client version. The launcher turns that check off by setting
+  `KS_SKIP_UPDATE_CHECK=true`, unless you set that variable yourself.
+- **Coroot (Claude Code only).** `coroot` connects to your own Coroot instance at the address in
+  `COROOT_URL`. [`scripts/coroot-mcp-headers.sh`](scripts/coroot-mcp-headers.sh) reads that
+  instance's address from `coroot-url` and a service-account API key from `coroot-api-key`, both
+  files you create in the plugin's data directory. It hands the key to Claude Code as a bearer
+  token only when Claude Code is connecting to that pinned address followed by `/mcp`. What the
+  agents ask Coroot, and what it answers, stays between your tool and your Coroot.
 - **Terraform Registry server.** `terraform-registry` runs locally and looks providers and modules
   up in HashiCorp's public Terraform Registry.
 
@@ -50,9 +59,10 @@ operator's terms.
 
 - Disable any server in your tool's MCP settings to stop it contacting its service. Denying single
   tools does not stop the connection.
-- The only file the plugin reads that you create is the optional `github-token` in its data
-  directory. Delete it at any time. Claude Code removes that directory when you uninstall the
-  plugin from the last place it is installed, unless you pass `--keep-data`.
+- The only files the plugin reads that you create are the optional `github-token`, `coroot-url`
+  and `coroot-api-key` in its data directory. Delete them at any time. Claude Code removes that
+  directory when you uninstall the plugin from the last place it is installed, unless you pass
+  `--keep-data`.
 - Uninstalling the plugin stops all of the above.
 
 ## Changes and contact

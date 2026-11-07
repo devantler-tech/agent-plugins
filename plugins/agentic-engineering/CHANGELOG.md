@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.2.2 — 2026-11-07
+
+**Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.
+
 ## 7.2.1 — 2026-11-07
 
 The plugin now passes the Claude plugin directory's blocking checks and carries the listing

@@ -237,9 +237,15 @@ use it in Claude Code:
    forward, and never falls back to anything else.
 
 Until all three are set, Claude Code shows a missing-variable warning or a failed connection for
-`coroot` and the rest keep working. Copilot CLI, VS Code and Codex are not expected to run the
-Claude-only `headersHelper`, which is not yet verified on each tool; configure Coroot for them with
-their own MCP settings.
+`coroot` and the rest keep working. If the connection fails with "Dynamic Client Registration
+rejected (HTTP 401)", the helper refused to send the key and Claude Code connected without one. The
+files may be missing, malformed or pinned to another address than `COROOT_URL`, or they may be in
+another copy's data directory: the desktop app can run a managed copy of the plugin with its own
+data directory, described for `github-token` below. If it fails with "Server rejected the
+Authorization header minted by the configured headersHelper" instead, the key was sent and Coroot
+refused it, for example because it was deleted. Copilot CLI, VS Code and Codex are not expected to
+run the Claude-only `headersHelper`, which is not yet verified on each tool; configure Coroot for
+them with their own MCP settings.
 
 `kubescape` runs `kubescape mcpserver` from the Kubescape CLI, through
 [`scripts/kubescape-mcp.sh`](scripts/kubescape-mcp.sh), which resolves the kubeconfig the same way
@@ -349,9 +355,14 @@ Both servers sign in the same way, with the same token, depending on the tool:
   Claude Code would otherwise use. It sends your GitHub CLI's github.com login
   (`gh auth token --hostname github.com`), so run `gh auth login --hostname github.com` first. To
   use a narrower token for both servers instead, write it to `github-token` in this plugin's data
-  directory (`${CLAUDE_PLUGIN_DATA}`), which for an install from this marketplace is
-  `plugins/data/agentic-engineering-devantler-plugins/github-token` under your Claude configuration
-  directory (`${CLAUDE_CONFIG_DIR:-~/.claude}`). Once that file exists the helper never falls back to
+  directory (`${CLAUDE_PLUGIN_DATA}`). For an install from this marketplace that is
+  `data/agentic-engineering-devantler-plugins` in your plugins directory, which is
+  `CLAUDE_CODE_PLUGIN_CACHE_DIR` when that is set and otherwise `plugins` under your Claude
+  configuration directory (`${CLAUDE_CONFIG_DIR:-~/.claude}`). The Code tab of the Claude desktop
+  app can instead run its own managed copy of the plugin, which uses
+  `data/agentic-engineering-inline` in the same plugins directory, as does a copy loaded with
+  `--plugin-dir`. Each copy reads only its own data directory, so if you use both, put the file in
+  both. Once that file exists the helper never falls back to
   your CLI login: an unreadable, empty or malformed file, a dangling link or an unsearchable
   directory fails the connection instead. The file is found only on a Claude Code version that
   substitutes `${CLAUDE_PLUGIN_DATA}` in a plugin's `headersHelper` (2.1.317 does); on one that does

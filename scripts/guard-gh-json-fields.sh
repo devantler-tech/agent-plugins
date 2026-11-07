@@ -14,7 +14,9 @@
 # Usage: guard-gh-json-fields.sh [ROOT]      (ROOT defaults to this repository)
 # Scans every *.md, *.txt, *.json, *.jq, *.go, *.yaml and *.yml under ROOT/plugins; any other non-script file is UNKNOWN. Shell
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
-# silently misleads every agent that reads it.
+# silently misleads every agent that reads it. Raster images (*.png, *.jpg, *.jpeg, *.webp, such as
+# listing icons, anywhere under plugins/) are skipped only when they are regular files that begin with
+# that format's signature; the bytes after the signature are not inspected.
 # Go 1.22+ is required: only the installed observer is built. Literal adjacent shell quotes are
 # joined without evaluating inspected text; expansions are UNKNOWN. JSON requires unique decoded
 # keys. Normalized text is bounded to 8 MiB. The Go decoder reads comments, decoded literal
@@ -56,6 +58,24 @@ ensure_decoder() {
       GOOS='' GOARCH='' GOCACHEPROG='' GOTMPDIR="$observation_dir" \
       go build -o "$go_decoder" "$helper_dir/gh-json-go/main.go" || return 2
   fi
+}
+
+# An agent opens a raster image as pixels, not as prose to follow, so it is not a surface this guard
+# scans. Its name alone proves nothing: a plain text file called icon.png would hide its prescriptions.
+# So an image is skipped only when it is a regular, unlinked file whose leading bytes are the
+# signature of the format its extension names; anything else, including an unreadable file, is
+# UNKNOWN. Only the signature is checked: text placed after it, or in a PNG text chunk, is not
+# inspected, because no agent reads an image file as instructions.
+raster_image() {
+  local path="$1" magic
+  [ -f "${path}" ] && [ ! -L "${path}" ] || return 1
+  magic="$(LC_ALL=C od -An -N12 -tx1 "${path}" | tr -d ' \n')" || return 1
+  case "${path}" in
+    *.png) [ "${magic:0:16}" = 89504e470d0a1a0a ] ;;
+    *.jpg | *.jpeg) [ "${magic:0:6}" = ffd8ff ] ;;
+    *.webp) [ "${magic:0:8}" = 52494646 ] && [ "${magic:16:8}" = 57454250 ] ;;
+    *) return 1 ;;
+  esac
 }
 
 # Emit the retained surface as plain text. $1 selects its type; $2 contains its observed bytes.
@@ -198,6 +218,9 @@ while IFS= read -r -d '' f; do
   case "$f" in
     *.md|*.txt|*.json|*.jq|*.go|*.yaml|*.yml) surfaces+=("$f") ;;
     *.sh) ;;
+    *.png | *.jpg | *.jpeg | *.webp)
+      raster_image "$f" ||
+        unknown "${f#"${root}/"} is named as an image but is not a regular file with that image format's signature, so it may be text this guard does not scan" ;;
     *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
 done < "${discovered}"

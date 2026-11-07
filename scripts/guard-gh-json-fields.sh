@@ -12,7 +12,8 @@
 # the definitions are authored (and where synced skills arrive), stops it before it ships.
 #
 # Usage: guard-gh-json-fields.sh [ROOT]      (ROOT defaults to this repository)
-# Scans every *.md, *.txt, *.json, *.jq, *.go, *.yaml and *.yml under ROOT/plugins; any other non-script file is UNKNOWN. Shell
+# Scans every *.md, *.txt, *.json, *.jq, *.go, *.yaml and *.yml under ROOT/plugins; any other non-script file is UNKNOWN,
+# except a plugin's PNG listing icon at plugins/<plugin>/.claude-plugin/icon.png, which no agent reads. Shell
 # scripts are not scanned: a script with a bad field fails loudly the first time it runs, whereas prose
 # silently misleads every agent that reads it.
 # Go 1.22+ is required: only the installed observer is built. Literal adjacent shell quotes are
@@ -193,12 +194,30 @@ trap 'rm -f "${discovered}" "${snapshot}" "${go_decoder}"; rmdir "${observation_
 find "${root}/plugins" ! -type d -print0 2>/dev/null | LC_ALL=C sort -z > "${discovered}" ||
   unknown "could not list the files under ${root}/plugins, so the scan would cover an unknown subset"
 
+# A plugin's directory listing icon, plugins/<plugin>/.claude-plugin/icon.png, is the one non-text
+# file that is not a surface: Anthropic's plugin directory shows it on the listing, and no agent
+# runtime loads it as a definition. It is passed over only at exactly that path, only as a regular
+# file (not a link), and only when its first eight bytes are the PNG signature. Any other image, an
+# icon at a deeper path, or a text file renamed to icon.png stays UNKNOWN.
+is_listing_icon() {
+  local rel="${1#"${root}/plugins/"}" plugin signature
+  plugin="${rel%%/*}"
+  [[ -n $plugin && $rel == "${plugin}/.claude-plugin/icon.png" ]] || return 1
+  [ -f "$1" ] && [ ! -L "$1" ] ||
+    unknown "${1#"${root}/"} is a listing icon that is not a regular file, so it cannot be confirmed as an image"
+  signature=$(head -c 8 "$1" | od -An -tx1 | tr -d ' \n') ||
+    unknown "${1#"${root}/"} could not be read, so it cannot be confirmed as an image"
+  [ "$signature" = 89504e470d0a1a0a ] ||
+    unknown "${1#"${root}/"} is named as a listing icon but is not a PNG image, so any field it prescribes would go unseen"
+}
+
 surfaces=()
 while IFS= read -r -d '' f; do
   case "$f" in
     *.md|*.txt|*.json|*.jq|*.go|*.yaml|*.yml) surfaces+=("$f") ;;
     *.sh) ;;
-    *) unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
+    *) is_listing_icon "$f" ||
+         unknown "${f#"${root}/"} is a file type this guard does not scan, so any field it prescribes would go unseen" ;;
   esac
 done < "${discovered}"
 [ "${#surfaces[@]}" -gt 0 ] || unknown "found no supported text surfaces under ${root}/plugins"

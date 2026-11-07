@@ -367,6 +367,35 @@ dir="$(fixture unknown-unscanned-type)"
 printf '%s\n' 'cmd: gh pr view 42 --json state,merged' > "${dir}/plugins/p/agents/case.ini"
 expect 2 "an unscanned file type is UNKNOWN" "${dir}"
 
+# A plugin's PNG listing icon is the one non-text file passed over, and only at exactly
+# plugins/<plugin>/.claude-plugin/icon.png, as a regular file that starts with the PNG signature.
+png_bytes() { printf '\211PNG\r\n\032\n\000\000\000\rIHDR'; }
+dir="$(fixture good-listing-icon)"
+mkdir -p "${dir}/plugins/p/.claude-plugin"
+png_bytes > "${dir}/plugins/p/.claude-plugin/icon.png"
+expect 0 "a PNG listing icon is not a surface" "${dir}"
+
+dir="$(fixture unknown-text-listing-icon)"
+mkdir -p "${dir}/plugins/p/.claude-plugin"
+printf '%s\n' 'gh pr view 42 --json state,merged' > "${dir}/plugins/p/.claude-plugin/icon.png"
+expect 2 "text named as a listing icon is UNKNOWN" "${dir}"
+
+dir="$(fixture unknown-png-elsewhere)"
+mkdir -p "${dir}/plugins/p/skills/s"
+png_bytes > "${dir}/plugins/p/skills/s/diagram.png"
+expect 2 "a PNG anywhere but the listing icon path is UNKNOWN" "${dir}"
+
+dir="$(fixture unknown-nested-listing-icon)"
+mkdir -p "${dir}/plugins/p/skills/s/.claude-plugin"
+png_bytes > "${dir}/plugins/p/skills/s/.claude-plugin/icon.png"
+expect 2 "a listing icon below the plugin root is UNKNOWN" "${dir}"
+
+dir="$(fixture unknown-symlinked-listing-icon)"
+mkdir -p "${dir}/plugins/p/.claude-plugin"
+png_bytes > "${dir}/real.png"
+ln -s "${dir}/real.png" "${dir}/plugins/p/.claude-plugin/icon.png"
+expect 2 "a symlinked listing icon is UNKNOWN" "${dir}"
+
 # Native skill runtime metadata is YAML. Decode supported mappings rather than treating
 # their quotes as shell syntax or permitting escaped prescriptions to go unseen.
 for extension in yaml yml; do

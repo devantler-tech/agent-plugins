@@ -4,7 +4,7 @@ metadata:
     github-path: skills/dependabot
     github-ref: refs/heads/main
     github-repo: https://github.com/github/awesome-copilot
-    github-tree-sha: bae44cbf3624998d19712423d0d3170e2329d426
+    github-tree-sha: c67ca56f57c75639579619fd8c3391caae2fbc0f
 name: dependabot
 ---
 # Dependabot Configuration & Management
@@ -377,7 +377,7 @@ Controls how Dependabot edits version constraints:
 rebase-strategy: "disabled"  # stop auto-rebasing
 ```
 
-Allow rebase over extra commits by including `[dependabot skip]` in commit messages.
+Dependabot stops rebasing a PR once anyone else pushes a commit to its branch. A `[dependabot skip]` in that commit's message lifts that stop (it does not override `rebase-strategy: "disabled"`): the next rebase force-pushes over the branch, which discards the commit. Leave the marker out to keep your commit.
 
 ### Open PR Limit
 

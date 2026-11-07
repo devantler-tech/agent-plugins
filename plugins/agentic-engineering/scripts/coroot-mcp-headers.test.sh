@@ -15,7 +15,7 @@ export CLAUDE_CODE_MCP_SERVER_URL=$pinned/mcp
 
 run() { # expected-status data-dir [extra-arg]
   local want=$1 status=0; shift
-  bash "$helper" "$@" > "$work/out" 2> "$work/err" || status=$?
+  "${BASH:-bash}" "$helper" "$@" > "$work/out" 2> "$work/err" || status=$?
   [ "$status" -eq "$want" ] || fail "exit $status, want $want for: $* ($(cat "$work/err"))"
   if grep -q 'k3y' "$work/err"; then fail "printed the key on stderr for: $*"; fi
 }

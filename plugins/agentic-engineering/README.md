@@ -198,8 +198,8 @@ hosted by a third party, so every call to one, including a documentation search,
 service. If your agents must not contact a third party, disable its server in your tool's MCP
 settings; denying single tools does not stop the connection.
 
-`coroot` connects to the MCP endpoint at `/mcp` that Coroot serves itself; it takes
-service-account API keys from v1.26.8. That endpoint needs a bearer token on every request and
+`coroot` connects to the MCP endpoint at `/mcp` that Coroot serves itself, which accepts
+service-account API keys from Coroot v1.26.8. That endpoint needs a bearer token on every request and
 checks each tool call against the caller's role, so give the agents a Coroot **service account
 with the Viewer role**. A Viewer can investigate but cannot resolve alerts, which in the Community
 Edition is the only tool that changes anything. In the Enterprise Edition, `investigate_anomaly`
@@ -209,7 +209,7 @@ use it in Claude Code:
 
 1. Create the service account and its API key, in Coroot's UI or, with the Kubernetes operator,
    through the `Coroot` resource's `spec.serviceAccounts`.
-2. Make sure an agent can reach exactly `https://<your-coroot>/mcp` without your browser sign-in;
+2. Make sure an agent can reach exactly `<your-coroot>/mcp` without your browser sign-in;
    the endpoint's own key check is what protects it. If your Coroot gives anonymous visitors a
    role, expose only that exact path, never the whole host.
 3. Set `COROOT_URL` to your Coroot's address, without `/mcp` and without a trailing slash, in the
@@ -219,7 +219,9 @@ use it in Claude Code:
    write the same address to `coroot-url` and the API key to `coroot-api-key`, readable only by
    you. The plugin's [`scripts/coroot-mcp-headers.sh`](scripts/coroot-mcp-headers.sh) sends the
    key as the bearer token only when Claude Code is connecting to that pinned address followed by
-   `/mcp`, so a changed `COROOT_URL` cannot send it elsewhere. It accepts only an `https://`
+   `/mcp`, so a changed `COROOT_URL` cannot send it elsewhere; that does not protect against
+   someone who controls Claude Code's whole environment, such as its proxy and trusted
+   certificates. It accepts only an `https://` address whose host is an ASCII DNS name or IPv4
    address, or plain `http://` to `localhost`, `127.0.0.1` or `[::1]`, for example through a port
    forward, and never falls back to anything else.
 

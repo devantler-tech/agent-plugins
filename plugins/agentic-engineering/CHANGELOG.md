@@ -2,8 +2,8 @@
 
 ## 7.2.0 — 2026-11-05
 
-**Added** — `coroot`, the MCP endpoint at `/mcp` that Coroot serves itself, with
-service-account API keys from v1.26.8: application topology, alerts, SLO incidents, traces,
+**Added** — `coroot`, the MCP endpoint at `/mcp` that Coroot serves itself, which accepts
+service-account API keys from Coroot v1.26.8: application topology, alerts, SLO incidents, traces,
 PromQL metrics and logs. Coroot checks every tool call against the caller's role, so with a
 service account in the Viewer role the agents can investigate but cannot resolve alerts. In the
 Enterprise Edition a Viewer's `investigate_anomaly` can still save its analysis onto an incident
@@ -11,7 +11,8 @@ when given an `incident_key`. The server reads its address from `COROOT_URL` in 
 environment. The new `scripts/coroot-mcp-headers.sh` sends the API key from `coroot-api-key` in
 the plugin data directory only when Claude Code connects to the address pinned in `coroot-url`
 there, followed by `/mcp`, over `https://` or loopback `http://`; so neither the address nor the
-key goes into any repository, and a changed `COROOT_URL` cannot redirect the key.
+key goes into any repository, and a changed `COROOT_URL` cannot redirect the key (someone who
+controls Claude Code's whole environment still could, through its proxy settings).
 
 ### Upgrading to 7.2.0
 

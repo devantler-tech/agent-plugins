@@ -12,7 +12,9 @@
 #   coroot-api-key  the API key
 # The server's URL comes from COROOT_URL, which anything that sets Claude Code's environment can
 # change. So the helper sends the key only when Claude Code reports, in CLAUDE_CODE_MCP_SERVER_URL,
-# that it is connecting to exactly the pinned address followed by /mcp.
+# that it is connecting to exactly the pinned address followed by /mcp. That stops a changed
+# COROOT_URL; it cannot stop someone who controls the whole environment, for example a proxy
+# variable plus a trusted CA.
 #
 # Claude Code runs a plugin's helper without any environment variable whose name looks like a
 # credential, and this helper has no fallback: when anything is missing or does not match, it
@@ -47,7 +49,7 @@ read_exact() {
   size=$((size))
   if [ "$size" -ne "${#value}" ]; then
     [ "$size" -eq $((${#value} + 1)) ] || return 1
-    [ "$(tail -c 1 "$file" | od -An -tx1 | tr -d ' ')" = 0a ] || return 1
+    [ "$(tail -c 1 -- "$file" | od -An -tx1 | tr -d ' ')" = 0a ] || return 1
   fi
   printf '%s' "$value"
 }

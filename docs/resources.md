@@ -61,9 +61,8 @@ tool's MCP settings; denying single tools does not stop the connection. Among
 the servers you keep, `github` and `stripe` can change things: `github` writes to GitHub as the
 signed-in account, and `stripe` writes to your Stripe account and can move money. With a Viewer
 key, `coroot`'s Enterprise Edition `investigate_anomaly` can save its analysis onto an incident.
-The
-`siderolabs-docs` `submit_feedback` and `stripe` `send_stripe_feedback` tools send reports to Sidero
-Labs and Stripe. The Svelte autofixer and playground tools send the code they are given to Svelte's
+The `siderolabs-docs` `submit_feedback` and `stripe` `send_stripe_feedback` tools send reports to
+Sidero Labs and Stripe. The Svelte autofixer and playground tools send the code they are given to Svelte's
 service, and the playground link carries that code. The
 [plugin README](../plugins/agentic-engineering/README.md#bundled-mcp-servers) covers each server's
 sign-in and what to deny.

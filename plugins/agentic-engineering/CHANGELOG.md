@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.2.5 — 2026-11-07
+
+**Changed** — sync `git-commit` from `https://github.com/github/awesome-copilot` at `refs/heads/main`.
+
 ## 7.2.4 — 2026-11-07
 
 **Fixed** — the README named only one place for the files the `coroot` and GitHub helpers read:

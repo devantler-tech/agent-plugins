@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.2.7 — 2026-11-09
+
+**Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.
+
 ## 7.2.6 — 2026-11-08
 
 **Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.

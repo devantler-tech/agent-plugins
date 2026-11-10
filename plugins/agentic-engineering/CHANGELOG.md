@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.2.9 — 2026-11-10
+
+**Changed** — sync `context7-mcp` from `https://github.com/upstash/context7` at `refs/tags/@upstash/context7-mcp@4.6.0`.
+
 ## 7.2.8 — 2026-11-10
 
 **Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.

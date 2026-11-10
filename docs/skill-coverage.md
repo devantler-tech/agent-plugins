@@ -39,7 +39,7 @@ This is an engineering inventory. It makes no legal or compliance claim.
 | Astro | the [KSail docs][ksail-docs] and the [KHoist website][khoist-web] | `astro`, `product-documentation`, `write-docs-introduction` | none | Medium | **Covered** |
 | Go | [ksail][ksail-go], [khoist][khoist-go], the [business-site server][bs-go], platform helpers | `golang-pro`, `test-driven-development`, `refactor` | activation only: 0 loads in a week with at least 34 Go sessions (#642) | Medium | **Covered**; measured by #651 |
 | API and form validation | request handling in the SvelteKit sites (for example the [wedding-app RSVP endpoint][wa-rsvp]) and the [Go portal][bs-go] | `web-design-guidelines` covers form markup | server-side validation, rate limits and uploads belong to application security; personal data in forms belongs to privacy | Medium | **Do not add** a separate skill: owned by #640 and #638 |
-| PostgreSQL schema and migrations | the [business-site portal schema][bs-mig], wedding-app on [Drizzle migrations][wa-drizzle], KHoist's [CloudNativePG provider][khoist-cnpg] | none | schema design, query plans, lock-safe migrations | High | **Adopt**: [#653](https://github.com/devantler-tech/agent-plugins/issues/653) |
+| PostgreSQL schema and migrations | the [business-site portal schema][bs-mig], wedding-app on [Drizzle migrations][wa-drizzle], KHoist's [CloudNativePG provider][khoist-cnpg] | `supabase-postgres-best-practices`: schema design, indexes and query plans, locking, row-level security | lock-safe steps for changing a live table (add a column as nullable, backfill, then constrain; build an index without blocking writes): the skill has one migration rule, so each repository's own migration rules stay the authority | High | **Covered** since 7.3.0 ([#653](https://github.com/devantler-tech/agent-plugins/issues/653)), with the gap named here |
 | PostgreSQL backup and restore | the platform's [CloudNativePG and Velero procedures][plat-dr] | none | none for a skill: the procedure is specific to one repository | High | **Do not add**: stays in the platform's docs and verifiers |
 | ClickHouse | only as [Coroot][plat-coroot]'s log and trace storage, which the platform runs but no product queries | none | none today | Low | **Do not add**. Revisit when a product writes ClickHouse schemas or queries |
 | Prometheus and OpenTelemetry | [Coroot][plat-coroot] with its bundled Prometheus, which Flagger and KEDA query in PromQL; [Alertmanager][plat-am]; an [OpenTelemetry log forwarder][plat-otel] | none; `gitops-cluster-debug` reads metrics only through the Flux MCP server | PromQL, alert rules, collector pipelines | Medium | **Adopt**: [#654](https://github.com/devantler-tech/agent-plugins/issues/654) |
@@ -75,7 +75,7 @@ lists them: should-trigger, near-miss and over-trigger cases that #651's suite r
 | Gap | Candidate | Licence and owner | Last push | Fit and risk | Decision |
 |---|---|---|---|---|---|
 | SvelteKit | [`svelte-core-bestpractices`, `svelte-code-writer`][c-svelte] | MIT, the Svelte team | 2026-11-04 | Official. The code writer runs `npx @sveltejs/mcp` without a pinned version, so its tool use needs a supply-chain review | Adopt, after #641's rubric (#652) |
-| PostgreSQL | [`supabase-postgres-best-practices`][c-supabase] | MIT, Supabase | 2026-10-02 | Says it applies to "Postgres running anywhere" and covers migrations. Check the Supabase-only parts | Adopt if it passes #641's rubric (#653) |
+| PostgreSQL | [`supabase-postgres-best-practices`][c-supabase] | MIT, Supabase | 2026-11-07 | Text only, for "Postgres running anywhere". Two of its 34 rule files show Supabase's `auth.uid()` and `authenticated` role beside the standard form; those fail loudly on a database that lacks them. Its description also claims dump restores, which stay with the platform's recovery procedure | **Adopted** in 7.3.0 at the upstream's `v0.1.9` tag (#653) |
 | PostgreSQL | [`infra-postgres`][c-ch-pg] | Apache-2.0, ClickHouse | 2026-11-02 | Provisions Postgres through the `clickhousectl` CLI; no schema, query or migration guidance | Do not add |
 | Observability | [`promql`, `prometheus`, `opentelemetry`][c-grafana] | Apache-2.0, Grafana Labs | 2026-11-03 | Official. Much of the repository targets Grafana Cloud, so take only the self-hosted subset | Adopt a subset (#654) |
 | Observability | community skills such as [`opentelemetry`][c-bagel] and [`observability-sre`][c-arsenal] | MIT, individual maintainers | 2026-05-22, 2026-11-04 | General-purpose. The vendor-maintained Grafana skills cover the same scope | Rejected |
@@ -114,7 +114,8 @@ with SvelteKit and a Go server. An agent that trusts the card would choose `astr
 2. Application security and tenant isolation (#640). High exposure, and the customer portal is in
    active development.
 3. Privacy and GDPR (#638). Personal data in two products.
-4. PostgreSQL schema and migrations (#653). Production data with no guidance.
+4. PostgreSQL schema and migrations (#653). Adopted in 7.3.0; lock-safe migration steps remain a
+   gap, noted in the matrix.
 5. Danish commerce, consumer and accessibility rules (#639).
 6. SvelteKit (#652). Three products, and a framework-specific gap.
 7. Prometheus and OpenTelemetry (#654).

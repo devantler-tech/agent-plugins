@@ -35,8 +35,8 @@ This is an engineering inventory. It makes no legal or compliance claim.
 | Privacy and GDPR | [contact handling][bs-contacts], [customer identity][bs-identity] and [invoices][bs-invoices] in the business-site portal; [guest RSVPs][wa-schema] in wedding-app | none | all of it | High | **Owned** by [#638](https://github.com/devantler-tech/agent-plugins/issues/638) |
 | Danish commerce, consumer and accessibility rules | client sites with service offerings and booking ([ascoachingogvaner][asc-agents]); [business-site invoicing][bs-invoices] | `web-design-guidelines` covers UI accessibility review, not Danish law | the legal rules | High | **Owned** by [#639](https://github.com/devantler-tech/agent-plugins/issues/639) |
 | Application security and tenant isolation | the [business-site customer portal][bs-identity], [KHoist's data product API][khoist-api], tenant apps on the shared platform | CI and supply chain: `github-actions-hardening`, `codeql`, `secret-scanning`, `dependency-scanning`, `dependabot`. Cluster tenants: `gitops-tenant-onboarding` | application layer: object-level authorization, sessions, webhook verification, threat models | High | **Owned** by [#640](https://github.com/devantler-tech/agent-plugins/issues/640) |
-| SvelteKit and TypeScript | business-site [`web/`][bs-web], [wedding-app][wa-pkg], [ascoachingogvaner][asc-pkg] | none; `frontend-design` and `web-design-guidelines` are framework-neutral | Svelte framework guidance. TypeScript itself is not treated as a gap; if that needs checking, add a TypeScript case to #651 | Medium | **Adopt**: [#652](https://github.com/devantler-tech/agent-plugins/issues/652) |
-| Astro | the [KSail docs][ksail-docs] and the [KHoist website][khoist-web] | `astro`, `product-documentation`, `write-docs-introduction` | none | Medium | **Covered** |
+| SvelteKit and TypeScript | business-site [`web/`][bs-web], [wedding-app][wa-pkg], [ascoachingogvaner][asc-pkg] | `svelte-core-bestpractices` and the `svelte` documentation server (documentation, autofixer and playground links), beside the framework-neutral `frontend-design` and `web-design-guidelines` | none for Svelte. TypeScript itself is not treated as a gap; if that needs checking, add a TypeScript case to #651 | Medium | **Covered** since 7.0.0 ([#652](https://github.com/devantler-tech/agent-plugins/issues/652)) |
+| Astro | the [KSail docs][ksail-docs] and the [KHoist website][khoist-web] | `product-documentation`, `write-docs-introduction` | Astro framework guidance: the `astro` skill left the bundle in 7.0.0 | Medium | **Not bundled.** The 7.0.0 entry in the plugin's [changelog][changelog] has the one command that installs `astro` from its upstream for work on these two sites |
 | Go | [ksail][ksail-go], [khoist][khoist-go], the [business-site server][bs-go], platform helpers | `golang-pro`, `test-driven-development`, `refactor` | activation only: 0 loads in a week with at least 34 Go sessions (#642) | Medium | **Covered**; measured by #651 |
 | API and form validation | request handling in the SvelteKit sites (for example the [wedding-app RSVP endpoint][wa-rsvp]) and the [Go portal][bs-go] | `web-design-guidelines` covers form markup | server-side validation, rate limits and uploads belong to application security; personal data in forms belongs to privacy | Medium | **Do not add** a separate skill: owned by #640 and #638 |
 | PostgreSQL schema and migrations | the [business-site portal schema][bs-mig], wedding-app on [Drizzle migrations][wa-drizzle], KHoist's [CloudNativePG provider][khoist-cnpg] | none | schema design, query plans, lock-safe migrations | High | **Adopt**: [#653](https://github.com/devantler-tech/agent-plugins/issues/653) |
@@ -74,7 +74,7 @@ lists them: should-trigger, near-miss and over-trigger cases that #651's suite r
 
 | Gap | Candidate | Licence and owner | Last push | Fit and risk | Decision |
 |---|---|---|---|---|---|
-| SvelteKit | [`svelte-core-bestpractices`, `svelte-code-writer`][c-svelte] | MIT, the Svelte team | 2026-11-04 | Official. The code writer runs `npx @sveltejs/mcp` without a pinned version, so its tool use needs a supply-chain review | Adopt, after #641's rubric (#652) |
+| SvelteKit | [`svelte-core-bestpractices`, `svelte-code-writer`][c-svelte] | MIT, the Svelte team | 2026-11-04 | Official. The code writer runs `npx @sveltejs/mcp` without a pinned version | `svelte-core-bestpractices` **adopted** in 7.0.0. `svelte-code-writer` **rejected**: it downloads and runs an unpinned package on every call, and the bundled `svelte` server already offers the same documentation and autofixer tools (#652) |
 | PostgreSQL | [`supabase-postgres-best-practices`][c-supabase] | MIT, Supabase | 2026-10-02 | Says it applies to "Postgres running anywhere" and covers migrations. Check the Supabase-only parts | Adopt if it passes #641's rubric (#653) |
 | PostgreSQL | [`infra-postgres`][c-ch-pg] | Apache-2.0, ClickHouse | 2026-11-02 | Provisions Postgres through the `clickhousectl` CLI; no schema, query or migration guidance | Do not add |
 | Observability | [`promql`, `prometheus`, `opentelemetry`][c-grafana] | Apache-2.0, Grafana Labs | 2026-11-03 | Official. Much of the repository targets Grafana Cloud, so take only the self-hosted subset | Adopt a subset (#654) |
@@ -116,8 +116,9 @@ with SvelteKit and a Go server. An agent that trusts the card would choose `astr
 3. Privacy and GDPR (#638). Personal data in two products.
 4. PostgreSQL schema and migrations (#653). Production data with no guidance.
 5. Danish commerce, consumer and accessibility rules (#639).
-6. SvelteKit (#652). Three products, and a framework-specific gap.
-7. Prometheus and OpenTelemetry (#654).
+6. Prometheus and OpenTelemetry (#654).
+
+Done: SvelteKit (#652), covered since 7.0.0.
 
 Not now: ClickHouse, payments, SLOs and a separate validation skill. Each row above says what would
 change that.
@@ -158,6 +159,7 @@ when an adoption issue above closes, or after #651's first two baselines.
 [ksail-go]: https://github.com/devantler-tech/ksail/blob/1d8cc8d70a03418e1278a6703e3b5186266869ce/go.mod
 [plat-root]: https://github.com/devantler-tech/platform/tree/c199bf60e96a85319c127dae42bde1aac1d94eee
 [card]: https://github.com/devantler-tech/monorepo/blob/564a7babf79f7bf328bde4c6ca55a18ba4358650/.claude/skills/products/business-site/SKILL.md
+[changelog]: ../plugins/agentic-engineering/CHANGELOG.md
 [wa-drizzle]: https://github.com/devantler-tech/wedding-app/tree/1daafd60faaa89a793249a4b6d44d90d22c82f50/drizzle
 [bs-go]: https://github.com/devantler-tech/business-site/blob/2574c7a56167736e7c4c8cf6ab60945ed36b00cb/server/go.mod
 [asc-agents]: https://github.com/devantler-tech/ascoachingogvaner/blob/a4ef1234ffa247facc52943db02b955bbc98076f/AGENTS.md

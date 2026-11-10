@@ -26,6 +26,8 @@ makes a delivery trustworthy.
 - **Compare in constant time** with the standard library's function for it. Never `==`.
 - **Refuse old deliveries.** A signed timestamp with a tolerance of a few minutes stops a
   captured delivery being replayed later.
+- **The event identifier is signed too.** If only the body is signed, a captured delivery can
+  be sent again under a new identifier and counted as new.
 - **Handle each event once.** Providers redeliver. Record the event identifier in the same
   transaction as its effect, and answer a redelivery with success without acting again.
 - **Trust the event only as far as needed.** Prefer to take the identifier from the event and
@@ -35,8 +37,8 @@ makes a delivery trustworthy.
 - **Map the event to a tenant from your own records**, such as the stored customer identifier.
   Never from a tenant field in the body.
 
-The properties above, in Go. Checked with Go 1.27; the scheme is an example, not any
-provider's:
+The properties above, in Go. Checked with Go 1.27. The scheme signs the identifier, the
+timestamp and the body together; it is an example, not any provider's:
 
 ```go
 package webhook
@@ -57,10 +59,13 @@ var (
 	ErrSignature = errors.New("webhook signature does not match")
 )
 
-// Verify checks a delivery signed as hex(HMAC-SHA256(secret, timestamp + "." + body)).
-// Providers differ in header names and layout: follow the provider's own
-// documentation, and use its library when it has one.
-func Verify(secret, body []byte, timestamp, signature string, now time.Time, tolerance time.Duration) error {
+// Verify checks a delivery signed as
+// hex(HMAC-SHA256(secret, eventID + "." + timestamp + "." + body)).
+// The identifier and the timestamp are inside the signature, so neither can
+// be swapped on a captured delivery. Providers differ in header names and
+// layout: follow the provider's documentation, and use its library when it
+// has one.
+func Verify(secret []byte, eventID, timestamp string, body []byte, signature string, now time.Time, tolerance time.Duration) error {
 	seconds, err := strconv.ParseInt(timestamp, 10, 64)
 	if err != nil {
 		return ErrStale
@@ -70,7 +75,7 @@ func Verify(secret, body []byte, timestamp, signature string, now time.Time, tol
 		return ErrStale
 	}
 	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte(timestamp + "."))
+	mac.Write([]byte(eventID + "." + timestamp + "."))
 	mac.Write(body)
 	given, err := hex.DecodeString(signature)
 	if err != nil || !hmac.Equal(given, mac.Sum(nil)) { // constant-time comparison
@@ -96,14 +101,15 @@ func Handler(secret []byte, seen Deliveries, handle func(eventID string, body []
 			http.Error(w, "body too large", http.StatusRequestEntityTooLarge)
 			return
 		}
-		err = Verify(secret, body, r.Header.Get("Webhook-Timestamp"), r.Header.Get("Webhook-Signature"), time.Now(), 5*time.Minute)
-		if err != nil {
-			http.Error(w, "invalid signature", http.StatusUnauthorized)
-			return
-		}
-		eventID := r.Header.Get("Webhook-Id")
+		eventID := r.Header.Get("X-Event-Id")
 		if eventID == "" {
 			http.Error(w, "missing event id", http.StatusBadRequest)
+			return
+		}
+		err = Verify(secret, eventID, r.Header.Get("X-Event-Timestamp"), body,
+			r.Header.Get("X-Event-Signature"), time.Now(), 5*time.Minute)
+		if err != nil {
+			http.Error(w, "invalid signature", http.StatusUnauthorized)
 			return
 		}
 		first, err := seen.FirstTime(eventID)
@@ -126,8 +132,8 @@ func Handler(secret []byte, seen Deliveries, handle func(eventID string, body []
 
 If recording the identifier and applying the effect cannot share a transaction, apply the
 effect first, make it safe to repeat, and record the identifier after it succeeded. The tests
-for this handler cover a valid delivery, a changed body, a wrong secret, a stale and a future
-timestamp, and a redelivery handled once.
+for this handler cover a valid delivery, a changed body, a changed identifier, a wrong secret,
+a stale and a future timestamp, a redelivery handled once, and a replay under a new identifier.
 
 ## Accepting a file
 

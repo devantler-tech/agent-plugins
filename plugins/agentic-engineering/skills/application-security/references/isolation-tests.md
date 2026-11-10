@@ -27,7 +27,8 @@ Rules that keep the tests honest:
   hand-written fake that filters correctly proves nothing about the SQL.
 - **Prove each test once.** Delete the control (drop the tenant condition) and watch the test
   fail. If it still passes, it tests nothing. Put the proof in the pull request.
-- **Cover every route by construction.** Walk the router's list of routes in a test and fail
+- **Cover every route by construction.** Keep the routes where a test can list them (the
+  router's own listing, or one route table), and fail
   for any route that has no isolation case and is not on a short, reviewed list of public
   routes. A new endpoint then cannot be added without its test.
 - **Test the other places data rests**: the cache, the job queue, file downloads and exports

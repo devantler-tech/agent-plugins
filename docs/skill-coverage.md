@@ -105,8 +105,10 @@ with SvelteKit and a Go server. An agent that trusts the card would choose `astr
 
 ## Prioritized gaps
 
-1. **Prerequisites for every adoption:** the adopt-or-build rubric and pinning lifecycle
-   ([#641](https://github.com/devantler-tech/agent-plugins/issues/641), with #581, #583 and #598),
+1. **Prerequisites for every adoption:** the adopt-or-build rubric and pinning lifecycle are
+   delivered in 7.4.0 as the `skill-lifecycle` skill and [`skill-lifecycle.md`](skill-lifecycle.md)
+   ([#641](https://github.com/devantler-tech/agent-plugins/issues/641)); still open are updater
+   pull requests that say what changed upstream (#583, under #581),
    the activation suite (#651), and stale user-level copies that shadow plugin skills
    ([monorepo#4840](https://github.com/devantler-tech/monorepo/issues/4840)). Each adoption also
    adds description text, and #642 found 30 of 94 listed skills shown by name only. So every adoption

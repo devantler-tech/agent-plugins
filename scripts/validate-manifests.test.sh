@@ -473,6 +473,24 @@ Body.
 EOF
 check_pass "locally authored skill without install metadata passes" "$d"
 
+# An authored entry file stays inside its 500-line / 20000-byte budget (#618, #678).
+authored_skill() { # dir body-lines line-text
+  {
+    printf '%s\n' '---' 'name: example-skill' 'description: Hand-authored skill.' '---'
+    local i
+    for ((i = 0; i < $2; i++)); do printf '%s\n' "$3"; done
+  } > "$1/plugins/alpha/skills/example-skill/SKILL.md"
+}
+d=$(fresh)
+authored_skill "$d" 496 'Body.'
+check_pass "authored skill of exactly 500 lines passes" "$d"
+d=$(fresh)
+authored_skill "$d" 497 'Body.'
+check_fail "authored skill over 500 lines fails" "authored skill exceeds its 500-line / 20000-byte budget" "$d"
+d=$(fresh)
+authored_skill "$d" 100 "$(printf 'x%.0s' $(seq 1 200))"
+check_fail "authored skill over 20000 bytes fails" "authored skill exceeds its 500-line / 20000-byte budget" "$d"
+
 # Orphaned installation fields must never become local ownership.
 for install_field in github-path github-ref github-tree-sha github-pinned; do
   d=$(fresh)

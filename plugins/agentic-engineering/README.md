@@ -118,6 +118,7 @@ are maintained here.
 | Go | `golang-pro` |
 | Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni) |
 | Frontend (SvelteKit) | `svelte-core-bestpractices`, `frontend-design`, `web-design-guidelines` |
+| Observability (Prometheus) | `promql` (writing and checking PromQL), `prometheus` (alert and recording rules, Alertmanager routing) |
 | Payments (Stripe) | `stripe-best-practices`, `stripe-docs`, `upgrade-stripe` |
 | Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme`, `architecture`, `debug`, `deploy-checklist`, `documentation`, `incident-response`, `standup`, `system-design`, `tech-debt`, `testing-strategy` |
 | Design | `accessibility-review`, `design-critique`, `design-handoff`, `design-system`, `research-synthesis`, `user-research`, `ux-copy` |

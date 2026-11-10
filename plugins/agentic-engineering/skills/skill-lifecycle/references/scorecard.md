@@ -48,7 +48,8 @@ Any 0 needs a sentence in the decision record saying why it is acceptable or why
   outside the areas you rely on, and that fail loudly (an error or an obvious wrong result,
   never a silent one). Name each defect where users read about the skill, and track the
   upstream fix.
-- **Reject**: a gate fails, or the defects are in the areas you rely on, or they fail silently
+- **Reject**: the licence, provenance or supply-chain gate fails, or the wrong examples are
+  many, are in the areas you rely on, or fail silently
   (security rules, data loss, access control).
 - **Build**: no candidate can be adopted and the gap is still worth closing. Say why each
   candidate was rejected.

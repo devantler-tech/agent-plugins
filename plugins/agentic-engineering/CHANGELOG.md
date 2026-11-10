@@ -1,5 +1,18 @@
 # Changelog — `agentic-engineering`
 
+## 7.3.0 — 2026-11-10
+
+**Added** — `promql` and `prometheus` from `https://github.com/grafana/skills` at `refs/heads/main`:
+Grafana Labs' guidance on writing and checking PromQL, and on Prometheus alert rules, recording
+rules and Alertmanager routing. Both are text only. Their examples name Grafana Cloud and Grafana
+Mimir as possible endpoints beside a plain Prometheus; nothing in them needs either. The upstream's
+`opentelemetry` and `alerting-irm` skills are deliberately not bundled: the first sends telemetry to
+Grafana Cloud by default, and the second configures Grafana's own alerting product.
+
+Known upstream defects: two examples in the `promql` pattern library are wrong. Its "stale exporter"
+test matches every healthy target, and its Alloy label-drop snippet is not valid configuration. Do
+not copy either; #676 tracks the upstream fix, which the daily skill update will bring in.
+
 ## 7.2.9 — 2026-11-10
 
 **Changed** — sync `context7-mcp` from `https://github.com/upstash/context7` at `refs/tags/@upstash/context7-mcp@4.6.0`.

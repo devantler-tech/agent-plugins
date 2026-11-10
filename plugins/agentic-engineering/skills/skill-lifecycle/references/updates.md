@@ -23,8 +23,10 @@ An update replaces instruction text that agents follow. Review the text, not the
    that would run and do the wrong thing here is a defect.
 6. **Check the licence.** It may sit at the root of the upstream repository, outside the
    skill's folder: check the file your licence record points to, at the new commit. A changed
-   licence or a removed notice stops the update until the record is corrected or the skill is
-   dropped.
+   licence is a new licence gate: read the new terms. If they still allow redistribution,
+   correct the record and keep the new notice with the copy. If they do not, refuse the update:
+   stay on the last tree released under terms you can redistribute, or drop the skill. A
+   removed or altered notice stops the update until the record matches what upstream ships.
 7. **Repeat the correctness read** for every example the update adds or changes. An example
    you cannot run or check is unverified: say so, and accept it only when it is inert in your
    setup.

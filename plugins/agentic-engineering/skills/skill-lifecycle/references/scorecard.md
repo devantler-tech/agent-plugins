@@ -1,7 +1,10 @@
 # Adopt-or-build scorecard
 
-Fill one scorecard per candidate. A candidate that fails any gate is rejected, whatever it
-scores elsewhere. Write down what you looked at, not only the verdict: the next reader has to
+Fill one scorecard per candidate. A candidate that fails the licence, provenance or supply-chain
+gate is rejected, whatever it scores elsewhere. So is one that fails the correctness gate, with
+one narrow exception: wrong examples that are few, outside the areas you rely on, and that fail
+loudly can be accepted as known defects, on the terms under [Reading the result](#reading-the-result).
+Write down what you looked at, not only the verdict: the next reader has to
 be able to check it.
 
 ## Gates (pass or fail)
@@ -40,7 +43,8 @@ The scores are there to make the comparison between candidates visible; they are
 Any 0 needs a sentence in the decision record saying why it is acceptable or why it is not.
 
 - **Adopt**: all gates pass and Functionality is 2.
-- **Adopt with known defects**: the gates pass except for defects in examples that are few,
+- **Adopt with known defects**: the licence, provenance and supply-chain gates pass, and the
+  only correctness failures are defects in examples that are few,
   outside the areas you rely on, and that fail loudly (an error or an obvious wrong result,
   never a silent one). Name each defect where users read about the skill, and track the
   upstream fix.

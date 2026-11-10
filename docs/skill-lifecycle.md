@@ -96,9 +96,27 @@ catalogued, external skills keep their provenance and are not edited, every bund
 licence record, each `SKILL.md` validates against the open skill format, and a changed plugin
 has a changed version. [`validation.md`](validation.md) has the commands.
 
-Not checked by CI: whether a skill's examples are correct, and whether it loads for the tasks
-it is meant for. The first is the correctness gate in the scorecard. The second is what the
-activation suite in #651 will measure; until then it is the trial in each pull request.
+Checked for first-party skills only, because external skills are not edited here:
+
+- **Entry file size.** `SKILL.md` is at most 500 lines and 20,000 bytes.
+- **References.** Every file under `references/` sits directly in that folder. Each Markdown
+  reference is linked from `SKILL.md`. A worked example or data file is linked from `SKILL.md`
+  or from the Markdown reference that explains it.
+- **Description length.** At most 600 characters. The limit was set on 2026-11-10 from the 18
+  first-party skills: 16 were at or under it, and the format itself allows 1,024. CI prints
+  every first-party description's length on each run.
+
+A skill that cannot meet a reference or description rule yet is recorded in
+[`skill-authoring-exceptions.json`](../scripts/skill-authoring-exceptions.json) with its
+reason. The record can only shrink: CI fails when an exception is no longer needed, when a
+recorded description grows, and when its recorded ceiling is higher than the measured length.
+The five first exceptions are tracked in #680.
+
+Not checked by CI: whether a skill's examples are correct, whether it loads for the tasks it
+is meant for, and whether its acceptance scenarios exist. The first is the correctness gate in
+the scorecard. The other two belong to the activation suite in #651, which decides where
+scenarios live; until then they are the trial in each pull request and the scenarios recorded
+on the skill's issue.
 
 ## Keeping sources current
 

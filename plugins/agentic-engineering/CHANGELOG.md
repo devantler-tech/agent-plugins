@@ -1,17 +1,5 @@
 # Changelog — `agentic-engineering`
 
-## 7.3.0 — 2026-11-10
-
-**Added** — `supabase-postgres-best-practices` from `https://github.com/supabase/agent-skills` at
-`refs/tags/v0.1.9`: Supabase's Postgres guidance for a database running anywhere, covering schema
-design, indexes and query plans, locking and row-level security. It is text only: it runs nothing and
-needs no network. Two limits to know before relying on it:
-
-- Two of its rule files show Supabase's own `auth.uid()` function and `authenticated` role beside
-  the standard form. On any other Postgres those do not exist, so use the standard form shown first.
-- It has one rule on migrations. A repository's own migration rules still decide how a live table is
-  changed safely, and restoring a database stays with that repository's recovery procedure.
-
 ## 7.2.9 — 2026-11-10
 
 **Changed** — sync `context7-mcp` from `https://github.com/upstash/context7` at `refs/tags/@upstash/context7-mcp@4.6.0`.

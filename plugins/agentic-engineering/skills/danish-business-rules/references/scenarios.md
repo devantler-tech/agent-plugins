@@ -40,15 +40,18 @@ A site that sells goods to consumers.
   withdrawal function on the site labelled "Fortryd aftale" (section 20 a). Goods made to
   the customer's specification are an exception (section 18(2)), and the customer is told
   before ordering that those goods cannot be returned this way (section 8(1)). The
-  exception is per item, so a basket can hold both kinds. How a mixed basket and the
+  exception names the goods made to specification, not the whole order, so a basket can
+  hold both kinds. How a mixed basket and the
   withdrawal function treat the excepted items is not covered here: escalate.
 - **Marketing.** Offers to past customers fit the existing-customer exception only for the
   shop's own similar products, with an opt-out at purchase and in every message
   (section 10(2)).
-- **Invoices and records.** An invoice or simplified invoice per sale, and records kept five
-  years.
-- **Device storage.** A basket cookie is normally within the exception; analytics and
-  advertising are not (cookie order, sections 3 and 4).
+- **Invoices and records.** Accounting records kept five years (Bookkeeping Act,
+  section 12). What a private customer must be given for each sale is not covered here:
+  escalate.
+- **Device storage.** A cookie that keeps the basket working fits the wording of the
+  exception (cookie order, section 4). Anything else is stored only after consent
+  (section 3), unless the business decides that it falls within the exception.
 - **Accessibility.** In scope unless the business is very small.
 - **Decide.** Whether the business counts as very small, which exceptions to withdrawal it
   relies on, and who pays for returns.
@@ -92,8 +95,9 @@ A site that sells a monthly service to consumers.
 - **Ending it.** One month's notice to the end of a month once five months have passed, and
   no longer notice can be agreed (section 28). The customer can cancel on the site, because
   that is where they signed up (section 28 a).
-- **A minimum period** cannot hold the customer longer than that: whatever the terms say,
-  after five months they can give one month's notice. A shorter minimum, three months for
+- **A minimum period** cannot hold the customer longer than that, outside the act's
+  exceptions (section 28(2) and (4)): whatever the terms say, after five months they can
+  give one month's notice. A shorter minimum, three months for
   example, is inside the limit. It is shown before the order with the other terms
   (sections 8(1) and 12(1)), and it does not remove the 14 days.
 - **Renewal and price changes.** State the next renewal date and price in the account and

@@ -1,7 +1,8 @@
 # The rules, by topic
 
 Each row was read in the source named in [sources](sources.md), on the date given there.
-"Who" says whom the rule protects: **C** consumers only, **Persons** natural persons,
+"Who" says whom the rule protects: **C** consumers only, **B** business customers,
+**Persons** natural persons,
 **All** every visitor, recipient or customer. A section number is the act's own. Read the
 section before relying on a summary.
 
@@ -92,8 +93,8 @@ buying it took. State the renewal date and price before each renewal.
 
 | Rule | Who | Label and source |
 |---|---|---|
-| An invoice to another business shows: its date; a sequential number; the seller's VAT registration number; the seller's and the buyer's name and address; the quantity and nature of what was supplied; the delivery date if it differs; the price per unit without VAT and any discount; the VAT rate; and the VAT amount | Business customers | **Authority practice**: the tax authority's legal guide, section A.B.3.3.1.4, which cites section 58(1) of the VAT order |
-| Simplified invoices exist for some sales. When one is allowed is not covered here | | not read: escalate |
+| An invoice to another business shows: its date; a sequential number; the seller's VAT registration number; the seller's and the buyer's name and address; the quantity and nature of what was supplied; the delivery date if it differs; the price per unit without VAT and any discount; the VAT rate; and the VAT amount | B | **Authority practice**: the tax authority's legal guide, section A.B.3.3.1.4, which cites section 58(1) of the VAT order |
+| Simplified invoices exist for some sales. When one is allowed, and what a private customer must be given, is not covered here | not read | not read: escalate |
 | Accounting records are kept safely for five years from the end of the financial year they belong to | All | **Law**: Bookkeeping Act, section 12 |
 | A consumer who is billed for a service on account gets a specified bill | C | **Law**: Marketing Practices Act, section 15 |
 

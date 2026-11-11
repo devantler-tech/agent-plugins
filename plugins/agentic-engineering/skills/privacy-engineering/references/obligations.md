@@ -3,8 +3,9 @@
 Article numbers are those of the GDPR (Regulation (EU) 2016/679). **Law** is a duty in the
 regulation. **Practice** is a recommendation: a sound default, not a legal requirement.
 **Authority practice** is a supervisory authority's published position: not statute, but the
-yardstick it applies, so treat it as binding in effect. Read the article itself before
-relying on a summary; the links are in [sources](sources.md).
+yardstick it applies. Follow it unless the accountable person decides otherwise and records
+why. Read the article itself before relying on a summary; the links are in
+[sources](sources.md).
 
 ## The principles and the legal basis
 

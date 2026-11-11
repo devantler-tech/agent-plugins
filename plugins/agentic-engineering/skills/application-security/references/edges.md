@@ -138,8 +138,10 @@ func Handler(secrets [][]byte, seen Deliveries, handle func(eventID string, body
 }
 ```
 
-Its tests. The last three steps are the ones most often missing: an effect that fails must
-not be recorded as handled, or the provider's retry is swallowed and the event is lost.
+Its tests. The last three steps of `TestHandler` are the ones most often missing: an effect
+that fails must not be recorded as handled, or the provider's retry is swallowed and the event
+is lost. That guarantee belongs to the `Deliveries` implementation, so `deliveriesContract`
+is written to be run against the real, database-backed one as well.
 
 ```go
 package webhook
@@ -272,6 +274,30 @@ func TestHandler(t *testing.T) {
 	expect("effect fails", deliver(second, "evt-3"), http.StatusInternalServerError, 1)
 	expect("provider retries", deliver(second, "evt-3"), http.StatusOK, 2)
 	expect("and retries again", deliver(second, "evt-3"), http.StatusOK, 2)
+}
+
+// deliveriesContract is what every Deliveries implementation must pass. The
+// handler relies on it, so run it against the database-backed one as well.
+func deliveriesContract(t *testing.T, seen Deliveries) {
+	t.Helper()
+	if ran, err := seen.Once("evt-c", func() error { return errors.New("failed") }); ran || err == nil {
+		t.Fatalf("a failed effect: ran = %v, err = %v", ran, err)
+	}
+	calls := 0
+	effect := func() error { calls++; return nil }
+	if ran, err := seen.Once("evt-c", effect); !ran || err != nil {
+		t.Fatalf("after a failure the event must run: ran = %v, err = %v", ran, err)
+	}
+	if ran, err := seen.Once("evt-c", effect); ran || err != nil {
+		t.Fatalf("a handled event must not run again: ran = %v, err = %v", ran, err)
+	}
+	if calls != 1 {
+		t.Fatalf("the effect ran %d times, want once", calls)
+	}
+}
+
+func TestMemoryDeliveriesContract(t *testing.T) {
+	deliveriesContract(t, &memoryDeliveries{done: map[string]bool{}})
 }
 ```
 

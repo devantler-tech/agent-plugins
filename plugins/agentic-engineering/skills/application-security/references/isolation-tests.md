@@ -47,11 +47,12 @@ Rules that keep the tests honest:
 
 ## Go
 
-A session check, a route table in which every route names its role, a data layer that cannot
-be called without the tenant, and the tests. Checked with Go 1.27 (the route patterns need
-Go 1.22 or later). Each of these makes a test fail: dropping the tenant condition from
-`MemoryStore.Get` or `MemoryStore.Delete`, making `allowed` return true, and adding a route
-without cases.
+A session check, a route table in which every route names its role or is marked public, a
+data layer that cannot be called without the tenant, and the tests. Checked with Go 1.27 (the
+route patterns need Go 1.22 or later). Each of these makes a test fail: looking an invoice up
+by identifier alone in `MemoryStore.Get` or `MemoryStore.Delete`, making `allowed` return
+true, adding a route without cases, marking a route public without adding it to the reviewed
+list, and a delete that answers success without deleting.
 
 ```go
 package invoices
@@ -80,17 +81,21 @@ type Store interface {
 	Delete(ctx context.Context, tenantID, id string) error
 }
 
-// MemoryStore is this example's data layer. In a product it is SQL, and the
-// tenant condition below is `WHERE tenant_id = $1 AND id = $2`.
+// MemoryStore is this example's data layer. In a product it is SQL, and each
+// lookup below is `WHERE tenant_id = $1 AND id = $2`.
 type MemoryStore struct {
 	mu       sync.Mutex
-	invoices map[string]Invoice
+	invoices map[key]Invoice
 }
 
+// key is the tenant and the identifier together, as in a table whose primary
+// key is (tenant_id, id): two tenants can never collide.
+type key struct{ tenantID, id string }
+
 func NewMemoryStore(invoices ...Invoice) *MemoryStore {
-	store := &MemoryStore{invoices: map[string]Invoice{}}
+	store := &MemoryStore{invoices: map[key]Invoice{}}
 	for _, invoice := range invoices {
-		store.invoices[invoice.ID] = invoice
+		store.invoices[key{invoice.TenantID, invoice.ID}] = invoice
 	}
 	return store
 }
@@ -98,8 +103,8 @@ func NewMemoryStore(invoices ...Invoice) *MemoryStore {
 func (s *MemoryStore) Get(_ context.Context, tenantID, id string) (Invoice, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	invoice, ok := s.invoices[id]
-	if !ok || invoice.TenantID != tenantID {
+	invoice, ok := s.invoices[key{tenantID, id}]
+	if !ok {
 		return Invoice{}, ErrNotFound
 	}
 	return invoice, nil
@@ -108,11 +113,10 @@ func (s *MemoryStore) Get(_ context.Context, tenantID, id string) (Invoice, erro
 func (s *MemoryStore) Delete(_ context.Context, tenantID, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	invoice, ok := s.invoices[id]
-	if !ok || invoice.TenantID != tenantID {
+	if _, ok := s.invoices[key{tenantID, id}]; !ok {
 		return ErrNotFound
 	}
-	delete(s.invoices, id)
+	delete(s.invoices, key{tenantID, id})
 	return nil
 }
 
@@ -149,7 +153,8 @@ func Authenticate(sessions Sessions, next http.Handler) http.Handler {
 }
 
 // Route is one entry of the route table. Every route names the role it needs,
-// so a route cannot be added without a policy, and a test can list them all.
+// or "public", so a route cannot be added without a policy, and a test can
+// list them all.
 type Route struct {
 	Pattern string
 	Role    string
@@ -159,6 +164,7 @@ type Route struct {
 var Routes = []Route{
 	{"GET /invoices/{id}", "member", getInvoice},
 	{"DELETE /invoices/{id}", "admin", deleteInvoice},
+	{"GET /healthz", "public", health},
 }
 
 func allowed(caller Caller, needed string) bool {
@@ -168,16 +174,27 @@ func allowed(caller Caller, needed string) bool {
 func Handler(store Store, sessions Sessions) http.Handler {
 	mux := http.NewServeMux()
 	for _, route := range Routes {
-		mux.HandleFunc(route.Pattern, func(w http.ResponseWriter, r *http.Request) {
-			caller := r.Context().Value(callerKey{}).(Caller)
-			if !allowed(caller, route.Role) {
+		if route.Role == "public" {
+			mux.HandleFunc(route.Pattern, func(w http.ResponseWriter, r *http.Request) {
+				route.Handle(store, Caller{}, w, r)
+			})
+			continue
+		}
+		mux.Handle(route.Pattern, Authenticate(sessions, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// A check that cannot run refuses: no caller, no access.
+			caller, ok := r.Context().Value(callerKey{}).(Caller)
+			if !ok || !allowed(caller, route.Role) {
 				http.Error(w, "forbidden", http.StatusForbidden)
 				return
 			}
 			route.Handle(store, caller, w, r)
-		})
+		})))
 	}
-	return Authenticate(sessions, mux)
+	return mux
+}
+
+func health(_ Store, _ Caller, w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func getInvoice(store Store, caller Caller, w http.ResponseWriter, r *http.Request) {
@@ -214,6 +231,7 @@ package invoices
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -293,11 +311,19 @@ func TestTenantIsolation(t *testing.T) {
 				if tc.notInBody != "" && strings.Contains(body, tc.notInBody) {
 					t.Errorf("body %q leaks %q", body, tc.notInBody)
 				}
-				// A refused write must leave the owner's record as it was.
-				if method == http.MethodDelete && tc.wantStatus != http.StatusNoContent {
-					if _, err := store.Get(context.Background(), "tenant-a", "inv-a"); err != nil {
-						t.Errorf("the owner's invoice is gone after a refused delete: %v", err)
-					}
+				if method != http.MethodDelete {
+					return
+				}
+				// Read back: a refused delete leaves the owner's invoice, an allowed
+				// one removes exactly that invoice and nothing of the other tenant's.
+				_, ownErr := store.Get(context.Background(), "tenant-a", "inv-a")
+				_, otherErr := store.Get(context.Background(), "tenant-b", "inv-b")
+				deleted := tc.wantStatus == http.StatusNoContent
+				if deleted != errors.Is(ownErr, ErrNotFound) {
+					t.Errorf("after status %d the owner's invoice lookup gives %v", tc.wantStatus, ownErr)
+				}
+				if otherErr != nil {
+					t.Errorf("the other tenant's invoice is gone: %v", otherErr)
 				}
 			})
 		}
@@ -314,9 +340,17 @@ func TestMissingAndForeignInvoicesAnswerAlike(t *testing.T) {
 	}
 }
 
+// The reviewed list of routes that need no session. Adding one is a decision.
+var publicRoutes = map[string]bool{"GET /healthz": true}
+
 func TestEveryRouteHasIsolationCases(t *testing.T) {
 	for _, route := range Routes {
-		if len(isolationCases[route.Pattern]) == 0 {
+		switch {
+		case route.Role == "public":
+			if !publicRoutes[route.Pattern] {
+				t.Errorf("route %q is public but not on the reviewed list", route.Pattern)
+			}
+		case len(isolationCases[route.Pattern]) == 0:
 			t.Errorf("route %q has no isolation cases", route.Pattern)
 		}
 	}
@@ -326,9 +360,9 @@ func TestEveryRouteHasIsolationCases(t *testing.T) {
 ## TypeScript
 
 The read case for a request handler in the style of SvelteKit, where a server hook fills
-`locals` after verifying the session. It shows the shape only: add the write, role and
-route-coverage cases as in the Go example. Checked with Node.js 26.13, which runs TypeScript
-directly (`node --test invoices.test.ts`); it has no dependencies.
+`locals` after verifying the session. The tests go through that check and the tenant
+condition is in the product code, as in the Go example; add the write, role and
+route-coverage cases in the same way. Checked with Node.js 26.13, which runs TypeScript
 
 ```ts
 export type Invoice = { id: string; tenantId: string; total: number };
@@ -338,13 +372,34 @@ export interface InvoiceStore {
   get(tenantId: string, id: string): Promise<Invoice | undefined>;
 }
 
-// The shape of a SvelteKit request handler: `locals` is filled by the server
-// hook after it has verified the session. The handler never reads the tenant
-// from the URL, a header or the body.
-type Event = { params: { id: string }; locals: { tenantId?: string } };
+// This example's data layer. In a product it is a query with the tenant in
+// its condition.
+export function memoryStore(invoices: Invoice[]): InvoiceStore {
+  return {
+    async get(tenantId, id) {
+      return invoices.find((invoice) => invoice.tenantId === tenantId && invoice.id === id);
+    },
+  };
+}
 
-export function getInvoice(store: InvoiceStore) {
-  return async ({ params, locals }: Event): Promise<Response> => {
+type Event = { request: Request; params: { id: string }; locals: { tenantId?: string } };
+type Handler = (event: Event) => Promise<Response>;
+
+// The role of a SvelteKit server hook: it alone fills `locals`, from a session
+// it has verified, and overwrites whatever the caller supplied.
+export function authenticate(sessions: Map<string, string>, next: Handler): Handler {
+  return async (event) => {
+    const cookies = event.request.headers.get('cookie') ?? '';
+    const sessionId = /(?:^|;\s*)__Host-session=([^;]+)/.exec(cookies)?.[1];
+    const tenantId = sessionId ? sessions.get(sessionId) : undefined;
+    if (!tenantId) return new Response('unauthorized', { status: 401 });
+    return next({ ...event, locals: { tenantId } });
+  };
+}
+
+export function getInvoice(store: InvoiceStore): Handler {
+  return async ({ params, locals }) => {
+    // A check that cannot run refuses: no tenant, no access.
     if (!locals.tenantId) return new Response('unauthorized', { status: 401 });
     const invoice = await store.get(locals.tenantId, params.id);
     // One answer for "does not exist" and "belongs to another tenant".
@@ -357,41 +412,54 @@ export function getInvoice(store: InvoiceStore) {
 ```ts
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { getInvoice, type Invoice, type InvoiceStore } from './invoices.ts';
+import { authenticate, getInvoice, memoryStore } from './invoices.ts';
 
-// Stands in for the data layer. In a product, run these tests against the real
-// store and a test database: the query is the control.
-function memoryStore(invoices: Invoice[]): InvoiceStore {
-  return {
-    async get(tenantId, id) {
-      return invoices.find((invoice) => invoice.tenantId === tenantId && invoice.id === id);
-    },
-  };
-}
-
-const handler = getInvoice(
-  memoryStore([
-    { id: 'inv-a', tenantId: 'tenant-a', total: 100 },
-    { id: 'inv-b', tenantId: 'tenant-b', total: 200 },
-  ]),
+// Two tenants in every run.
+const sessions = new Map([
+  ['session-a', 'tenant-a'],
+  ['session-b', 'tenant-b'],
+]);
+const handler = authenticate(
+  sessions,
+  getInvoice(
+    memoryStore([
+      { id: 'inv-a', tenantId: 'tenant-a', total: 100 },
+      { id: 'inv-b', tenantId: 'tenant-b', total: 200 },
+    ]),
+  ),
 );
+
+// call goes through the session check, as a real request does.
+function call(session: string | undefined, id: string, locals = {}) {
+  const headers = session ? { cookie: `__Host-session=${session}` } : undefined;
+  const request = new Request(`https://example.test/invoices/${id}`, { headers });
+  return handler({ request, params: { id }, locals });
+}
 
 test('the owner reads their own invoice', async () => {
   // The positive control: without it, a route that is simply broken passes.
-  const response = await handler({ params: { id: 'inv-a' }, locals: { tenantId: 'tenant-a' } });
+  const response = await call('session-a', 'inv-a');
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { id: 'inv-a', total: 100 });
 });
 
 test('another tenant is refused and learns nothing', async () => {
-  const response = await handler({ params: { id: 'inv-a' }, locals: { tenantId: 'tenant-b' } });
-  assert.equal(response.status, 404);
-  assert.ok(!(await response.text()).includes('inv-a'));
+  const foreign = await call('session-b', 'inv-a');
+  const missing = await call('session-b', 'no-such-invoice');
+  assert.equal(foreign.status, 404);
+  const body = await foreign.text();
+  assert.ok(!body.includes('inv-a'));
+  assert.equal(body, await missing.text());
 });
 
-test('a request without a session is refused', async () => {
-  const response = await handler({ params: { id: 'inv-a' }, locals: {} });
-  assert.equal(response.status, 401);
+test('a request without a session, or with an unknown one, is refused', async () => {
+  assert.equal((await call(undefined, 'inv-a')).status, 401);
+  assert.equal((await call('forged', 'inv-a')).status, 401);
+});
+
+test('a tenant supplied by the caller is ignored', async () => {
+  const response = await call('session-b', 'inv-a', { tenantId: 'tenant-a' });
+  assert.equal(response.status, 404);
 });
 ```
 

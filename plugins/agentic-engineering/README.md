@@ -127,6 +127,7 @@ are maintained here.
 | Finance | `audit-support`, `close-management`, `financial-statements`, `journal-entry`, `journal-entry-prep`, `reconciliation`, `sox-testing`, `variance-analysis` |
 | Productivity | `memory-management`, `start`, `task-management`, `update`, `workspace-conventions` (where their notes and tasks go) |
 | Connectors | `connector-setup` (which official mail, calendar, LinkedIn or security connector to ask for) |
+| Skills | `skill-lifecycle` (adopt, build, pin and update a skill; pairs with `find-skills` and `check-skills`) |
 
 `dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI or
 audits a whole repository. KSail has its own [`ksail`](../ksail/) plugin, made for KSail's users;

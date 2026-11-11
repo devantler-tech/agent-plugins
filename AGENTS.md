@@ -113,6 +113,8 @@ checkout. Run `bash scripts/plugin-version-boundaries.test.sh` with the existing
 
 ## Authored and externally sourced skills
 
+Before adding, replacing, writing or updating a skill, follow [`docs/skill-lifecycle.md`](docs/skill-lifecycle.md): the research brief and decision record, the adopt-or-build scorecard, the files a change touches here, and the update review. The portable procedure is the bundled `skill-lifecycle` skill.
+
 The maintained first-party skills are canonical at `plugins/<plugin>/skills/<skill>/` in this repository. Edit them here, with their resources and tests. Their conformant frontmatter has no `metadata.github-*` install provenance, so native `gh skill update --all` skips them rather than overwriting authored work. Validate both authored and external skills against agentskills.io. The catalogue records this repository as the authored skills' license source.
 
 External skills retain their original `metadata.github-repo`, `github-path`, `github-ref` and `github-tree-sha`. Install and refresh them through `gh skill install` and the existing `update-agent-skills.yaml` workflow. Never hand-edit an external skill or strip its provenance: fix its owning upstream, then accept the programmed update. The base-tree edit guard retains that boundary even when a PR removes the header. A new skill authored here and an external skill are different authoring paths.

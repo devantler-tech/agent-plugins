@@ -1,5 +1,16 @@
 # Changelog — `agentic-engineering`
 
+## 7.4.0 — 2026-11-10
+
+**Added** — `skill-lifecycle`, a first-party skill: how to decide whether to adopt, build or reject
+an agent skill, and how to carry the decision through. It holds the research brief, the
+adopt-or-build scorecard with its four pass-or-fail gates (licence, provenance, supply chain and
+the correctness of the examples), the decision record, the rules for writing a first-party skill,
+and the checklist for reviewing an update to an adopted skill. It pairs with `find-skills` for
+discovery and `check-skills` for the security review, and leaves drafting and evaluation to the
+host's own skill-authoring tool. This marketplace's commands and worked examples are in
+`docs/skill-lifecycle.md` (#641).
+
 ## 7.3.0 — 2026-11-10
 
 **Added** — `promql` and `prometheus` from `https://github.com/grafana/skills` at `refs/heads/main`:

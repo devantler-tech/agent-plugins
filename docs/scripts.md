@@ -14,7 +14,7 @@ complete inventory; read a script's header for its arguments and safeguards.
 | Propose or publish a marketplace release | [Release guide](marketplace-releases.md), which explains the separate opt-in steps and recovery |
 | Recheck open pull requests after changing CI | [recheck-open-prs.sh](../scripts/recheck-open-prs.sh) |
 
-The directory also contains checks for package discovery, skill provenance and licensing,
+The directory also contains checks for package discovery, skill provenance, licensing and authoring rules,
 version changes, changelogs, generated writes, release observations and instruction size.
 The [validation guide](validation.md) explains which checks to run and what they establish.
 

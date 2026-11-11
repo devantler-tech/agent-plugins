@@ -46,7 +46,11 @@ skill is available. Choose concrete navigation labels from what users do or look
 Keep troubleshooting near the failing task: symptom, likely cause, a diagnostic
 step, a correction and the result that confirms recovery.
 
-Write direct instructions. Put prerequisites before commands and expected output
+Write direct instructions in plain words. Say each thing once, on the page where the
+reader needs it, and link to it from elsewhere. Keep implementation notes, design
+history and the author's own validation record out of tutorials, task guides and
+reference: explain a design on its own page when users need it, and leave the rest to
+code comments and the review. Put prerequisites before commands and expected output
 after them. Make placeholders unmistakable, keep secrets out of examples, state
 where commands run, and explain destructive or externally visible effects. For
 upgrades, preserve operator-owned values and distinguish workload rollback from

@@ -182,7 +182,9 @@ Docs are part of the product.
 
 - **Sync (definition of done).** A change that alters behaviour, flags, commands, config, or UX
   updates the affected docs **in the same PR** — re-running, never hand-editing, any doc generator.
-  If something merged without its docs, backfill in a focused `docs:` PR.
+  Add what a user of the change needs, once: what it does, an example, inputs and constraints.
+  Internals and validation results go in code comments and the PR. If something merged without
+  its docs, backfill in a focused `docs:` PR.
 - **Improve (on the docs Cadence).** Pick an under-served area and make it genuinely better: fix
   inaccuracies and stale examples, fill missing how-tos, tighten onboarding flow, repair dead links.
   Verify examples actually run. `docs:`-only PRs are real advance work, not filler.
@@ -191,10 +193,9 @@ Docs are part of the product.
   Architecture and reference guides retain details needed to understand, diagnose or change the
   system. Use short paragraphs, concise lists and tables where they make the page easier to scan.
 - **Improve READMEs without flattening them.** Preserve useful positioning, visuals, feature
-  summaries and support links. Keep relevant, truthful badges together near the top; they can be a
-  compact scorecard linked to their real results. Keep the first useful step short, link deeper
-  procedures, and keep author-only validation reports out of the front page. Use available README
-  and contribution-writing skills for those documents; do not impose one template on every repo.
+  summaries and support links. Keep relevant, truthful badges near the top. Keep the
+  first useful step short and link deeper procedures. Use available README and
+  contribution-writing skills for those documents; do not impose one template on every repo.
 - **Describe the as-is, never the journey.** Documentation, code comments, and resource descriptions
   state the current behaviour, architecture, constraints, and rationale directly. Do not narrate how
   they arrived there through prior states, migrations, before/after comparisons, or origin stories.

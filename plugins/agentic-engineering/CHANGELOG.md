@@ -1,5 +1,15 @@
 # Changelog — `agentic-engineering`
 
+## 7.6.4 — 2026-11-11
+
+**Changed** — `write-readme` now says what the README of something people call (an action, a
+command, a script, a module or a template) holds: what it is for, one working example, what goes
+in and what comes out, and the constraints that change what a user does. Each requirement is
+stated once, where the reader first needs it. The full contract is linked, not copied. How it works
+inside, why it was built that way and how it was tested move to a design note, the contribution
+guide or the review, and safety and setup steps stay. `product-documentation` carries the same rule
+for user guides, and `product-engineering` for documentation written alongside a change (#687).
+
 ## 7.6.3 — 2026-11-11
 
 **Changed** — the `product-engineering` and `agent-improvement` descriptions are shorter (554 and

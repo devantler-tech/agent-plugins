@@ -55,6 +55,11 @@ bash scripts/plugin-scorecard.test.sh
 # plugins/<plugin>/resources/THIRD-PARTY-NOTICES.md; every skill needs a row in docs/plugins.md.
 bash scripts/check-skill-licenses.sh
 bash scripts/check-skill-licenses.test.sh
+# A first-party skill's references sit one level deep and are linked from its entry file, and its
+# description stays inside the limit (CI's "Check first-party skill authoring rules" step). Needs
+# jq and the Go yq. Exceptions, each with its reason: scripts/skill-authoring-exceptions.json.
+bash scripts/check-skill-authoring.sh
+bash scripts/check-skill-authoring.test.sh
 # Remote MCP URL syntax uses the repository-local Go helper (Go ≥1.22, standard library only).
 GOENV=off GOWORK=off GO111MODULE=off GOTOOLCHAIN=local GOFLAGS='' CGO_ENABLED=0 \
   go test scripts/mcp-url-go/main.go scripts/mcp-url-go/main_test.go

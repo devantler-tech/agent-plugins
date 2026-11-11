@@ -50,6 +50,12 @@ jobs:
         # skill needs a row in the catalogue's skill-license table.
         run: bash scripts/check-skill-licenses.sh
 
+      - name: ✍️ Check first-party skill authoring rules
+        # A first-party skill's references sit one level deep and are linked from its
+        # entry file, and its description stays inside the recorded limit. Exceptions
+        # carry a reason in scripts/skill-authoring-exceptions.json and can only shrink.
+        run: bash scripts/check-skill-authoring.sh
+
   lint-scripts:
     name: Lint scripts
     runs-on: ubuntu-latest
@@ -309,6 +315,9 @@ jobs:
 
       - name: 🧪 Self-test the skill license check
         run: bash scripts/check-skill-licenses.test.sh
+
+      - name: 🧪 Self-test the skill authoring check
+        run: bash scripts/check-skill-authoring.test.sh
 
       - name: 🧪 Self-test the desired-state digest generator
         # Proves the generator writes exactly what validate-manifests.sh demands — a

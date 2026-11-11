@@ -51,7 +51,8 @@ A session check, a route table in which every route names its role or is marked 
 data layer that cannot be called without the tenant, and the tests. Checked with Go 1.27. The
 module must declare `go 1.22` or later: the route patterns and the range over an integer
 need it. Each of these makes a test fail: looking an invoice up by identifier alone in
-`MemoryStore.Get` or `MemoryStore.Delete`, making `allowed` return true, adding a route
+`MemoryStore.Get` or `MemoryStore.Delete`, making `allowed` return true, letting an admin
+through a route whose policy is missing or misspelt, adding a route
 without its kinds of case, dropping a route's role case, marking a route public without
 adding it to the reviewed list, a delete that answers success without deleting, and a
 refused delete that alters the record.
@@ -170,8 +171,17 @@ var Routes = []Route{
 	{"GET /healthz", "public", health},
 }
 
+// allowed is closed by default: a route whose policy is missing or misspelt
+// admits nobody, not even an admin.
 func allowed(caller Caller, needed string) bool {
-	return caller.Role == "admin" || caller.Role == needed
+	switch needed {
+	case "member":
+		return caller.Role == "member" || caller.Role == "admin"
+	case "admin":
+		return caller.Role == "admin"
+	default:
+		return false
+	}
 }
 
 func Handler(store Store, sessions Sessions) http.Handler {
@@ -363,6 +373,9 @@ func TestEveryRouteHasItsIsolationCases(t *testing.T) {
 			}
 			continue
 		}
+		if route.Role != "member" && route.Role != "admin" {
+			t.Errorf("route %q has the unknown policy %q", route.Pattern, route.Role)
+		}
 		needed := []string{"owner", "foreign", "anonymous"}
 		if route.Role != "member" {
 			needed = append(needed, "role")
@@ -375,6 +388,17 @@ func TestEveryRouteHasItsIsolationCases(t *testing.T) {
 			if !slices.Contains(have, kind) {
 				t.Errorf("route %q has no %q case", route.Pattern, kind)
 			}
+		}
+	}
+}
+
+// A route whose policy is missing or misspelt is closed, even to an admin.
+func TestRouteWithoutPolicyIsClosed(t *testing.T) {
+	for _, role := range []string{"", "owner"} {
+		route := Route{Pattern: "GET /unreviewed", Role: role, Handle: health}
+		response := call(serve(NewMemoryStore(), testSessions, route), "a-admin", http.MethodGet, "/unreviewed")
+		if response.Code != http.StatusForbidden {
+			t.Errorf("policy %q: status = %d, want 403", role, response.Code)
 		}
 	}
 }

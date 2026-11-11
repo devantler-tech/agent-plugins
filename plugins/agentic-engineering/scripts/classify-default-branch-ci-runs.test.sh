@@ -463,6 +463,21 @@ for conclusion in failure timed_out startup_failure; do
   expect_schedule "a failed scheduled $conclusion read makes health unknown" 2 ''
 done
 
+# Evidence larger than one argument (Linux caps a single argument at 128 KiB) must reach jq
+# without argv, so a busy failing workflow cannot turn into unknown health.
+new_case large
+long_name=$(printf 'N%.0s' $(seq 1 900))
+for i in $(seq 1 1500); do
+  run_json $((1000 + i)) 21 schedule failure "$t_old" "$old_sha" "$long_name"
+done | pages > "$SCHEDULE_CASE/failure.json"
+run_schedule_case
+if [ "$schedule_status" -eq 0 ] && [ "$(printf '%s\n' "$schedule_out" | cut -f1,2,8)" = $'21\tfailure\t2500' ]; then
+  pass=$((pass + 1))
+else
+  record_failure 'more than an argument of scheduled evidence is still classified'
+  sed 's/^/      stderr: /' "$TEST_TMP/stderr" >&2
+fi
+
 if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
   grep -Fq 'Do not reimplement the helper' "$SURVEYOR" &&
   grep -Fq 'exit 2 means' "$SURVEYOR" &&

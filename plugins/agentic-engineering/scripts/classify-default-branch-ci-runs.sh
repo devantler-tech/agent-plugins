@@ -168,7 +168,9 @@ retained_read() {
 }
 
 collect_schedule_evidence() {
-  local since conclusion page found reds='[]' successes='[]' workflow_ids workflow_id
+  local since conclusion page found reds='' successes='' workflow_ids workflow_id
+  # Evidence accumulates as one JSON array per line and reaches jq on stdin, never argv,
+  # so a large result cannot hit the argument-size limit.
   since=$(jq -nr --argjson days "$SCHEDULE_WINDOW_DAYS" 'now | floor - ($days * 86400) | todate') ||
     return 2
   for conclusion in failure timed_out startup_failure; do
@@ -183,9 +185,9 @@ collect_schedule_evidence() {
       --arg expected_conclusion "$conclusion" \
       --arg since "$since" \
       "$jq_defs $red_schedule_filter") || return 2
-    reds=$(jq -cn --argjson a "$reds" --argjson b "$found" '$a + $b') || return 2
+    reds+="$found"$'\n'
   done
-  workflow_ids=$(jq -rn --argjson runs "$reds" '$runs | map(.workflow_id) | unique | .[]') ||
+  workflow_ids=$(printf '%s' "$reds" | jq -rs 'add // [] | map(.workflow_id) | unique | .[]') ||
     return 2
   while IFS= read -r workflow_id; do
     [ -n "$workflow_id" ] || continue
@@ -199,9 +201,9 @@ collect_schedule_evidence() {
       --arg expected_branch "$branch" \
       --argjson expected_workflow_id "$workflow_id" \
       "$jq_defs $success_schedule_filter") || return 2
-    successes=$(jq -cn --argjson a "$successes" --argjson b "$found" '$a + $b') || return 2
+    successes+="$found"$'\n'
   done <<<"$workflow_ids"
-  jq -cn --argjson a "$reds" --argjson b "$successes" '$a + $b'
+  printf '%s%s' "$reds" "$successes" | jq -cs 'add // []'
 }
 
 if [ -n "$input_path" ]; then
@@ -363,7 +365,7 @@ jq_filter='
       error("invalid workflow run outcome")
     else . end
   # Scheduled runs off the current head join here. A run seen by both reads must agree.
-  | (. + $schedule_runs)
+  | (. + $schedule_evidence[0])
   | group_by([.id, .run_attempt])
   | map(if (map([.status, .conclusion]) | unique | length) != 1 then
           error("contradictory observations of one workflow run attempt")
@@ -396,7 +398,7 @@ fi
 if ! classification=$(printf '%s\n' "$payload" | jq -rs \
   --arg expected_head_sha "$head_sha" \
   --arg expected_branch "$branch" \
-  --argjson schedule_runs "$schedule_runs" \
+  --slurpfile schedule_evidence <(printf '%s\n' "$schedule_runs") \
   "$jq_defs $jq_filter"); then
   echo "classify-default-branch-ci-runs: malformed or incomplete runs payload; health is unknown" >&2
   exit 2

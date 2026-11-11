@@ -529,8 +529,9 @@ and decides.
 ### 4. CI red on the default branch (bounded, per-repo)
 
 Judge the default branch by **its current head**, and only by runs that represent that branch's
-health. Resolve the head first, using the **full-length sha** — a runs endpoint typically returns an
-empty set for an abbreviated one, which reads exactly like "nothing failed". Then invoke the shipped
+health. Scheduled runs are the one deliberate exception, handled inside the helper (below).
+Resolve the head first, using the **full-length sha** — a runs endpoint typically returns an empty set
+for an abbreviated one, which reads exactly like "nothing failed". Then invoke the shipped
 [`../scripts/classify-default-branch-ci-runs.sh`](../scripts/classify-default-branch-ci-runs.sh),
 using the literal absolute path supplied by preflight. If preflight supplied no path, submit
 **one** bare `classify-default-branch-ci-runs.sh` probe through the active read-only guard. The
@@ -549,7 +550,11 @@ flags. **Do not reimplement the helper** inline. It owns the
 paginated API call in memory as well as classification, so a later-page API failure cannot be masked
 by a successful consumer of partial output and the read-only role never writes an intermediate file.
 The helper also reads the branch's red scheduled runs of the last 31 days, whatever head they ran
-on, so a failed scheduled workflow stays red after later merges until a later run of it succeeds.
+on, because a scheduled workflow runs against whatever head the branch had at its cron time. Such a
+failure stays red after later merges until a later run of the same workflow succeeds: its next
+successful scheduled run, or a successful branch-level run of it on the current head. A scheduled
+failure older than 31 days is not seen, and `workflow_dispatch` and `dynamic` runs keep the
+current-head rule. A scheduled row the helper returns is current breakage, not a stale run.
 The bundled `forge-readonly-guard.sh` recognises the classifier only as this exact installed sibling;
 offline `--input` remains denied. Exit 0 is a complete classification; exit 2 means `unknown`, never green.
 
@@ -590,7 +595,9 @@ different run. Red conclusions are `failure`, `timed_out`, and `startup_failure`
 All four filters are load-bearing, each against a different false positive:
 
 - **Not keyed to head** — a failed run stays attached to the sha it ran against and lingers long
-  after the branch moved on, surfacing days-old failures as live breakage.
+  after the branch moved on, surfacing days-old failures as live breakage. Scheduled runs are the
+  exception: the helper keeps the latest result of each scheduled workflow, so a newer success
+  supersedes an old failure and an unanswered failure is not stale.
 - **Not a branch-level event** — a pull-request- or comment-triggered workflow can carry the same
   head sha and branch name while testing a PR. Do **not** instead de-duplicate check-runs by name:
   several independent comment-triggered runs coexist at one sha, so "newest per name" hides a genuine

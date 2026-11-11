@@ -18,7 +18,7 @@
         },
         {
           "path": "scripts/classify-default-branch-ci-runs.sh",
-          "sha256": "7fea2c285ce47564b381007245f721fb5e46ec050eecb988bec8edffec700e8f",
+          "sha256": "0ad57f0653c45c12c8df82c1ab4e42c3787d90e656c3f0f497398b58f3dbd856",
           "executable": true
         },
         {
@@ -76,7 +76,7 @@
       "portfolio-surveyor": {
         "enabled": true,
         "mode": "delegated-read-only",
-        "definitionSha256": "53936e0566f036cb7d59fb8f21f67efb29e70ac9201ce16ac06e5bd44bb5ccb2"
+        "definitionSha256": "718e2058a2a547e108e807fabd53ccf7cf7ce7a21be37d7045ac4ba7c2d6f184"
       },
       "agent-improver": {
         "enabledWhen": "Both optional consumer contract sections are present",

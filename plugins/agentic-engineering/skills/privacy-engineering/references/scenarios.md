@@ -15,7 +15,16 @@ database, a provider? Who reads it? How long is it kept after the enquiry is clo
 - **Practice.** Name, a way to reply and the message are usually enough. Say next to a
   free-text field not to send sensitive details. Do not reuse addresses for a newsletter:
   that is a new purpose and needs its own basis. Keep submissions out of application logs.
-  Delete on a schedule, not by hand.
+  Delete on a schedule, not by hand. Send the notification email as a short notice or a
+  link, not as a copy of the submission, when a submission may hold confidential or
+  sensitive details. A third-party spam check or captcha is a provider that receives
+  visitors' data and may store things on their device: treat it as a new provider. Limit
+  how often the form can be sent.
+- **A field meant to collect protected-group data** (a question about health, for
+  example) is a decision, not a field. If the accountable person approves it, it needs a
+  condition under Art. 9(2), usually explicit consent given for that purpose, its own
+  short retention, encryption in transit, and it stays out of notification emails and
+  logs. Build the rest of the form meanwhile and hold that field until the decision.
 - **Evidence.** The field list with the purpose, the proposed basis and who confirmed it, the
   retention period and the job that enforces it, the notice text, and the provider entry.
 - **Escalate** when the form invites health, children's or identity-number data, or when

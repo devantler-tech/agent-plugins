@@ -1,6 +1,6 @@
 ---
 name: privacy-engineering
-description: Handle personal data in a change under the GDPR and Danish data protection law - purpose, legal basis, retention, people's rights, processors, transfers, impact assessments and breach reporting, with law kept apart from recommendation. Use when a change collects, stores, shares or logs data about people, such as a contact form, analytics, customer accounts or new hosting. Not legal advice.
+description: Handle personal data under the GDPR and Danish data protection law - purpose, legal basis, retention, people's rights, processors, transfers, impact assessments and breach reporting, with law kept apart from recommendation. Use when a change collects, stores, shares or logs data about people, such as a contact form, analytics, customer accounts or new hosting. Not legal advice, and not for cookie banners.
 license: Apache-2.0
 ---
 
@@ -20,7 +20,8 @@ through a named person.
    engineering guidance, not legal advice.
 2. **Keep law and recommendation apart.** In this skill **Law** marks a duty and names its
    source. **Practice** marks a recommendation. Never present a practice as a legal
-   requirement, and never treat a legal duty as a preference.
+   requirement, and never treat a legal duty as a preference. **Authority practice** marks a
+   supervisory authority's published position: not statute, but the yardstick it applies.
 3. **No personal data without a written purpose and legal basis** before the change ships. The
    engineer proposes both; the accountable person confirms them.
 4. **Decide how long data is kept when the field is added**, not later.
@@ -62,7 +63,8 @@ are in [scenarios](references/scenarios.md).
    it for someone else, on written instructions. In client work the client is usually the
    controller. The answer decides who must do every later step.
 3. **Write the purpose and propose the legal basis.** One sentence of purpose per use.
-   Consent is only one of six bases and is often the wrong one.
+   Consent is one of six bases. For ordinary data it is often the wrong one; for data in a
+   protected group, explicit consent is often the only workable ground.
 4. **Collect less and set the retention period.** Remove each field the purpose does not
    need. Give every remaining one a period and a way it is deleted.
 5. **Tell people.** List what must change in the privacy notice.

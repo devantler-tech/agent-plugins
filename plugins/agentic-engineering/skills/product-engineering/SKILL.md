@@ -183,7 +183,7 @@ Docs are part of the product.
 - **Sync (definition of done).** A change that alters behaviour, flags, commands, config, or UX
   updates the affected docs **in the same PR** — re-running, never hand-editing, any doc generator.
   Add what a user of the change needs, once: what it does, an example, inputs and constraints.
-  Internals and validation results go in code comments and the PR. If something merged without
+  Author-only notes and test results go in code comments and the PR. If something merged without
   its docs, backfill in a focused `docs:` PR.
 - **Improve (on the docs Cadence).** Pick an under-served area and make it genuinely better: fix
   inaccuracies and stale examples, fill missing how-tos, tighten onboarding flow, repair dead links.

@@ -15,9 +15,9 @@ Act: the cookie order (BEK 1148 of 2011). Authority: the Agency for Digital Gove
 | No consent is needed when storage only carries a transmission, or is technically required for a service the visitor expressly asked for | All | section 4 |
 
 **Practice.** Load nothing that needs consent before the yes. Make "no" as easy as "yes".
-Keep the list of what is set, by whom and why, next to the code that sets it. A session
-cookie for a login or a basket is normally in the exception; analytics and advertising
-normally are not, and that call is the business's to make.
+Keep the list of what is set, by whom and why, next to the code that sets it. A cookie that
+keeps a login or a basket working fits the wording of the exception. Whether anything else
+does is the business's call, and the authority's guidance is to be read first.
 
 ## Marketing messages
 
@@ -32,9 +32,15 @@ Ombudsman.
 | Other channels (phone, post): not to a named person who has declined, or who is on the civil register's list of people who decline marketing | Persons | section 10(4) |
 | Facts claimed in marketing can be documented | All | section 13 |
 
-**Practice.** Record who consented, when, to what text and how. A pre-ticked box is not a
-yes. A request for consent sent by email is itself a marketing email. Put the unsubscribe
-link in every message and honour it at once.
+**Authority practice** (the Consumer Ombudsman's published guidance on unsolicited
+messages). The ban covers every recipient: consumers, businesses and public authorities. A
+trader may not ask for consent by sending an email or text message. Consent is voluntary,
+informed and specific: a pre-ticked box, or consent placed in the terms, is not valid, and a
+purchase may not depend on it. The consent names the business, the channel and the kinds of
+product.
+
+**Practice.** Record who consented, when, to what text and how. Put the unsubscribe link in
+every message and honour it at once.
 
 ## Before a consumer orders online
 

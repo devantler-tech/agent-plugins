@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.6.2 — 2026-11-11
+
+**Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.
+
 ## 7.6.1 — 2026-11-11
 
 **Fixed** — the default-branch CI classifier no longer loses a failed scheduled workflow when

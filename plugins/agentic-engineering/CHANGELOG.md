@@ -1,5 +1,28 @@
 # Changelog — `agentic-engineering`
 
+## 7.6.0 — 2026-11-11
+
+**Added** — two first-party skills for the rules around a product, both written from the
+official texts and both careful to keep legal duties apart from recommendations.
+
+`privacy-engineering` helps an agent notice personal data in a change and handle it under the
+GDPR and the Danish Data Protection Act: what is collected and why, the legal basis, retention,
+people's rights, providers and transfers, impact assessments and breach reporting. It marks
+each statement as law, authority practice or practice, names when a person has to decide, and
+has worked checklists for a contact form, analytics, customer accounts, a new provider and
+stored files (#638).
+
+`danish-business-rules` says which Danish rules a customer-facing site brings with it and
+whether they apply: cookies, marketing messages, information before a purchase, the right to
+withdraw, subscriptions, prices, invoices and accessibility. It starts from who the customer
+is, gives each rule's section, and works through a brochure site, a consumer shop, a business
+portal and a subscription checkout (#639).
+
+Neither skill gives legal advice or says that anything is compliant. Each lists its sources
+with the date they were read, what it does not cover, and a review plan with the next review
+due by May 2027. Upstream candidates were compared first for both and none could be adopted;
+the comparison is on the coverage page.
+
 ## 7.5.0 — 2026-11-10
 
 **Added** — `application-security`, a first-party skill for the security decisions scanners cannot

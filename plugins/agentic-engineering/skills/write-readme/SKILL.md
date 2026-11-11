@@ -68,10 +68,42 @@ page. Preserve licensing, security reporting, attribution and contributor obliga
 generated-file ownership and leave vendored docs and dated evidence alone. A portfolio audit must
 inventory and classify relevant READMEs; reviewing root files alone proves nothing about the rest.
 
+## Keep to what a user needs
+
+Something people call, such as an action, a command, a script, a module or a template, needs a
+README with four parts: what it is for, one working example, what goes in and what comes out, and
+the constraints that change what a user does. That is usually the whole page.
+
+- **Inputs and outputs.** One row each: name, purpose, whether it is required, default. Required
+  ones first. When it returns nothing, show what the user sees instead: each result and its
+  message, with what to do. Where the full contract lives in a file the reader can open, such
+  as the action definition, a schema or the command's help, link to it instead of copying its
+  rules.
+- **Constraints.** What must be true before it works, what it refuses, and what it changes or
+  costs. Give the consequence and what to do about it in a sentence or two.
+- **Say each thing once.** Put a requirement or rule where the reader first needs it, usually
+  beside the example, and link there from anywhere else. A sentence that restates a table row
+  is a repeat, and so are two tables that list the same cases. Before finishing, search the
+  page for each requirement and rule and remove the repeats.
+
+Leave out what only the authors need: how it works inside, why it was built that way, which edge
+cases it was hardened against and how it was tested. A paragraph earns its place when someone who
+never opens the source needs it to succeed or to avoid harm. Move the rest instead of deleting it:
+a design note or code comment for the mechanism, the contribution guide or a maintainer page for
+release and recovery procedures, the review for validation results. Link to each of those pages
+once.
+
+Safety and setup stay, even when they sound like internals: a step without which the example
+fails, a permission, a side effect, a cost, or a case where the tool would report success without
+having checked anything. Give the reader the consequence and the action, and leave the mechanism
+to the linked page.
+
 ## Check the result as a reader
 
 Compare the draft with the original: can readers still see what they get, useful visuals, status,
 first steps and support without hunting? Remove detail that does not help them choose or act.
+Read it once more for repeats and author-only detail: a requirement stated in two sections, an
+input rule restated in prose, an account of internals or of testing.
 Shorter is useful only when it remains clear and correct; a word count or heading checklist cannot
 prove readability.
 

@@ -1,5 +1,16 @@
 # Changelog — `agentic-engineering`
 
+## 7.6.1 — 2026-11-11
+
+**Fixed** — the default-branch CI classifier no longer loses a failed scheduled workflow when
+`main` moves on. A scheduled run uses whatever head `main` had at its cron time, so the next merge
+used to hide its failure. The classifier now also reads the branch's failed, timed-out and
+startup-failed scheduled runs of the last 31 days on any head, plus each such workflow's newest
+scheduled success, and keeps the workflow red until a later run of it succeeds. That costs three
+reads per repository plus one per failing scheduled workflow, and an incomplete or capped answer
+still means unknown. A scheduled workflow whose last failure is older than 31 days is not seen, and
+manually dispatched or managed runs keep the current-head rule (#669).
+
 ## 7.6.0 — 2026-11-11
 
 **Added** — two first-party skills for the rules around a product, both written from the

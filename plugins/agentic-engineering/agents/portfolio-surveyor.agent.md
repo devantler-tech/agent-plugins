@@ -548,6 +548,8 @@ itself exits 2 on it, so every executable invocation must carry the resolved pat
 flags. **Do not reimplement the helper** inline. It owns the
 paginated API call in memory as well as classification, so a later-page API failure cannot be masked
 by a successful consumer of partial output and the read-only role never writes an intermediate file.
+The helper also reads the branch's red scheduled runs of the last 31 days, whatever head they ran
+on, so a failed scheduled workflow stays red after later merges until a later run of it succeeds.
 The bundled `forge-readonly-guard.sh` recognises the classifier only as this exact installed sibling;
 offline `--input` remains denied. Exit 0 is a complete classification; exit 2 means `unknown`, never green.
 

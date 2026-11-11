@@ -1,8 +1,9 @@
 # The rules, by topic
 
-Each row was read in the act named in [sources](sources.md), on the date given there. "Who"
-says whom the rule protects: **C** consumers only, **All** every visitor or recipient. A
-section number is the act's own. Read the section before relying on a summary.
+Each row was read in the source named in [sources](sources.md), on the date given there.
+"Who" says whom the rule protects: **C** consumers only, **Persons** natural persons,
+**All** every visitor, recipient or customer. A section number is the act's own. Read the
+section before relying on a summary.
 
 ## Cookies and other device storage
 
@@ -68,6 +69,8 @@ information in an email the customer can keep.
 | A consumer may withdraw from a distance contract within 14 days without giving a reason | C | Consumer Contracts Act, sections 18(1) and 19(1) |
 | The period runs from the day the contract is made for a service, and from receipt for goods | C | section 19(2) |
 | There are exceptions, among them a service fully performed with the consumer's prior express consent and acknowledgement that the right is lost, and goods made to the consumer's specification | C | section 18(2) |
+| Where there is no right to withdraw, the consumer is told so before ordering | C | section 8(1) |
+| A consumer who withdraws from a service that was started at their express request within the 14 days can be charged for the part delivered, in reasonable proportion to the whole, and only if they were told of the right to withdraw and of the amount | C | section 25(1) and (2) |
 | For distance contracts made through an online interface, the consumer can also withdraw with a withdrawal function. It is labelled "Fortryd aftale" or equally clear, is available throughout the period, and is prominent and easy to reach | C | section 20 a, inserted by act 723 of 2025, in force from 19 June 2026 |
 
 **Practice.** Relying on an exception is a decision for the business: escalate it, and
@@ -87,12 +90,12 @@ buying it took. State the renewal date and price before each renewal.
 
 ## Invoices and records
 
-| Rule | Who | Source |
+| Rule | Who | Label and source |
 |---|---|---|
-| A full invoice shows: its date; a sequential number; the seller's VAT registration number; the seller's and the buyer's name and address; the quantity and nature of what was supplied; the delivery date if it differs; the price per unit without VAT and any discount; the VAT rate; and the VAT amount | All | the tax authority's legal guide, section A.B.3.3.1.4, citing section 58(1) of the VAT order |
-| A simplified invoice may be issued to private customers | C | the same guide |
-| Accounting records are kept safely for five years from the end of the financial year they belong to | All | Bookkeeping Act, section 12 |
-| A consumer who is billed for a service on account gets a specified bill | C | Marketing Practices Act, section 15 |
+| An invoice to another business shows: its date; a sequential number; the seller's VAT registration number; the seller's and the buyer's name and address; the quantity and nature of what was supplied; the delivery date if it differs; the price per unit without VAT and any discount; the VAT rate; and the VAT amount | Business customers | **Authority practice**: the tax authority's legal guide, section A.B.3.3.1.4, which cites section 58(1) of the VAT order |
+| Simplified invoices exist for some sales. When one is allowed is not covered here | | not read: escalate |
+| Accounting records are kept safely for five years from the end of the financial year they belong to | All | **Law**: Bookkeeping Act, section 12 |
+| A consumer who is billed for a service on account gets a specified bill | C | **Law**: Marketing Practices Act, section 15 |
 
 **Practice.** Number invoices in the system, never by hand. Do not delete an invoice: credit
 it. The five years is a minimum that the privacy rules do not shorten: say so in the
@@ -105,8 +108,8 @@ Act: the Accessibility Act for products and services (act 801 of 2022), in force
 
 | Rule | Who | Law |
 |---|---|---|
-| Services in scope may be offered only if they meet the act's accessibility requirements. Online shops and other e-commerce services for consumers are in scope | C | sections 1 and 4 |
-| A very small business that offers services is exempt from the requirements for services. Very small means fewer than ten people and at most EUR 2 million in yearly turnover or balance sheet | C | the act's definition and its exemption for such businesses |
+| Services in scope may be offered only if they meet the act's accessibility requirements. Online shops and other e-commerce services for consumers are in scope | C | sections 1, 4 and 6(1) |
+| A very small business that offers services is exempt from the requirements for services. Very small means fewer than ten people and at most EUR 2 million in yearly turnover or balance sheet | C | section 6(3), with the definition in section 3 |
 | A requirement does not apply where it would change the service fundamentally or be a disproportionate burden. The business makes and documents that assessment | C | sections 8 and 9 |
 
 **Practice.** Build to the Web Content Accessibility Guidelines at level AA whether or not

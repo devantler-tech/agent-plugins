@@ -5,8 +5,20 @@
 # consumer and the read-only surveyor never writes a response file:
 #   classify-default-branch-ci-runs.sh --repo OWNER/REPO --branch BRANCH --head-sha FULL_SHA
 #
+# Remote mode also reads scheduled runs that are no longer on the current head. A scheduled
+# workflow runs against whatever head the branch had at its cron time, so the next merge would
+# otherwise hide its failure. Three complete reads list the branch's failed, timed-out and
+# startup-failed scheduled runs of the last SCHEDULE_WINDOW_DAYS days; for each workflow found
+# there, one first-page read fetches its newest successful scheduled run. Those runs join the
+# current-head runs, so a scheduled workflow stays red until a later run of it succeeds.
+# Cost per repository: the head pages + 3 + one per workflow with a red scheduled run.
+# Blind spots: a scheduled workflow whose latest red run is older than the window, and
+# non-push events other than schedule (workflow_dispatch, dynamic), which keep current-head
+# semantics.
+#
 # Fixture/offline mode accepts a flat run array, raw page-envelope stream, or --slurp envelope array:
 #   classify-default-branch-ci-runs.sh --input PATH
+# Offline mode classifies only the runs it is given; it reads no scheduled-run evidence.
 #
 # Stdout: one TSV line per current red identity —
 #   workflow_id conclusion html_url name event path created_at run_id run_attempt
@@ -63,6 +75,136 @@ observer_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P) || exit 2
 . "$observer_dir/json-stream.lib.sh" || exit 2
 payload_path=""
 payload=""
+schedule_runs='[]'
+readonly SCHEDULE_WINDOW_DAYS=31
+
+# shellcheck disable=SC2016  # jq program; dollar-prefixed names belong to jq
+jq_defs='
+  def identifier: type == "number" and isfinite and . >= 1
+    and . <= 9007199254740991 and floor == .;
+
+  def valid_github_timestamp:
+    . as $timestamp
+    | type == "string"
+      and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
+      and (try ((fromdateiso8601 | strftime("%Y-%m-%dT%H:%M:%SZ")) == $timestamp)
+           catch false);
+
+  def valid_run_shape:
+    type == "object"
+    and (.workflow_id | identifier)
+    and (.id | identifier)
+    and (.run_attempt | identifier)
+    and (.created_at | valid_github_timestamp)
+    and ((.run_started_at // null) == null or (.run_started_at | valid_github_timestamp));
+
+  # Keep only the fields the classifier reads, so evidence stays small on argv.
+  def evidence_record:
+    {id, run_attempt, workflow_id, event, status, conclusion, created_at,
+     run_started_at, html_url, name, path, head_branch, head_sha};
+
+  # A complete paginated read: every page is an envelope, all pages agree on total_count,
+  # and together they hold exactly that many runs. A capped result never satisfies this.
+  def complete_envelope_runs:
+    if length == 0 then error("empty scheduled runs input") else . end
+    | [.[] | if type == "object" then . elif type == "array" then .[]
+             else error("invalid scheduled runs payload") end]
+    | if length == 0 then error("scheduled runs result requires page envelopes")
+      elif any(.[]; type != "object" or (has("workflow_runs") | not)
+                    or (.workflow_runs | type != "array")) then
+        error("invalid scheduled runs page")
+      elif any(.[]; .total_count | type != "number" or . < 0 or floor != .) then
+        error("scheduled runs page is missing a valid total_count")
+      elif (map(.total_count) | unique | length) != 1 then
+        error("scheduled runs pages disagree on total_count")
+      elif ([.[].workflow_runs[]] | length) != .[0].total_count then
+        error("scheduled runs result is incomplete or capped")
+      else [.[].workflow_runs[]] end;
+'
+
+# Input: every page of one red-conclusion scheduled read. Output: its validated runs.
+# shellcheck disable=SC2016  # jq program; dollar-prefixed names belong to jq
+red_schedule_filter='
+  complete_envelope_runs
+  | if any(.[]; (valid_run_shape | not)
+          or .event != "schedule"
+          or .head_branch != $expected_branch
+          or .status != "completed"
+          or .conclusion != $expected_conclusion
+          or ((.created_at | fromdateiso8601) < ($since | fromdateiso8601)))
+    then error("scheduled red run does not match the requested branch, conclusion or window")
+    elif (map([.id, .run_attempt]) | unique | length) != length then
+      error("duplicate scheduled run identity")
+    else map(evidence_record) end
+'
+
+# Input: the first page of one workflow newest successful scheduled runs (one run at most).
+# shellcheck disable=SC2016  # jq program; dollar-prefixed names belong to jq
+success_schedule_filter='
+  if length != 1 or (.[0] | type != "object")
+     or (.[0] | has("workflow_runs") | not) or (.[0].workflow_runs | type != "array")
+     or (.[0].total_count | type != "number" or . < 0 or floor != .)
+  then error("invalid newest scheduled success page")
+  else .[0] end
+  | if (.workflow_runs | length) != ([.total_count, 1] | min) then
+      error("newest scheduled success page is incomplete")
+    else .workflow_runs end
+  | if any(.[]; (valid_run_shape | not)
+          or .workflow_id != $expected_workflow_id
+          or .event != "schedule"
+          or .head_branch != $expected_branch
+          or .status != "completed"
+          or .conclusion != "success")
+    then error("newest scheduled success does not match the requested workflow")
+    else map(evidence_record) end
+'
+
+# Read one GitHub API result into memory, refusing undecodable or ambiguous bytes.
+retained_read() {
+  local raw
+  raw=$(gh api "$@" | json_stream_retain_raw) || return 2
+  printf '%s\n' "$raw" | json_stream_unique || return 2
+  printf '%s\n' "$raw"
+}
+
+collect_schedule_evidence() {
+  local since conclusion page found reds='' successes='' workflow_ids workflow_id
+  # Evidence accumulates as one JSON array per line and reaches jq on stdin, never argv,
+  # so a large result cannot hit the argument-size limit.
+  since=$(jq -nr --argjson days "$SCHEDULE_WINDOW_DAYS" 'now | floor - ($days * 86400) | todate') ||
+    return 2
+  for conclusion in failure timed_out startup_failure; do
+    page=$(retained_read --paginate --slurp --method GET "repos/${repo}/actions/runs" \
+      -f branch="$branch" \
+      -f event=schedule \
+      -f status="$conclusion" \
+      -f created=">=$since" \
+      -F per_page=100) || return 2
+    found=$(printf '%s\n' "$page" | jq -cs \
+      --arg expected_branch "$branch" \
+      --arg expected_conclusion "$conclusion" \
+      --arg since "$since" \
+      "$jq_defs $red_schedule_filter") || return 2
+    reds+="$found"$'\n'
+  done
+  workflow_ids=$(printf '%s' "$reds" | jq -rs 'add // [] | map(.workflow_id) | unique | .[]') ||
+    return 2
+  while IFS= read -r workflow_id; do
+    [ -n "$workflow_id" ] || continue
+    [[ "$workflow_id" =~ ^[1-9][0-9]*$ ]] || return 2
+    page=$(retained_read --method GET "repos/${repo}/actions/workflows/${workflow_id}/runs" \
+      -f branch="$branch" \
+      -f event=schedule \
+      -f status=success \
+      -F per_page=1) || return 2
+    found=$(printf '%s\n' "$page" | jq -cs \
+      --arg expected_branch "$branch" \
+      --argjson expected_workflow_id "$workflow_id" \
+      "$jq_defs $success_schedule_filter") || return 2
+    successes+="$found"$'\n'
+  done <<<"$workflow_ids"
+  printf '%s%s' "$reds" "$successes" | jq -cs 'add // []'
+}
 
 if [ -n "$input_path" ]; then
   if [ -n "$repo" ] || [ -n "$branch" ] || [ -n "$head_sha" ]; then
@@ -95,6 +237,10 @@ else
     -f branch="$branch" \
     -F per_page=100 | json_stream_retain_raw); then
     echo "classify-default-branch-ci-runs: GitHub Actions pagination failed; health is unknown" >&2
+    exit 2
+  fi
+  if ! schedule_runs=$(collect_schedule_evidence); then
+    echo "classify-default-branch-ci-runs: scheduled-run evidence is incomplete or malformed; health is unknown" >&2
     exit 2
   fi
 fi
@@ -151,9 +297,6 @@ jq_filter='
     or .conclusion == "timed_out"
     or .conclusion == "startup_failure";
 
-  def identifier: type == "number" and isfinite and . >= 1
-    and . <= 9007199254740991 and floor == .;
-
   def valid_outcome:
     has("conclusion") and
     (if .conclusion == null then
@@ -166,13 +309,6 @@ jq_filter='
     and (if has("status") then
       (if .conclusion == null then .status != "completed" else .status == "completed" end)
       else true end);
-
-  def valid_github_timestamp:
-    . as $timestamp
-    | type == "string"
-      and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
-      and (try ((fromdateiso8601 | strftime("%Y-%m-%dT%H:%M:%SZ")) == $timestamp)
-           catch false);
 
   if length == 0 then error("empty input") else . end
   | [.[] | page_envelopes[]] as $envelopes
@@ -228,6 +364,12 @@ jq_filter='
     elif any(.[]; (valid_outcome | not)) then
       error("invalid workflow run outcome")
     else . end
+  # Scheduled runs off the current head join here. A run seen by both reads must agree.
+  | (. + $schedule_evidence[0])
+  | group_by([.id, .run_attempt])
+  | map(if (map([.status, .conclusion]) | unique | length) != 1 then
+          error("contradictory observations of one workflow run attempt")
+        else .[0] end)
   | group_by(run_identity)
   | map(
       sort_by([(.run_started_at // .created_at), .id, .run_attempt])
@@ -256,7 +398,8 @@ fi
 if ! classification=$(printf '%s\n' "$payload" | jq -rs \
   --arg expected_head_sha "$head_sha" \
   --arg expected_branch "$branch" \
-  "$jq_filter"); then
+  --slurpfile schedule_evidence <(printf '%s\n' "$schedule_runs") \
+  "$jq_defs $jq_filter"); then
   echo "classify-default-branch-ci-runs: malformed or incomplete runs payload; health is unknown" >&2
   exit 2
 fi

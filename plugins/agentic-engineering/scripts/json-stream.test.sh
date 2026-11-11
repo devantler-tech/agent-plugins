@@ -21,6 +21,8 @@ done
 mkdir "$work/bin"
 cat > "$work/bin/gh" <<'STUB'
 #!/usr/bin/env bash
+# The classifier's scheduled-run reads find nothing; only the head read carries the bytes.
+case "$*" in *event=schedule*) printf '%s\n' '[{"total_count":0,"workflow_runs":[]}]'; exit 0 ;; esac
 cat "$FORGE_BYTES"
 exit "${FORGE_EXIT:-0}"
 STUB

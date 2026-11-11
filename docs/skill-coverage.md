@@ -32,8 +32,8 @@ This is an engineering inventory. It makes no legal or compliance claim.
 
 | Area | Portfolio use | Bundled resources | Gap | Importance | Decision |
 |---|---|---|---|---|---|
-| Privacy and GDPR | [contact handling][bs-contacts], [customer identity][bs-identity] and [invoices][bs-invoices] in the business-site portal; [guest RSVPs][wa-schema] in wedding-app | none | all of it | High | **Owned** by [#638](https://github.com/devantler-tech/agent-plugins/issues/638) |
-| Danish commerce, consumer and accessibility rules | client sites with service offerings and booking ([ascoachingogvaner][asc-agents]); [business-site invoicing][bs-invoices] | `web-design-guidelines` covers UI accessibility review, not Danish law | the legal rules | High | **Owned** by [#639](https://github.com/devantler-tech/agent-plugins/issues/639) |
+| Privacy and GDPR | [contact handling][bs-contacts], [customer identity][bs-identity] and [invoices][bs-invoices] in the business-site portal; [guest RSVPs][wa-schema] in wedding-app | `privacy-engineering` (purpose, legal basis, retention, rights, providers, transfers, impact assessments, breach reporting, with Danish additions) | none in guidance. Each product still names its own data, its accountable person and where its record of processing is kept | High | **Covered** since 7.6.0 by the first-party `privacy-engineering` ([#638](https://github.com/devantler-tech/agent-plugins/issues/638)): no upstream candidate could be adopted, as the candidate table says |
+| Danish commerce, consumer and accessibility rules | client sites with service offerings and booking ([ascoachingogvaner][asc-agents]); [business-site invoicing][bs-invoices] | `danish-business-rules` (which rules apply and to whom: cookies, marketing, purchase information, withdrawal, subscriptions, invoices, accessibility); `web-design-guidelines` for accessible UI | the rules it lists as not covered: the E-commerce Act, price labelling in detail, sales law and sector rules | High | **Covered** since 7.6.0 by the first-party `danish-business-rules` ([#639](https://github.com/devantler-tech/agent-plugins/issues/639)): no upstream skill for Danish rules exists |
 | Application security and tenant isolation | the [business-site customer portal][bs-identity], [KHoist's data product API][khoist-api], tenant apps on the shared platform | `application-security` (threat model, access rules, tenant isolation, webhooks, uploads, limits and the tests that prove them). CI and supply chain: `github-actions-hardening`, `codeql`, `secret-scanning`, `dependency-scanning`, `dependabot`. Cluster tenants: `gitops-tenant-onboarding` | none in guidance. Each product still writes its own isolation tests, and its own instructions name its roles and tenants | High | **Covered** since 7.5.0 by the first-party `application-security` ([#640](https://github.com/devantler-tech/agent-plugins/issues/640)): no upstream candidate could be adopted, as the candidate table says |
 | SvelteKit and TypeScript | business-site [`web/`][bs-web], [wedding-app][wa-pkg], [ascoachingogvaner][asc-pkg] | `svelte-core-bestpractices` and the `svelte` documentation server (documentation, autofixer and playground links), beside the framework-neutral `frontend-design` and `web-design-guidelines` | none for Svelte. TypeScript itself is not treated as a gap; if that needs checking, add a TypeScript case to #651 | Medium | **Covered** since 7.0.0 ([#652](https://github.com/devantler-tech/agent-plugins/issues/652)) |
 | Astro | the [KSail docs][ksail-docs] and the [KHoist website][khoist-web] | `product-documentation`, `write-docs-introduction` | Astro framework guidance: the `astro` skill left the bundle in 7.0.0 | Medium | **Not bundled.** The 7.0.0 entry in the plugin's [changelog][changelog] has the one command that installs `astro` from its upstream for work on these two sites |
@@ -86,10 +86,13 @@ lists them: should-trigger, near-miss and over-trigger cases that #651's suite r
 | Application security | [`owasp-security`][c-agamm] | MIT, one maintainer | 2026-11-03 | Closest in content, with evaluation cases upstream. Its frontmatter uses a field the open skill format does not define, so the copy fails validation here unmodified, and its largest reference restates OWASP material under an MIT label | Rejected |
 | Application security | [`VibeSec-Skill`][c-vibesec] | Apache-2.0, one maintainer | 2026-02-17 | One long secure-coding file. Its name is not a valid skill name, so it fails validation unmodified | Rejected |
 | Application security | [the Trail of Bits collection][c-tob] | CC BY-SA 4.0, Trail of Bits | 2026-11-06 | Audit workflows for security researchers, not design guidance. Share-alike terms | Rejected for now: the licence review is #581's |
-| Any gap | author a first-party skill | this repository | — | A maintained official candidate exists for every gap adopted so far. Application security is the one gap where none could be adopted, so `application-security` was built after the comparison above | Built only where the comparison rejects every candidate (#637's adoption-first workflow) |
+| Privacy | [`gdpr-compliant`][c-ac] | MIT, github/awesome-copilot | 2026-03-30 | Engineering-focused and the closest fit, but it states coding preferences as legal duties, and two of the three reference files it links do not resolve | Rejected |
+| Privacy | [`compliance-check`][c-kwp-legal] | Apache-2.0, Anthropic | 2026-11-09 | Written for an in-house legal team checking a business initiative across many jurisdictions; would not load for engineering work | Rejected |
+| Privacy | [a collection of 824 privacy skills][c-mukul], [`secpriv-skill`][c-secpriv] | Apache-2.0 and MIT | 2026-03-16, 2026-10-06 | The first is too large to review for correctness. The second has no frontmatter, so it is not in the open skill format | Rejected |
+| Danish rules | none found | — | — | Four repository searches on 2026-11-11 returned no skill for Danish or EU consumer, marketing or cookie rules | Built |
+| Any gap | author a first-party skill | this repository | — | A maintained official candidate exists for every gap adopted so far. Application security, privacy and the Danish rules are the gaps where none could be adopted, so `application-security`, `privacy-engineering` and `danish-business-rules` were built after the comparisons above | Built only where the comparison rejects every candidate (the adoption-first workflow of #637) |
 
-Candidates for privacy and Danish rules will be compared in #638 and #639, as the note under the
-matrix says. The Sentry and [trailofbits/skills][c-tob] candidates above carry CC BY-SA 4.0
+The Sentry and [trailofbits/skills][c-tob] candidates above carry CC BY-SA 4.0
 terms. Share-alike redistribution needs the review that
 [#581](https://github.com/devantler-tech/agent-plugins/issues/581) owns before anything under
 those terms is bundled.
@@ -120,10 +123,11 @@ with SvelteKit and a Go server. An agent that trusts the card would choose `astr
    PR reports how many description characters it adds.
 2. Application security and tenant isolation (#640). Covered in 7.5.0 by the first-party
    `application-security` skill. What remains is per product: the isolation tests themselves.
-3. Privacy and GDPR (#638). Personal data in two products.
+3. Privacy and GDPR (#638). Covered in 7.6.0 by the first-party `privacy-engineering` skill.
 4. PostgreSQL schema and migrations (#653). Evaluated: the candidate was not adopted, so the gap
    stays open.
-5. Danish commerce, consumer and accessibility rules (#639).
+5. Danish commerce, consumer and accessibility rules (#639). Covered in 7.6.0 by the
+   first-party `danish-business-rules` skill, within the limits its source list states.
 6. Prometheus and OpenTelemetry (#654). PromQL and alert rules adopted in 7.3.0; collector
    pipelines not added, as the matrix says.
 
@@ -159,6 +163,9 @@ when an adoption issue above closes, or after #651's first two baselines.
 [c-ac]: https://github.com/github/awesome-copilot/tree/227949a7542a55d2155c00e7cdb998d9a0fee4f3/skills
 [c-agamm]: https://github.com/agamm/claude-code-owasp/tree/1ae29cb22518560e3625d77f2ae64f61647d9201/.claude/skills/owasp-security
 [c-vibesec]: https://github.com/BehiSecc/VibeSec-Skill/tree/0590993b35ad51961f65a4d01cf1196dfead05bb
+[c-kwp-legal]: https://github.com/anthropics/knowledge-work-plugins/tree/e605d8ddbfb688da57dfaaceebd93f12a64ef1d3/legal/skills/compliance-check
+[c-mukul]: https://github.com/mukul975/Privacy-Data-Protection-Skills/tree/9b2ef9eae161c00a17241d42a388571321b33e9f
+[c-secpriv]: https://github.com/facebookresearch/secpriv-skill/tree/70e1269a988cb401ac838164b3db9434ffa9f4ea
 [c-ch-pg]: https://github.com/ClickHouse/agent-skills/tree/d3b2b5ba43a8b80c2d08858b68d53edc701b5ace/skills/infra-postgres
 [c-bagel]: https://github.com/bagelhole/devops-security-agent-skills/tree/0365f57a079b1332f95cf26e31dd2d5332a8399f/devops/observability/opentelemetry
 [c-arsenal]: https://github.com/majiayu000/spellbook/tree/238e07625aeca5bcf0d6f7cb3e2d07f94c717194/skills/observability-sre

@@ -1,6 +1,6 @@
 ---
 name: danish-business-rules
-description: Flag the Danish rules that apply to a customer-facing site, shop, subscription or invoicing flow - cookies, marketing messages, information before purchase, the right to withdraw, subscription terms, prices, invoices and accessibility - and whether each applies to consumers, businesses or both. Use for work on Danish sites and services. Not legal advice, and not for personal-data questions.
+description: Flag the Danish rules that apply to a customer-facing site, shop, subscription or invoicing flow - cookies, marketing messages, information before purchase, the right to withdraw, subscription terms, prices, invoices and accessibility - and whether each applies to consumers, businesses or both. Use for work on Danish sites and services. Not legal advice, and not for personal data or accessibility testing.
 license: Apache-2.0
 ---
 
@@ -23,7 +23,8 @@ through a named person.
 3. **Keep law, authority practice and recommendation apart.** **Law** names its section.
    **Authority practice** is an authority's published position. **Practice** is a
    recommendation. Never present one as another.
-4. **State only what the sources say.** Every rule in this skill was read in the act itself.
+4. **State only what the sources say.** Every rule in this skill was read in the source named
+   for it: the act, or where the table says so an authority's own guide.
    If a question goes beyond it, say that it is not covered and escalate. Do not fill the gap
    from memory.
 5. **The business decides.** On a client's site the client is the trader the rules bind. You

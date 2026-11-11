@@ -110,7 +110,6 @@ A skill that cannot meet a reference or description rule yet is recorded in
 [`skill-authoring-exceptions.json`](../scripts/skill-authoring-exceptions.json) with its
 reason. The record can only shrink: CI fails when an exception is no longer needed, when a
 recorded description grows, and when its recorded ceiling is higher than the measured length.
-The five first exceptions are tracked in #680.
 
 Not checked by CI: whether a skill's examples are correct, whether it loads for the tasks it
 is meant for, and whether its acceptance scenarios exist. The first is the correctness gate in

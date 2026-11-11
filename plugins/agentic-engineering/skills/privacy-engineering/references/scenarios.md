@@ -21,10 +21,13 @@ database, a provider? Who reads it? How long is it kept after the enquiry is clo
   visitors' data and may store things on their device: treat it as a new provider. Limit
   how often the form can be sent.
 - **A field meant to collect protected-group data** (a question about health, for
-  example) is a decision, not a field. If the accountable person approves it, it needs a
-  condition under Art. 9(2), usually explicit consent given for that purpose, its own
-  short retention, encryption in transit, and it stays out of notification emails and
-  logs. Build the rest of the form meanwhile and hold that field until the decision.
+  example) is a decision, not a field: escalate it, and build the rest of the form
+  meanwhile. If the accountable person approves it:
+  - **Law.** It needs a legal basis under Art. 6 and a condition under Art. 9(2), usually
+    explicit consent given for that purpose, and security that fits the higher risk
+    (Art. 32).
+  - **Practice.** Give it its own short retention, and keep it out of notification
+    emails and logs.
 - **Evidence.** The field list with the purpose, the proposed basis and who confirmed it, the
   retention period and the job that enforces it, the notice text, and the provider entry.
 - **Escalate** when the form invites health, children's or identity-number data, or when

@@ -114,6 +114,7 @@ are maintained here.
 | GitHub | `gh-cli`, `github-issues`, `gh-stack` (stacked pull requests), `github-actions-docs`, `github-actions-efficiency` |
 | Code review (CodeRabbit) | `code-review` (a local review with the CodeRabbit CLI), `autofix` (work through CodeRabbit's review threads on a pull request) |
 | Repository security | `dependency-scanning`, `dependabot`, `secret-scanning`, `codeql`, `github-actions-hardening`, `check-skills` (review a skill before installing it) |
+| Application security | `application-security` (a short threat model, access rules, tenant isolation, webhooks, uploads and limits, each with the test that proves it) |
 | Library documentation | `context7-mcp` (current documentation for any library or framework, through the `context7` server) |
 | Go | `golang-pro` |
 | Kubernetes and GitOps | `gitops-cluster-debug`, `gitops-knowledge`, `gitops-tenant-onboarding`, `siderolabs` (Talos Linux and Omni) |

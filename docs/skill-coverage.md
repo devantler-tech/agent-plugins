@@ -34,18 +34,18 @@ This is an engineering inventory. It makes no legal or compliance claim.
 |---|---|---|---|---|---|
 | Privacy and GDPR | [contact handling][bs-contacts], [customer identity][bs-identity] and [invoices][bs-invoices] in the business-site portal; [guest RSVPs][wa-schema] in wedding-app | none | all of it | High | **Owned** by [#638](https://github.com/devantler-tech/agent-plugins/issues/638) |
 | Danish commerce, consumer and accessibility rules | client sites with service offerings and booking ([ascoachingogvaner][asc-agents]); [business-site invoicing][bs-invoices] | `web-design-guidelines` covers UI accessibility review, not Danish law | the legal rules | High | **Owned** by [#639](https://github.com/devantler-tech/agent-plugins/issues/639) |
-| Application security and tenant isolation | the [business-site customer portal][bs-identity], [KHoist's data product API][khoist-api], tenant apps on the shared platform | CI and supply chain: `github-actions-hardening`, `codeql`, `secret-scanning`, `dependency-scanning`, `dependabot`. Cluster tenants: `gitops-tenant-onboarding` | application layer: object-level authorization, sessions, webhook verification, threat models | High | **Owned** by [#640](https://github.com/devantler-tech/agent-plugins/issues/640) |
+| Application security and tenant isolation | the [business-site customer portal][bs-identity], [KHoist's data product API][khoist-api], tenant apps on the shared platform | `application-security` (threat model, access rules, tenant isolation, webhooks, uploads, limits and the tests that prove them). CI and supply chain: `github-actions-hardening`, `codeql`, `secret-scanning`, `dependency-scanning`, `dependabot`. Cluster tenants: `gitops-tenant-onboarding` | none in guidance. Each product still writes its own isolation tests, and its own instructions name its roles and tenants | High | **Covered** since 7.5.0 by the first-party `application-security` ([#640](https://github.com/devantler-tech/agent-plugins/issues/640)): no upstream candidate could be adopted, as the candidate table says |
 | SvelteKit and TypeScript | business-site [`web/`][bs-web], [wedding-app][wa-pkg], [ascoachingogvaner][asc-pkg] | `svelte-core-bestpractices` and the `svelte` documentation server (documentation, autofixer and playground links), beside the framework-neutral `frontend-design` and `web-design-guidelines` | none for Svelte. TypeScript itself is not treated as a gap; if that needs checking, add a TypeScript case to #651 | Medium | **Covered** since 7.0.0 ([#652](https://github.com/devantler-tech/agent-plugins/issues/652)) |
 | Astro | the [KSail docs][ksail-docs] and the [KHoist website][khoist-web] | `product-documentation`, `write-docs-introduction` | Astro framework guidance: the `astro` skill left the bundle in 7.0.0 | Medium | **Not bundled.** The 7.0.0 entry in the plugin's [changelog][changelog] has the one command that installs `astro` from its upstream for work on these two sites |
 | Go | [ksail][ksail-go], [khoist][khoist-go], the [business-site server][bs-go], platform helpers | `golang-pro`, `test-driven-development`, `refactor` | activation only: 0 loads in a week with at least 34 Go sessions (#642) | Medium | **Covered**; measured by #651 |
-| API and form validation | request handling in the SvelteKit sites (for example the [wedding-app RSVP endpoint][wa-rsvp]) and the [Go portal][bs-go] | `web-design-guidelines` covers form markup | server-side validation, rate limits and uploads belong to application security; personal data in forms belongs to privacy | Medium | **Do not add** a separate skill: owned by #640 and #638 |
+| API and form validation | request handling in the SvelteKit sites (for example the [wedding-app RSVP endpoint][wa-rsvp]) and the [Go portal][bs-go] | `web-design-guidelines` covers form markup | none for validation, limits and uploads (`application-security`); personal data in forms belongs to privacy | Medium | **Do not add** a separate skill: `application-security` covers validation, limits and uploads, and #638 owns personal data |
 | PostgreSQL schema and migrations | the [business-site portal schema][bs-mig], wedding-app on [Drizzle migrations][wa-drizzle], KHoist's [CloudNativePG provider][khoist-cnpg] | none | schema design, query plans, lock-safe migrations | High | **Open.** The one vendor-maintained candidate was evaluated and not adopted ([#653](https://github.com/devantler-tech/agent-plugins/issues/653)); the candidate table says why. Each repository's own migration and tenant-isolation rules stay the authority |
 | PostgreSQL backup and restore | the platform's [CloudNativePG and Velero procedures][plat-dr] | none | none for a skill: the procedure is specific to one repository | High | **Do not add**: stays in the platform's docs and verifiers |
 | ClickHouse | only as [Coroot][plat-coroot]'s log and trace storage, which the platform runs but no product queries | none | none today | Low | **Do not add**. Revisit when a product writes ClickHouse schemas or queries |
 | Prometheus and OpenTelemetry | [Coroot][plat-coroot] with its bundled Prometheus, which Flagger and KEDA query in PromQL; [Alertmanager][plat-am]; an [OpenTelemetry log forwarder][plat-otel] | `promql` (writing and checking PromQL) and `prometheus` (alert and recording rules, Alertmanager routing); `gitops-cluster-debug` reads metrics only through the Flux MCP server | OpenTelemetry collector pipelines: the only vendor-maintained candidate defaults to a hosted service the platform does not use. Look collector configuration up through the `context7` documentation server | Medium | **Covered** for PromQL and alert rules since 7.3.0 ([#654](https://github.com/devantler-tech/agent-plugins/issues/654)); collector pipelines **not added** |
 | SLOs | the platform alerts on [Coroot's built-in per-application SLOs][plat-alert]; no repository sets its own SLO targets or error-budget policy | none | SLO targets and error-budget policy, which nobody authors today | Low | **Do not add**. Tuning Coroot's SLO alerts goes with #654. Revisit when a product sets its own SLO targets |
 | FinOps | the engineer's spend mandate (stewardship disabled by contract) | the [`agentic-engineer`](../plugins/agentic-engineering/agents/agentic-engineer.agent.md) agent and the `github-actions-efficiency` skill; the monorepo `finops` overlay is outside this repository | none | Medium | **Covered** |
-| Payments, subscriptions and webhooks | no product takes payments: the code search `org:devantler-tech stripe` on 2026-11-04 returned 7 matches, all dependency metadata, a bookmark, game assets or a skill reference | none | none today | Low | **Do not add**. Webhook verification belongs to #640, subscription disclosures to #639. Revisit when a product commits to payments |
+| Payments, subscriptions and webhooks | no product takes payments: the code search `org:devantler-tech stripe` on 2026-11-04 returned 7 matches, all dependency metadata, a bookmark, game assets or a skill reference | none | none today | Low | **Do not add**. Webhook verification is in `application-security`; subscription disclosures belong to #639. Revisit when a product commits to payments |
 | GitOps, Kubernetes and deployment | the [platform][plat-root], [ksail][ksail-go] and the templates | skills `gitops-knowledge`, `gitops-cluster-debug`, `gitops-tenant-onboarding`, `ksail` and `siderolabs`; the bundled Flux MCP server | activation only: 0 loads with at least 11 manifest sessions (#642) | High | **Covered**; measured by #651 |
 
 **Owned** means the audit hands the gap to an existing issue instead of filing an overlapping one.
@@ -81,13 +81,18 @@ lists them: should-trigger, near-miss and over-trigger cases that #651's suite r
 | Observability | community skills such as [`opentelemetry`][c-bagel] and [`observability-sre`][c-arsenal] | MIT, individual maintainers | 2026-05-22, 2026-11-04 | General-purpose. The vendor-maintained Grafana skills cover the same scope | Rejected |
 | ClickHouse | [`clickhouse-best-practices`][c-ch] | Apache-2.0, ClickHouse | 2026-11-02 | Strong, but no product authors ClickHouse work | Do not add yet |
 | Payments | [`stripe-best-practices`][c-stripe] | MIT, Stripe | 2026-11-04 | Official, but no product takes payments and no provider is chosen | Do not add yet |
-| Any gap | author a first-party skill | this repository | — | A maintained official candidate exists for every adopted gap | Rejected (#637's adoption-first workflow) |
+| Application security | [`security-review`, `security-model`][c-sentry] | Apache-2.0 repository, Sentry; the references of `security-review` are CC BY-SA 4.0 | 2026-11-05 | `security-review` reviews finished code by vulnerability class and is well made, but its references derive from OWASP material under share-alike terms, and it has no threat model, tenant design or webhook guidance. `security-model` writes a policy file for scanners and needs Python helpers | Rejected for now: the licence review is #581's. Revisit `security-review` for the review-time half when #581 clears share-alike redistribution |
+| Application security | [`security-review`, `threat-model-analyst`][c-ac] | MIT, github/awesome-copilot | 2026-11-10 | The first is a scanner procedure that repeats the secret and dependency checks this plugin already has. The second is threat modelling only, as a multi-agent report generator of 17 files and 335 KB | Rejected |
+| Application security | [`owasp-security`][c-agamm] | MIT, one maintainer | 2026-11-03 | Closest in content, with evaluation cases upstream. Its frontmatter uses a field the open skill format does not define, so the copy fails validation here unmodified, and its largest reference restates OWASP material under an MIT label | Rejected |
+| Application security | [`VibeSec-Skill`][c-vibesec] | Apache-2.0, one maintainer | 2026-02-17 | One long secure-coding file. Its name is not a valid skill name, so it fails validation unmodified | Rejected |
+| Application security | [the Trail of Bits collection][c-tob] | CC BY-SA 4.0, Trail of Bits | 2026-11-06 | Audit workflows for security researchers, not design guidance. Share-alike terms | Rejected for now: the licence review is #581's |
+| Any gap | author a first-party skill | this repository | — | A maintained official candidate exists for every gap adopted so far. Application security is the one gap where none could be adopted, so `application-security` was built after the comparison above | Built only where the comparison rejects every candidate (#637's adoption-first workflow) |
 
-Candidates for privacy, Danish rules and application security will be compared in #638, #639 and
-#640, as the note under the matrix says. One note for #640: [trailofbits/skills][c-tob] is
-licensed CC-BY-SA-4.0. Its share-alike terms need the redistribution review that
-[#581](https://github.com/devantler-tech/agent-plugins/issues/581) owns before anything is
-bundled.
+Candidates for privacy and Danish rules will be compared in #638 and #639, as the note under the
+matrix says. The Sentry and [trailofbits/skills][c-tob] candidates above carry CC BY-SA 4.0
+terms. Share-alike redistribution needs the review that
+[#581](https://github.com/devantler-tech/agent-plugins/issues/581) owns before anything under
+those terms is bundled.
 
 ## Reusable skills and repository-specific instructions
 
@@ -113,8 +118,8 @@ with SvelteKit and a Go server. An agent that trusts the card would choose `astr
    ([monorepo#4840](https://github.com/devantler-tech/monorepo/issues/4840)). Each adoption also
    adds description text, and #642 found 30 of 94 listed skills shown by name only. So every adoption
    PR reports how many description characters it adds.
-2. Application security and tenant isolation (#640). High exposure, and the customer portal is in
-   active development.
+2. Application security and tenant isolation (#640). Covered in 7.5.0 by the first-party
+   `application-security` skill. What remains is per product: the isolation tests themselves.
 3. Privacy and GDPR (#638). Personal data in two products.
 4. PostgreSQL schema and migrations (#653). Evaluated: the candidate was not adopted, so the gap
    stays open.
@@ -150,6 +155,10 @@ when an adoption issue above closes, or after #651's first two baselines.
 [c-grafana]: https://github.com/grafana/skills/tree/8fb72a527961f05e708f53d2a0500709e12d7970/skills
 [c-stripe]: https://github.com/stripe/ai/tree/a3196df9925589ec7dd96c90692d13ea1c453cae
 [c-tob]: https://github.com/trailofbits/skills/tree/470419e16f97e112d01fc32f4898aea1755015d9
+[c-sentry]: https://github.com/getsentry/skills/tree/e94f22214528d69899d09c627b3315ddc3544816/skills
+[c-ac]: https://github.com/github/awesome-copilot/tree/227949a7542a55d2155c00e7cdb998d9a0fee4f3/skills
+[c-agamm]: https://github.com/agamm/claude-code-owasp/tree/1ae29cb22518560e3625d77f2ae64f61647d9201/.claude/skills/owasp-security
+[c-vibesec]: https://github.com/BehiSecc/VibeSec-Skill/tree/0590993b35ad51961f65a4d01cf1196dfead05bb
 [c-ch-pg]: https://github.com/ClickHouse/agent-skills/tree/d3b2b5ba43a8b80c2d08858b68d53edc701b5ace/skills/infra-postgres
 [c-bagel]: https://github.com/bagelhole/devops-security-agent-skills/tree/0365f57a079b1332f95cf26e31dd2d5332a8399f/devops/observability/opentelemetry
 [c-arsenal]: https://github.com/majiayu000/spellbook/tree/238e07625aeca5bcf0d6f7cb3e2d07f94c717194/skills/observability-sre

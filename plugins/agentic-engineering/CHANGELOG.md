@@ -1,5 +1,23 @@
 # Changelog — `agentic-engineering`
 
+## 7.5.0 — 2026-11-10
+
+**Added** — `application-security`, a first-party skill for the security decisions scanners cannot
+make: who may read or change which record, how tenants are kept apart, and how to prove both
+before code ships. It holds a fifteen-minute threat model with a filled example, the three levels
+of access control, tenant isolation in the data layer and everywhere else data rests (with
+PostgreSQL row-level security as a second line and its limits), webhook verification, uploads,
+request limits and outbound requests, and the two-tenant test design with runnable examples in
+Go and TypeScript. It names when to stop and escalate, and it sends scanning, pipeline hardening,
+cluster tenancy and incident response to the skills that own them.
+
+Seven upstream candidates were compared first and none could be adopted: each was a code scanner
+or a review procedure, failed this marketplace's format validation, or carries share-alike terms
+whose redistribution review is still open (#581). The comparison is on the coverage page (#640).
+
+Every example was run before release: the Go and TypeScript tests fail when the tenant check is
+removed, and the row-level security statements were checked on PostgreSQL 17.11.
+
 ## 7.4.0 — 2026-11-10
 
 **Added** — `skill-lifecycle`, a first-party skill: how to decide whether to adopt, build or reject

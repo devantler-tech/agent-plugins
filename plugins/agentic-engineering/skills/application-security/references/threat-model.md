@@ -45,7 +45,10 @@ Beside each threat write one of:
 - **Removed**: the design changed so the threat is gone. Often the best answer: do not accept
   the field, do not expose the route.
 - **Accepted**, with the name of the person who accepted it, the reason and a date to look
-  again. An agent proposes; a person accepts.
+  again. Only a person accepts a risk.
+- **Open**: you have proposed a control or an acceptance and a named person has not decided
+  yet. Say who is asked. A change does not ship with an open threat unless that person says
+  so.
 
 "We will be careful" is not a control. Neither is "the identifier is random".
 
@@ -68,6 +71,6 @@ must never return another company's invoice.
 | 1 | A user of company B requests company A's invoice by its identifier | Control: the data layer reads by company and identifier together; the company comes from the session | Test: B's session on A's identifier gets "not found", and the body holds nothing of A's |
 | 2 | The response says "forbidden" for A's invoice and "not found" for a missing one, so identifiers can be probed | Control: one answer for both | Same test, comparing both responses |
 | 3 | The PDF is stored under a guessable path and served directly | Removed: the file is read by the server after the access check, never from a public path | Test: the storage path is not reachable without a session |
-| 4 | A script downloads every invoice in a loop | Control: a request limit per user on this route | Test: the request after the limit is refused |
+| 4 | A script downloads every invoice in a loop | Control: a request limit per user on this route | Test: the request after the limit is refused with status 429, and another user is not affected |
 | 5 | Nobody can tell later who downloaded what | Control: a log line with user, company and invoice identifier, and no invoice content | Test: the log line exists and holds no amounts |
-| 6 | A former employee's session still works | Accepted for now by the product owner: sessions end after the identity provider's timeout. Look again when company administrators can remove users | Unproven here: tracked separately |
+| 6 | A former employee's session still works | Open: proposed to accept for now, because sessions end at the identity provider's timeout, and to look again when company administrators can remove users. Asked: the product owner | Not proven here; the pull request names who decided and when |

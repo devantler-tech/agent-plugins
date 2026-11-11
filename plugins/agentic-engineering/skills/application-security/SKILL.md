@@ -1,6 +1,6 @@
 ---
 name: application-security
-description: Design and test access rules for a web app or API - a short threat model, server-side authorization, tenant isolation, webhook verification, uploads and rate limits, each proved by a test that fails when the control is removed. Use when adding or changing an endpoint, sign-in, roles, tenant or customer data access, a webhook receiver or a file upload. Not for scanner setup or CI hardening.
+description: Design and test access rules for a web app or API - a short threat model, server-side authorization, tenant isolation, webhook verification, uploads and rate limits, each proved by a test that fails when the control is removed. Use when adding or changing an endpoint, form, sign-in, roles, tenant or customer data access, a webhook receiver or a file upload. Not for scanner setup or CI hardening.
 license: Apache-2.0
 ---
 
@@ -52,8 +52,8 @@ They win over this skill wherever they are more specific.
 1. **Model the change.** Fifteen minutes, not a document project. Answer four questions: what
    are we building, what can go wrong, what will we do about it, and how will we know it
    worked. The [threat model guide](references/threat-model.md) has the prompts and a filled
-   example. The result is a short list of threats, each with a control or with the name of the
-   person who accepted the risk.
+   example. The result is a short list of threats, each with a control, the name of the
+   person who accepted the risk, or the name of the person who is asked to decide.
 2. **Decide who may do what.** Three questions for every operation: may this caller use this
    function, may they touch this record, and may they read or set these fields. Sign-in and
    sessions come first. See [access control](references/access-control.md).
@@ -62,9 +62,11 @@ They win over this skill wherever they are more specific.
    [tenant isolation](references/tenant-isolation.md).
 4. **Guard the edges.** Input validation, webhooks, uploads, request limits and requests the
    server makes on a user's behalf. See [edges](references/edges.md).
-5. **Prove it.** Two tenants in every test run. For each route: the owner succeeds, the other
-   tenant is refused and learns nothing, and a caller without a session is refused. Remove the
-   control once and watch the test fail. See [isolation tests](references/isolation-tests.md).
+5. **Prove it.** Two tenants in every test run. For each route: the owner succeeds; the other
+   tenant is refused and learns nothing; a write by the other tenant leaves the record
+   unchanged; a lower role is refused; and a caller without a session is refused. Remove
+   the control once and watch the test fail. See
+   [isolation tests](references/isolation-tests.md).
 6. **Record it in the pull request.** The threats you considered, the control for each, the
    test that proves it, and any risk that was accepted and by whom.
 

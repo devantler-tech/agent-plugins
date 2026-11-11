@@ -1,33 +1,9 @@
 {
   "description": {
     "limit": 600,
-    "exceptions": [
-      {
-        "skill": "plugins/agentic-engineering/skills/agent-improvement",
-        "ceiling": 718,
-        "reason": "Older than the limit. A description change alters when the skill loads, so it is shortened together with a re-run of the skill's scenarios (#680)."
-      },
-      {
-        "skill": "plugins/agentic-engineering/skills/product-engineering",
-        "ceiling": 601,
-        "reason": "Older than the limit. A description change alters when the skill loads, so it is shortened together with a re-run of the skill's scenarios (#680)."
-      }
-    ]
+    "exceptions": []
   },
   "references": {
-    "exceptions": [
-      {
-        "file": "plugins/agentic-engineering/skills/agent-improvement/references/prioritization-flow.md",
-        "reason": "Reached through references/scoring.md. The entry file is within 50 bytes of its 20,000-byte budget, so the direct link waits until the entry file is trimmed (#680)."
-      },
-      {
-        "file": "plugins/agentic-engineering/skills/product-engineering/references/shared-code.md",
-        "reason": "Reached through references/code-quality.md. The entry file is within 50 bytes of its 20,000-byte budget, so the direct link waits until the entry file is trimmed (#680)."
-      },
-      {
-        "file": "plugins/agentic-engineering/skills/product-engineering/references/tool-maturation.md",
-        "reason": "Reached through references/code-quality.md. The entry file is within 50 bytes of its 20,000-byte budget, so the direct link waits until the entry file is trimmed (#680)."
-      }
-    ]
+    "exceptions": []
   }
 }

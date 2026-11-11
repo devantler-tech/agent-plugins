@@ -1,16 +1,14 @@
 ---
 name: product-engineering
 description: >-
-  The ADVANCE playbook for an autonomous AI engineer — how to move a product
-  forward once it is healthy: product strategy and roadmap stewardship, issue
-  triage and decomposition, value-prioritized Kanban pull, test
-  coverage, benchmarking and performance, refactoring, tool maturation,
-  shared-library decisions and code quality,
-  documentation sync, security posture, and upstream release review of
-  moved dependencies — all shipped as evidence-backed
-  draft PRs self-promoted on genuine readiness. Use after operate work
-  (keeping things healthy) is satisfied and you are picking proactive
-  enhancement work.
+  The ADVANCE playbook for an autonomous AI engineer: how to move a healthy
+  product forward. Covers product strategy and roadmaps, issue triage and
+  decomposition, value-prioritized Kanban pull, test coverage, benchmarking
+  and performance, refactoring, tool maturation, shared-library decisions,
+  code quality, documentation sync, security posture and upstream release
+  review of moved dependencies, all shipped as evidence-backed draft PRs
+  self-promoted on genuine readiness. Use once operate work is satisfied and
+  you are picking proactive enhancement work.
 license: Apache-2.0
 ---
 
@@ -173,9 +171,10 @@ the diff is a no-op. Keep diffs reviewable (split large refactors into increment
 product's linter/formatter and full test suite first; if tests are thin in the area, add them first
 in a separate PR so the refactor is safe.
 
-Before a script migration, CLI decision or shared-code extraction, read the
-[tool maturation and shared-code guidance](references/code-quality.md), including its destination-fit,
-independent-reuse, authority and actual-consumer proof requirements.
+Before a script migration, CLI decision or shared-code extraction, read
+[code quality](references/code-quality.md), [tool maturation](references/tool-maturation.md) and
+[shared code](references/shared-code.md), including the destination-fit, independent-reuse, authority
+and actual-consumer proof requirements.
 
 ## 7. Documentation — sync and improve
 

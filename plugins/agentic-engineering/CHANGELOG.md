@@ -1,5 +1,17 @@
 # Changelog — `agentic-engineering`
 
+## 7.6.3 — 2026-11-11
+
+**Changed** — the `product-engineering` and `agent-improvement` descriptions are shorter (554 and
+588 characters, from 601 and 718), so both are inside the 600-character limit for first-party
+skills. They name the same work as before; two fresh agents given 20 tasks chose the same skill
+for every task with the old and the new text.
+
+**Fixed** — three reference documents were reachable only through another reference:
+`shared-code.md` and `tool-maturation.md` in `product-engineering`, and `prioritization-flow.md`
+in `agent-improvement`. Each is now linked from its skill's entry file, and both entry files stay
+inside their size budget. The authoring check's exception record is empty (#680).
+
 ## 7.6.2 — 2026-11-11
 
 **Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.

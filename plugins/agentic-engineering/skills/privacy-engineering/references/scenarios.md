@@ -62,8 +62,10 @@ export and delete their data without writing to anyone?
   collects only what each purpose needs by default (Art. 25). Security appropriate to the risk
   (Art. 32). In Denmark, the age of 15 for a child's own consent to an online service.
 - **Practice.** Delegate sign-in to an identity provider. Build export and deletion as
-  functions that reach every store, and test them. On closure, delete or anonymise, and keep
-  only what another law requires, such as bookkeeping records, for as long as it requires.
+  functions that reach every store, and test them. On closure, delete or anonymise what no
+  ground requires keeping. Grounds include another law, such as bookkeeping, and a legal
+  claim, such as an open dispute (Art. 17(3)). The accountable person decides them before
+  anything is deleted, and each kept item has its reason and its end date.
   Send as little personal data by email as possible.
 - **Evidence.** The data map per account, the deletion and export tests, and the list of data
   kept after closure with the reason for each.

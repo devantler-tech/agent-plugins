@@ -26,8 +26,10 @@ the agency applies them when it judges whether security was appropriate under Ar
 - **Email with confidential or sensitive data is encrypted in transit**, with TLS 1.2 as the
   minimum. The level follows a risk assessment: a large amount of sensitive data may need the
   content itself encrypted. Nobody can consent to weaker security than the risk calls for.
-- **Breaches are reported through the business portal Virk**, within 72 hours of becoming
-  aware. The hours run through weekends and holidays. A report can be filed with what is known
+- **Breaches are reported through the business portal Virk**, without undue delay and where
+  feasible within 72 hours of becoming aware, unless the breach is unlikely to be a risk to
+  people. If that cannot be judged in time, report.
+  The hours run through weekends and holidays. A report can be filed with what is known
   and completed later. A late report must explain the delay.
 - **Impact assessments**: the agency publishes a list of processing that always needs one,
   beside the general screening criteria. The list is not restated here: read it at the

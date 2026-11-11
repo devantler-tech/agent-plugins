@@ -26,7 +26,9 @@ through a named person.
    engineer proposes both; the accountable person confirms them.
 4. **Decide how long data is kept when the field is added**, not later.
 5. **A suspected breach starts a clock.** Escalate at once; do not investigate alone first.
-6. **Real personal data stays out of** test fixtures, logs, issue text, prompts and screenshots.
+6. **Real personal data stays out of** test fixtures, issue text, prompts and screenshots.
+   Logs hold the identifiers an audit trail needs (who did what to which record), protected
+   and with a retention period, and never the content of the data.
 
 ## When to use it, and when not
 
@@ -70,7 +72,10 @@ are in [scenarios](references/scenarios.md).
 5. **Tell people.** List what must change in the privacy notice.
 6. **Build people's rights in.** Access, correction, deletion, export and objection are
    features with a one-month deadline, not support tickets.
-7. **Check everyone who receives the data.** Each provider needs a data processing agreement.
+7. **Check everyone who receives the data, and in which role.** A provider that handles data
+   for you is a processor and needs a data processing agreement. A recipient that decides its
+   own purposes, such as an authority or a bank, is a controller: the disclosure needs a
+   legal basis, not that agreement.
    Each location outside the EU and EEA needs a transfer basis.
 8. **Protect it** in proportion to the risk.
 9. **Screen for an impact assessment.** A few questions decide whether a formal assessment is
@@ -105,5 +110,5 @@ An agent proposes and prepares. A person accountable for the data decides.
 | Fields, purpose, legal basis, retention, recipients | The record of processing, or the repository's privacy notes if that is where it is kept |
 | What changed in the privacy notice | The pull request, and the notice itself |
 | Provider agreement and transfer basis | With the contracts; the pull request links them, never copies them |
-| Retention and deletion working | A test that old data is deleted or anonymised, and that deleting a person removes them everywhere |
+| Retention and deletion working | A test that old data is deleted or anonymised, and that deleting a person removes them everywhere except what the accountable person has decided must be kept, with the legal ground for each |
 | Decisions, and who made them | The pull request or the issue |

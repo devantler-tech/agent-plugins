@@ -44,6 +44,7 @@ why. Read the article itself before relying on a summary; the links are in
 | By design and by default | Build the principles into the design, and by default process only what each purpose needs (Art. 25) | Optional collection is off until the person switches it on |
 | Security | Measures appropriate to the risk. The regulation names pseudonymisation and encryption as examples and fixes no algorithm (Art. 32) | Encrypt in transit and at rest, limit who can read, log access to sensitive records. Use `application-security` for access rules |
 | Impact assessment | Required before processing that is likely to result in a high risk (Art. 35(1)), in particular large-scale use of protected groups, systematic evaluation of people with significant effects, and large-scale monitoring of public places (Art. 35(3)) | Screen every new processing with the questions below. Two or more hits: an assessment is normally needed. National authorities also publish lists of processing that always needs one: read the list for your country at its source |
+| Prior consultation | When an assessment shows that the risk stays high even with the planned measures, the controller consults the supervisory authority before the processing starts (Art. 36) | Treat "high risk remains" as a stop, not as a note in the assessment |
 | Data protection officer | Required for public bodies and for core activities of large-scale monitoring or large-scale use of protected groups (Art. 37) | If one exists, involve them at design, not at release |
 
 ### Screening for an impact assessment
@@ -61,8 +62,9 @@ impact assessments.
 8. Does it use a new technology or a new way of using one?
 9. Does it stop people from using a service or a right?
 
-No hit: record that the screen was done. One hit: say why no assessment is needed, and have
-the accountable person confirm. Two or more: escalate before building.
+No hit: record that the screen was done. One hit: an assessment can still be required, so
+weigh the risk and read the authority's list of processing that always needs one, then have the
+accountable person decide either way. Two or more: escalate before building.
 
 ## Breaches
 

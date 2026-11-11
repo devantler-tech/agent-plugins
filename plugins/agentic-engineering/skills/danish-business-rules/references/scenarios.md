@@ -14,7 +14,9 @@ A site that presents a business and takes enquiries. Nothing is sold on it.
   (section 13).
 - **Device storage.** Analytics, embedded video, maps and social buttons usually store or
   read something on the device: consent first, with a way to say no (cookie order,
-  section 3). A site with none of them needs no banner.
+  section 3). A banner can be left out only when everything the site stores or reads is within
+  the exception (section 4): list all of it, including pixels and fonts or scripts loaded
+  from elsewhere, before concluding that.
 - **Marketing.** A newsletter sign-up needs a recorded consent (section 10(1)). An enquiry is
   not a consent to marketing.
 - **Accessibility.** No online sale to consumers, so the accessibility act's e-commerce rule
@@ -36,8 +38,12 @@ A site that sells goods to consumers.
 - **The order.** The page says the order obliges the customer to pay, shows the goods and
   the total price just before, and labels the button "ordre med betalingsforpligtelse" or
   similar. Otherwise the customer is not bound (section 12).
-- **Withdrawal.** 14 days from receipt, no reason needed (sections 18 and 19), with a
-  withdrawal function on the site labelled "Fortryd aftale" (section 20 a). Goods made to
+- **After the order.** A confirmation on a durable medium, such as an email, with the
+  pre-contract information, at the latest on delivery (section 13).
+- **Withdrawal.** 14 days from receipt of the last item in the order, no reason needed
+  (sections 18 and 19), with a
+  withdrawal function on the site: a "Fortryd aftale" entry, a statement, a "Bekræft
+  fortrydelse" step and a receipt by email (section 20 a). Goods made to
   the customer's specification are an exception (section 18(2)), and the customer is told
   before ordering that those goods cannot be returned this way (section 8(1)). The
   exception names the goods made to specification, not the whole order, so a basket can

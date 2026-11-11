@@ -72,6 +72,7 @@ expect_remote_head_mismatch() {
   mkdir -p "$stub_dir"
   cat >"$stub_dir/gh" <<'STUB'
 #!/usr/bin/env bash
+case "$*" in *event=schedule*) printf '%s\n' '[{"total_count":0,"workflow_runs":[]}]'; exit 0 ;; esac
 printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/stale-fail","name":"CI"}]}'
 STUB
   chmod +x "$stub_dir/gh"
@@ -96,6 +97,7 @@ expect_remote_branch_mismatch() {
   mkdir -p "$stub_dir"
   cat >"$stub_dir/gh" <<'STUB'
 #!/usr/bin/env bash
+case "$*" in *event=schedule*) printf '%s\n' '[{"total_count":0,"workflow_runs":[]}]'; exit 0 ;; esac
 printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","head_branch":"release","head_sha":"0123456789abcdef0123456789abcdef01234567","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/wrong-branch-fail","name":"CI"}]}'
 STUB
   chmod +x "$stub_dir/gh"
@@ -119,6 +121,7 @@ expect_remote_mixed_case_head() {
   mkdir -p "$stub_dir"
   cat >"$stub_dir/gh" <<'STUB'
 #!/usr/bin/env bash
+case "$*" in *event=schedule*) printf '%s\n' '[{"total_count":0,"workflow_runs":[]}]'; exit 0 ;; esac
 printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/current-fail","name":"CI"}]}'
 STUB
   chmod +x "$stub_dir/gh"
@@ -305,6 +308,176 @@ expect_remote_head_mismatch
 expect_remote_branch_mismatch
 expect_remote_mixed_case_head
 
+# Scheduled runs off the current head (#669). A dispatching forge stub answers each read from
+# the case directory; a read with no file finds nothing. Every call is logged for the cost test.
+schedule_bin="$TEST_TMP/schedule-bin"
+mkdir -p "$schedule_bin"
+cat >"$schedule_bin/gh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$SCHEDULE_CASE/calls"
+for s in failure timed_out startup_failure; do
+  case "$*" in *status=$s\ *) [ ! -e "$SCHEDULE_CASE/fail-$s" ] || exit 1 ;; esac
+done
+answer() {
+  if [ -e "$SCHEDULE_CASE/$1" ]; then cat "$SCHEDULE_CASE/$1"; else printf '%s\n' "$2"; fi
+}
+case "$*" in
+  *head_sha=*) answer head.json '[{"total_count":0,"workflow_runs":[]}]' ;;
+  *'actions/workflows/'*'/runs'*)
+    args="$*"; id=${args#*actions/workflows/}; id=${id%%/runs*}
+    answer "success-$id.json" '{"total_count":0,"workflow_runs":[]}' ;;
+  *status=failure*) answer failure.json '[{"total_count":0,"workflow_runs":[]}]' ;;
+  *status=timed_out*) answer timed_out.json '[{"total_count":0,"workflow_runs":[]}]' ;;
+  *status=startup_failure*) answer startup_failure.json '[{"total_count":0,"workflow_runs":[]}]' ;;
+  *) exit 1 ;;
+esac
+STUB
+chmod +x "$schedule_bin/gh"
+
+head_sha=0123456789abcdef0123456789abcdef01234567
+old_sha=abcdefabcdefabcdefabcdefabcdefabcdefabcd
+days_ago() { jq -nr --argjson d "$1" 'now | floor - ($d * 86400) | todate'; }
+t_old=$(days_ago 3)
+t_new=$(days_ago 1)
+t_ancient=$(days_ago 40)
+
+# One run record. Args: id workflow_id event conclusion created_at head_sha [name]
+run_json() {
+  jq -cn --argjson id "$1" --argjson wf "$2" --arg event "$3" --arg conclusion "$4" \
+    --arg created "$5" --arg sha "$6" --arg name "${7:-Nightly}" '{
+      id: $id, run_attempt: 1, workflow_id: $wf, event: $event, status: "completed",
+      conclusion: $conclusion, created_at: $created, head_branch: "main", head_sha: $sha,
+      html_url: ("https://example.test/run-\($id)"), name: $name}'
+}
+# A slurped single-page envelope of the given runs.
+pages() { jq -cs '[{total_count: length, workflow_runs: .}]'; }
+page() { jq -cs '{total_count: length, workflow_runs: .}'; }
+
+new_case() {
+  SCHEDULE_CASE="$TEST_TMP/schedule-case-$1"
+  rm -rf "$SCHEDULE_CASE"
+  mkdir -p "$SCHEDULE_CASE"
+  export SCHEDULE_CASE
+}
+
+run_schedule_case() {
+  schedule_out='' schedule_status=0
+  schedule_out=$(PATH="$schedule_bin:$PATH" "$CLASSIFIER" --repo devantler-tech/example \
+    --branch main --head-sha "$head_sha" 2>"$TEST_TMP/stderr") || schedule_status=$?
+}
+
+expect_schedule() {
+  local label=$1 expected_status=$2 expected=$3
+  run_schedule_case
+  if [ "$schedule_status" -eq "$expected_status" ] && [ "$schedule_out" = "$expected" ]; then
+    pass=$((pass + 1))
+  else
+    record_failure "$label"
+    printf '      expected exit %s and output:\n%s\n      got exit %s and output:\n%s\n' \
+      "$expected_status" "$expected" "$schedule_status" "$schedule_out" >&2
+    sed 's/^/      stderr: /' "$TEST_TMP/stderr" >&2
+  fi
+}
+
+nightly_red=$'21\tfailure\thttps://example.test/run-500\tNightly\tschedule\t\t'"$t_old"$'\t500\t1'
+
+new_case advanced
+run_json 600 31 push success "$t_new" "$head_sha" CI | pages > "$SCHEDULE_CASE/head.json"
+run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
+expect_schedule 'a scheduled failure on an older head stays red after main advances' 0 "$nightly_red"
+if [ "$(grep -c . "$SCHEDULE_CASE/calls")" -eq 5 ] &&
+  grep -Fq 'repos/devantler-tech/example/actions/workflows/21/runs -f branch=main -f event=schedule -f status=success -F per_page=1' "$SCHEDULE_CASE/calls" &&
+  [ "$(grep -c -- '-f event=schedule -f status=[a-z_]* -f created=>=' "$SCHEDULE_CASE/calls")" -eq 3 ]; then
+  pass=$((pass + 1))
+else
+  record_failure 'scheduled evidence costs three window reads plus one read per red workflow'
+  sed 's/^/      call: /' "$SCHEDULE_CASE/calls" >&2
+fi
+
+new_case cleared
+run_json 600 31 push success "$t_new" "$head_sha" CI | pages > "$SCHEDULE_CASE/head.json"
+run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
+run_json 501 21 schedule success "$t_new" "$old_sha" | page > "$SCHEDULE_CASE/success-21.json"
+expect_schedule 'a later successful run of the same scheduled workflow clears it' 0 ''
+
+new_case older-success
+run_json 500 21 schedule failure "$t_new" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
+run_json 499 21 schedule success "$t_old" "$old_sha" | page > "$SCHEDULE_CASE/success-21.json"
+expect_schedule 'an older success does not clear a newer scheduled failure' 0 \
+  $'21\tfailure\thttps://example.test/run-500\tNightly\tschedule\t\t'"$t_new"$'\t500\t1'
+
+new_case head-success
+run_json 600 21 workflow_dispatch success "$t_new" "$head_sha" | pages > "$SCHEDULE_CASE/head.json"
+run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
+expect_schedule 'a later success of the same workflow on the current head clears it' 0 ''
+
+new_case startup
+run_json 500 21 schedule startup_failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/startup_failure.json"
+expect_schedule 'a startup-failed scheduled run is red' 0 \
+  $'21\tstartup_failure\thttps://example.test/run-500\tNightly\tschedule\t\t'"$t_old"$'\t500\t1'
+
+new_case on-head
+run_json 500 21 schedule failure "$t_old" "$head_sha" | pages > "$SCHEDULE_CASE/head.json"
+run_json 500 21 schedule failure "$t_old" "$head_sha" | pages > "$SCHEDULE_CASE/failure.json"
+expect_schedule 'a scheduled failure seen by both reads is reported once' 0 \
+  $'21\tfailure\thttps://example.test/run-500\tNightly\tschedule\t\t'"$t_old"$'\t500\t1'
+
+new_case push-unchanged
+run_json 600 31 push failure "$t_old" "$old_sha" CI | pages > "$SCHEDULE_CASE/failure.json.unused"
+run_json 601 31 push success "$t_new" "$head_sha" CI | pages > "$SCHEDULE_CASE/head.json"
+expect_schedule 'a push failure on an older head keeps current-head semantics' 0 ''
+
+# Incomplete, mismatched or contradictory scheduled evidence makes health unknown.
+new_case capped
+run_json 500 21 schedule failure "$t_old" "$old_sha" | jq -cs '[{total_count: 1001, workflow_runs: .}]' > "$SCHEDULE_CASE/failure.json"
+expect_schedule 'a capped scheduled-failure read makes health unknown' 2 ''
+
+new_case pages-disagree
+{ run_json 500 21 schedule failure "$t_old" "$old_sha"; run_json 501 22 schedule failure "$t_old" "$old_sha"; } |
+  jq -cs '[{total_count: 2, workflow_runs: [.[0]]}, {total_count: 3, workflow_runs: [.[1]]}]' > "$SCHEDULE_CASE/failure.json"
+expect_schedule 'scheduled pages that disagree on total_count make health unknown' 2 ''
+
+for mutation in '.event="push"' '.head_branch="feature"' '.conclusion="success"' \
+  '.status="in_progress" | .conclusion=null' ".created_at=\"$t_ancient\"" '.id=0' 'del(.run_attempt)'; do
+  new_case mutation
+  run_json 500 21 schedule failure "$t_old" "$old_sha" | jq -c "$mutation" | pages > "$SCHEDULE_CASE/failure.json"
+  expect_schedule "a scheduled red run that is not what was asked for makes health unknown: $mutation" 2 ''
+done
+
+for mutation in '.workflow_runs[0].workflow_id=22' '.workflow_runs[0].event="push"' \
+  '.workflow_runs[0].conclusion="failure"' '.workflow_runs=[]' '.total_count=-1' '[.]'; do
+  new_case success-mutation
+  run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
+  run_json 501 21 schedule success "$t_new" "$old_sha" | page | jq -c "$mutation" > "$SCHEDULE_CASE/success-21.json"
+  expect_schedule "a newest-success page that does not answer the question makes health unknown: $mutation" 2 ''
+done
+
+new_case contradiction
+run_json 500 21 schedule success "$t_old" "$head_sha" | pages > "$SCHEDULE_CASE/head.json"
+run_json 500 21 schedule failure "$t_old" "$head_sha" | pages > "$SCHEDULE_CASE/failure.json"
+expect_schedule 'two reads that disagree about one run attempt make health unknown' 2 ''
+
+for conclusion in failure timed_out startup_failure; do
+  new_case producer
+  : > "$SCHEDULE_CASE/fail-$conclusion"
+  expect_schedule "a failed scheduled $conclusion read makes health unknown" 2 ''
+done
+
+# Evidence larger than one argument (Linux caps a single argument at 128 KiB) must reach jq
+# without argv, so a busy failing workflow cannot turn into unknown health.
+new_case large
+long_name=$(printf 'N%.0s' $(seq 1 900))
+for i in $(seq 1 1500); do
+  run_json $((1000 + i)) 21 schedule failure "$t_old" "$old_sha" "$long_name"
+done | pages > "$SCHEDULE_CASE/failure.json"
+run_schedule_case
+if [ "$schedule_status" -eq 0 ] && [ "$(printf '%s\n' "$schedule_out" | cut -f1,2,8)" = $'21\tfailure\t2500' ]; then
+  pass=$((pass + 1))
+else
+  record_failure 'more than an argument of scheduled evidence is still classified'
+  sed 's/^/      stderr: /' "$TEST_TMP/stderr" >&2
+fi
+
 if grep -Fq '../scripts/classify-default-branch-ci-runs.sh' "$SURVEYOR" &&
   grep -Fq 'Do not reimplement the helper' "$SURVEYOR" &&
   grep -Fq 'exit 2 means' "$SURVEYOR" &&
@@ -454,6 +627,7 @@ printf '%s\n' "$base_run" | jq -c \
 cat > "$stub_dir/gh" <<'STUB'
 #!/usr/bin/env bash
 [ "${GH_HOST:-}" = github.com ] && [ "${GH_TELEMETRY:-}" = 0 ] || exit 77
+case "$*" in *event=schedule*) printf '%s\n' '[{"total_count":0,"workflow_runs":[]}]'; exit 0 ;; esac
 cat "$STUB_CI_RESPONSE"
 STUB
 chmod +x "$stub_dir/gh"

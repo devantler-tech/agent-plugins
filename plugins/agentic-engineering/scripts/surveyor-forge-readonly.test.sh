@@ -239,6 +239,13 @@ mkdir -p "$TMP/forge-bin"
 cat >"$TMP/forge-bin/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+# The scheduled-run reads have their own fixed shapes and find nothing here.
+case "$*" in
+  'api --paginate --slurp --method GET repos/owner/repo/actions/runs -f branch=main -f event=schedule -f status='*' -f created=>='*' -F per_page=100')
+    printf '%s\n' '[{"total_count":0,"workflow_runs":[]}]'
+    exit 0
+    ;;
+esac
 [ "$*" = 'api --paginate --slurp --method GET repos/owner/repo/actions/runs -f head_sha=1111111111111111111111111111111111111111 -f branch=main -F per_page=100' ] || exit 1
 printf '%s\n' '{"total_count":1,"workflow_runs":[{"id":10,"run_attempt":1,"workflow_id":11,"event":"push","head_branch":"main","head_sha":"1111111111111111111111111111111111111111","conclusion":"failure","created_at":"2026-07-14T09:00:00Z","html_url":"https://example.test/fail","name":"CI"}]}'
 EOF

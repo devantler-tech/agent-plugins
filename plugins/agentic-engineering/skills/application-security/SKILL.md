@@ -14,8 +14,10 @@ those rules. They are decided when a change is designed and proved when it is te
 
 1. **The server decides access on every request.** A hidden button, a check in the browser or
    an identifier that is hard to guess is not access control.
-2. **The tenant comes from the verified session.** Never from the URL, a header, a query
-   parameter or the request body.
+2. **For a user's request, the tenant comes from the verified session.** Never from the URL,
+   a header, a query parameter or the request body. A background job carries the caller and
+   tenant it was queued with and re-checks access when it runs. A webhook is verified first,
+   and its tenant is looked up in your own records.
 3. **Deny by default.** A route, field or action that nobody allowed is refused. A check that
    cannot run refuses.
 4. **Every control has a test that fails without it.** A test that still passes after the check
@@ -64,7 +66,9 @@ They win over this skill wherever they are more specific.
    server makes on a user's behalf. See [edges](references/edges.md).
 5. **Prove it.** Two tenants in every test run. For each route: the owner succeeds; the other
    tenant is refused and learns nothing; a write by the other tenant leaves the record
-   unchanged; a lower role is refused; and a caller without a session is refused. Remove
+   unchanged; a lower role is refused; and a caller without a session is refused. A route
+   that is public on purpose (a webhook receiver, a public form) is on a short reviewed
+   list instead, and is tested for its own control: the signature, the limit. Remove
    the control once and watch the test fail. See
    [isolation tests](references/isolation-tests.md).
 6. **Record it in the pull request.** The threats you considered, the control for each, the

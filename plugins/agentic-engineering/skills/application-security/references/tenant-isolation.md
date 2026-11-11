@@ -14,6 +14,9 @@ server-side; every later step reads it from there.
   refuse on a mismatch. Never use it to select data.
 - A user in several tenants picks one, and the server checks the membership before storing the
   choice. Switching tenant is a server-side change with a log line.
+- When a membership ends, access ends with it. Check the membership on each request, or end
+  that person's sessions for the tenant when it is removed. A tenant stored at sign-in and
+  never looked at again outlives the membership.
 - Background work has no session. Carry the tenant in the job itself and set it explicitly
   when the job starts.
 
@@ -65,8 +68,10 @@ What that test run showed, and what to hold on to:
 - **It is not a wall against the application itself.** The application's role can set the
   value to any tenant. So this catches a forgotten filter; it does not contain someone who can
   run SQL as that role, for example through an injection flaw. If the product needs that
-  boundary, give each tenant its own database role, schema or database, and say so in the
-  threat model.
+  boundary, each tenant needs its own database role that the application connects as for
+  that tenant, with rights on that tenant's schema or database only and no way to become
+  another tenant's role. A separate schema that one shared role can read is not a boundary.
+  Say which you chose in the threat model.
 
 Row-level security is added to the filters in the data layer, not instead of them. Migrations,
 reports and maintenance jobs often run as a privileged role that skips the policies: give them

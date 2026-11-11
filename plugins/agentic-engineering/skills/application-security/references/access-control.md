@@ -37,8 +37,11 @@ Rules that keep them right:
   layer that takes the caller on every call cannot be.
 - **Accept fields by name.** List the fields a caller may set; ignore or refuse the rest. List
   the fields a response returns; do not serialise the stored record.
-- **Decide from stored facts.** The record's owner and the caller's role come from the
-  database and the session, never from the request.
+- **Decide from current stored facts.** The record's owner and the caller's role come from
+  the database and the session, never from the request. A role or membership kept in a
+  session goes stale: when someone is demoted or removed, either read the current role on
+  each request or end every session that person has. Changing one session's identifier
+  does not update the others.
 - **Give one answer for "missing" and "not yours"** when the identifier is not public, so
   identifiers cannot be probed. Pick "not found" or "forbidden" and use it for both.
 - **Re-check in background work.** A job or message handler acts with the rights of whoever

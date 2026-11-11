@@ -12,7 +12,7 @@ every route, action and job that touches tenant data:
 |---|---|
 | The owner uses their own record | Success. This is the positive control: without it, a route that is simply broken passes every other case |
 | The other tenant uses the same identifier | Refused, with the same answer as for a missing record, and nothing of the owner's in the body |
-| No session, or a session the server does not know | Refused |
+| No session, or a session the server does not know | Refused, on every route that needs a session. A route that is public on purpose is tested for its own control instead |
 | The other tenant lists, searches, counts or exports | Only their own records, and counts that do not include the owner's |
 | The other tenant writes: update, delete, attach, move | Refused, **and the owner's record is unchanged afterwards**. Read it back as the owner |
 | A request body names another tenant, owner or role | The field is ignored or refused; the stored record keeps its tenant |
@@ -48,11 +48,13 @@ Rules that keep the tests honest:
 ## Go
 
 A session check, a route table in which every route names its role or is marked public, a
-data layer that cannot be called without the tenant, and the tests. Checked with Go 1.27 (the
-route patterns need Go 1.22 or later). Each of these makes a test fail: looking an invoice up
-by identifier alone in `MemoryStore.Get` or `MemoryStore.Delete`, making `allowed` return
-true, adding a route without cases, marking a route public without adding it to the reviewed
-list, and a delete that answers success without deleting.
+data layer that cannot be called without the tenant, and the tests. Checked with Go 1.27. The
+module must declare `go 1.22` or later: the route patterns and the range over an integer
+need it. Each of these makes a test fail: looking an invoice up by identifier alone in
+`MemoryStore.Get` or `MemoryStore.Delete`, making `allowed` return true, adding a route
+without its kinds of case, dropping a route's role case, marking a route public without
+adding it to the reviewed list, a delete that answers success without deleting, and a
+refused delete that alters the record.
 
 ```go
 package invoices
@@ -127,7 +129,8 @@ type Caller struct {
 }
 
 // Sessions resolves a session cookie to a caller. A product verifies the
-// session with its identity provider or its session store here.
+// session here and reads the caller's current tenant membership and role, so a
+// removed member or a demoted admin loses access on the next request.
 type Sessions interface {
 	Caller(sessionID string) (Caller, bool)
 }
@@ -174,23 +177,28 @@ func allowed(caller Caller, needed string) bool {
 func Handler(store Store, sessions Sessions) http.Handler {
 	mux := http.NewServeMux()
 	for _, route := range Routes {
-		if route.Role == "public" {
-			mux.HandleFunc(route.Pattern, func(w http.ResponseWriter, r *http.Request) {
-				route.Handle(store, Caller{}, w, r)
-			})
-			continue
-		}
-		mux.Handle(route.Pattern, Authenticate(sessions, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// A check that cannot run refuses: no caller, no access.
-			caller, ok := r.Context().Value(callerKey{}).(Caller)
-			if !ok || !allowed(caller, route.Role) {
-				http.Error(w, "forbidden", http.StatusForbidden)
-				return
-			}
-			route.Handle(store, caller, w, r)
-		})))
+		mux.Handle(route.Pattern, serve(store, sessions, route))
 	}
 	return mux
+}
+
+// serve builds the handler for one route. A public route has its own control
+// (a signature check, a request limit) instead of a session.
+func serve(store Store, sessions Sessions, route Route) http.Handler {
+	if route.Role == "public" {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			route.Handle(store, Caller{}, w, r)
+		})
+	}
+	return Authenticate(sessions, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A check that cannot run refuses: no caller, no access.
+		caller, ok := r.Context().Value(callerKey{}).(Caller)
+		if !ok || !allowed(caller, route.Role) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		route.Handle(store, caller, w, r)
+	}))
 }
 
 func health(_ Store, _ Caller, w http.ResponseWriter, _ *http.Request) {
@@ -234,6 +242,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -249,12 +258,10 @@ var testSessions = sessions{
 	"b-admin":  {TenantID: "tenant-b", Role: "admin"},
 }
 
-func newStore() *MemoryStore {
-	return NewMemoryStore(
-		Invoice{ID: "inv-a", TenantID: "tenant-a", Total: 100},
-		Invoice{ID: "inv-b", TenantID: "tenant-b", Total: 200},
-	)
-}
+var (
+	invoiceA = Invoice{ID: "inv-a", TenantID: "tenant-a", Total: 100}
+	invoiceB = Invoice{ID: "inv-b", TenantID: "tenant-b", Total: 200}
+)
 
 // call goes through the real handler: session cookie, middleware, routing.
 func call(handler http.Handler, session, method, path string) *httptest.ResponseRecorder {
@@ -268,6 +275,7 @@ func call(handler http.Handler, session, method, path string) *httptest.Response
 }
 
 type isolationCase struct {
+	kind       string // "owner", "foreign", "anonymous" or "role"
 	name       string
 	session    string
 	path       string
@@ -276,21 +284,21 @@ type isolationCase struct {
 	notInBody  string
 }
 
-// One entry per route in the route table. TestEveryRouteHasIsolationCases
-// fails when a route is added without one.
+// One entry per route in the route table. TestEveryRouteHasItsIsolationCases
+// fails when a route is added without the kinds of case it needs.
 var isolationCases = map[string][]isolationCase{
 	"GET /invoices/{id}": {
 		// The positive control: without it, a route that is simply broken passes.
-		{"owner reads own invoice", "a-member", "/invoices/inv-a", http.StatusOK, `"inv-a"`, ""},
-		{"other tenant is refused", "b-admin", "/invoices/inv-a", http.StatusNotFound, "", "inv-a"},
-		{"no session is refused", "", "/invoices/inv-a", http.StatusUnauthorized, "", "inv-a"},
-		{"unknown session is refused", "forged", "/invoices/inv-a", http.StatusUnauthorized, "", "inv-a"},
+		{"owner", "owner reads own invoice", "a-member", "/invoices/inv-a", http.StatusOK, `"inv-a"`, ""},
+		{"foreign", "other tenant is refused", "b-admin", "/invoices/inv-a", http.StatusNotFound, "", "inv-a"},
+		{"anonymous", "no session is refused", "", "/invoices/inv-a", http.StatusUnauthorized, "", "inv-a"},
+		{"anonymous", "unknown session is refused", "forged", "/invoices/inv-a", http.StatusUnauthorized, "", "inv-a"},
 	},
 	"DELETE /invoices/{id}": {
-		{"other tenant cannot delete", "b-admin", "/invoices/inv-a", http.StatusNotFound, "", ""},
-		{"lower role cannot delete", "a-member", "/invoices/inv-a", http.StatusForbidden, "", ""},
-		{"no session cannot delete", "", "/invoices/inv-a", http.StatusUnauthorized, "", ""},
-		{"owner admin deletes own invoice", "a-admin", "/invoices/inv-a", http.StatusNoContent, "", ""},
+		{"foreign", "other tenant cannot delete", "b-admin", "/invoices/inv-a", http.StatusNotFound, "", "inv-a"},
+		{"role", "lower role cannot delete", "a-member", "/invoices/inv-a", http.StatusForbidden, "", ""},
+		{"anonymous", "no session cannot delete", "", "/invoices/inv-a", http.StatusUnauthorized, "", ""},
+		{"owner", "owner admin deletes own invoice", "a-admin", "/invoices/inv-a", http.StatusNoContent, "", ""},
 	},
 }
 
@@ -299,7 +307,7 @@ func TestTenantIsolation(t *testing.T) {
 		method, _, _ := strings.Cut(pattern, " ")
 		for _, tc := range cases {
 			t.Run(pattern+"/"+tc.name, func(t *testing.T) {
-				store := newStore()
+				store := NewMemoryStore(invoiceA, invoiceB)
 				response := call(Handler(store, testSessions), tc.session, method, tc.path)
 				body := response.Body.String()
 				if response.Code != tc.wantStatus {
@@ -311,48 +319,70 @@ func TestTenantIsolation(t *testing.T) {
 				if tc.notInBody != "" && strings.Contains(body, tc.notInBody) {
 					t.Errorf("body %q leaks %q", body, tc.notInBody)
 				}
-				if method != http.MethodDelete {
-					return
+				// Read back. Only an allowed delete may change anything, and it
+				// removes exactly the owner's invoice.
+				own, ownErr := store.Get(context.Background(), "tenant-a", "inv-a")
+				other, otherErr := store.Get(context.Background(), "tenant-b", "inv-b")
+				if method == http.MethodDelete && tc.wantStatus == http.StatusNoContent {
+					if !errors.Is(ownErr, ErrNotFound) {
+						t.Errorf("the deleted invoice is still there: %+v, %v", own, ownErr)
+					}
+				} else if ownErr != nil || own != invoiceA {
+					t.Errorf("the owner's invoice changed: %+v, %v", own, ownErr)
 				}
-				// Read back: a refused delete leaves the owner's invoice, an allowed
-				// one removes exactly that invoice and nothing of the other tenant's.
-				_, ownErr := store.Get(context.Background(), "tenant-a", "inv-a")
-				_, otherErr := store.Get(context.Background(), "tenant-b", "inv-b")
-				deleted := tc.wantStatus == http.StatusNoContent
-				if deleted != errors.Is(ownErr, ErrNotFound) {
-					t.Errorf("after status %d the owner's invoice lookup gives %v", tc.wantStatus, ownErr)
-				}
-				if otherErr != nil {
-					t.Errorf("the other tenant's invoice is gone: %v", otherErr)
+				if otherErr != nil || other != invoiceB {
+					t.Errorf("the other tenant's invoice changed: %+v, %v", other, otherErr)
 				}
 			})
 		}
 	}
 }
 
+// A record that belongs to someone else and a record that does not exist get
+// the same answer, for reads and for writes.
 func TestMissingAndForeignInvoicesAnswerAlike(t *testing.T) {
-	handler := Handler(newStore(), testSessions)
-	foreign := call(handler, "b-admin", http.MethodGet, "/invoices/inv-a")
-	missing := call(handler, "b-admin", http.MethodGet, "/invoices/no-such-invoice")
-	if foreign.Code != missing.Code || foreign.Body.String() != missing.Body.String() {
-		t.Fatalf("a foreign invoice answers %d %q, a missing one %d %q",
-			foreign.Code, foreign.Body.String(), missing.Code, missing.Body.String())
+	for _, method := range []string{http.MethodGet, http.MethodDelete} {
+		handler := Handler(NewMemoryStore(invoiceA, invoiceB), testSessions)
+		foreign := call(handler, "b-admin", method, "/invoices/inv-a")
+		missing := call(handler, "b-admin", method, "/invoices/no-such-invoice")
+		if foreign.Code != missing.Code || foreign.Body.String() != missing.Body.String() {
+			t.Errorf("%s: a foreign invoice answers %d %q, a missing one %d %q", method,
+				foreign.Code, foreign.Body.String(), missing.Code, missing.Body.String())
+		}
 	}
 }
 
 // The reviewed list of routes that need no session. Adding one is a decision.
 var publicRoutes = map[string]bool{"GET /healthz": true}
 
-func TestEveryRouteHasIsolationCases(t *testing.T) {
+func TestEveryRouteHasItsIsolationCases(t *testing.T) {
 	for _, route := range Routes {
-		switch {
-		case route.Role == "public":
+		if route.Role == "public" {
 			if !publicRoutes[route.Pattern] {
 				t.Errorf("route %q is public but not on the reviewed list", route.Pattern)
 			}
-		case len(isolationCases[route.Pattern]) == 0:
-			t.Errorf("route %q has no isolation cases", route.Pattern)
+			continue
 		}
+		needed := []string{"owner", "foreign", "anonymous"}
+		if route.Role != "member" {
+			needed = append(needed, "role")
+		}
+		var have []string
+		for _, tc := range isolationCases[route.Pattern] {
+			have = append(have, tc.kind)
+		}
+		for _, kind := range needed {
+			if !slices.Contains(have, kind) {
+				t.Errorf("route %q has no %q case", route.Pattern, kind)
+			}
+		}
+	}
+}
+
+func TestPublicRouteNeedsNoSession(t *testing.T) {
+	response := call(Handler(NewMemoryStore(), testSessions), "", http.MethodGet, "/healthz")
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", response.Code)
 	}
 }
 ```

@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.6.8 — 2026-11-12
+
+**Changed** — sync `code-review` from `https://github.com/coderabbitai/skills` at `refs/tags/v1.2.2`.
+
 ## 7.6.7 — 2026-11-12
 
 **Changed** — sync `autofix` from `https://github.com/coderabbitai/skills` at `refs/tags/v1.2.2`.

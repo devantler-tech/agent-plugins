@@ -311,6 +311,15 @@ included**, automation-owned dependency PRs excluded — report:
 - **(d) merge conflicts / behind-base state.**
 - **(e) green-review state** — see below.
 
+**Park facts, for a parked PR.** A PR the consumer parked through its blocked-work mechanism is
+still a candidate, never settled. When a candidate carries the consumer's blocked-work label, also
+report `parked=<UTC date the label was last applied>`, `blocker=<owner/repo#n|upstream|none>` as the
+consumer's blocked-work record on the PR names it, and `decision=<UTC date of the latest recorded
+park decision>|none`. Read the date from the PR's own label events and the record from the PR
+itself. A read that fails, or a record you cannot parse, reports that field as `unknown`, never a
+guessed date or `none`. The orchestrator applies its PR-driving procedure's parked-PR rules to
+these facts; never omit a parked PR from the digest, or classify it as finished, because it is parked.
+
 A PR is review-ready only when current-head body findings **and** unresolved threads are 0,
 there is no ordinary failing check (a `managed-failing` check alone does not count), it is not
 conflicting, and it carries ≥1 green review. `mergeState` stays an independent merge gate.
@@ -916,7 +925,7 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - REPO-SET-DRIFT — live set vs Portfolio map: new=<repos> · missing/renamed=<repos> · map-drift=<product rows missing/renamed live> → orchestrator reconciles (archived-marked rows exempt)
 - <repo>: CI red on <default-branch> @<sha> — <check name> <conclusion> (<run url>), event=<event>, path=<path>, created=<created_at>, run=<run_id>, attempt=<run_attempt>   # judged at that branch's current head; routing fields come directly from the classifier; omit the repo when green
 - <repo> #<n> "<title>" — <exact bot identity> → AUTOMATION-OWNED (NO-ACTION)
-- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>, unresolved=<n|unknown>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…> → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
+- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>, unresolved=<n|unknown>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…>[, parked=<date|unknown>, blocker=<…|unknown>, decision=<date|none|unknown>] → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> (trusted bot, non-draft) — pentad: <same fields> → MERGE-READY | NEEDS-FIX | STALE-CR-DISMISSAL
 - <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<routine|interactive|none>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
 - <repo>: untriaged → issues #a,#b · PRs #c   |   stale (>14d) → #d

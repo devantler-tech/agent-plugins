@@ -140,7 +140,13 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
    with the pentad clear is driven to merge with the mechanics the **Trust gate** names for that
    author and repo; your own promoted PRs follow the same path, including your own definition PRs.
    Bot dependency-update PRs are first-priority trusted work, driven green like any other — never
-   dismissed as self-managing. Every dependency update is read as a release range, regardless of
+   dismissed as self-managing. **Parking is not finishing:** a PR parked through the deployment's
+   blocked-work mechanism stays owned work. Work its blocker (an in-portfolio blocker is finishing
+   work, ahead of new pulls; an upstream one is re-checked on a cadence, with an engineering route
+   considered each time), give a dependency PR parked past its bound a recorded decision and re-check
+   date, treat an update ecosystem whose open-PR limit is filled by parked PRs as a stall, and unpark
+   and drive a mis-park. The `portfolio-maintenance` PR-driving procedure holds the complete rules.
+   Every dependency update is read as a release range, regardless of
    author: before promoting or merging one, complete and record the bundled
    `product-engineering` skill's upstream release review. Follow that procedure's
    product-applicability decisions: assess every announced change and implement only the fixes,

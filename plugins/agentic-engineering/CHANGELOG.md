@@ -12,9 +12,21 @@ without one. The README covers its scopes and what to deny.
 `refs/heads/main`, tree `9aac97fef5c13d43f1c92b2b76f7182f8d75b48f` (MIT, Numina Technologies). It
 drafts each Stripe payout in Numina on the bank line it landed on, split into sales per VAT group,
 refunds and fees, and leaves booking to a person. Numina's other skills were deliberately not
-taken: Gmail receipts, Pleo, Google Sheets and the migrations. Two details are unverified until
-first live use: the skill checks for the `write:draft` scope, and it passes `bank_transaction_id`
-and `currency` to `create_draft`. Either fails loudly if wrong (#698).
+taken: Gmail receipts, Pleo, Google Sheets and the migrations.
+
+It is **adopted with known defects** (#698), all reported upstream. Check its drafts before booking
+them:
+
+- It checks for the legacy `write:draft` scope, so a connection granted only `journal:write` is
+  told to reconnect ([Numina-Technologies/mcp#13](https://github.com/Numina-Technologies/mcp/issues/13)).
+- Two unmatched payouts of the same amount can be drafted against the wrong bank line (#13).
+- For a manual payout it cannot tell which balance transactions belong to it (#13).
+- Read literally, it puts Danish output VAT on EU business and non-EU sales too (#13).
+- Revenue already invoiced in Numina is booked a second time, and customer country and VAT number
+  must be read from the charge, not the balance transaction
+  ([Numina-Technologies/mcp#4](https://github.com/Numina-Technologies/mcp/issues/4)).
+- Its setup link points at an anchor this plugin's README does not have; the Numina setup is under
+  *Bundled MCP servers*.
 
 ## 7.6.8 — 2026-11-12
 

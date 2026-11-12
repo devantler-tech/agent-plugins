@@ -181,7 +181,11 @@ GitHub's update-branch API with the observed head as its concurrency guard. It v
 result contains both the old head and current base, preserves auto-merge settings, and observes a
 fresh PR workflow event. An updated head requires a new current-head review before merge;
 existing commits are retained. Current non-Dependabot branches use the reopen route to ensure
-App-created drafts receive their required PR CI event.
+App-created drafts receive their required PR CI event. A branch that conflicts with the base is
+reported and skipped, not counted as a failure: GitHub will not merge it, and the push that
+resolves the conflict starts a fresh PR run against the current gates. Only GitHub's settled
+verdict (`mergeable: false`, `dirty`) for the head the update tried counts; an unknown verdict or a
+moved head is still a failure.
 
 **Forks** use close and immediate reopen, which preserves their head and current-head review.
 Every reopen requires a newer PR event and a matching OPEN readback of head, base, author and

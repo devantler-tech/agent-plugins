@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.6.7 — 2026-11-12
+
+**Changed** — sync `autofix` from `https://github.com/coderabbitai/skills` at `refs/tags/v1.2.2`.
+
 ## 7.6.6 — 2026-11-12
 
 **Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.

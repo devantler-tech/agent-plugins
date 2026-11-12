@@ -8,6 +8,14 @@ drafts, bank matches, contacts, products and receipt uploads. It never books: a 
 draft in Numina. It needs a Numina sign-in through OAuth, and the other servers keep working
 without one. The README covers its scopes and what to deny.
 
+**Added** — the `numina-stripe` skill from `https://github.com/Numina-Technologies/mcp` at
+`refs/heads/main`, tree `9aac97fef5c13d43f1c92b2b76f7182f8d75b48f` (MIT, Numina Technologies). It
+drafts each Stripe payout in Numina on the bank line it landed on, split into sales per VAT group,
+refunds and fees, and leaves booking to a person. Numina's other skills were deliberately not
+taken: Gmail receipts, Pleo, Google Sheets and the migrations. Two details are unverified until
+first live use: the skill checks for the `write:draft` scope, and it passes `bank_transaction_id`
+and `currency` to `create_draft`. Either fails loudly if wrong (#698).
+
 ## 7.6.8 — 2026-11-12
 
 **Changed** — sync `code-review` from `https://github.com/coderabbitai/skills` at `refs/tags/v1.2.2`.

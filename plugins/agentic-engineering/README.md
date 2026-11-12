@@ -122,6 +122,7 @@ are maintained here.
 | Frontend (SvelteKit) | `svelte-core-bestpractices`, `frontend-design`, `web-design-guidelines` |
 | Observability (Prometheus) | `promql` (writing and checking PromQL), `prometheus` (alert and recording rules, Alertmanager routing) |
 | Payments (Stripe) | `stripe-best-practices`, `stripe-docs`, `upgrade-stripe` |
+| Bookkeeping (Numina) | `numina-stripe` (Stripe payouts as Numina drafts on their bank lines, split into sales per VAT group, refunds and fees, through the `numina` and `stripe` servers) |
 | Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme`, `architecture`, `debug`, `deploy-checklist`, `documentation`, `incident-response`, `standup`, `system-design`, `tech-debt`, `testing-strategy` |
 | Design | `accessibility-review`, `design-critique`, `design-handoff`, `design-system`, `research-synthesis`, `user-research`, `ux-copy` |
 | Product management | `competitive-brief`, `metrics-review`, `product-brainstorming`, `roadmap-update`, `sprint-planning`, `stakeholder-update`, `synthesize-research`, `write-spec` |

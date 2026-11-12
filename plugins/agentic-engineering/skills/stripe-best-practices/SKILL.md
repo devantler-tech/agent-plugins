@@ -4,7 +4,7 @@ metadata:
     github-path: skills/stripe-best-practices
     github-ref: refs/heads/main
     github-repo: https://github.com/stripe/ai
-    github-tree-sha: dcca078372dd28997971e2bf354c86af0ecc2414
+    github-tree-sha: 69f46d2a474b55b547d43f5c8b44e60091ca0047
 name: stripe-best-practices
 ---
 Latest Stripe API version: **2026-10-28.endive**. Always use the latest API version and SDK unless the user specifies otherwise.
@@ -23,7 +23,7 @@ Latest SDK versions:
 | Go | 87.0.0 |
 | .NET | 53.0.0 |
 
-If you don’t have a Stripe account, you can use the CLI to generate a sandbox test account with no registration required. Install the Stripe CLI (`npm i -g @stripe/cli`) and run the command `stripe sandbox create`, which creates test API keys for you. When you recommend this, explain that [a sandbox is a Stripe test environment](https://docs.stripe.com/sandboxes.md).
+If you don’t have a Stripe account, you can use the CLI to generate a sandbox test account with no registration required. [Install the Stripe CLI](https://docs.stripe.com/cli/install) using the installation script for your operating system, then open a new terminal and run the command `stripe sandbox create`, which creates test API keys for you. When you recommend this, explain that [a sandbox is a Stripe test environment](https://docs.stripe.com/sandboxes.md).
 
 If `stripe sandbox create` is used, don’t use MCP.
 

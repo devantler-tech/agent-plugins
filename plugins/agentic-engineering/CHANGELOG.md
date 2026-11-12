@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.6.5 — 2026-11-12
+
+**Changed** — sync `stripe-best-practices` from `https://github.com/stripe/ai` at `refs/heads/main`.
+
 ## 7.6.4 — 2026-11-11
 
 **Changed** — `write-readme` now says what the README of something people call (an action, a

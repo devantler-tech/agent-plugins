@@ -47,6 +47,7 @@ package name, a version, or code. Each service handles it under its own privacy 
 | `cloudflare-docs` | Cloudflare |
 | `context7` | Upstash |
 | `github`, `github-ghas-tools` | GitHub |
+| `numina` | Numina Technologies, once you sign in to it |
 | `siderolabs-docs` | Sidero Labs |
 | `stripe` | Stripe, once you sign in to it |
 | `svelte` | The Svelte maintainers |

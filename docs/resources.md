@@ -33,7 +33,7 @@ armed, or with a schedule pointing at an entrypoint that no longer resolves. The
 ## MCP servers
 
 A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as skills. The
-[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles twelve, authored once in its
+[`agentic-engineering`](../plugins/agentic-engineering/) plugin bundles thirteen, authored once in its
 [`.mcp.json`](../plugins/agentic-engineering/.mcp.json) (`mcpServers` map), and the
 [`ksail`](../plugins/ksail/) plugin bundles the KSail server, which needs `ksail` on `PATH`:
 
@@ -47,6 +47,7 @@ A plugin may bundle [MCP](https://modelcontextprotocol.io) servers as well as sk
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in; see below |
 | `github-ghas-tools` | GitHub's security tools, read-only (`X-MCP-Readonly`): alerts, advisories and dependency vulnerability lookups | A GitHub sign-in; see below |
 | `kubescape` | A live cluster's Kubescape results, read-only (`kubescape mcpserver`): vulnerabilities, configuration scans, SBOMs and exposure checks | The `kubescape` CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` (default `~/.kube/config`) |
+| `numina` | Numina's hosted server at `https://api.numina.app/mcp` for a Danish company's books: ledger, bank-line, invoice, contact and document reads, and draft, bank-match, contact, product and receipt writes; it never books | A Numina sign-in through OAuth |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server at `https://mcp.stripe.com`: Stripe documentation, reads and writes on your Stripe account, analytics and money movement | A Stripe sign-in through OAuth |
 | `svelte` | The Svelte team's hosted server at `https://mcp.svelte.dev/mcp`: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
@@ -58,8 +59,9 @@ starts, and `terraform-registry` runs locally but queries the public Terraform R
 other server is hosted by a third party, so every call to one, including a documentation search,
 reaches that service. If your agents must not contact a third party, disable its server in your
 tool's MCP settings; denying single tools does not stop the connection. Among
-the servers you keep, `github` and `stripe` can change things: `github` writes to GitHub as the
-signed-in account, and `stripe` writes to your Stripe account and can move money. With a Viewer
+the servers you keep, `github`, `numina` and `stripe` can change things: `github` writes to GitHub
+as the signed-in account, `numina` writes drafts and bank matches that a person books in Numina,
+and `stripe` writes to your Stripe account and can move money. With a Viewer
 key, `coroot`'s Enterprise Edition `investigate_anomaly` can save its analysis onto an incident.
 The `siderolabs-docs` `submit_feedback` and `stripe` `send_stripe_feedback` tools send reports to
 Sidero Labs and Stripe. The Svelte autofixer and playground tools send the code they are given to Svelte's

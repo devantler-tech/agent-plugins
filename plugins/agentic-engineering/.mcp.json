@@ -47,6 +47,10 @@
         "${CLAUDE_PLUGIN_ROOT}/scripts/kubescape-mcp.sh"
       ]
     },
+    "numina": {
+      "type": "http",
+      "url": "https://api.numina.app/mcp"
+    },
     "siderolabs-docs": {
       "type": "http",
       "url": "https://docs.siderolabs.com/mcp"

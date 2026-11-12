@@ -1,5 +1,13 @@
 # Changelog — `agentic-engineering`
 
+## 7.7.0 — 2026-11-13
+
+**Added** — the `numina` MCP server, Numina's hosted server at `https://api.numina.app/mcp`. It
+lets agents read a Danish company's books in Numina, a registered bookkeeping system, and write
+drafts, bank matches, contacts, products and receipt uploads. It never books: a person books every
+draft in Numina. It needs a Numina sign-in through OAuth, and the other servers keep working
+without one. The README covers its scopes and what to deny.
+
 ## 7.6.8 — 2026-11-12
 
 **Changed** — sync `code-review` from `https://github.com/coderabbitai/skills` at `refs/tags/v1.2.2`.

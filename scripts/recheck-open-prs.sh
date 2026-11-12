@@ -346,7 +346,7 @@ rearm() {
 # success evidence: read back the new head, verify both ancestors, then observe its PR event.
 # Return 3 only for a current non-Dependabot branch that needs the existing reopen route.
 refresh_same_repository() {
-  local n=$1 before=$2 old_head old_base relation current new_head new_base base_path final_base waited=0
+  local n=$1 before=$2 old_head old_base relation current new_head new_base base_path final_base conflict waited=0
   old_head=$(printf '%s' "$before" | jq -r '.headRefOid')
   # A PR's associated base OID is not proof of the current named branch tip.
   base_path=$(printf '%s' "$base" | jq -sRr @uri)
@@ -390,6 +390,17 @@ refresh_same_repository() {
     *) echo "::error::#$n base ancestry is unknown; left untouched"; return 1 ;;
   esac
   if ! gh api --method PUT "repos/$repo/pulls/$n/update-branch" -f expected_head_sha="$old_head" > /dev/null; then
+    # A branch that conflicts with the base cannot be updated, and it cannot merge either:
+    # GitHub refuses to merge a conflicting pull request, and the push that resolves the
+    # conflict is a new head whose own `pull_request` event runs every current gate. Its stale
+    # green therefore cannot reach the base, so it is reported, not counted as a failure. Only
+    # GitHub's settled verdict about the head this run tried counts: an unknown, still
+    # computing or moved head stays a failure.
+    if conflict=$(gh api "repos/$repo/pulls/$n" --jq '[.head.sha, (.mergeable|tostring), .mergeable_state] | @tsv') \
+      && [ "$conflict" = "$old_head"$'\tfalse\tdirty' ]; then
+      echo "  skipped #$n — it conflicts with $base, so it cannot merge until a push resolves that, and that push re-runs every required check"
+      return 4
+    fi
     echo "::error::#$n head-checked base update failed; no close or recreation attempted"
     return 1
   fi
@@ -486,6 +497,7 @@ echo "recheck-open-prs: re-triggering required checks on $count open PR(s) targe
 
 failed=0
 done_count=0
+conflicted=0
 
 while IFS=$'\t' read -r number title; do
   [ -n "$number" ] || continue
@@ -548,6 +560,9 @@ while IFS=$'\t' read -r number title; do
     refresh_status=$?
     if [ "$refresh_status" -eq 0 ]; then
       done_count=$((done_count + 1))
+      continue
+    elif [ "$refresh_status" -eq 4 ]; then
+      conflicted=$((conflicted + 1))
       continue
     elif [ "$refresh_status" -ne 3 ]; then
       failed=$((failed + 1))
@@ -633,6 +648,9 @@ while IFS=$'\t' read -r number title; do
 done < <(printf '%s\n' "$prs")
 
 echo "recheck-open-prs: $done_count of $count current-base refreshes completed"
+if [ "$conflicted" -gt 0 ]; then
+  echo "::notice::$conflicted pull request(s) conflict with $base and were not refreshed; they cannot merge until a push resolves the conflict, which re-runs their checks"
+fi
 if [ "$failed" -gt 0 ]; then
   echo "::error::$failed pull request(s) could not be re-triggered; their required checks are still the pre-gate result"
   exit 1

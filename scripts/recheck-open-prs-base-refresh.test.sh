@@ -67,9 +67,19 @@ if [[ "$*" == *'/compare/'* ]]; then
 fi
 if [[ "$*" == *'/update-branch'* ]]; then
   [[ "$*" == *'--method PUT'* && "$*" == *"expected_head_sha=$HEAD"* ]] || exit 3
-  [[ "$MODE" != update-fails ]] || exit 1
+  [[ "$MODE" != update-fails && "$MODE" != conflict* ]] || { [[ "$MODE" != conflict* ]] || echo "gh: merge conflict between base and head (HTTP 422)" >&2; exit 1; }
   [[ "$MODE" != unchanged ]] || exit
   printf '%s' "$UPDATED" > "$FIXTURE/current"
+  exit
+fi
+if [[ "$*" == *'repos/owner/name/pulls/11 '* ]]; then
+  case "$MODE" in
+    conflict) printf '%s\tfalse\tdirty\n' "$HEAD" ;;
+    conflict-computing) printf '%s\tnull\tunknown\n' "$HEAD" ;;
+    conflict-moved) printf '%s\tfalse\tdirty\n' "$LATER" ;;
+    conflict-read-fails) exit 1 ;;
+    *) printf '%s\ttrue\tbehind\n' "$HEAD" ;;
+  esac
   exit
 fi
 if [[ "$*" == *'api --paginate'* ]]; then
@@ -157,6 +167,31 @@ run_case wrong-pr 1
 run_case retargeted 1
 run_case late-movement 1
 run_case late-base 1
+# A conflicting branch cannot merge, and the push that resolves it re-runs every check, so only
+# GitHub's settled conflict verdict for the head this run tried is reported rather than failed.
+for mode in conflict conflict-computing conflict-moved conflict-read-fails; do
+  export MODE="$mode"
+  rm -f "$work/current" "$work/later-base"
+  : > "$work/calls"
+  rc=0
+  PATH="$work/bin:$PATH" RECHECK_CHECK_WAIT_SECONDS=1 RECHECK_CHECK_POLL_SECONDS=1 \
+    bash "$here/recheck-open-prs.sh" --repo owner/name > "$work/output" 2>&1 || rc=$?
+  expected=1
+  [ "$mode" != conflict ] || expected=0
+  if [ "$rc" -ne "$expected" ] || grep -Eq '^pr (close|reopen|merge)' "$work/calls" \
+    || grep -q '/actions/workflows/ci.yaml/runs' "$work/calls"; then
+    cat "$work/output"; echo "FAIL $mode: exit $rc"; exit 1
+  fi
+  if [ "$mode" = conflict ]; then
+    grep -q '^  skipped #11 — it conflicts with main' "$work/output"
+    grep -q '::notice::1 pull request(s) conflict with main' "$work/output"
+    ! grep -q '::error::' "$work/output" || { cat "$work/output"; echo 'FAIL conflict: reported an error'; exit 1; }
+  else
+    grep -q '::error::#11 head-checked base update failed' "$work/output"
+    ! grep -q 'skipped #11' "$work/output" || { echo "FAIL $mode: skipped without a settled conflict"; exit 1; }
+  fi
+  echo "PASS same-repository $mode"
+done
 # A current Dependabot branch stays open, but its observed run certifies only that exact head/base.
 export HEAD="$updated"
 for mode in normal no-check late-movement late-base; do

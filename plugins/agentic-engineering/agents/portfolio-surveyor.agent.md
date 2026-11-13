@@ -313,9 +313,10 @@ included**, automation-owned dependency PRs excluded — report:
 
 **A parked PR is still a candidate.** A PR the consumer parked through its blocked-work mechanism
 stays in this section and in the digest with its pentad, like any other PR. Never omit it, or
-report it as finished, because it is parked. The consumer's own park mechanism supplies its park
-facts, and the orchestrator's PR-driving procedure decides what they require, including that a
-parked PR is never merged while it is parked.
+report it as finished, because it is parked. Its classification, `MERGE-READY` included, covers
+the pentad only. The consumer's own park mechanism supplies its park facts, and the orchestrator's
+PR-driving procedure decides what they require, including that a parked PR is never merged while
+it is parked.
 
 A PR is review-ready only when current-head body findings **and** unresolved threads are 0,
 there is no ordinary failing check (a `managed-failing` check alone does not count), it is not

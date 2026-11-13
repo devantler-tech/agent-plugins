@@ -16,8 +16,11 @@ maintainer-ask is only for a genuine question of direction, with the default the
 and the work continues meanwhile. An update ecosystem at or near its open-PR limit with any PR parked
 is a stall, and a PR that does not depend on its named blocker is unparked and driven. The
 **Cadence** can set another bound. Automation-owned PRs stay outside these rules. A parked PR is
-never merged while parked; a blocker clears only when its fix is verifiably available to the
-product, and one that cannot be read never justifies unparking. An ignore is tracked on an
+never merged while parked: the pre-merge recheck reads it, and parking disarms auto-merge and
+leaves any merge queue. A blocker clears only when its fix is verifiably available to the product
+(a scope or design decision once it is recorded and its change is in place), and one that cannot
+be read never justifies unparking. A parked PR closes only when a newer update supersedes it or as
+a deliberate rejection, never to free a slot. An ignore is tracked on an
 in-portfolio issue until it is removed. The `portfolio-surveyor` and the survey procedure keep
 every parked PR in the survey and never report it as finished; the deployment's own park
 mechanism supplies its park facts. `parked-pr-ownership-contract.test.sh` pins

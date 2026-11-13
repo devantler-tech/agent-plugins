@@ -39,7 +39,10 @@ skill_clauses=(
 	"a parked pr is not a resting place."
 	"the blocker a park names is owned work, and these rules apply to every parked pr on every run that drives prs."
 	"a pr the consumer's contract designates automation-owned stays outside them, exactly as the survey leaves it."
-	"a parked pr is never merged while it is parked: once its blocker verifiably clears, lift the park through the same mechanism, then drive the pr to merge under the normal gates."
+	"a parked pr is never merged while it is parked."
+	"when you park a pr, disarm its auto-merge and take it out of any merge queue, so the park holds the merge."
+	"genuine readiness here includes that the pr is not parked."
+	"they cover only the prs the trust gate lets you drive."
 	"never from the latest relabel, so a re-park keeps the earlier date and errs toward more work, never less."
 	"keep every route, decision and re-check date in that one record, edited in place."
 	"an in-portfolio blocker is finishing work."
@@ -51,7 +54,9 @@ skill_clauses=(
 	"or split or ignore only the blocked part of a grouped update, so the rest merges now."
 	"track it on an in-portfolio issue that stays open until the ignore is removed (never by writing on an upstream artifact)"
 	"once it has been parked for 14 days, unless the cadence names another bound, waiting is no longer a route."
-	"take an engineering route yourself, and keep taking them until the pr merges or is closed for a recorded reason:"
+	"take an engineering route yourself, and keep taking them until the pr merges or a newer update supersedes it:"
+	"closing it otherwise is the separate, deliberate decision to reject the update, never a way to free a slot or clear the bound."
+	"a close the update tool records as an ignore is an ignore, and is tracked as one."
 	"record in the park record what you tried and what it showed, the next route you will take,"
 	"a missing or lapsed record makes taking the next route finishing work this run. it never lifts the park or the merge hold."
 	# The maintainer owns direction, not the work (maintainer, 2026-11-13): no bound hands it over.
@@ -66,11 +71,13 @@ skill_clauses=(
 	"an upstream item closed without a released fix, or closed as not planned, still holds."
 	"a blocker you cannot read, or a record that names none, never justifies unparking"
 	"a mis-park is unparked and driven. at every check, confirm the pr really depends on its named blocker:"
-	"cannot be read, the pr is unknown: never settled, and never merged."
+	"cannot be read, the pr is unknown: never settled, and never merged. an age that cannot be read counts as past the bound."
+	"it clears once the decision is recorded in the park record and the change it requires is on the pr or merged."
 )
 surveyor_clauses=(
 	"a pr the consumer parked through its blocked-work mechanism stays in this section and in the digest with its pentad, like any other pr."
 	"never omit it, or report it as finished, because it is parked."
+	"its classification, \`merge-ready\` included, covers the pentad only."
 	"including that a parked pr is never merged while it is parked."
 )
 # A sentence that would make any of the three read a park as settled, or hand it to the maintainer.
@@ -81,6 +88,10 @@ forbidden_clauses=(
 	"past a longer bound"
 	# Dependabot security updates have their own open-PR limit, so a version-update stall never blocks them.
 	"security fixes included"
+	# Broader forms of a handoff, so a reworded escalation still fails.
+	"hand the pr to the maintainer"
+	"escalate to the maintainer"
+	"goes to the maintainer"
 )
 
 normalize() {

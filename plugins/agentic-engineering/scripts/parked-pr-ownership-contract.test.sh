@@ -23,28 +23,35 @@ agent_clauses=(
 	"parking is not finishing: a pr parked through the deployment's blocked-work mechanism stays owned work."
 	"an in-portfolio blocker is finishing work, ahead of new pulls"
 	"an upstream one is re-checked on a cadence, with an engineering route considered each time"
-	"give a dependency pr parked past its bound a recorded decision and re-check date"
+	"unblock a dependency pr parked past its bound by engineering routes you take yourself, recording what you tried and the next route."
+	"ownership stays with you: a park never hands work to the maintainer, and no timer makes contacting the maintainer the outcome."
 	"treat an update ecosystem whose open-pr limit is filled by parked prs as a stall"
 	"unpark and drive a mis-park."
 )
 skill_clauses=(
 	# The run loop's own summary, so a run that never opens the reference still meets the rule.
 	"a parked pr is not finished: its blocker is owned work"
+	"ownership never moves to the maintainer."
 	"work the in-portfolio blocker behind every parked pr"
 	# The complete rule, in the PR-driving procedure the skill links.
 	"a parked pr is not a resting place."
 	"the blocker a park names is owned work, and these rules apply to every parked pr on every run that drives prs:"
 	"an in-portfolio blocker is finishing work."
 	"an unclaimed in-portfolio blocker behind a parked pr is a finding, never a wait."
-	"make or escalate that decision, and never resume fixing its findings one by one."
+	"make that decision yourself, and never resume fixing its findings one by one."
 	"an upstream blocker is re-checked, not waited on."
 	"at least every 7 days unless the cadence names another interval"
 	"each check also weighs an engineering route instead of only waiting:"
 	"or split or ignore only the blocked part of a grouped update, so the rest merges now."
-	"once it has been parked for 14 days, unless the cadence names another bound"
-	"plus the exact upstream event it awaits"
-	"a missing or lapsed decision makes the pr actionable again."
-	"past a longer bound, 30 days unless the cadence names another, raise it once through the deployment's maintainer channels"
+	"once it has been parked for 14 days, unless the cadence names another bound, waiting is no longer a route."
+	"take an engineering route yourself, and keep taking them until the pr merges:"
+	"record on the pr what you tried and what it showed, the next route you will take,"
+	"a missing or lapsed record makes the pr actionable again."
+	# The maintainer owns direction, not the work (maintainer, 2026-11-13): no bound hands it over.
+	"ownership stays with you."
+	"no timer or bound makes contacting the maintainer the outcome."
+	"only for a genuine question of direction you cannot settle on your own, and never to ask about what you can do yourself."
+	"such an ask is never a handoff and never a substitute for the work: state the default you will act on if no answer comes, and keep working the routes meanwhile."
 	"an update ecosystem at or near its open-pr limit is stalled."
 	"raising the limit alone hides the stall instead of clearing it."
 	"a mis-park is unparked and driven. at every check, confirm the pr really depends on its named blocker:"
@@ -56,10 +63,12 @@ surveyor_clauses=(
 	"never omit a parked pr from the digest, or classify it as finished, because it is parked."
 	"parked=<date|unknown>"
 )
-# A sentence that would make any of the three read a park as settled.
+# A sentence that would make any of the three read a park as settled, or hand it to the maintainer.
 forbidden_clauses=(
 	"a parked pr is a terminal state"
 	"parked prs are finished"
+	"raise it once through the deployment's maintainer channels"
+	"past a longer bound"
 )
 
 normalize() {

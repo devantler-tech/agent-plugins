@@ -6,13 +6,16 @@
 the `portfolio-maintenance` run loop and its PR-driving procedure now say what a run does with a PR
 parked through the deployment's blocked-work mechanism. An in-portfolio blocker is finishing work,
 claimed and worked ahead of new pulls. An upstream blocker is re-checked against live upstream
-state at least every 7 days, and each check weighs an engineering route: adapt, isolate or replace
-the dependency, contribute upstream, or split out only the blocked part of a grouped update. A
-dependency-update PR parked for 14 days gets a recorded decision: the route taken or why there is
-none, the exact upstream event it awaits, and a re-check date. Past 30 days it goes to the
-maintainer once. An update ecosystem whose open-PR limit is filled by parked PRs is a stall, and a
-PR that does not depend on its named blocker is unparked and driven. The **Cadence** can set other
-bounds. The `portfolio-surveyor` reports `parked`, `blocker` and `decision` facts for each parked
+state at least every 7 days, and each check weighs an engineering route: adapt, fork or patch,
+isolate or replace the dependency, contribute upstream, or split out only the blocked part of a
+grouped update. Once a dependency-update PR has been parked for 14 days, waiting stops counting as a
+route. The agent takes engineering routes itself and keeps taking them, recording on the PR what it
+tried, the next route, and when it will look again. Ownership stays with the agent. A park never
+hands work to the maintainer, and no bound makes contacting the maintainer the outcome. A
+maintainer-ask is only for a genuine question of direction, with the default the agent will act on,
+and the work continues meanwhile. An update ecosystem whose open-PR limit is filled by parked PRs
+is a stall, and a PR that does not depend on its named blocker is unparked and driven. The
+**Cadence** can set another bound. The `portfolio-surveyor` reports `parked`, `blocker` and `decision` facts for each parked
 candidate PR, and `unknown` when it cannot read them. `parked-pr-ownership-contract.test.sh` pins
 the clauses.
 

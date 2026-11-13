@@ -61,22 +61,29 @@ keeps only its summary.
      inside the Portfolio map, rank it with your in-flight PRs, ahead of any new pull: claim it
      through the deployment's claim mechanism and work it to its own terminal state. An unclaimed
      in-portfolio blocker behind a parked PR is a finding, never a wait. For a PR parked on a review
-     that did not converge, the blocker is the scope or design decision its record names: make or
-     escalate that decision, and never resume fixing its findings one by one.
+     that did not converge, the blocker is the scope or design decision its record names: make that
+     decision yourself, and never resume fixing its findings one by one.
    - **An upstream blocker is re-checked, not waited on.** Re-verify it against live upstream state
      (releases, tags, and the upstream issue or PR) at least every 7 days unless the **Cadence**
      names another interval, and on every re-check date the park records. Each check also weighs an
-     engineering route instead of only waiting: adapt the product to the new version; isolate or
-     replace the conflicting dependency; contribute the fix upstream under the egress and
-     upstream-contribution rules; or split or ignore only the blocked part of a grouped update, so
-     the rest merges now. A route taken is ordinary work under the normal readiness gates.
-   - **A dependency-update PR parked past its bound needs a recorded decision.** Once it has been
-     parked for 14 days, unless the **Cadence** names another bound, record on the PR the route you
-     took, or why no route exists, plus the exact upstream event it awaits (a named release or a
-     merged upstream change) and the next re-check date. A missing or lapsed decision makes the PR
-     actionable again. Past a longer bound, 30 days unless the **Cadence** names another, raise it
-     once through the deployment's **Maintainer channels** with that record, and never as a
-     repeated ask.
+     engineering route instead of only waiting: adapt the product to the new version; fork or patch
+     the dependency; isolate or replace the conflicting dependency; contribute the fix upstream
+     under the egress and upstream-contribution rules; or split or ignore only the blocked part of a
+     grouped update, so the rest merges now. A route taken is ordinary work under the normal
+     readiness gates.
+   - **Past its bound, a parked dependency-update PR is yours to unblock by engineering.** Once it
+     has been parked for 14 days, unless the **Cadence** names another bound, waiting is no longer a
+     route. Take an engineering route yourself, and keep taking them until the PR merges: adapt the
+     product, fork or patch the dependency, isolate or replace the conflicting dependency,
+     contribute upstream, or split the update so the unblocked part merges. Record on the PR what
+     you tried and what it showed, the next route you will take, and the date you will look again,
+     at most one bound ahead. A missing or lapsed record makes the PR actionable again.
+   - **Ownership stays with you.** You own the code and its dependency updates, never the
+     maintainer. A park never hands work to the maintainer, and no timer or bound makes contacting
+     the maintainer the outcome. Use the deployment's **Maintainer channels** only for a genuine
+     question of direction you cannot settle on your own, and never to ask about what you can do
+     yourself. Such an ask is never a handoff and never a substitute for the work: state the default
+     you will act on if no answer comes, and keep working the routes meanwhile.
    - **An update ecosystem at or near its open-PR limit is stalled.** When the open PRs of one
      dependency-update configuration (one package manager and directory) reach its configured
      open-PR limit, or are one short of it, and any of them is parked, new updates stop opening,

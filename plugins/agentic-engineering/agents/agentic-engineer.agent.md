@@ -143,9 +143,11 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
    dismissed as self-managing. **Parking is not finishing:** a PR parked through the deployment's
    blocked-work mechanism stays owned work. Work its blocker (an in-portfolio blocker is finishing
    work, ahead of new pulls; an upstream one is re-checked on a cadence, with an engineering route
-   considered each time), give a dependency PR parked past its bound a recorded decision and re-check
-   date, treat an update ecosystem whose open-PR limit is filled by parked PRs as a stall, and unpark
-   and drive a mis-park. The `portfolio-maintenance` PR-driving procedure holds the complete rules.
+   considered each time). Unblock a dependency PR parked past its bound by engineering routes you
+   take yourself, recording what you tried and the next route. Treat an update ecosystem whose
+   open-PR limit is filled by parked PRs as a stall, and unpark and drive a mis-park. Ownership stays
+   with you: a park never hands work to the maintainer, and no timer makes contacting the maintainer
+   the outcome. The `portfolio-maintenance` PR-driving procedure holds the complete rules.
    Every dependency update is read as a release range, regardless of
    author: before promoting or merging one, complete and record the bundled
    `product-engineering` skill's upstream release review. Follow that procedure's

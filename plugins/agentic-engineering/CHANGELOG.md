@@ -1,6 +1,6 @@
 # Changelog — `agentic-engineering`
 
-## 7.7.0 — 2026-11-13
+## 7.8.0 — 2026-11-13
 
 **Added** — a parked PR is owned work, never a terminal state. The `agentic-engineer` definition,
 the `portfolio-maintenance` run loop and its PR-driving procedure now say what a run does with a PR
@@ -25,6 +25,34 @@ in-portfolio issue until it is removed. The `portfolio-surveyor` and the survey 
 every parked PR in the survey and never report it as finished; the deployment's own park
 mechanism supplies its park facts. `parked-pr-ownership-contract.test.sh` pins
 the clauses.
+
+## 7.7.0 — 2026-11-13
+
+**Added** — the `numina` MCP server, Numina's hosted server at `https://api.numina.app/mcp`. It
+lets agents read a Danish company's books in Numina, a registered bookkeeping system, and write
+drafts, bank matches, contacts, products and receipt uploads. It never books: a person books every
+draft in Numina. It needs a Numina sign-in through OAuth, and the other servers keep working
+without one. The README covers its scopes and what to deny.
+
+**Added** — the `numina-stripe` skill from `https://github.com/Numina-Technologies/mcp` at
+`refs/heads/main`, tree `9aac97fef5c13d43f1c92b2b76f7182f8d75b48f` (MIT, Numina Technologies). It
+drafts each Stripe payout in Numina on the bank line it landed on, split into sales per VAT group,
+refunds and fees, and leaves booking to a person. Numina's other skills were deliberately not
+taken: Gmail receipts, Pleo, Google Sheets and the migrations.
+
+It is **adopted with known defects** (#698), all reported upstream. Check its drafts before booking
+them:
+
+- It checks for the legacy `write:draft` scope, so a connection granted only `journal:write` is
+  told to reconnect ([Numina-Technologies/mcp#13](https://github.com/Numina-Technologies/mcp/issues/13)).
+- Two unmatched payouts of the same amount can be drafted against the wrong bank line (#13).
+- For a manual payout it cannot tell which balance transactions belong to it (#13).
+- Read literally, it puts Danish output VAT on EU business and non-EU sales too (#13).
+- When a sale was already invoiced in Numina, its payout books that revenue a second time, and
+  customer country and VAT number must be read from the charge, not the balance transaction
+  ([Numina-Technologies/mcp#4](https://github.com/Numina-Technologies/mcp/issues/4)).
+- Its setup link points at an anchor this plugin's README does not have; the Numina setup is under
+  *Bundled MCP servers*.
 
 ## 7.6.8 — 2026-11-12
 

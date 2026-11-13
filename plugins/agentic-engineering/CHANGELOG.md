@@ -22,8 +22,8 @@ them:
 - Two unmatched payouts of the same amount can be drafted against the wrong bank line (#13).
 - For a manual payout it cannot tell which balance transactions belong to it (#13).
 - Read literally, it puts Danish output VAT on EU business and non-EU sales too (#13).
-- Revenue already invoiced in Numina is booked a second time, and customer country and VAT number
-  must be read from the charge, not the balance transaction
+- When a sale was already invoiced in Numina, its payout books that revenue a second time, and
+  customer country and VAT number must be read from the charge, not the balance transaction
   ([Numina-Technologies/mcp#4](https://github.com/Numina-Technologies/mcp/issues/4)).
 - Its setup link points at an anchor this plugin's README does not have; the Numina setup is under
   *Bundled MCP servers*.

@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.8.1 — 2026-11-13
+
+**Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.
+
 ## 7.8.0 — 2026-11-13
 
 **Added** — a parked PR is owned work, never a terminal state. The `agentic-engineer` definition,

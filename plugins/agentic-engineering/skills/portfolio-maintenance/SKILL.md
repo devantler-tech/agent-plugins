@@ -130,7 +130,8 @@ actionable work remains, **within the per-run budget and stop conditions the dep
 section sets** — an unattended run ends when actionable work is exhausted or blocked, or when that
 budget is spent, never merely after a few items. **Stop starting, start finishing:** before opening any new draft, drive
 every own in-flight PR to merged (self-promote when genuine readiness holds) or keep it draft with
-the missing readiness condition named, and work the in-portfolio blocker behind every parked PR — a readiness-proven merge is the deliverable; a half-finished
+the missing readiness condition named, and work the in-portfolio blocker behind every parked PR
+(automation-owned PRs aside) — a readiness-proven merge is the deliverable; a half-finished
 draft is unfinished work to clear first.
 
 **Operate (keep it healthy) — always before advancing:**

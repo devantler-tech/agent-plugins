@@ -438,8 +438,7 @@ The consuming repository's canonical `AGENTS.md` must define five named sections
 skills fail closed when any are absent:
 
 - **Portfolio map** — repositories in scope and each product's `## Maintenance` card, including
-  validate commands, labels (including the label that parks blocked work, which the surveyor reads
-  for park facts), protected/generated files, roadmap home, and the standard
+  validate commands, labels, protected/generated files, roadmap home, and the standard
   **feature-flag mechanism** required for non-trivial feature work.
 - **Trust gate** — trusted identities, reviewer-only identities, repository merge mechanics, and the
   **maintainer-PR driving** fact. `hands-off` (the default when it is absent) lets the engineer drive

@@ -15,11 +15,12 @@ hands work to the maintainer, and no bound makes contacting the maintainer the o
 maintainer-ask is only for a genuine question of direction, with the default the agent will act on,
 and the work continues meanwhile. An update ecosystem at or near its open-PR limit with any PR parked
 is a stall, and a PR that does not depend on its named blocker is unparked and driven. The
-**Cadence** can set another bound. Automation-owned PRs stay outside these rules. The
-`portfolio-surveyor` reads each candidate's labels itself, from a complete per-PR list, and
-reports `parked` (from the first park), `blocker` (including `decision` for a scope or design
-blocker) and `decision` facts for each parked candidate PR, or `unknown` when it cannot read them.
-A blocker it cannot read never justifies unparking. `parked-pr-ownership-contract.test.sh` pins
+**Cadence** can set another bound. Automation-owned PRs stay outside these rules. A parked PR is
+never merged while parked; a blocker clears only when its fix is verifiably available to the
+product, and one that cannot be read never justifies unparking. An ignore is tracked on an
+in-portfolio issue until it is removed. The `portfolio-surveyor` and the survey procedure keep
+every parked PR in the survey and never report it as finished; the deployment's own park
+mechanism supplies its park facts. `parked-pr-ownership-contract.test.sh` pins
 the clauses.
 
 ## 7.6.8 — 2026-11-12

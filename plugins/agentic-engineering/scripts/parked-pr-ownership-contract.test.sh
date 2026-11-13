@@ -32,12 +32,16 @@ skill_clauses=(
 	# The run loop's own summary, so a run that never opens the reference still meets the rule.
 	"a parked pr is not finished: its blocker is owned work"
 	"ownership never moves to the maintainer."
-	"work the in-portfolio blocker behind every parked pr"
+	"work the in-portfolio blocker behind every parked pr (automation-owned prs aside)"
+	# The survey procedure the skill links, which an inline survey follows.
+	"parked or not: a parked pr stays in the survey and is never reported as finished"
 	# The complete rule, in the PR-driving procedure the skill links.
 	"a parked pr is not a resting place."
 	"the blocker a park names is owned work, and these rules apply to every parked pr on every run that drives prs."
 	"a pr the consumer's contract designates automation-owned stays outside them, exactly as the survey leaves it."
+	"a parked pr is never merged while it is parked: once its blocker verifiably clears, lift the park through the same mechanism, then drive the pr to merge under the normal gates."
 	"never from the latest relabel, so a re-park keeps the earlier date and errs toward more work, never less."
+	"keep every route, decision and re-check date in that one record, edited in place."
 	"an in-portfolio blocker is finishing work."
 	"an unclaimed in-portfolio blocker behind a parked pr is a finding, never a wait."
 	"make that decision yourself, and never resume fixing its findings one by one."
@@ -45,31 +49,29 @@ skill_clauses=(
 	"at least every 7 days unless the cadence names another interval"
 	"each check also weighs an engineering route instead of only waiting:"
 	"or split or ignore only the blocked part of a grouped update, so the rest merges now."
+	"track it on an in-portfolio issue that stays open until the ignore is removed (never by writing on an upstream artifact)"
 	"once it has been parked for 14 days, unless the cadence names another bound, waiting is no longer a route."
-	"take an engineering route yourself, and keep taking them until the pr merges:"
-	"record on the pr what you tried and what it showed, the next route you will take,"
-	"a missing or lapsed record makes taking the next route finishing work this run. it never lifts the park or the merge hold"
-	"an ignore is a lasting configuration change: record it on the blocker, and remove it when the blocker clears."
+	"take an engineering route yourself, and keep taking them until the pr merges or is closed for a recorded reason:"
+	"record in the park record what you tried and what it showed, the next route you will take,"
+	"a missing or lapsed record makes taking the next route finishing work this run. it never lifts the park or the merge hold."
 	# The maintainer owns direction, not the work (maintainer, 2026-11-13): no bound hands it over.
 	"ownership stays with you."
 	"no timer or bound makes contacting the maintainer the outcome."
 	"only for a genuine question of direction you cannot settle on your own, and never to ask about what you can do yourself."
 	"such an ask is never a handoff and never a substitute for the work: state the default you will act on if no answer comes, and keep working the routes meanwhile."
 	"an update ecosystem at or near its open-pr limit is stalled."
+	"the configured value, or the tool's default when it sets none."
 	"raising the limit alone hides the stall instead of clearing it."
+	"a blocker has cleared only when its fix is verifiably available to the product:"
+	"an upstream item closed without a released fix, or closed as not planned, still holds."
 	"a blocker you cannot read, or a record that names none, never justifies unparking"
 	"a mis-park is unparked and driven. at every check, confirm the pr really depends on its named blocker:"
-	"when its park facts (when it was parked, its blocker, its latest route record) cannot be read, the pr is unknown, never settled."
+	"cannot be read, the pr is unknown: never settled, and never merged."
 )
 surveyor_clauses=(
-	"a pr the consumer parked through its blocked-work mechanism is still a candidate, never settled."
-	"reports that field as \`unknown\`, never a guessed date or \`none\`."
-	"never omit a parked pr from the digest, or classify it as finished, because it is parked."
-	"parked=<date|unknown>"
-	"never from a census or search row, which can drop a label."
-	"a later relabel never restarts the clock."
-	"\`blocker=<owner/repo#n|upstream|decision|none>\`"
-	"decision=<date|none|unknown>"
+	"a pr the consumer parked through its blocked-work mechanism stays in this section and in the digest with its pentad, like any other pr."
+	"never omit it, or report it as finished, because it is parked."
+	"including that a parked pr is never merged while it is parked."
 )
 # A sentence that would make any of the three read a park as settled, or hand it to the maintainer.
 forbidden_clauses=(
@@ -108,31 +110,39 @@ check() {
 	done
 }
 
-# The skill keeps a summary and links the complete rung in references/driving-prs.md. Check the text
-# an agent reads by following that link: the skill with the reference inserted after the first line
-# that links it. A dropped link or an emptied reference removes the clauses, so the check fails closed.
-linked_skill() { # skill-dir output reference
-	LC_ALL=C awk -v dir="$1" -v ref="$3" '
+# The skill keeps summaries and links the complete rung in references/driving-prs.md and the survey
+# in references/survey.md. Check the text an agent reads by following those links: the skill with
+# each reference inserted after the first line that links it. A dropped link or an emptied reference
+# removes the clauses, so the check fails closed.
+linked_skill() { # skill-dir output reference...
+	local dir="$1" out="$2"
+	shift 2
+	LC_ALL=C awk -v dir="$dir" -v refs="$*" '
+		BEGIN { n = split(refs, ref, " ") }
 		{
 			print
-			if (!done && index($0, "](" ref ")")) {
-				while ((getline line < (dir "/" ref)) > 0) print line
-				close(dir "/" ref)
-				done = 1
+			for (i = 1; i <= n; i++) {
+				if (!done[i] && index($0, "](" ref[i] ")")) {
+					while ((getline line < (dir "/" ref[i])) > 0) print line
+					close(dir "/" ref[i])
+					done[i] = 1
+				}
 			}
 		}
-	' "$1/SKILL.md" >"$2"
+	' "$dir/SKILL.md" >"$out"
 }
 
 fail=0
-for f in "$agent" "$surveyor" "$skill_dir/SKILL.md" "$skill_dir/references/driving-prs.md"; do
+for f in "$agent" "$surveyor" "$skill_dir/SKILL.md" "$skill_dir/references/driving-prs.md" "$skill_dir/references/survey.md"; do
 	[ -r "$f" ] || { echo "cannot read $f" >&2; exit 1; }
 done
-linked_skill "$skill_dir" "$tmp/linked-skill.md" references/driving-prs.md
-grep -qF "A parked PR is not a resting place." "$tmp/linked-skill.md" || {
-	echo "  ✗ SKILL.md no longer links references/driving-prs.md, so the linked text lacks the rule" >&2
-	exit 1
-}
+linked_skill "$skill_dir" "$tmp/linked-skill.md" references/driving-prs.md references/survey.md
+for marker in "A parked PR is not a resting place." "parked or not: a parked PR stays in the survey"; do
+	grep -qF "$marker" "$tmp/linked-skill.md" || {
+		echo "  ✗ SKILL.md no longer links the reference that holds: $marker" >&2
+		exit 1
+	}
+done
 
 # surface <label> <file> <clause>...
 surface() {
@@ -149,7 +159,7 @@ surface() {
 	# from the normalised text, not the file.
 	normalize "$file" >"$tmp/normalized.md"
 	for clause in "${clauses[@]}"; do
-		awk -v clause="$clause" '{
+		LC_ALL=C awk -v clause="$clause" '{
 			position = index($0, clause)
 			if (position > 0) $0 = substr($0, 1, position - 1) substr($0, position + length(clause))
 			print
@@ -178,7 +188,7 @@ surface() {
 }
 
 surface "agentic-engineer" "$agent" "${agent_clauses[@]}"
-surface "portfolio-maintenance (with driving-prs.md)" "$tmp/linked-skill.md" "${skill_clauses[@]}"
+surface "portfolio-maintenance (with its linked references)" "$tmp/linked-skill.md" "${skill_clauses[@]}"
 surface "portfolio-surveyor" "$surveyor" "${surveyor_clauses[@]}"
 
 completed=1

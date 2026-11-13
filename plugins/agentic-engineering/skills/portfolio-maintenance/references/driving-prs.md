@@ -58,9 +58,12 @@ keeps only its summary.
    as finished lets them strand for weeks while nobody works what holds them. The blocker a park
    names is owned work, and these rules apply to every parked PR on every run that drives PRs. A PR
    the consumer's contract designates automation-owned stays outside them, exactly as the survey
-   leaves it. A park's age runs from when the PR was first parked (its park record's creation, or
-   the first time the park label was applied), never from the latest relabel, so a re-park keeps
-   the earlier date and errs toward more work, never less.
+   leaves it. A parked PR is never merged while it is parked: once its blocker verifiably clears,
+   lift the park through the same mechanism, then drive the PR to merge under the normal gates. A
+   park's age runs from when the PR was first parked, never from the latest relabel, so a re-park
+   keeps the earlier date and errs toward more work, never less. The deployment's park mechanism
+   supplies that date and the park record; keep every route, decision and re-check date in that one
+   record, edited in place.
    - **An in-portfolio blocker is finishing work.** When the blocker is an issue, PR or decision
      inside the Portfolio map, rank it with your in-flight PRs, ahead of any new pull: claim it
      through the deployment's claim mechanism (its **Writer namespaces** or claim protocol) and work
@@ -75,38 +78,41 @@ keeps only its summary.
      the dependency; isolate or replace the conflicting dependency; contribute the fix upstream
      under the egress rules and [the upstream contribution procedure](upstream-contributions.md); or
      split or ignore only the blocked part of a grouped update, so the rest merges now. An ignore is
-     a lasting configuration change: record it on the blocker, and remove it when the blocker clears.
-     A route taken is ordinary work under the normal readiness gates.
+     a lasting configuration change: track it on an in-portfolio issue that stays open until the
+     ignore is removed (never by writing on an upstream artifact), re-check it on the same cadence,
+     and remove the ignore when the blocker clears. A route taken is ordinary work under the normal
+     readiness gates.
    - **Past its bound, a parked dependency-update PR is yours to unblock by engineering.** Once it
      has been parked for 14 days, unless the **Cadence** names another bound, waiting is no longer a
-     route. Take an engineering route yourself, and keep taking them until the PR merges: adapt the
-     product, fork or patch the dependency, isolate or replace the conflicting dependency,
-     contribute upstream, or split the update so the unblocked part merges. Record on the PR what
-     you tried and what it showed, the next route you will take, and the date you will look again,
-     at most one bound ahead. A missing or lapsed record makes taking the next route finishing work
-     this run. It never lifts the park or the merge hold: the PR merges only once its blocker clears
-     and genuine readiness holds.
+     route. Take an engineering route yourself, and keep taking them until the PR merges or is closed
+     for a recorded reason: adapt the product, fork or patch the dependency, isolate or replace the
+     conflicting dependency, contribute upstream, or split the update so the unblocked part merges.
+     Record in the park record what you tried and what it showed, the next route you will take, and
+     the date you will look again, at most one bound ahead. A missing or lapsed record makes taking
+     the next route finishing work this run. It never lifts the park or the merge hold.
    - **Ownership stays with you.** You own the code and its dependency updates, never the
      maintainer. A park never hands work to the maintainer, and no timer or bound makes contacting
      the maintainer the outcome. Use the deployment's **Maintainer channels** only for a genuine
      question of direction you cannot settle on your own, and never to ask about what you can do
      yourself. Such an ask is never a handoff and never a substitute for the work: state the default
      you will act on if no answer comes, and keep working the routes meanwhile.
-   - **An update ecosystem at or near its open-PR limit is stalled.** When the open PRs of one
-     dependency-update configuration (one package manager and directory) reach its configured
-     open-PR limit, or are one short of it, and any of them is parked, new updates stop opening. For
-     a tool whose security updates share that limit, security fixes stop too; Dependabot's security
+   - **An update ecosystem at or near its open-PR limit is stalled.** Read the effective open-PR
+     limit of each update configuration entry: the configured value, or the tool's default when it
+     sets none. When that entry's open PRs reach the limit, or come within one of it, and any of them
+     is parked, new version updates stop opening or are one update away from stopping. For a tool
+     whose security updates share that limit, security fixes stop too; Dependabot's security
      updates have their own limit. Treat the stall as finishing work: unblock, combine or narrow the
-     parked updates (for example, ignore only the blocked version range, recorded on the blocker and
-     removed when it clears) so slots free up. Raising the limit alone hides the stall instead of
-     clearing it.
+     parked updates (for example, ignore only the blocked version range, tracked as above) so slots
+     free up. Raising the limit alone hides the stall instead of clearing it.
    - **A mis-park is unparked and driven.** At every check, confirm the PR really depends on its
-     named blocker: the change touches what the blocker names, and the blocker is still open and
-     still holds. A PR that verifiably does not depend on it (the wrong blocker, a blocker already
-     closed or resolved, or one that holds only another part of a grouped update) is unparked
-     through the same mechanism and driven like any other PR. A scope or design decision is a
-     blocker too. A blocker you cannot read, or a record that names none, never justifies
+     named blocker: the change touches what the blocker names, and the blocker still holds. A blocker
+     has cleared only when its fix is verifiably available to the product: merged in the portfolio,
+     or released in a version the PR can take. An upstream item closed without a released fix, or
+     closed as not planned, still holds. A PR that verifiably does not depend on its blocker (the
+     wrong blocker, a cleared one, or one that holds only another part of a grouped update) is
+     unparked through the same mechanism and driven like any other PR. A scope or design decision
+     is a blocker too. A blocker you cannot read, or a record that names none, never justifies
      unparking: repair or re-verify the record instead.
 
    A parked PR never leaves the survey. When its park facts (when it was parked, its blocker, its
-   latest route record) cannot be read, the PR is unknown, never settled.
+   latest route record) cannot be read, the PR is unknown: never settled, and never merged.

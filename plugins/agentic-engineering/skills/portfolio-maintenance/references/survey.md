@@ -119,7 +119,7 @@ repositories must never enter the digest or selection set), deepening only the c
 a heavy per-repo loop. The survey covers, for every in-scope repository:
 
 - **Breakage:** CI red on the default branch; a broken build, site, or release pipeline.
-- **Every open own/trusted-author PR** (drafts *and* promoted, fresh *and* old, merge-gated or not)
+- **Every open own/trusted-author PR** (drafts *and* promoted, fresh *and* old, merge-gated or not, parked or not: a parked PR stays in the survey and is never reported as finished)
   with its full **hygiene pentad**: (a) failing checks; (b) unresolved review threads **plus any
   reviewer findings published outside threads** (some automated reviewers emit findings in review
   *bodies* or summary comments that never become resolvable threads — sweep every surface the

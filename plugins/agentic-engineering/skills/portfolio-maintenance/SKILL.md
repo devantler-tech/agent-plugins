@@ -130,7 +130,8 @@ actionable work remains, **within the per-run budget and stop conditions the dep
 section sets** — an unattended run ends when actionable work is exhausted or blocked, or when that
 budget is spent, never merely after a few items. **Stop starting, start finishing:** before opening any new draft, drive
 every own in-flight PR to merged (self-promote when genuine readiness holds) or keep it draft with
-the missing readiness condition named — a readiness-proven merge is the deliverable; a half-finished
+the missing readiness condition named, and work the in-portfolio blocker behind every parked PR
+(automation-owned PRs aside) — a readiness-proven merge is the deliverable; a half-finished
 draft is unfinished work to clear first.
 
 **Operate (keep it healthy) — always before advancing:**
@@ -141,7 +142,11 @@ draft is unfinished work to clear first.
    trusted-author, non-draft PR whose current-head pentad is clear with the **Trust gate**'s
    mechanics, revalidating genuine readiness at the current head immediately before every merge.
    Keep every open own/trusted PR hygienic while it waits, dependency PRs included, and complete the
-   upstream release review before promoting or merging a dependency update. Never run or auto-merge
+   upstream release review before promoting or merging a dependency update. A parked PR is not
+   finished: its blocker is owned work, a dependency PR parked past its bound is unblocked by
+   engineering routes you take yourself, an update ecosystem at or near its open-PR limit with any PR
+   parked is a stall, and a mis-park is unparked and driven. Ownership never moves to the maintainer.
+   Never run or auto-merge
    an external contributor's branch. **Read [the PR-driving procedure](references/driving-prs.md)
    before driving, promoting or merging any PR**; it is the complete rung.
 3. **Contributor-facing** — triage and label new issues and PRs; answer the oldest un-commented item.

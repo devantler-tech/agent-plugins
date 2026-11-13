@@ -1,5 +1,31 @@
 # Changelog — `agentic-engineering`
 
+## 7.8.0 — 2026-11-13
+
+**Added** — a parked PR is owned work, never a terminal state. The `agentic-engineer` definition,
+the `portfolio-maintenance` run loop and its PR-driving procedure now say what a run does with a PR
+parked through the deployment's blocked-work mechanism. An in-portfolio blocker is finishing work,
+claimed and worked ahead of new pulls. An upstream blocker is re-checked against live upstream
+state at least every 7 days, and each check weighs an engineering route: adapt, fork or patch,
+isolate or replace the dependency, contribute upstream, or split out only the blocked part of a
+grouped update. Once a dependency-update PR has been parked for 14 days, waiting stops counting as a
+route. The agent takes engineering routes itself and keeps taking them, recording on the PR what it
+tried, the next route, and when it will look again. Ownership stays with the agent. A park never
+hands work to the maintainer, and no bound makes contacting the maintainer the outcome. A
+maintainer-ask is only for a genuine question of direction, with the default the agent will act on,
+and the work continues meanwhile. An update ecosystem at or near its open-PR limit with any PR parked
+is a stall, and a PR that does not depend on its named blocker is unparked and driven. The
+**Cadence** can set another bound. Automation-owned PRs stay outside these rules. A parked PR is
+never merged while parked: the pre-merge recheck reads it, and parking disarms auto-merge and
+leaves any merge queue. A blocker clears only when its fix is verifiably available to the product
+(a scope or design decision once it is recorded and its change is in place), and one that cannot
+be read never justifies unparking. A parked PR closes only when a newer update supersedes it or as
+a deliberate rejection, never to free a slot. An ignore is tracked on an
+in-portfolio issue until it is removed. The `portfolio-surveyor` and the survey procedure keep
+every parked PR in the survey and never report it as finished; the deployment's own park
+mechanism supplies its park facts. `parked-pr-ownership-contract.test.sh` pins
+the clauses.
+
 ## 7.7.0 — 2026-11-13
 
 **Added** — the `numina` MCP server, Numina's hosted server at `https://api.numina.app/mcp`. It

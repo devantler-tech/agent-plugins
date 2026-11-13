@@ -6,8 +6,8 @@ license: Apache-2.0
 
 # Connector setup
 
-This plugin bundles the servers its agents need for engineering: GitHub, Context7, Stripe, Svelte,
-Sidero Labs, Flux, Kubescape, Terraform, Cloudflare and AWS documentation. Mail, calendar,
+This plugin bundles the servers its agents need for engineering: GitHub, Context7, Stripe, Numina,
+Svelte, Sidero Labs, Flux, Kubescape, Terraform, Cloudflare and AWS documentation. Mail, calendar,
 LinkedIn and Codex Security's cloud scans come from the providers' own connectors instead. A plugin cannot switch those on by
 itself: each needs the user's own sign-in. Your job is to notice when one is missing and ask for
 the right one in the right place.

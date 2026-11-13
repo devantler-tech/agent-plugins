@@ -122,6 +122,7 @@ are maintained here.
 | Frontend (SvelteKit) | `svelte-core-bestpractices`, `frontend-design`, `web-design-guidelines` |
 | Observability (Prometheus) | `promql` (writing and checking PromQL), `prometheus` (alert and recording rules, Alertmanager routing) |
 | Payments (Stripe) | `stripe-best-practices`, `stripe-docs`, `upgrade-stripe` |
+| Bookkeeping (Numina) | `numina-stripe` (Stripe payouts as Numina drafts on their bank lines, split into sales per VAT group, refunds and fees, through the `numina` and `stripe` servers; adopted with known defects, so check its drafts before booking: see the 7.7.0 changelog entry) |
 | Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme`, `architecture`, `debug`, `deploy-checklist`, `documentation`, `incident-response`, `standup`, `system-design`, `tech-debt`, `testing-strategy` |
 | Design | `accessibility-review`, `design-critique`, `design-handoff`, `design-system`, `research-synthesis`, `user-research`, `ux-copy` |
 | Product management | `competitive-brief`, `metrics-review`, `product-brainstorming`, `roadmap-update`, `sprint-planning`, `stakeholder-update`, `synthesize-research`, `write-spec` |
@@ -200,6 +201,7 @@ recorded in [`resources/THIRD-PARTY-NOTICES.md`](resources/THIRD-PARTY-NOTICES.m
 | `github` | GitHub's everyday tools: repositories, issues, pull requests, Actions, labels and projects, read, and issue, label, comment, branch, new pull request and project writes; merging, pull request edits, reviews, repository creation and deletion, file writes and workflow runs are excluded | A GitHub sign-in, below |
 | `github-ghas-tools` | GitHub's read-only security tools | A GitHub sign-in, below |
 | `kubescape` | A live cluster's Kubescape results, read-only: vulnerabilities, configuration scans, SBOMs, network and RBAC exposure | The [`kubescape`](https://kubescape.io/docs/install-cli/) CLI (v4 or later), a POSIX `sh`, and cluster access through `KUBECONFIG` or `~/.kube/config` |
+| `numina` | Numina's hosted server for a Danish company's books: reads of the ledger, bank lines, invoices, contacts and documents, and draft entries, bank matches, contacts, products and receipt uploads; it never books | A Numina sign-in, below |
 | `siderolabs-docs` | Sidero Labs' search of the Talos Linux and Omni documentation | Nothing; it is public |
 | `stripe` | Stripe's hosted server: Stripe documentation, reads and writes on your Stripe account, analytics, and money movement | A Stripe sign-in, below |
 | `svelte` | The Svelte team's hosted server: Svelte 5 and SvelteKit documentation, the `svelte-autofixer` and playground links, all read-only | Nothing; it is public |
@@ -294,6 +296,22 @@ read live data, and deny
 `stripe_api_write` and the Treasury tools in your tool permissions if your agents must never change
 your Stripe account. The Stripe skills work without the server.
 
+`numina` is [Numina](https://numina.app)'s hosted MCP server at `https://api.numina.app/mcp`, the
+address its [documentation](https://developers.numina.app/mcp.md) gives. Numina is a registered
+Danish bookkeeping system. The server signs in through OAuth: in Claude Code, run `/mcp`, choose
+`numina`, pick the company and approve. A client that names no scopes is granted reading and
+writing drafts. A client that registers itself, as Claude Code does, can never hold a booking
+scope, and Numina states that whatever the scopes, its MCP tools never book: everything they
+write is a draft or a proposed correction that a person books in Numina. The write tools create,
+change and delete drafts, match bank lines to drafts, propose changes to booked entries, resolve
+reviews, maintain contacts and products, and upload receipts. Its migration tools need a company
+admin's OAuth sign-in, and nothing is imported until the user approves the proposal in Numina.
+Until you sign in, the server reports that it needs authentication and the rest keep working.
+Tool results carry the company's financial data into your agent's conversation, where your AI
+provider's terms apply; Numina's data processing agreement does not cover that provider. Connect
+with read scopes only, or deny the write tools in your tool permissions, if your agents must not
+change drafts.
+
 A local server whose binary is missing reports a failed connection and leaves the rest working.
 The Flux server starts with `--read-only`, so it can read, trace and diff but never apply, delete,
 reconcile, suspend or resume; hand fixes to your GitOps delivery instead. `flux-operator-mcp`
@@ -318,7 +336,7 @@ server in your tool permissions. `siderolabs-docs` offers `submit_feedback`, whi
 report to Sidero Labs, and `stripe` offers `send_stripe_feedback`, which sends one to Stripe; deny
 them in your tool permissions if your agents must not file reports. The Svelte tools write
 nothing, but their autofixer and playground tools send code to Svelte, so deny those too if no code
-may leave your machine. `github` and `stripe` are the servers whose tools change things.
+may leave your machine. `github`, `numina` and `stripe` are the servers whose tools change things.
 
 `github-ghas-tools` is GitHub's remote MCP server at its read-only endpoint,
 `https://api.githubcopilot.com/mcp/readonly`, limited to the `code_security`, `secret_protection`,

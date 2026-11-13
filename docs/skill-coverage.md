@@ -46,6 +46,7 @@ This is an engineering inventory. It makes no legal or compliance claim.
 | SLOs | the platform alerts on [Coroot's built-in per-application SLOs][plat-alert]; no repository sets its own SLO targets or error-budget policy | none | SLO targets and error-budget policy, which nobody authors today | Low | **Do not add**. Tuning Coroot's SLO alerts goes with #654. Revisit when a product sets its own SLO targets |
 | FinOps | the engineer's spend mandate (stewardship disabled by contract) | the [`agentic-engineer`](../plugins/agentic-engineering/agents/agentic-engineer.agent.md) agent and the `github-actions-efficiency` skill; the monorepo `finops` overlay is outside this repository | none | Medium | **Covered** |
 | Payments, subscriptions and webhooks | no product takes payments: the code search `org:devantler-tech stripe` on 2026-11-04 returned 7 matches, all dependency metadata, a bookmark, game assets or a skill reference | none | none today | Low | **Do not add**. Webhook verification is in `application-security`; subscription disclosures belong to #639. Revisit when a product commits to payments |
+| Bookkeeping | Devantler Tech's books in Numina ([monorepo#4994](https://github.com/devantler-tech/monorepo/issues/4994)), including Stripe payouts once the business is paid through Stripe | the `numina` MCP server and `numina-stripe` | none today. Numina's other skills do not apply: the business mail is not Gmail, Pleo is not used, and the books start fresh, so no migration | Medium | **Covered** since 7.7.0 ([#698](https://github.com/devantler-tech/agent-plugins/issues/698)) |
 | GitOps, Kubernetes and deployment | the [platform][plat-root], [ksail][ksail-go] and the templates | skills `gitops-knowledge`, `gitops-cluster-debug`, `gitops-tenant-onboarding`, `ksail` and `siderolabs`; the bundled Flux MCP server | activation only: 0 loads with at least 11 manifest sessions (#642) | High | **Covered**; measured by #651 |
 
 **Owned** means the audit hands the gap to an existing issue instead of filing an overlapping one.
@@ -81,6 +82,7 @@ lists them: should-trigger, near-miss and over-trigger cases that #651's suite r
 | Observability | community skills such as [`opentelemetry`][c-bagel] and [`observability-sre`][c-arsenal] | MIT, individual maintainers | 2026-05-22, 2026-11-04 | General-purpose. The vendor-maintained Grafana skills cover the same scope | Rejected |
 | ClickHouse | [`clickhouse-best-practices`][c-ch] | Apache-2.0, ClickHouse | 2026-11-02 | Strong, but no product authors ClickHouse work | Do not add yet |
 | Payments | [`stripe-best-practices`][c-stripe] | MIT, Stripe | 2026-11-04 | Official, but no product takes payments and no provider is chosen | Do not add yet |
+| Bookkeeping | [`numina-stripe`][c-numina] | MIT, Numina Technologies | 2026-11-11 | Official, one file, drafts only. Review found defects in its scope check, bank-line matching, manual payouts and per-group VAT codes ([Numina-Technologies/mcp#13](https://github.com/Numina-Technologies/mcp/issues/13)), plus double-booking of already-invoiced revenue ([#4](https://github.com/Numina-Technologies/mcp/issues/4)). Kept at the maintainer's decision because every result is a draft a person books | **Adopted with known defects** in 7.7.0 ([#698](https://github.com/devantler-tech/agent-plugins/issues/698)) |
 | Application security | [`security-review`, `security-model`][c-sentry] | Apache-2.0 repository, Sentry; the references of `security-review` are CC BY-SA 4.0 | 2026-11-05 | `security-review` reviews finished code by vulnerability class and is well made, but its references derive from OWASP material under share-alike terms, and it has no threat model, tenant design or webhook guidance. `security-model` writes a policy file for scanners and needs Python helpers | Rejected for now: the licence review is #581's. Revisit `security-review` for the review-time half when #581 clears share-alike redistribution |
 | Application security | [`security-review`, `threat-model-analyst`][c-ac] | MIT, github/awesome-copilot | 2026-11-10 | The first is a scanner procedure that repeats the secret and dependency checks this plugin already has. The second is threat modelling only, as a multi-agent report generator of 17 files and 335 KB | Rejected |
 | Application security | [`owasp-security`][c-agamm] | MIT, one maintainer | 2026-11-03 | Closest in content, with evaluation cases upstream. Its frontmatter uses a field the open skill format does not define, so the copy fails validation here unmodified, and its largest reference restates OWASP material under an MIT label | Rejected |
@@ -130,6 +132,7 @@ with SvelteKit and a Go server. An agent that trusts the card would choose `astr
    first-party `danish-business-rules` skill, within the limits its source list states.
 6. Prometheus and OpenTelemetry (#654). PromQL and alert rules adopted in 7.3.0; collector
    pipelines not added, as the matrix says.
+7. Bookkeeping in Numina (#698). Covered in 7.7.0 by the `numina` server and `numina-stripe`.
 
 Done: SvelteKit (#652), covered since 7.0.0.
 
@@ -158,6 +161,7 @@ when an adoption issue above closes, or after #651's first two baselines.
 [c-ch]: https://github.com/ClickHouse/agent-skills/tree/d3b2b5ba43a8b80c2d08858b68d53edc701b5ace/skills/clickhouse-best-practices
 [c-grafana]: https://github.com/grafana/skills/tree/8fb72a527961f05e708f53d2a0500709e12d7970/skills
 [c-stripe]: https://github.com/stripe/ai/tree/a3196df9925589ec7dd96c90692d13ea1c453cae
+[c-numina]: https://github.com/Numina-Technologies/mcp/tree/ddf430b70a05cc93771974569fffae86f7a02a09/skills/numina-stripe
 [c-tob]: https://github.com/trailofbits/skills/tree/470419e16f97e112d01fc32f4898aea1755015d9
 [c-sentry]: https://github.com/getsentry/skills/tree/e94f22214528d69899d09c627b3315ddc3544816/skills
 [c-ac]: https://github.com/github/awesome-copilot/tree/227949a7542a55d2155c00e7cdb998d9a0fee4f3/skills

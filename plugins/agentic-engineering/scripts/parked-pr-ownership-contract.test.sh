@@ -25,7 +25,7 @@ agent_clauses=(
 	"an upstream one is re-checked on a cadence, with an engineering route considered each time"
 	"unblock a dependency pr parked past its bound by engineering routes you take yourself, recording what you tried and the next route."
 	"ownership stays with you: a park never hands work to the maintainer, and no timer makes contacting the maintainer the outcome."
-	"treat an update ecosystem whose open-pr limit is filled by parked prs as a stall"
+	"treat an update ecosystem at or near its open-pr limit with any pr parked as a stall"
 	"unpark and drive a mis-park."
 )
 skill_clauses=(
@@ -35,7 +35,9 @@ skill_clauses=(
 	"work the in-portfolio blocker behind every parked pr"
 	# The complete rule, in the PR-driving procedure the skill links.
 	"a parked pr is not a resting place."
-	"the blocker a park names is owned work, and these rules apply to every parked pr on every run that drives prs:"
+	"the blocker a park names is owned work, and these rules apply to every parked pr on every run that drives prs."
+	"a pr the consumer's contract designates automation-owned stays outside them, exactly as the survey leaves it."
+	"never from the latest relabel, so a re-park keeps the earlier date and errs toward more work, never less."
 	"an in-portfolio blocker is finishing work."
 	"an unclaimed in-portfolio blocker behind a parked pr is a finding, never a wait."
 	"make that decision yourself, and never resume fixing its findings one by one."
@@ -46,7 +48,8 @@ skill_clauses=(
 	"once it has been parked for 14 days, unless the cadence names another bound, waiting is no longer a route."
 	"take an engineering route yourself, and keep taking them until the pr merges:"
 	"record on the pr what you tried and what it showed, the next route you will take,"
-	"a missing or lapsed record makes the pr actionable again."
+	"a missing or lapsed record makes taking the next route finishing work this run. it never lifts the park or the merge hold"
+	"an ignore is a lasting configuration change: record it on the blocker, and remove it when the blocker clears."
 	# The maintainer owns direction, not the work (maintainer, 2026-11-13): no bound hands it over.
 	"ownership stays with you."
 	"no timer or bound makes contacting the maintainer the outcome."
@@ -54,14 +57,19 @@ skill_clauses=(
 	"such an ask is never a handoff and never a substitute for the work: state the default you will act on if no answer comes, and keep working the routes meanwhile."
 	"an update ecosystem at or near its open-pr limit is stalled."
 	"raising the limit alone hides the stall instead of clearing it."
+	"a blocker you cannot read, or a record that names none, never justifies unparking"
 	"a mis-park is unparked and driven. at every check, confirm the pr really depends on its named blocker:"
-	"when its park facts (when it was parked, its blocker, its latest decision) cannot be read, the pr is unknown, never settled."
+	"when its park facts (when it was parked, its blocker, its latest route record) cannot be read, the pr is unknown, never settled."
 )
 surveyor_clauses=(
 	"a pr the consumer parked through its blocked-work mechanism is still a candidate, never settled."
 	"reports that field as \`unknown\`, never a guessed date or \`none\`."
 	"never omit a parked pr from the digest, or classify it as finished, because it is parked."
 	"parked=<date|unknown>"
+	"never from a census or search row, which can drop a label."
+	"a later relabel never restarts the clock."
+	"\`blocker=<owner/repo#n|upstream|decision|none>\`"
+	"decision=<date|none|unknown>"
 )
 # A sentence that would make any of the three read a park as settled, or hand it to the maintainer.
 forbidden_clauses=(
@@ -69,6 +77,8 @@ forbidden_clauses=(
 	"parked prs are finished"
 	"raise it once through the deployment's maintainer channels"
 	"past a longer bound"
+	# Dependabot security updates have their own open-PR limit, so a version-update stall never blocks them.
+	"security fixes included"
 )
 
 normalize() {

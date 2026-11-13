@@ -143,8 +143,8 @@ draft is unfinished work to clear first.
    Keep every open own/trusted PR hygienic while it waits, dependency PRs included, and complete the
    upstream release review before promoting or merging a dependency update. A parked PR is not
    finished: its blocker is owned work, a dependency PR parked past its bound is unblocked by
-   engineering routes you take yourself, an update ecosystem whose open-PR limit is filled by parked
-   PRs is a stall, and a mis-park is unparked and driven. Ownership never moves to the maintainer.
+   engineering routes you take yourself, an update ecosystem at or near its open-PR limit with any PR
+   parked is a stall, and a mis-park is unparked and driven. Ownership never moves to the maintainer.
    Never run or auto-merge
    an external contributor's branch. **Read [the PR-driving procedure](references/driving-prs.md)
    before driving, promoting or merging any PR**; it is the complete rung.

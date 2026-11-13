@@ -13,10 +13,13 @@ route. The agent takes engineering routes itself and keeps taking them, recordin
 tried, the next route, and when it will look again. Ownership stays with the agent. A park never
 hands work to the maintainer, and no bound makes contacting the maintainer the outcome. A
 maintainer-ask is only for a genuine question of direction, with the default the agent will act on,
-and the work continues meanwhile. An update ecosystem whose open-PR limit is filled by parked PRs
+and the work continues meanwhile. An update ecosystem at or near its open-PR limit with any PR parked
 is a stall, and a PR that does not depend on its named blocker is unparked and driven. The
-**Cadence** can set another bound. The `portfolio-surveyor` reports `parked`, `blocker` and `decision` facts for each parked
-candidate PR, and `unknown` when it cannot read them. `parked-pr-ownership-contract.test.sh` pins
+**Cadence** can set another bound. Automation-owned PRs stay outside these rules. The
+`portfolio-surveyor` reads each candidate's labels itself, from a complete per-PR list, and
+reports `parked` (from the first park), `blocker` (including `decision` for a scope or design
+blocker) and `decision` facts for each parked candidate PR, or `unknown` when it cannot read them.
+A blocker it cannot read never justifies unparking. `parked-pr-ownership-contract.test.sh` pins
 the clauses.
 
 ## 7.6.8 — 2026-11-12

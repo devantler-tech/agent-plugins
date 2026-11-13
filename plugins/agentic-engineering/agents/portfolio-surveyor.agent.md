@@ -188,7 +188,8 @@ branch pattern as the classifier.
 For the remaining open PRs by the maintainer's login or an actionable trusted-bot author — **drafts
 and non-drafts** — pull the heavy fields with **per-PR semantics**: state, merge state, review
 decision, status-check rollup, review threads (for the review lanes — the unresolved count is step
-3b's helper), head ref name, head ref oid, author, body, files. A
+3b's helper), head ref name, head ref oid, author, body, files, and labels with their `totalCount` (the
+only source for 3b's park facts). A
 transport request may carry at most eight independently keyed PRs under the mandatory-query recovery
 contract above; never pull a status-check rollup for every PR in every repo or make one generated
 query the fate of the whole worklist.
@@ -312,13 +313,25 @@ included**, automation-owned dependency PRs excluded — report:
 - **(e) green-review state** — see below.
 
 **Park facts, for a parked PR.** A PR the consumer parked through its blocked-work mechanism is
-still a candidate, never settled. When a candidate carries the consumer's blocked-work label, also
-report `parked=<UTC date the label was last applied>`, `blocker=<owner/repo#n|upstream|none>` as the
-consumer's blocked-work record on the PR names it, and `decision=<UTC date of the latest recorded
-park decision>|none`. Read the date from the PR's own label events and the record from the PR
-itself. A read that fails, or a record you cannot parse, reports that field as `unknown`, never a
-guessed date or `none`. The orchestrator applies its PR-driving procedure's parked-PR rules to
-these facts; never omit a parked PR from the digest, or classify it as finished, because it is parked.
+still a candidate, never settled. Judge whether it is parked only from this PR's own per-PR label
+list, whose returned names must match its `totalCount`, against the park label the consumer's
+**Portfolio map** names; never from a census or search row, which can drop a label. A list cut
+short, or a consumer that names no park label, reports `parked=unknown`. A parked candidate also
+reports:
+
+- `parked=<UTC date the PR was first parked>`: the creation of the consumer's park record on the PR
+  or, without one, the earliest application of the park label. Read the label events across every
+  page; a later relabel never restarts the clock.
+- `blocker=<owner/repo#n|upstream|decision|none>`: what the consumer's park record on the PR names.
+  `decision` is a scope or design decision, such as the re-entry condition of a review that did not
+  converge.
+- `decision=<UTC date of the latest recorded route or decision on the park record>|none`.
+
+A read that fails, a page left unread, or a record you cannot parse reports that field as
+`unknown`, never a guessed date or `none`. These reads are required evidence for a parked candidate
+and count against the per-PR read budget like the pentad. The orchestrator applies its PR-driving
+procedure's parked-PR rules to these facts. Never omit a parked PR from the digest, or classify it
+as finished, because it is parked.
 
 A PR is review-ready only when current-head body findings **and** unresolved threads are 0,
 there is no ordinary failing check (a `managed-failing` check alone does not count), it is not
@@ -925,9 +938,9 @@ budget: graphql=<start>→<end>/<limit> · core=<start>→<end>/<limit>[ · EXHA
 - REPO-SET-DRIFT — live set vs Portfolio map: new=<repos> · missing/renamed=<repos> · map-drift=<product rows missing/renamed live> → orchestrator reconciles (archived-marked rows exempt)
 - <repo>: CI red on <default-branch> @<sha> — <check name> <conclusion> (<run url>), event=<event>, path=<path>, created=<created_at>, run=<run_id>, attempt=<run_attempt>   # judged at that branch's current head; routing fields come directly from the classifier; omit the repo when green
 - <repo> #<n> "<title>" — <exact bot identity> → AUTOMATION-OWNED (NO-ACTION)
-- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>, unresolved=<n|unknown>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…>[, parked=<date|unknown>, blocker=<…|unknown>, decision=<date|none|unknown>] → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
-- <repo> #<n> (trusted bot, non-draft) — pentad: <same fields> → MERGE-READY | NEEDS-FIX | STALE-CR-DISMISSAL
-- <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<routine|interactive|none>, pentad=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
+- <repo> #<n> (trusted bot, draft) — pentad: checks=<green|failing:X|managed-failing:X|failing:X+managed-failing:Y>, unresolved=<n|unknown>, body_findings=<n>@<sha>|<n>-stale@<sha>|0-resolved@<sha>, green_review=<…>, review_reservation=<…>, review_pending=<…>, review_progress=<…>, rd=<APPROVED|CHANGES_REQUESTED:<author>@<sha>|none>, mergeState=<…>[, parked=<date|unknown>, blocker=<owner/repo#n|upstream|decision|none|unknown>, decision=<date|none|unknown>] → REVIEW-READY | NEEDS-FIX | STALE-CR-DISMISSAL
+- <repo> #<n> (trusted bot, non-draft) — pentad: <same fields> (park fields included) → MERGE-READY | NEEDS-FIX | STALE-CR-DISMISSAL
+- <repo> #<n> "<title>" — maintainer login, draft=<true|false> → OWNERSHIP-UNVERIFIED: branch=<headRefName>, disclosure=<routine|interactive|none>, pentad=<…>, [parked=<…>, blocker=<…>, decision=<…>,] review_reservation=<…>, review_pending=<…>, review_progress=<…> → NEEDS-FIX | CLEAR (pentad disposition only — orchestrator applies creation-record test before action; never MERGE-READY, never asserted mine)
 - <repo>: untriaged → issues #a,#b · PRs #c   |   stale (>14d) → #d
 - <repo> #<n> "<title>" — <author>: EXTERNAL — review statically only (never auto-drive/merge)
 

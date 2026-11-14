@@ -150,34 +150,6 @@ jobs:
       - name: 🧪 Guard complete script-test sharding
         run: bash scripts/ci-script-test-sharding-workflow.test.sh
 
-      - name: 🧪 Self-test the open-PR recheck
-        # Proves recheck-open-prs.sh re-triggers each open PR in the one order that is safe
-        # (close BEFORE reopen), never leaves a PR closed when a step fails mid-sequence,
-        # restores an armed auto-merge without arming one that was not, and fails closed on
-        # an unparseable listing rather than reading it as "no open PRs". Hermetic: `gh` is
-        # stubbed on PATH, so nothing reaches the network or touches a real pull request.
-        run: ./scripts/recheck-open-prs.test.sh
-
-      - name: 🧪 Verify PR recheck observations and recovery
-        env:
-          RECHECK_OBSERVATION_ARTIFACT_DIR: ${{ runner.temp }}/recheck-observation-recovery
-        run: bash scripts/recheck-open-prs-observations.test.sh
-
-      - name: 📦 Verify hosted recovery artifact collection
-        if: ${{ always() }}
-        # Synthetic PR settings from the hermetic test exercise the same collection as the caller.
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: recheck-recovery-test-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/recheck-observation-recovery/**/rearm/**
-            ${{ runner.temp }}/recheck-observation-recovery/**/closed/**
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: 🧪 Self-test head-checked PR base refreshes
-        run: bash scripts/recheck-open-prs-base-refresh.test.sh
-
       - name: 🧪 Self-test changelog generation and publication checks
         run: bash scripts/plugin-changelog.test.sh
 

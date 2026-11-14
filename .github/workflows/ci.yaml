@@ -5,6 +5,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # The merge queue (devantler-tech/agent-plugins#704) runs the required checks on
+  # the exact result each queued PR would land as. Its group refs are unique, so the
+  # ref-keyed concurrency group below never cancels one group for another.
+  merge_group:
   workflow_dispatch:
 
 concurrency:
@@ -423,8 +427,10 @@ jobs:
         # content change on an unchanged version is unreachable for anyone who already
         # installed it. This is a PR gate: on a push to main the change has already
         # merged, so an absent base is reported and passed rather than failing the branch.
+        # In the merge queue the base is the group's base, so the check covers exactly
+        # what the group would add to main.
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: |
           if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
             echo "No usable base commit for this event — skipping (PR gate only)."

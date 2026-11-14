@@ -86,22 +86,8 @@ bash scripts/plugin-changelog-release-boundaries.test.sh # caller identity, comm
 ./scripts/refresh-desired-state-digests.sh --check
 bash scripts/generated-write-safety.test.sh # resource refusal and failed batch-write recovery
 
-# 1d. Offline marketplace candidate preparation: real Git histories, no publication.
-# Source manifests and every native release/proposal observation require unique decoded
-# object keys before semantic checks, including objects inside paginated arrays. Stable
-# versions contain no whitespace or line terminators. Partial-write ambiguity remains
-# uncertain and preserves remote objects for explicit recovery.
-bash scripts/marketplace-caller-context.test.sh # inherited Git selectors cannot redirect caller evidence
-bash scripts/prepare-marketplace-release.test.sh
-bash scripts/release-observation-boundaries.test.sh # original Unicode, census completeness and reserved output identity
-bash scripts/verify-marketplace-release.test.sh # artifact reproduction and exact release-tree binding
-bash scripts/inspect-marketplace-release.test.sh # historical content, occupied tags and caller-state preservation
-bash scripts/check-marketplace-release-remote.test.sh # remote state, pagination and movement; offline forge
-bash scripts/publish-marketplace-release.test.sh # opt-in publication, competing writers and readback; offline forge
-bash scripts/prepare-merged-marketplace-release.test.sh # exact main CI and fresh proposal reconstruction
-bash scripts/marketplace-publication-workflow.test.sh # actual workflow authorization and permission branches
-bash scripts/propose-marketplace-release.test.sh # signed draft creation and complete readback; offline forge
-bash scripts/marketplace-proposal-workflow.test.sh # default-off proposal and CI dispatch boundaries
+# 1d. Signed skill metadata publication: scoped App-signed requests and complete readback.
+#     Marketplace releases need no local step: release-please cuts them (docs/marketplace-releases.md).
 bash scripts/publish-skill-metadata.test.sh # scoped App-signed requests and complete readback; offline forge
 
 # 1e. AGENTS.md is loaded by every session and must stay under the 32 KiB Codex reads;
@@ -151,7 +137,7 @@ at the base commit and preserves whole path components, including embedded and t
 never supply provenance, and malformed base provenance remains UNKNOWN.
 
 The required gate is the aggregated **`CI - Required Checks`** job. It requires retired-repository
-link checks, manifest validation, script lint/tests, marketplace tests, package tests, version/changelog
+link checks, manifest validation, script lint/tests, package tests, version/changelog
 checks, the bundled-skill edit guard, and skill-spec validation. The exact dependency list lives in
 [`ci.yaml`](../.github/workflows/ci.yaml); `actionlint` above is a local-only convenience, not a CI gate. Never
 weaken a check to pass — fix the root cause.

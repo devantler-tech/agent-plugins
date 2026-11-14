@@ -1,5 +1,10 @@
 # Changelog — `agentic-engineering`
 
+## 7.8.4 — 2026-11-14
+
+**Changed** — remove the duplicate top-level `plugin.json`. Every supported tool reads
+`.claude-plugin/plugin.json` instead, so installs and updates need no action.
+
 ## 7.8.3 — 2026-11-14
 
 **Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.

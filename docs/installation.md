@@ -1,5 +1,23 @@
 # Installation
 
+## One manifest set for every tool
+
+The repository ships one marketplace manifest, [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json),
+and one manifest per plugin, `plugins/<name>/.claude-plugin/plugin.json`. Every supported tool reads
+those files:
+
+| Tool | Marketplace manifest it reads | Plugin manifest it reads |
+| --- | --- | --- |
+| VS Code | the first of `marketplace.json`, `.plugin/marketplace.json`, `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json` | the first of `.plugin/plugin.json`, `.claude-plugin/plugin.json` and `plugin.json` |
+| GitHub Copilot CLI | `.claude-plugin/marketplace.json` | `.claude-plugin/plugin.json` |
+| Claude Code and Claude Desktop | `.claude-plugin/marketplace.json` | `.claude-plugin/plugin.json` |
+| Codex | `.claude-plugin/marketplace.json` | `.codex-plugin/plugin.json` when a plugin ships one, otherwise `.claude-plugin/plugin.json` |
+
+The repository has none of the other paths VS Code checks, so VS Code also reads the
+`.claude-plugin` files. `scripts/validate-manifests.sh` refuses a copy at any of those paths: VS
+Code would read most of them before the canonical file, and any copy can drift from it. The only
+second manifest is Codex's own, described [below](#codex).
+
 ## VS Code
 
 Add the marketplace to your settings:
@@ -55,7 +73,7 @@ Codex reads a plugin's `.codex-plugin/plugin.json` before its `.claude-plugin/pl
 use: iCloud Mail, iCloud Calendar, LinkedIn and Codex Security Cloud, all optional, listed in its
 [`.app.json`](../plugins/agentic-engineering/.app.json). Each still needs your own sign-in.
 The `ksail` plugin ships one for its OpenAI plugin directory listing; it offers no apps.
-`scripts/validate-manifests.sh` keeps each Codex manifest identical to the portable one apart from its
+`scripts/validate-manifests.sh` keeps each Codex manifest identical to `.claude-plugin/plugin.json` apart from its
 component paths, app list and listing, and `scripts/bump-plugin-version.sh` moves its version
 with the others.
 

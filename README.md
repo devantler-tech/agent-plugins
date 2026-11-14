@@ -11,7 +11,7 @@ In **Claude Code**, add the marketplace and install the agentic engineering bund
 /plugin install agentic-engineering@devantler-plugins
 ```
 
-Using another tool? Follow the [VS Code](docs/installation.md#vs-code), [Copilot CLI](docs/installation.md#copilot-cli), [Claude Code](docs/installation.md#claude-code), or [skills-only installation guide](docs/installation.md#any-other-agent--skills-only-via-npx-skills).
+Using another tool? Follow the [VS Code](docs/installation.md#vs-code), [Copilot CLI](docs/installation.md#copilot-cli), [Claude Code](docs/installation.md#claude-code), or [skills-only installation guide](docs/installation.md#any-other-agent--skills-only-via-npx-skills). Every tool reads the same manifests; the guide lists [which file each one reads](docs/installation.md#one-manifest-set-for-every-tool).
 
 ## Choose a bundle
 

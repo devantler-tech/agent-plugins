@@ -18,31 +18,29 @@ fresh() {
   git -C "$d" config user.name Fixture
   git -C "$d" config user.email fixture@example.invalid
   git -C "$d" config commit.gpgsign false
-  mkdir -p "$d/.claude-plugin" "$d/.github/plugin"
+  mkdir -p "$d/.claude-plugin"
   for n in alpha beta; do
     mkdir -p "$d/plugins/$n/.claude-plugin" "$d/plugins/$n/skills/example"
-    printf '{"name":"%s","version":"1.2.3"}\n' "$n" > "$d/plugins/$n/plugin.json"
-    cp "$d/plugins/$n/plugin.json" "$d/plugins/$n/.claude-plugin/plugin.json"
+    printf '{"name":"%s","version":"1.2.3"}\n' "$n" > "$d/plugins/$n/.claude-plugin/plugin.json"
     printf '%s\n' '---' 'name: example' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' '  github-ref: refs/tags/v1.0.0' '---' 'Example.' > "$d/plugins/$n/skills/example/SKILL.md"
     printf '## 1.2.3 — 2026-01-01\n\nOriginal history.\n' > "$d/plugins/$n/CHANGELOG.md"
   done
   printf '%s\n' '{"name":"fixture","plugins":[{"name":"alpha","version":"1.2.3","source":"./plugins/alpha"},{"name":"beta","version":"1.2.3","source":"./plugins/beta"}]}' > "$d/.claude-plugin/marketplace.json"
-  cp "$d/.claude-plugin/marketplace.json" "$d/.github/plugin/marketplace.json"
-  git -C "$d" add -- plugins .claude-plugin .github
+  git -C "$d" add -- plugins .claude-plugin
   git -C "$d" commit -qm base
   base=$(git -C "$d" rev-parse HEAD)
   sed 's/v1.0.0/v2.0.0/' "$d/plugins/alpha/skills/example/SKILL.md" > "$d/next"
   mv "$d/next" "$d/plugins/alpha/skills/example/SKILL.md"
   git -C "$d" add -- plugins/alpha/skills/example/SKILL.md
   git -C "$d" commit -qm sync
-  printf '%s\n' '{"name":"alpha","version":"1.2.4"}' > "$d/plugins/alpha/plugin.json"
+  printf '%s\n' '{"name":"alpha","version":"1.2.4"}' > "$d/plugins/alpha/.claude-plugin/plugin.json"
 }
 # Capture only the actual helper's status and bytes, preserving later assertions.
 run() { rc=0; (cd "$d" && "$@") > "$work/out" 2> "$work/err" || rc=$?; }
 # Commit only the fixture-owned plugin paths.
 commit() { git -C "$d" add -- plugins; git -C "$d" commit -qm change; }
 # Snapshot all publication files independently of the index.
-snapshot() { find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec cksum {} + | LC_ALL=C sort; }
+snapshot() { find "$d/plugins" "$d/.claude-plugin" -type f -exec cksum {} + | LC_ALL=C sort; }
 for mode in check write; do
   for selector in repository worktree index config; do
     fresh
@@ -111,7 +109,7 @@ commit; snapshot > "$work/before"
 run bash "$here/plugin-changelog.sh" write "$base" 2026-10-04
 label='nonregular committed provenance refuses'; check test "$rc" -ne 0
 snapshot > "$work/after"; label='nonregular committed provenance preserves batch'; check cmp "$work/before" "$work/after"
-for target in marketplace portable; do
+for target in marketplace plugin; do
   for kind in scalar container escaped; do
     fresh
     if [[ $target == marketplace ]]; then
@@ -121,11 +119,11 @@ for target in marketplace portable; do
         container) printf '%s\n' '{"plugins":[{"name":"beta","version":"1.2.3"}],"plugins":[{"name":"alpha","version":"1.2.3","source":"./plugins/alpha"}]}' > "$file" ;;
         escaped) printf '%s\n' '{"plugins":[],"\u0070lugins":[{"name":"alpha","version":"1.2.3","source":"./plugins/alpha"}]}' > "$file" ;;
       esac
-      cp "$d/plugins/alpha/.claude-plugin/plugin.json" "$d/plugins/alpha/plugin.json"
+      printf '{"name":"alpha","version":"1.2.3"}\n' > "$d/plugins/alpha/.claude-plugin/plugin.json"
       snapshot > "$work/before"
       run bash "$here/bump-plugin-version.sh" alpha patch
     else
-      file="$d/plugins/alpha/plugin.json"
+      file="$d/plugins/alpha/.claude-plugin/plugin.json"
       case $kind in
         scalar) printf '%s\n' '{"version":"1.2.4","version":"1.2.3"}' > "$file" ;;
         container) printf '%s\n' '{"version":"1.2.3","extra":{},"extra":{}}' > "$file" ;;
@@ -141,7 +139,7 @@ done
 for mode in check write; do
   fresh
   tree=$(git -C "$d" rev-parse "$base^{tree}")
-  git -C "$d" add -- plugins/alpha/plugin.json
+  git -C "$d" add -- plugins/alpha/.claude-plugin/plugin.json
   changed_tree=$(git -C "$d" write-tree)
   a=$(printf 'First base\n' | git -C "$d" commit-tree "$changed_tree" -p "$base")
   b=$(printf 'Other base\n' | git -C "$d" commit-tree "$tree" -p "$base")

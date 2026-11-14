@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Validate the plugin marketplace manifests, every plugins/<name>/plugin.json, and the
-# plugin catalogue table.
+# Validate the plugin marketplace manifest, every plugins/<name>/.claude-plugin/plugin.json,
+# and the plugin catalogue table.
 #
 # Single source of truth for the checks the 🧪 CI "Validate manifests" job runs:
-#   1. Both marketplace manifests (Copilot + Claude) are well-formed (.name + .plugins).
-#   2. The two manifests are byte-for-byte equivalent (key-sorted) — no drift.
+#   1. The repository ships ONE manifest set: .claude-plugin/marketplace.json and each
+#      plugins/<name>/.claude-plugin/plugin.json (plus the optional Codex-specific
+#      .codex-plugin/plugin.json). A second marketplace or plugin manifest that a consumer
+#      would read first is refused, so no tool can be offered a divergent copy.
+#   2. The marketplace manifest is well-formed (.name + .plugins).
 #   3. Append-only plugin rename history resolves to a current plugin or an explicit removal.
-#   4. Every plugins/<name>/plugin.json is complete and well-shaped, and has an
-#      equivalent .claude-plugin/plugin.json for strict Claude ingestion.
+#   4. Every plugins/<name>/.claude-plugin/plugin.json is complete and well-shaped.
 #   5. Manifest entries and on-disk plugins are in lockstep (no missing/orphan plugin,
 #      no name/description/version/source divergence).
 #   6. The plugin catalogue table and on-disk plugin resources are in lockstep (every plugin
@@ -23,7 +25,6 @@
 # stop-on-first-failing-step behaviour.
 set -euo pipefail
 
-COPILOT_MANIFEST=".github/plugin/marketplace.json"
 CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
 RENAME_HISTORY="scripts/marketplace-rename-history.json"
 README="docs/plugins.md"
@@ -84,11 +85,32 @@ validate_package_boundaries() {
       echo "::error::$package: package names must be kebab-case"; return 1
     fi
     if [ -L "$package" ] ||
-       ! regular_packaged_file "$package/plugin.json" ||
        ! regular_packaged_file "$package/.claude-plugin/plugin.json"; then
-      echo "::error::$package: every package requires its own regular canonical manifests"; return 1
+      echo "::error::$package: every package requires its own regular canonical manifest .claude-plugin/plugin.json"; return 1
     fi
   done < "$inventory_dir/packages"
+}
+
+# 1. One manifest set. VS Code reads marketplace.json, .plugin/marketplace.json and
+# .github/plugin/marketplace.json before .claude-plugin/marketplace.json, and a plugin's
+# .plugin/plugin.json before .claude-plugin/plugin.json and plugin.json after it. Any of those
+# copies would either shadow the canonical manifest for that tool or drift beside it, so the
+# repository refuses them instead of keeping them in parity.
+validate_single_manifest_set() {
+  local path package
+  for path in marketplace.json .plugin/marketplace.json .github/plugin/marketplace.json; do
+    if [ -e "$path" ] || [ -L "$path" ]; then
+      echo "::error::$path: the marketplace has one manifest, $CLAUDE_MANIFEST; remove this copy"; return 1
+    fi
+  done
+  while IFS= read -r -d '' package; do
+    for path in "$package/plugin.json" "$package/.plugin/plugin.json"; do
+      if [ -e "$path" ] || [ -L "$path" ]; then
+        echo "::error::$path: a plugin has one manifest, $package/.claude-plugin/plugin.json; remove this copy"; return 1
+      fi
+    done
+  done < "$inventory_dir/packages"
+  echo "✓ One marketplace and plugin manifest set"
 }
 # Default skill discovery includes every direct directory, not just complete matches.
 validate_skill_dir() {
@@ -111,7 +133,7 @@ validate_skill_dir() {
   [ "$count" -gt 0 ] || { echo "::error::$dir: 'skills/' present but contains no <skill>/SKILL.md"; return 1; }
 }
 
-# 1. A marketplace manifest must parse and carry both required top-level keys.
+# 2. The marketplace manifest must parse and carry both required top-level keys.
 validate_marketplace_json() {
   local manifest="$1"
   if ! regular_packaged_file "$manifest"; then echo "::error::$manifest: manifest must be a regular packaged file"; return 1; fi
@@ -129,33 +151,6 @@ validate_marketplace_json() {
     return 1
   fi
   echo "✓ $manifest is valid"
-}
-
-# Capture each producer's status explicitly: diff cannot observe a failed jq
-# inside process substitution, even when both producers print nothing.
-validate_json_parity() {
-  local left="$1" right="$2" mismatch="$3" left_json right_json
-  if ! left_json=$(jq -S . "$left"); then
-    echo "::error::Could not normalize $left"
-    return 1
-  fi
-  if ! right_json=$(jq -S . "$right"); then
-    echo "::error::Could not normalize $right"
-    return 1
-  fi
-  if [ "$left_json" != "$right_json" ]; then
-    echo "::error::$mismatch"
-    # Diagnostic only; the checked, captured values above decide parity.
-    diff -u <(printf '%s\n' "$left_json") <(printf '%s\n' "$right_json") || true
-    return 1
-  fi
-}
-
-# 2. The Copilot and Claude manifests must be identical once key-sorted.
-validate_marketplace_parity() {
-  validate_json_parity "$COPILOT_MANIFEST" "$CLAUDE_MANIFEST" \
-    'Marketplace manifests are out of sync' || return 1
-  echo "✓ Marketplace manifests are in sync"
 }
 
 # 3. Claude Code persists qualified plugin names in enabledPlugins and pluginConfigs.
@@ -454,12 +449,12 @@ validate_codex_mcp_mirror() {
 
 # An optional Codex manifest (ADR 0019). Codex reads .codex-plugin/plugin.json before
 # .claude-plugin/plugin.json and resolves only the component paths it declares, so it must repeat
-# the portable manifest exactly, name the plugin's own skills/ and .mcp.json, and add nothing else
+# the canonical manifest exactly, name the plugin's own skills/ and .mcp.json, and add nothing else
 # but an app list and a listing interface. Every app it offers is optional: installing the plugin
 # must never require a connector the user has not chosen.
 validate_codex_manifest() {
   local pj="$1" plugin_dir="$2" codex_pj="$2/.codex-plugin/plugin.json" apps="$2/.app.json"
-  local portable_json codex_json ok=1
+  local canonical_json codex_json ok=1
   if [ ! -e "$codex_pj" ] && [ ! -L "$codex_pj" ]; then
     if [ -e "$apps" ] || [ -L "$apps" ]; then
       echo "::error::$apps: Codex apps must be declared by $codex_pj"; return 1
@@ -470,11 +465,11 @@ validate_codex_manifest() {
     echo "::error::$codex_pj: the Codex manifest must be a regular packaged file"; return 1
   fi
   if ! json_object_unique "$codex_pj"; then echo "::error::Invalid $codex_pj"; return 1; fi
-  if ! portable_json=$(jq -S . "$pj") ||
+  if ! canonical_json=$(jq -S . "$pj") ||
      ! codex_json=$(jq -S 'del(.skills, .mcpServers, .apps, .interface)' "$codex_pj"); then
     echo "::error::Could not normalize $codex_pj"; return 1
   fi
-  if [ "$portable_json" != "$codex_json" ]; then
+  if [ "$canonical_json" != "$codex_json" ]; then
     echo "::error::$codex_pj differs from $pj beyond Codex's skills, mcpServers, apps and interface"
     ok=0
   fi
@@ -537,16 +532,15 @@ validate_codex_manifest() {
   [ "$ok" -eq 1 ]
 }
 
-# 4. Every plugins/<name>/plugin.json is complete and well-shaped, has an equivalent
-#    .claude-plugin/plugin.json for strict Claude marketplace ingestion, and declares
-#    at least one recognized resource (skills/, a bundled .mcp.json, or agents/) —
-#    ADR 0001 §D3.
+# 4. Every plugins/<name>/.claude-plugin/plugin.json is complete and well-shaped and
+#    declares at least one recognized resource (skills/, a bundled .mcp.json, or agents/) —
+#    ADR 0001 §D3. Claude Code, Claude Desktop's strict remote ingestion, VS Code and the
+#    Copilot CLI all read this canonical path.
 validate_plugin_json() {
   local failed=0
-  local pj plugin_dir claude_pj ok plugin_name resource_count
-  for pj in plugins/*/plugin.json; do
-    plugin_dir=$(dirname "$pj")
-    claude_pj="$plugin_dir/.claude-plugin/plugin.json"
+  local pj plugin_dir ok plugin_name resource_count
+  for pj in plugins/*/.claude-plugin/plugin.json; do
+    plugin_dir=$(dirname "$(dirname "$pj")")
     ok=1
     resource_count=0
     if ! json_object_unique "$pj"; then
@@ -565,19 +559,6 @@ validate_plugin_json() {
     fi
     if ! jq -e -L "$validator_dir" 'include "marketplace-release"; .version | stable_version' "$pj" >/dev/null; then
       echo "::error::$pj: missing or empty 'version', or not a canonical stable cache version"
-      ok=0
-    fi
-    # Claude Desktop's remote marketplace service validates sourced plugins in strict
-    # mode and requires the canonical .claude-plugin/plugin.json path. Copilot/VS Code
-    # consume the portable top-level plugin.json, so keep both normalized JSON documents
-    # equivalent rather than letting either provider receive a divergent contract.
-    if [ ! -f "$claude_pj" ]; then
-      echo "::error::$plugin_dir requires .claude-plugin/plugin.json for strict Claude marketplace ingestion"
-      ok=0
-    elif ! json_object_unique "$claude_pj"; then
-      echo "::error::Invalid $claude_pj"
-      ok=0
-    elif ! validate_json_parity "$pj" "$claude_pj" "$claude_pj differs from $pj"; then
       ok=0
     fi
     if ! validate_codex_manifest "$pj" "$plugin_dir"; then ok=0; fi
@@ -637,7 +618,7 @@ validate_marketplace_plugins_parity() {
       echo "::error::$manifest: plugin '$name' source '$source' must be './plugins/$name'"
       ok=0
     fi
-    pj="plugins/$name/plugin.json"
+    pj="plugins/$name/.claude-plugin/plugin.json"
     if ! regular_packaged_file "$pj"; then
       echo "::error::$manifest: plugin '$name' has no $pj on disk"; failed=1; continue
     fi
@@ -678,8 +659,8 @@ plugin_disk_resources() {
     if [ -f "$mcp" ]; then
       jq -r '.mcpServers // {} | keys[]' "$mcp"
     fi
-    if jq -e 'has("agents")' "plugins/$name/plugin.json" >/dev/null; then
-      jq -r '.agents[] | split("/")[-1] | sub("\\.agent\\.md$"; "")' "plugins/$name/plugin.json"
+    if jq -e 'has("agents")' "plugins/$name/.claude-plugin/plugin.json" >/dev/null; then
+      jq -r '.agents[] | split("/")[-1] | sub("\\.agent\\.md$"; "")' "plugins/$name/.claude-plugin/plugin.json"
     else
     for d in "plugins/$name/agents"/*.agent.md; do
       [ -e "$d" ] || continue
@@ -721,10 +702,10 @@ validate_readme_parity() {
     readme_resources=$(printf '%s' "$line" | awk -F'|' '{print $3}' \
       | grep -oE '`[^`][^`]*`' | tr -d '`' | sort | tr '\n' ' ')
     # Require the manifest, not just the directory: a stray plugins/<name>/ without a
-    # plugin.json would otherwise pass here yet stay invisible to the orphan scan below
-    # (which only iterates plugins/*/plugin.json).
-    if [ ! -f "plugins/$name/plugin.json" ]; then
-      echo "::error::$README lists plugin '$name' with no plugins/$name/plugin.json on disk"
+    # .claude-plugin/plugin.json would otherwise pass here yet stay invisible to the orphan scan
+    # below (which only iterates plugins/*/.claude-plugin/plugin.json).
+    if [ ! -f "plugins/$name/.claude-plugin/plugin.json" ]; then
+      echo "::error::$README lists plugin '$name' with no plugins/$name/.claude-plugin/plugin.json on disk"
       failed=1
       continue
     fi
@@ -738,7 +719,7 @@ validate_readme_parity() {
   done < "$inventory_dir/catalogue"
   # Every plugins/<name>/ on disk appears as a catalogue row (no plugin missing from the table).
   local pj listed rn
-  for pj in plugins/*/plugin.json; do
+  for pj in plugins/*/.claude-plugin/plugin.json; do
     name=$(jq -r '.name' "$pj")
     listed=0
     for rn in "${readme_names[@]}"; do
@@ -837,8 +818,8 @@ validate_desired_state_resources() {
     readme="$plugin_dir/README.md"
     basename=$(basename "$resource")
 
-    if [ ! -f "$plugin_dir/plugin.json" ]; then
-      echo "::error::$resource: $plugin_dir has no plugin.json; desired-state resources must belong to a manifested plugin"
+    if [ ! -f "$plugin_dir/.claude-plugin/plugin.json" ]; then
+      echo "::error::$resource: $plugin_dir has no .claude-plugin/plugin.json; desired-state resources must belong to a manifested plugin"
       failed=1
       continue
     fi
@@ -1711,9 +1692,8 @@ validate_skill_provenance() {
 
 main() {
   validate_package_boundaries
-  validate_marketplace_json "$COPILOT_MANIFEST"
+  validate_single_manifest_set
   validate_marketplace_json "$CLAUDE_MANIFEST"
-  validate_marketplace_parity
   validate_marketplace_renames
   validate_plugin_json
   validate_marketplace_plugins_parity

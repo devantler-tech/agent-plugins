@@ -5,15 +5,13 @@ here=${MCP_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
-# Build a complete portable package fixture with matching manifests and resource inventory.
+# Build a complete package fixture with matching manifests and resource inventory.
 fixture() {
   local root=$1 resource=$2
-  mkdir -p "$root/.github/plugin" "$root/.claude-plugin" "$root/scripts" "$root/docs" "$root/plugins/alpha/.claude-plugin" "$root/plugins/alpha/skills/example"
+  mkdir -p "$root/.claude-plugin" "$root/scripts" "$root/docs" "$root/plugins/alpha/.claude-plugin" "$root/plugins/alpha/skills/example"
   printf '%s\n' '{"name":"fixture","renames":{"old-alpha":"alpha"},"plugins":[{"name":"alpha","description":"Alpha","version":"1.0.0","source":"./plugins/alpha"}]}' > "$root/.claude-plugin/marketplace.json"
-  cp "$root/.claude-plugin/marketplace.json" "$root/.github/plugin/marketplace.json"
   printf '%s\n' '{"old-alpha":"alpha"}' > "$root/scripts/marketplace-rename-history.json"
-  printf '%s\n' '{"name":"alpha","description":"Alpha","version":"1.0.0"}' > "$root/plugins/alpha/plugin.json"
-  cp "$root/plugins/alpha/plugin.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
+  printf '%s\n' '{"name":"alpha","description":"Alpha","version":"1.0.0"}' > "$root/plugins/alpha/.claude-plugin/plugin.json"
   printf '%s\n' '---' 'name: example' 'description: Example.' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' '---' > "$root/plugins/alpha/skills/example/SKILL.md"
   # shellcheck disable=SC2016 # Backticks are literal Markdown, not shell substitutions.
   printf '| Plugin | Resources | Description |\n|---|---|---|\n| [`alpha`](plugins/alpha/) | `example`, `%s` | Alpha |\n' "$resource" > "$root/docs/plugins.md"

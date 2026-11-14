@@ -151,8 +151,7 @@ jobs:
           bash "$GITHUB_WORKSPACE/trusted-tools/scripts/plugin-changelog.sh" write origin/main
           # The publisher independently rejects anything outside this skill's plugin metadata.
           git add -- '*.desired-state.json'
-          git add -- .claude-plugin/marketplace.json .github/plugin/marketplace.json \
-            'plugins/*/plugin.json' 'plugins/*/.claude-plugin/plugin.json' \
+          git add -- .claude-plugin/marketplace.json 'plugins/*/.claude-plugin/plugin.json' \
             'plugins/*/.codex-plugin/plugin.json' 'plugins/*/CHANGELOG.md'
 
       - name: ✍️ Publish one App-signed metadata commit

@@ -2,7 +2,7 @@ name: 🚀 Release Please
 
 # Cuts marketplace releases with release-please (release-please-config.json and
 # .release-please-manifest.json). Each push to main updates one reviewable release PR that
-# bumps `.metadata.version` in both marketplace manifests. Merging that PR tags `vX.Y.Z` and
+# bumps `.metadata.version` in the marketplace manifest. Merging that PR tags `vX.Y.Z` and
 # publishes the GitHub release with its notes. Per-plugin versions and changelogs stay
 # author-maintained and are enforced by CI, not by this workflow.
 

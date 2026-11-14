@@ -91,7 +91,7 @@ and its scenarios are on #641.
 
 ## What CI checks, and what it does not
 
-Checked on every pull request: the two marketplace manifests agree, every skill folder is
+Checked on every pull request: the one marketplace manifest matches its plugins, every skill folder is
 catalogued, external skills keep their provenance and are not edited, every bundled skill has a
 licence record, each `SKILL.md` validates against the open skill format, and a changed plugin
 has a changed version. [`validation.md`](validation.md) has the commands.

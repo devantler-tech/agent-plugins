@@ -11,8 +11,8 @@ fixture() {
   git -C "$dir" config user.name Test; git -C "$dir" config user.email test@example.invalid
   git -C "$dir" config commit.gpgsign false
   for plugin in alpha beta; do
-    mkdir -p "$dir/plugins/$plugin/skills/example"
-    printf '{"version":"1.2.3"}\n' > "$dir/plugins/$plugin/plugin.json"
+    mkdir -p "$dir/plugins/$plugin/skills/example" "$dir/plugins/$plugin/.claude-plugin"
+    printf '{"version":"1.2.3"}\n' > "$dir/plugins/$plugin/.claude-plugin/plugin.json"
     printf '%s\n' '---' 'name: example' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' '  github-ref: refs/tags/v1.0.0' '---' 'Example.' > "$dir/plugins/$plugin/skills/example/SKILL.md"
     printf '## 1.2.3 — 2026-01-01\n\nOriginal history.\n' > "$dir/plugins/$plugin/CHANGELOG.md"
   done
@@ -20,7 +20,7 @@ fixture() {
   base=$(git -C "$dir" rev-parse HEAD)
   printf '\nChanged resource.\n' >> "$dir/plugins/alpha/skills/example/SKILL.md"
   git -C "$dir" add -- plugins; git -C "$dir" commit -qm sync
-  printf '{"version":"1.2.4"}\n' > "$dir/plugins/alpha/plugin.json"
+  printf '{"version":"1.2.4"}\n' > "$dir/plugins/alpha/.claude-plugin/plugin.json"
 }
 # Retain expected refusals as observable status assertions, so one gap cannot mask another.
 expect_refusal() {
@@ -39,13 +39,13 @@ for valid_date in 2000-02-29 2024-02-29 2026-04-30; do
   else printf 'FAIL valid date %s\n' "$valid_date"; failed=$((failed+1)); fi
 done
 fixture
-printf '{}\n' >> "$dir/plugins/alpha/plugin.json"
+printf '{}\n' >> "$dir/plugins/alpha/.claude-plugin/plugin.json"
 label='multiple working manifest documents'; expect_refusal write "$base" 2026-10-03
 fixture
-git -C "$dir" show "$base:plugins/alpha/plugin.json" > "$work/manifest"
+git -C "$dir" show "$base:plugins/alpha/.claude-plugin/plugin.json" > "$work/manifest"
 printf '{"version":"1.2.3"}\n' >> "$work/manifest"
 blob=$(git -C "$dir" hash-object -w "$work/manifest")
-git -C "$dir" update-index --cacheinfo 100644 "$blob" plugins/alpha/plugin.json
+git -C "$dir" update-index --cacheinfo 100644 "$blob" plugins/alpha/.claude-plugin/plugin.json
 git -C "$dir" commit -qm malformed-base
 base=$(git -C "$dir" rev-parse HEAD)
 label='multiple base manifest documents'; expect_refusal write "$base" 2026-10-03
@@ -81,7 +81,7 @@ base=$(git -C "$dir" rev-parse HEAD~1)
 label='non-ASCII resource filenames retain their owning skill'
 if (cd "$dir" && bash "$script" write "$base" 2026-10-03) > "$work/out" 2>&1 && grep -q '\*\*Changed\*\*' "$dir/plugins/alpha/CHANGELOG.md"; then printf 'PASS %s\n' "$label"; else printf 'FAIL %s\n' "$label"; failed=$((failed+1)); fi
 fixture
-printf '{"version":"1.2.4"}\n' > "$dir/plugins/beta/plugin.json"
+printf '{"version":"1.2.4"}\n' > "$dir/plugins/beta/.claude-plugin/plugin.json"
 printf '\nChanged beta.\n' >> "$dir/plugins/beta/skills/example/SKILL.md"
 git -C "$dir" add -- plugins/beta/skills/example/SKILL.md; git -C "$dir" commit -qm beta
 cp "$dir/plugins/alpha/CHANGELOG.md" "$work/alpha-before"; cp "$dir/plugins/beta/CHANGELOG.md" "$work/beta-before"
@@ -104,7 +104,7 @@ rc=0
 label='failed second write removes its newly created first changelog'
 if [[ $rc -ne 0 && ! -e "$dir/plugins/alpha/CHANGELOG.md" ]] && cmp -s "$work/beta-before" "$dir/plugins/beta/CHANGELOG.md"; then printf 'PASS %s\n' "$label"; else printf 'FAIL %s\n' "$label"; failed=$((failed+1)); fi
 fixture
-git -C "$dir" add -- plugins/alpha/plugin.json; git -C "$dir" commit -qm version
+git -C "$dir" add -- plugins/alpha/.claude-plugin/plugin.json; git -C "$dir" commit -qm version
 original=$(git -C "$dir" rev-parse HEAD)
 printf '## 1.2.4 — 2026-10-03\n' > "$dir/plugins/alpha/CHANGELOG.md"
 git -C "$dir" add -- plugins/alpha/CHANGELOG.md; git -C "$dir" commit -qm substitute-notes

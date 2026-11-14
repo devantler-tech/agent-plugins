@@ -89,14 +89,12 @@ rc=0; (cd "$root" && PATH="$root/bin:$PATH" bash "$digest") > "$work/out" 2>&1 |
 label='failed resource commit reports failure'; check test "$rc" -ne 0
 label='failed resource commit restores the whole batch'; check diff -rq "$work/before-digests" "$root/plugins"
 
-# Prepare a plugin with all four version manifests in parity, without a Git history.
+# Prepare a plugin whose plugin and marketplace manifests agree, without a Git history.
 version_fixture() {
   root=$(mktemp -d "$work/version.XXXXXX")
-  mkdir -p "$root/plugins/alpha/.claude-plugin" "$root/.github/plugin" "$root/.claude-plugin"
-  printf '{"name":"alpha","version":"1.2.3"}\n' > "$root/plugins/alpha/plugin.json"
-  cp "$root/plugins/alpha/plugin.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
-  printf '{"plugins":[{"name":"alpha","version":"1.2.3","source":"./plugins/alpha"}]}\n' > "$root/.github/plugin/marketplace.json"
-  cp "$root/.github/plugin/marketplace.json" "$root/.claude-plugin/marketplace.json"
+  mkdir -p "$root/plugins/alpha/.claude-plugin" "$root/.claude-plugin"
+  printf '{"name":"alpha","version":"1.2.3"}\n' > "$root/plugins/alpha/.claude-plugin/plugin.json"
+  printf '{"plugins":[{"name":"alpha","version":"1.2.3","source":"./plugins/alpha"}]}\n' > "$root/.claude-plugin/marketplace.json"
 }
 version_fixture
 cp -R "$root" "$work/before-versions"
@@ -104,8 +102,7 @@ faults
 rc=0; (cd "$root" && PATH="$root/bin:$PATH" bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
 label='failed version commit reports failure'; check test "$rc" -ne 0
 label='failed version commit restores every manifest'; check diff -rq "$work/before-versions/plugins" "$root/plugins"
-label='failed version commit restores both catalogues'; check diff -rq "$work/before-versions/.github" "$root/.github"
-label='failed version commit restores strict catalogue'; check diff -rq "$work/before-versions/.claude-plugin" "$root/.claude-plugin"
+label='failed version commit restores the catalogue'; check diff -rq "$work/before-versions/.claude-plugin" "$root/.claude-plugin"
 label='failed version commit removes private staging files'; check test "$(find "$root" -name '*.next.*' -o -name '*.original.*' | wc -l | tr -d ' ')" = 0
 
 # A failed later write must preserve a concurrent edit and its original backup.
@@ -114,9 +111,9 @@ mkdir "$root/bin"
 cat > "$root/bin/mv" <<'STUB'
 #!/usr/bin/env bash
 last=${!#}
-if [[ ${ATOMIC_DESTINATION:-} == plugins/alpha/.claude-plugin/plugin.json && $last == plugin.json && $* == *.next.* && ! -e "$FAULT_ROOT/once" ]]; then
-  printf '{"name":"alpha","version":"1.2.4","description":"concurrent edit"}\n' > "$FAULT_ROOT/plugins/alpha/plugin.json"
-  cp "$FAULT_ROOT/plugins/alpha/plugin.json" "$FAULT_ROOT/concurrent-evidence.json"
+if [[ ${ATOMIC_DESTINATION:-} == .claude-plugin/marketplace.json && $last == marketplace.json && $* == *.next.* && ! -e "$FAULT_ROOT/once" ]]; then
+  printf '{"name":"alpha","version":"1.2.4","description":"concurrent edit"}\n' > "$FAULT_ROOT/plugins/alpha/.claude-plugin/plugin.json"
+  cp "$FAULT_ROOT/plugins/alpha/.claude-plugin/plugin.json" "$FAULT_ROOT/concurrent-evidence.json"
   touch "$FAULT_ROOT/once"
   exit 1
 fi
@@ -126,7 +123,7 @@ chmod +x "$root/bin/mv"
 rc=0
 (cd "$root" && PATH="$root/bin:$PATH" REAL_MV="$real_mv" FAULT_ROOT="$root" bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
 label='conflicting rollback reports failure'; check test "$rc" -ne 0
-label='conflicting rollback preserves concurrent bytes'; check cmp -s "$root/concurrent-evidence.json" "$root/plugins/alpha/plugin.json"
+label='conflicting rollback preserves concurrent bytes'; check cmp -s "$root/concurrent-evidence.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
 label='conflicting rollback retains the original for recovery'; check test "$(find "$root" -name 'plugin.json.original.*' | wc -l | tr -d ' ')" = 1
 label='conflicting rollback explains operator recovery'; check grep -Fq 'Recovery required' "$work/out"
 
@@ -135,12 +132,12 @@ label='conflicting rollback explains operator recovery'; check grep -Fq 'Recover
 version_fixture
 mkdir "$root/bin"
 printf '{"name":"alpha","version":"1.2.4","description":"second writer"}\n' > "$root/second-source"
-cp "$root/plugins/alpha/plugin.json" "$root/second-original"
-printf '%s\0%s\0%s\0' plugins/alpha/plugin.json "$root/second-source" "$root/second-original" > "$root/second-plan"
+cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$root/second-original"
+printf '%s\0%s\0%s\0' plugins/alpha/.claude-plugin/plugin.json "$root/second-source" "$root/second-original" > "$root/second-plan"
 cat > "$root/bin/mv" <<'STUB'
 #!/usr/bin/env bash
 last=${!#}
-if [[ ${ATOMIC_DESTINATION:-} == plugins/alpha/.claude-plugin/plugin.json && $last == plugin.json && $* == *.next.* && ! -e "$FAULT_ROOT/failed-second" ]]; then
+if [[ ${ATOMIC_DESTINATION:-} == .claude-plugin/marketplace.json && $last == marketplace.json && $* == *.next.* && ! -e "$FAULT_ROOT/failed-second" ]]; then
   touch "$FAULT_ROOT/failed-second"
   exit 1
 fi
@@ -149,7 +146,7 @@ STUB
 cat > "$root/bin/cmp" <<'STUB'
 #!/usr/bin/env bash
 rc=0; "$REAL_CMP" "$@" || rc=$?
-if [[ $rc == 0 && ${ATOMIC_DESTINATION:-} == plugins/alpha/plugin.json && ${2:-} == plugin.json && -e "$FAULT_ROOT/failed-second" && ! -e "$FAULT_ROOT/probed" ]]; then
+if [[ $rc == 0 && ${ATOMIC_DESTINATION:-} == plugins/alpha/.claude-plugin/plugin.json && ${2:-} == plugin.json && -e "$FAULT_ROOT/failed-second" && ! -e "$FAULT_ROOT/probed" ]]; then
   touch "$FAULT_ROOT/probed"
   child_rc=0
   bash -c 'cd "$FAULT_ROOT"; . "$ATOMIC_LIB"; atomic_write_batch "$FAULT_ROOT/second-plan"' > "$FAULT_ROOT/second-output" 2>&1 || child_rc=$?
@@ -167,12 +164,10 @@ label='ordinary failed batch releases its own lock'; check test ! -e "$root/.age
 
 version_fixture
 mkdir -p "$root/plugins/beta/.claude-plugin" "$root/bin"
-jq '.name="beta"' "$root/plugins/alpha/plugin.json" > "$root/plugins/beta/plugin.json"
-cp "$root/plugins/beta/plugin.json" "$root/plugins/beta/.claude-plugin/plugin.json"
-for manifest in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
-  jq '.plugins += [{name:"beta",version:"1.2.3",source:"./plugins/beta"}]' "$root/$manifest" > "$work/marketplace"
-  cp "$work/marketplace" "$root/$manifest"
-done
+jq '.name="beta"' "$root/plugins/alpha/.claude-plugin/plugin.json" > "$root/plugins/beta/.claude-plugin/plugin.json"
+manifest=.claude-plugin/marketplace.json
+jq '.plugins += [{name:"beta",version:"1.2.3",source:"./plugins/beta"}]' "$root/$manifest" > "$work/marketplace"
+cp "$work/marketplace" "$root/$manifest"
 cat > "$root/bin/go" <<'STUB'
 #!/usr/bin/env bash
 if [[ ${NESTED_WRITER:-} != yes && $1 == build ]]; then
@@ -185,25 +180,24 @@ real_go=$(command -v go)
 rc=0
 (cd "$root" && PATH="$root/bin:$PATH" RACE_ROOT="$root" BUMP_TOOL="$bump" REAL_GO="$real_go" bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
 label='a stale writer plan refuses before erasing a completed bump'; check test "$rc" -ne 0
-for manifest in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
-  label="completed beta bump survives in $manifest"; check jq -e '.plugins[] | select(.name=="beta") | .version=="1.2.4"' "$root/$manifest"
-done
-label='stale alpha batch does not publish its first destination'; check jq -e '.version=="1.2.3"' "$root/plugins/alpha/plugin.json"
+manifest=.claude-plugin/marketplace.json
+label="completed beta bump survives in $manifest"; check jq -e '.plugins[] | select(.name=="beta") | .version=="1.2.4"' "$root/$manifest"
+label='stale alpha batch does not publish its first destination'; check jq -e '.version=="1.2.3"' "$root/plugins/alpha/.claude-plugin/plugin.json"
 
 # A changed later target refuses the whole plan before its first replacement.
 version_fixture
-cp "$root/plugins/alpha/plugin.json" "$root/first-observed"
-cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$root/second-observed"
+cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$root/first-observed"
+cp "$root/.claude-plugin/marketplace.json" "$root/second-observed"
 printf 'replacement\n' > "$root/planned-source"
-printf '%s\0%s\0%s\0' plugins/alpha/plugin.json "$root/planned-source" "$root/first-observed" \
-  plugins/alpha/.claude-plugin/plugin.json "$root/planned-source" "$root/second-observed" > "$root/stale-plan"
-printf 'concurrent second target\n' > "$root/plugins/alpha/.claude-plugin/plugin.json"
-cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$root/concurrent-second"
+printf '%s\0%s\0%s\0' plugins/alpha/.claude-plugin/plugin.json "$root/planned-source" "$root/first-observed" \
+  .claude-plugin/marketplace.json "$root/planned-source" "$root/second-observed" > "$root/stale-plan"
+printf 'concurrent second target\n' > "$root/.claude-plugin/marketplace.json"
+cp "$root/.claude-plugin/marketplace.json" "$root/concurrent-second"
 rc=0
 (cd "$root" && bash -c '. "$1"; atomic_write_batch stale-plan' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
 label='stale later destination refuses publication'; check test "$rc" -ne 0
-label='stale later destination leaves the first target unchanged'; check cmp -s "$root/first-observed" "$root/plugins/alpha/plugin.json"
-label='stale later destination preserves the foreign update'; check cmp -s "$root/concurrent-second" "$root/plugins/alpha/.claude-plugin/plugin.json"
+label='stale later destination leaves the first target unchanged'; check cmp -s "$root/first-observed" "$root/plugins/alpha/.claude-plugin/plugin.json"
+label='stale later destination preserves the foreign update'; check cmp -s "$root/concurrent-second" "$root/.claude-plugin/marketplace.json"
 
 # Observed absence has the same protection as an existing file's original bytes.
 version_fixture
@@ -225,10 +219,10 @@ label='an uncontended new file contains the planned bytes'; check cmp -s "$root/
 
 version_fixture
 mkdir "$root/.agent-plugin-write.lock"
-cp "$root/plugins/alpha/plugin.json" "$work/locked-before"
+cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$work/locked-before"
 rc=0; (cd "$root" && bash "$bump" alpha patch) > "$work/out" 2>&1 || rc=$?
 label='a pre-existing writer lock refuses publication'; check test "$rc" -ne 0
-label='a pre-existing writer lock preserves destination bytes'; check cmp -s "$work/locked-before" "$root/plugins/alpha/plugin.json"
+label='a pre-existing writer lock preserves destination bytes'; check cmp -s "$work/locked-before" "$root/plugins/alpha/.claude-plugin/plugin.json"
 label='a failed lock acquisition cannot remove another writer lock'; check test -d "$root/.agent-plugin-write.lock"
 
 # Relative staging names belong to the caller, never to a destination parent.
@@ -236,12 +230,12 @@ version_fixture
 mkdir -p "$root/staging" "$root/plugins/alpha/staging"
 printf 'caller bytes\n' > "$root/staging/source"
 printf 'wrong parent bytes\n' > "$root/plugins/alpha/staging/source"
-cp "$root/plugins/alpha/plugin.json" "$root/staging/original"
-printf '%s\0%s\0%s\0' plugins/alpha/plugin.json staging/source staging/original > "$root/relative-plan"
+cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$root/staging/original"
+printf '%s\0%s\0%s\0' plugins/alpha/.claude-plugin/plugin.json staging/source staging/original > "$root/relative-plan"
 rc=0
 (cd "$root" && bash -c '. "$1"; atomic_write_batch relative-plan' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
 label='relative staging source stays bound to caller root'; check test "$rc" -eq 0
-label='relative staging cannot publish a destination-parent impostor'; check cmp "$root/staging/source" "$root/plugins/alpha/plugin.json"
+label='relative staging cannot publish a destination-parent impostor'; check cmp "$root/staging/source" "$root/plugins/alpha/.claude-plugin/plugin.json"
 
 # Cleanup must retain recovery files once the caller checkout path has moved.
 version_fixture
@@ -249,8 +243,8 @@ mkdir "$root/bin"
 outside=$(mktemp -d "$work/moved-outside.XXXXXX")
 cp -R "$root/." "$outside/"
 printf 'replacement\n' > "$work/moved-source"
-cp "$root/plugins/alpha/plugin.json" "$work/moved-original"
-printf '%s\0%s\0%s\0' plugins/alpha/plugin.json "$work/moved-source" "$work/moved-original" > "$root/moved-plan"
+cp "$root/plugins/alpha/.claude-plugin/plugin.json" "$work/moved-original"
+printf '%s\0%s\0%s\0' plugins/alpha/.claude-plugin/plugin.json "$work/moved-source" "$work/moved-original" > "$root/moved-plan"
 cat > "$root/bin/cp" <<'STUB'
 #!/usr/bin/env bash
 last=${!#}
@@ -265,22 +259,20 @@ chmod +x "$root/bin/cp"
 rc=0
 (cd "$root" && PATH="$root/bin:$PATH" RACE_ROOT="$root" RACE_OUTSIDE="$outside" RACE_FLAG="$work/moved-flag" REAL_CP="$(command -v cp)" REAL_MV="$(command -v mv)" bash -c '. "$1"; atomic_write_batch moved-plan' _ "$plugins/scripts/atomic-write.lib.sh") > "$work/out" 2>&1 || rc=$?
 label='moved checkout refuses publication'; check test "$rc" -ne 0
-label='moved checkout leaves external destination untouched'; check cmp "$outside/plugins/alpha/plugin.json" "$root.owned/plugins/alpha/plugin.json"
+label='moved checkout leaves external destination untouched'; check cmp "$outside/plugins/alpha/.claude-plugin/plugin.json" "$root.owned/plugins/alpha/.claude-plugin/plugin.json"
 label='moved checkout retains its original for recovery'; check test "$(find "$root.owned" -name '*.original.*' | wc -l | tr -d ' ')" -eq 1
 
 version_fixture
 git -C "$root" init -q
 git -C "$root" config user.name Test; git -C "$root" config user.email test@example.invalid
-git -C "$root" -c commit.gpgsign=false add plugins .github/plugin/marketplace.json .claude-plugin/marketplace.json
+git -C "$root" -c commit.gpgsign=false add plugins .claude-plugin/marketplace.json
 git -C "$root" -c commit.gpgsign=false commit -qm base
 base=$(git -C "$root" rev-parse HEAD)
 mkdir -p "$root/plugins/beta/.claude-plugin"
-printf '{"name":"beta","version":"1.0.0"}\n' > "$root/plugins/beta/plugin.json"
-cp "$root/plugins/beta/plugin.json" "$root/plugins/beta/.claude-plugin/plugin.json"
-for f in .github/plugin/marketplace.json .claude-plugin/marketplace.json; do
-  jq '.plugins += [{name:"beta",version:"1.0.0",source:"./plugins/beta"}]' "$root/$f" > "$work/new"; cp "$work/new" "$root/$f"
-done
-git -C "$root" add plugins/beta .github/plugin/marketplace.json .claude-plugin/marketplace.json
+printf '{"name":"beta","version":"1.0.0"}\n' > "$root/plugins/beta/.claude-plugin/plugin.json"
+f=.claude-plugin/marketplace.json
+jq '.plugins += [{name:"beta",version:"1.0.0",source:"./plugins/beta"}]' "$root/$f" > "$work/new"; cp "$work/new" "$root/$f"
+git -C "$root" add plugins/beta .claude-plugin/marketplace.json
 git -C "$root" -c commit.gpgsign=false commit -qm 'feat: new plugin'
 rc=0; (cd "$root" && bash "$bump" --changed-since "$base") > "$work/out" 2>&1 || rc=$?
 label='changed-since accepts a newly introduced plugin'; check test "$rc" -eq 0

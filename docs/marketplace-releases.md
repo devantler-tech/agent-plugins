@@ -17,7 +17,8 @@ Commit titles that squash merges leave on `main`. The
 2. The release PR is an ordinary pull request. Review it like any other, and merge it when the
    release should go out. Until then it keeps collecting the changes that land on `main`.
 3. Merging it tags the merge commit `vX.Y.Z` and publishes a GitHub release with the same notes.
-   GitHub Actions creates the tag, which is the only identity allowed to create `v*` tags here.
+   The repository's GitHub App creates the tag: only the organization's release Apps may create
+   `v*` tags.
 
 The version follows the commits merged since the last release:
 

@@ -23,20 +23,27 @@ jobs:
   release:
     name: Tag and publish a merged release
     runs-on: ubuntu-latest
-    # Creating the release creates the `vX.Y.Z` tag. Only GitHub Actions may create `v*`
-    # tags in this repository, so this step uses the workflow token, not the App token.
-    # `pull-requests: write` lets release-please relabel the merged release PR as
-    # `autorelease: tagged` and comment the release link; without it, the next run would
-    # find the PR still pending and try to release it again.
-    permissions:
-      contents: write # create the vX.Y.Z tag and the GitHub release
-      pull-requests: write # relabel and comment on the merged release PR
+    # Creating the release creates the `vX.Y.Z` tag. Only the organization's release Apps may
+    # create `v*` tags (the "Restrict release tag creation" organization ruleset), so this step
+    # uses the App token, not the workflow token. The token's `pull-requests: write` lets
+    # release-please relabel the merged release PR as `autorelease: tagged` and comment the
+    # release link; without it, the next run would find the PR still pending and try to release
+    # it again. No workflow here runs on tags or releases, so an App-created release starts nothing.
+    permissions: {}
     timeout-minutes: 10
     steps:
+      - name: 🔑 Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write # create the vX.Y.Z tag and the GitHub release
+          permission-pull-requests: write # relabel and comment on the merged release PR
       - name: 🏷️ Tag and publish a merged release PR
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          token: ${{ github.token }}
+          token: ${{ steps.app-token.outputs.token }}
           skip-github-pull-request: true
 
   release-pr:

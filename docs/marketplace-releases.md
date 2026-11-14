@@ -322,8 +322,8 @@ signature readback, a fresh fetch and exact release-tree verification precede dr
 Final readback binds the bot author, branch, source, commit, draft, title and plain-language body.
 Only `CREATED` with `proposal: DRAFT_READBACK_VERIFIED` reports success.
 
-The final job dispatches the existing `recheck-open-prs.yaml` on main so the normal App-backed reopen
-starts fresh required PR checks. That dispatch reports a request, not successful CI. The draft still
+The draft is created with the workflow token, which starts no PR workflows, so close and reopen it
+to start its required checks. The draft still
 requires current-head checks, substantive review, zero unresolved findings and normal promotion and
 merge. It is never automatically promoted or merged, and proposal creation never reserves a release
 tag or publishes a release.

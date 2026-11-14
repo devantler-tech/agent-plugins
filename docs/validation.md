@@ -156,57 +156,9 @@ checks, the bundled-skill edit guard, and skill-spec validation. The exact depen
 [`ci.yaml`](../.github/workflows/ci.yaml); `actionlint` above is a local-only convenience, not a CI gate. Never
 weaken a check to pass — fix the root cause.
 
-**Adding a gate does not retroactively apply it to open PRs — the recheck workflow is what does.**
-A pull-request workflow runs only on that PR's own `pull_request` events, so every PR already open
-when a new job joins `CI - Required Checks` keeps the green it earned *before* that job existed, and
-the branch rule keyed on the check's name is satisfied by the stale run. Such a PR can merge without
-the new gate ever running against it — which is how a stale plugin version or a hand-edited synced
-skill would reach consumers past the very checks added to stop them.
-[`recheck-open-prs.yaml`](../.github/workflows/recheck-open-prs.yaml) closes that window: **every push
-to `main`** re-triggers every open PR's checks, and it can also be dispatched by hand with a
-`dry-run` input to see what a sweep would touch. So **when you add or alter a required job, the
-recheck is the mechanism that makes it apply to work already in flight** — there is nothing extra to
-remember, but there is something to notice if it ever stops running.
-
-It sweeps unconditionally because deciding *whether* a gate changed cannot be made correct here, and
-three narrower designs were tried and rejected: a `paths:` filter is capped at 300 files, so a large
-sync can change `ci.yaml` without the filter seeing it; diffing the pushed range loses a push the
-concurrency group coalesced away; and testing `ci.yaml` alone misses a gate strengthened in its
-*implementation*, since that file runs `validate-manifests.sh` and friends and a new rejection there
-changes what the required check accepts while `ci.yaml` is untouched. Each blind spot is silent,
-which is worse than no trigger. **If you narrow this trigger, you are re-opening one of those three.**
-
-[`recheck-open-prs.sh`](../scripts/recheck-open-prs.sh) refreshes **same-repository branches** through
-GitHub's update-branch API with the observed head as its concurrency guard. It verifies that the
-result contains both the old head and current base, preserves auto-merge settings, and observes a
-fresh PR workflow event. An updated head requires a new current-head review before merge;
-existing commits are retained. Current non-Dependabot branches use the reopen route to ensure
-App-created drafts receive their required PR CI event. A branch that conflicts with the base is
-reported and skipped, not counted as a failure: GitHub will not merge it, and the push that
-resolves the conflict starts a fresh PR run against the current gates. Only GitHub's settled
-verdict (`mergeable: false`, `dirty`) for the head the update tried counts; an unknown verdict or a
-moved head is still a failure.
-
-**Forks** use close and immediate reopen, which preserves their head and current-head review.
-Every reopen requires a newer PR event and a matching OPEN readback of head, base, author and
-merge state, including when auto-merge was unarmed. Unknown merge strategies refuse mutation;
-restoring a known strategy also pins the observed head. The restored request is read back before
-completion is counted.
-**Dependabot PRs are never closed or recreated:** closing can suppress a wanted update, so a
-Dependabot fork is reported as a failure and left untouched. Unknown author or repository-boundary
-data, failed updates and incomplete readback likewise cannot report a successful refresh.
-For a current Dependabot branch, the helper observes a PR workflow run at that head and verifies
-the head includes the current named base. Missing event evidence is a failure, not a reason to close it.
-
-Re-running an old workflow replays its original merge revision; it does not apply a new gate.
-These refresh routes use an App token because `GITHUB_TOKEN` events start no new workflow runs.
-For the fork route, a previously armed auto-merge is restored with its original strategy and message
-only after a fresh PR event is observable. An unarmed request is never armed, and missing event
-evidence prevents restoration. The hermetic tests cover both routes, real commit ancestry,
-Dependabot protection, recovery and incomplete observations.
-
-GitHub's own mechanism for this is `strict_required_status_checks_policy` — "require branches to be up
-to date before merging" — which would block a stale PR outright rather than re-running it. It is
-declared **org-wide and `Observe`-only** in `devantler-tech/.github`, so turning it on is a maintainer
-decision affecting every repository, not this one's to make; the workflow above is the
-repository-scoped equivalent.
+**A new gate applies to open PRs through the merge queue.** `main` requires a merge queue (declared in
+devantler-tech/.github `deploy/repository-rulesets/require-merge-queue-on-agent-plugins.yaml`). The queue
+runs `CI - Required Checks` on the exact commit each queued PR would land as, so a PR opened before a
+gate reached `main` still has to pass that gate before it merges. CI runs on `merge_group` for this;
+PR-only steps such as the bundled-skill edit guard have already passed on the PR before it can join the
+queue. Merge with `gh pr merge <n> --match-head-commit <sha>` (no `--squash`: the queue squashes).

@@ -101,21 +101,3 @@ jobs:
           jq . "$RUNNER_TEMP/proposal-created.json"
           printf 'status=%s\n' "$(jq -er .status "$RUNNER_TEMP/proposal-created.json")" >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/proposal-created.json" >> "$GITHUB_STEP_SUMMARY"
-
-  recheck:
-    name: Start normal required PR checks
-    needs: propose
-    if: >-
-      github.ref == 'refs/heads/main' && needs.propose.outputs.status == 'CREATED' &&
-      ((github.event_name == 'workflow_dispatch' && inputs.propose == true) ||
-      (github.event_name == 'schedule' && vars.MARKETPLACE_AUTOPROPOSE == 'true'))
-    runs-on: ubuntu-latest
-    # Dispatch the existing rechecker; this job cannot read or change repository contents or PRs.
-    permissions:
-      actions: write
-    steps:
-      - name: Dispatch the existing current-main CI recheck
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: gh workflow run recheck-open-prs.yaml --repo "$GH_REPO" --ref main -F dry-run=false

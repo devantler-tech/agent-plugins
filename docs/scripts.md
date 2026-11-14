@@ -11,7 +11,6 @@ complete inventory; read a script's header for its arguments and safeguards.
 | Refresh generated resource digests | [refresh-desired-state-digests.sh](../scripts/refresh-desired-state-digests.sh) |
 | Synchronize one curated plugin | Dispatch [Update Agent Skills](../.github/workflows/update-agent-skills.yaml) with `agentic-engineering`; [skill-update-scope.sh](../scripts/skill-update-scope.sh) resolves only declared selections before the normal per-skill updater runs. Default and scheduled `all` updates still cover the full catalogue. |
 | Cut a marketplace release | No script: merge the release-please release PR, as the [release guide](marketplace-releases.md) explains |
-| Recheck open pull requests after changing CI | [recheck-open-prs.sh](../scripts/recheck-open-prs.sh) |
 
 The directory also contains checks for package discovery, skill provenance, licensing and authoring rules,
 version changes, changelogs, generated writes and instruction size.

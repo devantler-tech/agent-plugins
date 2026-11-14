@@ -31,8 +31,6 @@ Maintained first-party skills are authored in their plugins here; curated extern
 
 Marketplace releases are cut by [release-please](docs/marketplace-releases.md): it keeps one reviewable release PR open, and merging it tags `vX.Y.Z` and publishes the GitHub release with its notes.
 
-If a pull-request recheck fails, follow the [recovery guide](docs/pr-recheck-recovery.md) to retrieve its saved merge settings and verify the current PR before restoring them.
-
 The marketplace is under the [Apache 2.0 license](LICENSE). Bundled skills keep their own licenses, listed
 in the [plugin catalogue](docs/plugins.md#skill-licenses); third-party skills ship their copyright
 notices and license texts, or links to the license files beside them, in their plugin's

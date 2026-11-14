@@ -11,11 +11,6 @@
           "type": "json",
           "path": ".claude-plugin/marketplace.json",
           "jsonpath": "$.metadata.version"
-        },
-        {
-          "type": "json",
-          "path": ".github/plugin/marketplace.json",
-          "jsonpath": "$.metadata.version"
         }
       ]
     }

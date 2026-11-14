@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Self-test for bump-plugin-version.sh.
 #
-# Proves the helper moves the version in ALL FOUR manifests that must agree (a partial bump
+# Proves the helper moves the version in EVERY manifest that must agree (a partial bump
 # would fail validate-manifests.sh downstream), that each bump level is arithmetically right,
 # that --changed-since bumps exactly the plugins whose content moved and is idempotent on a
 # re-run, and that it fails closed on a bad plugin, a bad level, and a non-semver version.
@@ -23,7 +23,6 @@ make_plugin() {
   mkdir -p "$root/plugins/$name/.claude-plugin" "$root/plugins/$name/skills/example-skill"
   local pj
   pj=$(printf '{"name":"%s","description":"%s plugin","version":"%s"}' "$name" "$name" "$version")
-  printf '%s\n' "$pj" > "$root/plugins/$name/plugin.json"
   printf '%s\n' "$pj" > "$root/plugins/$name/.claude-plugin/plugin.json"
   printf -- '---\nname: example-skill\n---\n%s\n' "$body" \
     > "$root/plugins/$name/skills/example-skill/SKILL.md"
@@ -31,7 +30,7 @@ make_plugin() {
 
 make_repo() {
   local root="$1"
-  mkdir -p "$root/.claude-plugin" "$root/.github/plugin"
+  mkdir -p "$root/.claude-plugin"
   local manifest='{
   "name": "devantler-plugins",
   "plugins": [
@@ -40,7 +39,6 @@ make_repo() {
   ]
 }'
   printf '%s\n' "$manifest" > "$root/.claude-plugin/marketplace.json"
-  printf '%s\n' "$manifest" > "$root/.github/plugin/marketplace.json"
   make_plugin "$root" alpha "1.2.3"
   make_plugin "$root" beta "1.2.3"
   git -C "$root" init --quiet --initial-branch=main
@@ -56,13 +54,11 @@ make_repo() {
 # Every place a version must agree.
 versions_of() {
   local root="$1" name="$2"
-  jq -r '.version' "$root/plugins/$name/plugin.json"
   jq -r '.version' "$root/plugins/$name/.claude-plugin/plugin.json"
   if [ -f "$root/plugins/$name/.codex-plugin/plugin.json" ]; then
     jq -r '.version' "$root/plugins/$name/.codex-plugin/plugin.json"
   fi
   jq -r --arg n "$name" '.plugins[]|select(.name==$n)|.version' "$root/.claude-plugin/marketplace.json"
-  jq -r --arg n "$name" '.plugins[]|select(.name==$n)|.version' "$root/.github/plugin/marketplace.json"
 }
 
 expect_all() {
@@ -70,7 +66,7 @@ expect_all() {
   got=$(versions_of "$root" "$name")
   uniq=$(printf '%s\n' "$got" | sort -u | tr '\n' ' ')
   if [ "$uniq" = "$want " ]; then ok "$desc"; else
-    ko "$desc — expected all four at '$want', got: $uniq"; fi
+    ko "$desc — expected every manifest at '$want', got: $uniq"; fi
 }
 
 WORK=$(mktemp -d)
@@ -79,9 +75,9 @@ fresh() { local d; d=$(mktemp -d "$WORK/case-XXXXXX"); make_repo "$d"; printf '%
 
 echo "bump-plugin-version.sh self-test"
 
-# --- all four manifests move together ---
+# --- every manifest moves together ---
 d=$(fresh); (cd "$d" && "$BUMP" alpha patch >/dev/null)
-expect_all "patch bumps all four manifests" "$d" alpha "1.2.4"
+expect_all "patch bumps every manifest" "$d" alpha "1.2.4"
 
 d=$(fresh); (cd "$d" && "$BUMP" alpha minor >/dev/null)
 expect_all "minor resets patch" "$d" alpha "1.3.0"
@@ -146,7 +142,7 @@ if (cd "$d" && "$BUMP" --changed-since origin/nope) >/dev/null 2>&1; then
   ko "unresolvable base should fail"; else ok "unresolvable base fails closed"; fi
 
 # Exercise the real updater with failed Git observations. Enumeration and all
-# change queries must finish before any of the four manifests are written.
+# change queries must finish before any manifest is written.
 REAL_GIT=$(command -v git)
 export REAL_GIT
 mkdir -p "$WORK/git-fault"
@@ -161,7 +157,7 @@ case $VERSION_GIT_FAULT in
     fi ;;
   diff-empty|diff-partial)
     if [[ $1 == diff && ${!#} == plugins/beta/ ]]; then
-      [[ $VERSION_GIT_FAULT != diff-partial ]] || printf 'plugins/beta/plugin.json\n'
+      [[ $VERSION_GIT_FAULT != diff-partial ]] || printf 'plugins/beta/.claude-plugin/plugin.json\n'
       printf 'injected plugin change query failure\n' >&2
       exit 72
     fi ;;
@@ -199,17 +195,17 @@ done
 # Malformed late inputs must not leave an earlier manifest (or plugin) bumped.
 for corruption in missing duplicate identity parity malformed symlink; do
   d=$(fresh)
-  f="$d/.github/plugin/marketplace.json"
+  f="$d/.claude-plugin/marketplace.json"
   case "$corruption" in
     missing) jq '.plugins |= map(select(.name != "alpha"))' "$f" > "$d/t"; mv "$d/t" "$f" ;;
     duplicate) jq '.plugins += [.plugins[0]]' "$f" > "$d/t"; mv "$d/t" "$f" ;;
-    identity) jq '.name="beta"' "$d/plugins/alpha/plugin.json" > "$d/t"; mv "$d/t" "$d/plugins/alpha/plugin.json" ;;
+    identity) jq '.name="beta"' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/t"; mv "$d/t" "$d/plugins/alpha/.claude-plugin/plugin.json" ;;
     parity) jq '.plugins[0].version="1.2.2"' "$f" > "$d/t"; mv "$d/t" "$f" ;;
     malformed) printf '{invalid\n' > "$f" ;;
     symlink)
-      cp "$d/plugins/alpha/plugin.json" "$WORK/outside-manifest"
-      rm "$d/plugins/alpha/plugin.json"
-      ln -s "$WORK/outside-manifest" "$d/plugins/alpha/plugin.json"
+      cp "$d/plugins/alpha/.claude-plugin/plugin.json" "$WORK/outside-manifest"
+      rm "$d/plugins/alpha/.claude-plugin/plugin.json"
+      ln -s "$WORK/outside-manifest" "$d/plugins/alpha/.claude-plugin/plugin.json"
       cp "$WORK/outside-manifest" "$WORK/outside-before" ;;
   esac
   git -C "$d" diff > "$WORK/before"
@@ -218,13 +214,13 @@ for corruption in missing duplicate identity parity malformed symlink; do
   outside_ok=true
   if [ "$corruption" = symlink ]; then cmp -s "$WORK/outside-before" "$WORK/outside-manifest" || outside_ok=false; fi
   if "$outside_ok" && [ "$rc" -ne 0 ] && cmp -s "$WORK/before" "$WORK/after" && [ -z "$(git -C "$d" ls-files --others --exclude-standard)" ]; then
-    ok "$corruption input leaves all four manifests unchanged"
-  else ko "$corruption input leaves all four manifests unchanged (rc=$rc)"; fi
+    ok "$corruption input leaves every manifest unchanged"
+  else ko "$corruption input leaves every manifest unchanged (rc=$rc)"; fi
 done
 d=$(fresh)
 make_plugin "$d" alpha 1.2.3 "edited alpha"
 make_plugin "$d" beta 1.2.3 "edited beta"
-printf '{invalid\n' > "$d/plugins/beta/plugin.json"
+printf '{invalid\n' > "$d/plugins/beta/.claude-plugin/plugin.json"
 git -C "$d" add plugins/alpha plugins/beta
 git -C "$d" commit --quiet -m content
 (cd "$d" && "$BUMP" --changed-since HEAD^ > "$WORK/out" 2>&1); rc=$?
@@ -237,27 +233,27 @@ else ko "a bad later plugin prevents every manifest write (rc=$rc)"; fi
 with_codex() {
   local root=$1
   mkdir -p "$root/plugins/alpha/.codex-plugin"
-  jq '. + {skills: "./skills/"}' "$root/plugins/alpha/plugin.json" > "$root/plugins/alpha/.codex-plugin/plugin.json"
+  jq '. + {skills: "./skills/"}' "$root/plugins/alpha/.claude-plugin/plugin.json" > "$root/plugins/alpha/.codex-plugin/plugin.json"
 }
 d=$(fresh); with_codex "$d"; (cd "$d" && "$BUMP" alpha minor >/dev/null)
-expect_all "a Codex manifest is bumped with the other four" "$d" alpha "1.3.0"
+expect_all "a Codex manifest is bumped with the others" "$d" alpha "1.3.0"
 if jq -e '.skills == "./skills/"' "$d/plugins/alpha/.codex-plugin/plugin.json" >/dev/null; then
   ok "the Codex manifest keeps its own fields"
 else ko "the Codex manifest keeps its own fields"; fi
 
 d=$(fresh); with_codex "$d"
 jq '.version = "9.9.9"' "$d/plugins/alpha/.codex-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.codex-plugin/plugin.json"
-find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec cksum {} + | sort > "$WORK/before"
+find "$d/plugins" "$d/.claude-plugin" -type f -exec cksum {} + | sort > "$WORK/before"
 (cd "$d" && "$BUMP" alpha patch > "$WORK/out" 2>&1); rc=$?
-find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec cksum {} + | sort > "$WORK/after"
+find "$d/plugins" "$d/.claude-plugin" -type f -exec cksum {} + | sort > "$WORK/after"
 if [ "$rc" -ne 0 ] && cmp -s "$WORK/before" "$WORK/after"; then
   ok "Codex manifest version drift is refused before any write"
 else ko "Codex manifest version drift is refused before any write (rc=$rc)"; fi
 
 d=$(fresh); mkdir -p "$WORK/elsewhere-$$"; ln -s "$WORK/elsewhere-$$" "$d/plugins/alpha/.codex-plugin"
-jq . "$d/plugins/alpha/plugin.json" > "$WORK/elsewhere-$$/plugin.json"
+jq . "$d/plugins/alpha/.claude-plugin/plugin.json" > "$WORK/elsewhere-$$/plugin.json"
 (cd "$d" && "$BUMP" alpha patch > "$WORK/out" 2>&1); rc=$?
-if [ "$rc" -ne 0 ] && [ "$(jq -r .version "$d/plugins/alpha/plugin.json")" = 1.2.3 ]; then
+if [ "$rc" -ne 0 ] && [ "$(jq -r .version "$d/plugins/alpha/.claude-plugin/plugin.json")" = 1.2.3 ]; then
   ok "a symlinked Codex manifest folder is refused"
 else ko "a symlinked Codex manifest folder is refused (rc=$rc)"; fi
 echo "-----------------------------------------"

@@ -15,8 +15,8 @@ git -C "$work/base" init -q
 git -C "$work/base" config user.name Fixture
 git -C "$work/base" config user.email fixture@example.invalid
 git -C "$work/base" remote add origin https://github.com/devantler-tech/agent-plugins.git
-paths=(.claude-plugin/marketplace.json .github/plugin/marketplace.json
-  "$plugin/plugin.json" "$plugin/.claude-plugin/plugin.json" "$plugin/.codex-plugin/plugin.json"
+paths=(.claude-plugin/marketplace.json
+  "$plugin/.claude-plugin/plugin.json" "$plugin/.codex-plugin/plugin.json"
   "$plugin/resources/provider-neutral.desired-state.json" "$plugin/CHANGELOG.md")
 for path in "${paths[@]}"; do
   mkdir -p "$work/base/$(dirname "$path")"
@@ -104,7 +104,7 @@ export PATH="$work/bin:$PATH"
 
 # Reset each isolated fixture and stage an exact metadata union; keep unrelated edits unstaged.
 fixture() {
-  local selected=("$plugin/plugin.json")
+  local selected=("$plugin/.claude-plugin/plugin.json")
   if [ "${1:-}" = full ]; then selected=("${paths[@]}"); fi
   rm -rf "$FIXTURE" "$STATE"
   cp -R "$work/base" "$FIXTURE"
@@ -153,7 +153,7 @@ publish
 [ "$(git -C "$FIXTURE" write-tree)" = "$before_tree" ]
 git -C "$FIXTURE" diff >"$STATE/unstaged-after"
 cmp "$STATE/unstaged-before" "$STATE/unstaged-after"
-jq -e '.variables.input.fileChanges.additions|length==7 and all(.[];.path!="unrelated")' "$STATE/request" >/dev/null
+jq -e '.variables.input.fileChanges.additions|length==5 and all(.[];.path!="unrelated")' "$STATE/request" >/dev/null
 printf 'PASS: one signed request reproduces every staged byte and preserves the caller\n'
 
 # A changelog can outgrow Linux's per-argument limit and macOS's total argument budget.
@@ -188,7 +188,7 @@ for mode in race unsigned partial-write bad-readback-signature wrong-tree wrong-
   reject "$mode" after
 done
 fixture
-printf '{"later":"editor"}\n' >"$FIXTURE/$plugin/plugin.json"
+printf '{"later":"editor"}\n' >"$FIXTURE/$plugin/.claude-plugin/plugin.json"
 reject unstaged-metadata before
 fixture
 git -C "$FIXTURE" remote set-url origin https://github.com/other/agent-plugins.git
@@ -197,22 +197,30 @@ fixture
 printf 'outside\n' >"$FIXTURE/forbidden"
 git -C "$FIXTURE" add -- forbidden
 reject forbidden-path before
+# The retired duplicate manifests are outside the metadata a sync may publish.
+for retired in .github/plugin/marketplace.json "$plugin/plugin.json"; do
+  fixture
+  mkdir -p "$FIXTURE/$(dirname "$retired")"
+  printf '{"after":true}\n' >"$FIXTURE/$retired"
+  git -C "$FIXTURE" add -- "$retired"
+  reject "retired-manifest $retired" before
+done
 fixture
 rm "$FIXTURE/$plugin/CHANGELOG.md"
 git -C "$FIXTURE" add -- "$plugin/CHANGELOG.md"
 reject deletion before
 fixture
 rm "$FIXTURE/$plugin/CHANGELOG.md"
-ln -s ../plugin.json "$FIXTURE/$plugin/CHANGELOG.md"
+ln -s .claude-plugin/plugin.json "$FIXTURE/$plugin/CHANGELOG.md"
 git -C "$FIXTURE" add -- "$plugin/CHANGELOG.md"
 reject symlink before
 fixture
-printf '{"value":1,"value":2}\n' >"$FIXTURE/$plugin/plugin.json"
-git -C "$FIXTURE" add -- "$plugin/plugin.json"
+printf '{"value":1,"value":2}\n' >"$FIXTURE/$plugin/.claude-plugin/plugin.json"
+git -C "$FIXTURE" add -- "$plugin/.claude-plugin/plugin.json"
 reject duplicate-json before
 fixture
-printf '{"value":' >"$FIXTURE/$plugin/plugin.json"
-git -C "$FIXTURE" add -- "$plugin/plugin.json"
+printf '{"value":' >"$FIXTURE/$plugin/.claude-plugin/plugin.json"
+git -C "$FIXTURE" add -- "$plugin/.claude-plugin/plugin.json"
 reject partial-json before
 fixture
 printf '{}\n' >"$FIXTURE/$plugin/resources/new.desired-state.json"

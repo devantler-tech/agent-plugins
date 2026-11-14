@@ -55,7 +55,7 @@ git -C "$FIXTURE" config user.name test
 git -C "$FIXTURE" config commit.gpgsign false
 
 mkdir -p "$FIXTURE/plugins/github/skills/github-issues/references"
-mkdir -p "$FIXTURE/plugins/agentic-engineering/agents"
+mkdir -p "$FIXTURE/plugins/agentic-engineering/agents" "$FIXTURE/plugins/github/.claude-plugin"
 cat > "$FIXTURE/plugins/github/skills/github-issues/SKILL.md" <<'SKILL'
 ---
 name: github-issues
@@ -67,7 +67,7 @@ metadata:
 body
 SKILL
 echo 'docs' > "$FIXTURE/plugins/github/skills/github-issues/references/milestones.md"
-echo '{}'   > "$FIXTURE/plugins/github/plugin.json"
+echo '{}'   > "$FIXTURE/plugins/github/.claude-plugin/plugin.json"
 echo 'x'    > "$FIXTURE/plugins/agentic-engineering/agents/agentic-engineer.agent.md"
 git -C "$FIXTURE" add -A
 git -C "$FIXTURE" commit -qm base
@@ -100,7 +100,7 @@ run 'docs/adr/0001.md
 README.md'
 expect 0 'no bundled skill tree touched' 'a change touching no skill tree passes'
 
-run 'plugins/github/plugin.json
+run 'plugins/github/.claude-plugin/plugin.json
 plugins/agentic-engineering/agents/agentic-engineer.agent.md'
 expect 0 'no bundled skill tree touched' 'authored plugin files are not mistaken for skill content'
 

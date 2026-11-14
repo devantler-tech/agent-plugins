@@ -16,20 +16,18 @@ fresh() {
   git -C "$d" config user.name Fixture
   git -C "$d" config user.email fixture@example.test
   git -C "$d" config commit.gpgsign false
-  mkdir -p "$d/.claude-plugin" "$d/.github/plugin" "$d/plugins/alpha/.claude-plugin" "$d/plugins/beta/.claude-plugin"
+  mkdir -p "$d/.claude-plugin" "$d/plugins/alpha/.claude-plugin" "$d/plugins/beta/.claude-plugin"
   for name in alpha beta; do
-    printf '{"name":"%s","version":"1.2.3"}\n' "$name" > "$d/plugins/$name/plugin.json"
-    cp "$d/plugins/$name/plugin.json" "$d/plugins/$name/.claude-plugin/plugin.json"
+    printf '{"name":"%s","version":"1.2.3"}\n' "$name" > "$d/plugins/$name/.claude-plugin/plugin.json"
     printf 'original\n' > "$d/plugins/$name/body.md"
   done
   printf '%s\n' '{"name":"fixture","plugins":[{"name":"alpha","version":"1.2.3","source":"./plugins/alpha"},{"name":"beta","version":"1.2.3","source":"./plugins/beta"}]}' > "$d/.claude-plugin/marketplace.json"
-  cp "$d/.claude-plugin/marketplace.json" "$d/.github/plugin/marketplace.json"
-  git -C "$d" add plugins .claude-plugin .github
+  git -C "$d" add plugins .claude-plugin
   git -C "$d" commit -qm base
   git -C "$d" checkout -qb feature
 }
 # Commit only the fixture's plugin and marketplace paths at the current branch.
-commit() { git -C "$d" add plugins .claude-plugin .github; git -C "$d" commit -qm change; }
+commit() { git -C "$d" add plugins .claude-plugin; git -C "$d" commit -qm change; }
 # Capture the real guard's status and output against this fixture's main and HEAD.
 run_gate() { rc=0; (cd "$d" && bash "$here/check-plugin-version-bump.sh" main HEAD) > "$work/out" 2> "$work/err" || rc=$?; }
 # Capture the real changed-since writer's status and output without exiting the test.
@@ -37,8 +35,8 @@ run_writer() { rc=0; (cd "$d" && bash "$here/bump-plugin-version.sh" --changed-s
 # Snapshot actual preservation evidence independently of Git's index and ancestry.
 preservation_snapshot() {
   {
-    find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type f -exec shasum {} +
-    find "$d/plugins" "$d/.claude-plugin" "$d/.github" -type l \
+    find "$d/plugins" "$d/.claude-plugin" -type f -exec shasum {} +
+    find "$d/plugins" "$d/.claude-plugin" -type l \
       -exec bash -c 'printf "%s -> %s\n" "$1" "$(readlink "$1")"' _ {} \;
     if [ -f "$d/alternate.json" ]; then shasum "$d/alternate.json"; fi
   } | LC_ALL=C sort
@@ -49,7 +47,7 @@ for tool in gate writer; do
   git -C "$d" replace HEAD "$replacement"
   "run_$tool"
   if [[ $tool == gate ]]; then label='replacement objects cannot hide an unbumped change'; check test "$rc" -ne 0
-  else label='writer bumps original committed content despite replacement objects'; check test "$(jq -r .version "$d/plugins/alpha/plugin.json")" = 1.2.4; fi
+  else label='writer bumps original committed content despite replacement objects'; check test "$(jq -r .version "$d/plugins/alpha/.claude-plugin/plugin.json")" = 1.2.4; fi
 
   fresh; printf 'changed\n' > "$d/plugins/alpha/body.md"; commit
   changed_head=$(git -C "$d" rev-parse HEAD)
@@ -63,7 +61,7 @@ for tool in gate writer; do
   printf 'changed\n' > "$d/plugins/alpha/body.md"; commit
   GIT_DIR="$foreign/.git" GIT_WORK_TREE="$foreign" "run_$tool"
   if [[ $tool == gate ]]; then label='caller Git context cannot clear the current checkout'; check test "$rc" -ne 0
-  else label='writer reads the current checkout despite caller Git context'; check test "$(jq -r .version "$d/plugins/alpha/plugin.json")" = 1.2.4; fi
+  else label='writer reads the current checkout despite caller Git context'; check test "$(jq -r .version "$d/plugins/alpha/.claude-plugin/plugin.json")" = 1.2.4; fi
 
   fresh
   printf '%s\n' '{"name":"alpha","version":"1.2.3","version":"1.2.2"}' > "$d/plugins/alpha/.claude-plugin/plugin.json"
@@ -86,10 +84,9 @@ for tool in gate writer; do
   for name in alpha beta; do
     printf 'changed\n' > "$d/plugins/$name/body.md"
     printf '{"name":"%s","version":"1.2.4"}\n' "$name" > "$d/plugins/$name/.claude-plugin/plugin.json"
-    cp "$d/plugins/$name/.claude-plugin/plugin.json" "$d/plugins/$name/plugin.json"
   done
   jq '.plugins[].version="1.2.4"' "$d/.claude-plugin/marketplace.json" > "$d/next"; mv "$d/next" "$d/.claude-plugin/marketplace.json"
-  cp "$d/.claude-plugin/marketplace.json" "$d/.github/plugin/marketplace.json"; commit
+  commit
   mkdir -p "$work/bin"
   cat > "$work/bin/git" <<'EOF'
 #!/usr/bin/env bash
@@ -114,11 +111,11 @@ fresh; run_gate
 label='complete unchanged plugin census succeeds'; check test "$rc" -eq 0
 fresh; printf 'changed\n' > "$d/plugins/alpha/body.md"; commit
 run_writer; label='ordinary changed-since writer succeeds'; check test "$rc" -eq 0
-label='ordinary writer updates the selected plugin'; check test "$(jq -r .version "$d/plugins/alpha/plugin.json")" = 1.2.4
-label='ordinary writer preserves its sibling'; check test "$(jq -r .version "$d/plugins/beta/plugin.json")" = 1.2.3
+label='ordinary writer updates the selected plugin'; check test "$(jq -r .version "$d/plugins/alpha/.claude-plugin/plugin.json")" = 1.2.4
+label='ordinary writer preserves its sibling'; check test "$(jq -r .version "$d/plugins/beta/.claude-plugin/plugin.json")" = 1.2.3
 commit; run_gate; label='committed generated bump satisfies the gate'; check test "$rc" -eq 0
 run_writer; label='repeated changed-since remains idempotent'; check test "$rc" -eq 0
-label='repeated writer retains the cache version'; check test "$(jq -r .version "$d/plugins/alpha/plugin.json")" = 1.2.4
+label='repeated writer retains the cache version'; check test "$(jq -r .version "$d/plugins/alpha/.claude-plugin/plugin.json")" = 1.2.4
 for mode in repeated-head multi-head symlink-head shallow promisor; do
   fresh
   printf 'changed\n' > "$d/plugins/alpha/body.md"

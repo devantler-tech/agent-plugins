@@ -89,7 +89,7 @@ while IFS= read -r dir; do
       fi
     done
   fi
-  manifest="$dir/plugin.json"
+  manifest="$dir/.claude-plugin/plugin.json"
   old=''
   base_entry=$(git ls-tree "$base" -- "$manifest") || fail "unreadable base manifest tree: $name"
   if [ -n "$base_entry" ]; then

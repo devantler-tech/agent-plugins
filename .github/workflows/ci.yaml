@@ -196,7 +196,7 @@ jobs:
 
       - name: 🧪 Self-test the manifest guard
         # Proves validate-manifests.sh PASSES a consistent fixture and FAILS each
-        # drift scenario it exists to catch (malformed/desynced manifests, every
+        # drift scenario it exists to catch (malformed or duplicate manifests, every
         # plugin.json completeness rule, every manifest↔plugins lockstep rule), so
         # a refactor that silently weakens a check is caught here — not by a broken
         # plugin reaching consumers. Self-contained: throwaway fixtures, no network.

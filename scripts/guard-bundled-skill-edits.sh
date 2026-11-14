@@ -24,7 +24,7 @@
 #   - Adding a wholly NEW skill directory. It does not exist at the base ref, so
 #     there is no upstream copy to diverge from yet; `gh skill install` followed by
 #     a commit stays a one-step operation.
-#   - Everything authored here: manifests, plugin.json, agents/, docs, scripts.
+#   - Everything authored here: manifests, .claude-plugin/plugin.json, agents/, docs, scripts.
 #
 # WHAT IT CANNOT CHECK
 # Whether the bundled bytes still match the upstream. There is no lockfile, and

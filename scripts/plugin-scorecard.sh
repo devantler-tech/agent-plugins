@@ -27,7 +27,7 @@ snapshot() {
   [ "$bytes" -le 33554432 ] || fail 'input budget exceeds 32 MiB'
   json_object_unique "$work/input" || fail 'input is not one unambiguous JSON object'
 }
-snapshot "$root/.github/plugin/marketplace.json"
+snapshot "$root/.claude-plugin/marketplace.json"
 cp "$work/input" "$work/catalogue"
 while [ "$#" -gt 0 ]; do
   case "$1" in

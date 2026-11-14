@@ -26,8 +26,8 @@ plugin_version_history || exit 1
 BASE_REF="${1:-${BASE_REF:-origin/main}}"
 HEAD_REF="${2:-${HEAD_REF:-HEAD}}"
 
-# The strict Claude manifest is the version source of truth. validate-manifests.sh already
-# enforces that the portable plugin.json and both marketplace manifests carry the same
+# The plugin manifest is the version source of truth. validate-manifests.sh already
+# enforces that it and the marketplace manifest (and a Codex manifest, when present) carry the same
 # version, so checking one here cannot disagree with the others.
 MANIFEST_REL=".claude-plugin/plugin.json"
 
@@ -91,11 +91,9 @@ while IFS= read -r -d '' plugin_dir; do
   if [ "$base_version" = "$head_version" ]; then
     echo "::error::$name: shipped content changed but the version is still $head_version."
     echo "::error::Consumers cache by version, so this change would never reach them."
-    echo "::error::Bump the version in all four manifests, then re-run ./scripts/validate-manifests.sh:"
-    echo "::error::  $plugin_dir/plugin.json"
+    echo "::error::Bump the version with ./scripts/bump-plugin-version.sh, which moves it in each manifest:"
     echo "::error::  $plugin_dir/$MANIFEST_REL"
     echo "::error::  .claude-plugin/marketplace.json      (the '$name' entry)"
-    echo "::error::  .github/plugin/marketplace.json      (the '$name' entry)"
     echo "::error::Changed files in $name:"
     printf '%s\n' "$changed" | sed 's/^/::error::  /'
     violations=$((violations + 1))

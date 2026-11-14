@@ -46,9 +46,9 @@ npm ci --ignore-scripts --no-audit --no-fund
 # Offline native usage attribution and benchmark score reporting.
 bash scripts/plugin-scorecard.test.sh
 
-# 1. Marketplace parity, portable ↔ strict-Claude plugin.json parity, catalogue table,
-#    desired-state resources, and skill provenance — the exact checks CI's
-#    "Validate manifests" job runs.
+# 1. One manifest set (no duplicate marketplace or plugin manifest), marketplace ↔ plugin.json
+#    agreement, catalogue table, desired-state resources, and skill provenance — the exact
+#    checks CI's "Validate manifests" job runs.
 ./scripts/validate-manifests.sh
 # Every bundled skill keeps its own license (CI's "Check bundled skill licenses" step). A third-party
 # skill needs a row and a `## <owner>/<repo>` section with its copyright notice and license text in
@@ -120,6 +120,11 @@ truth CI runs, and a hand-copied version of it drifts. It did — the snippet th
 asserted `.skills == "skills/"` in every `plugin.json`, long after the convention moved to omitting
 that field (skills are auto-discovered), so following this document reported all 8 plugins broken
 while CI was green (#65).
+
+The repository keeps one manifest set: `.claude-plugin/marketplace.json` and each plugin's
+`.claude-plugin/plugin.json`, plus an optional Codex `.codex-plugin/plugin.json`. Step 1 refuses a
+copy at any other path VS Code reads; [Installation](installation.md#one-manifest-set-for-every-tool)
+lists the path each tool reads.
 
 The validator retains marketplace entries, catalogue rows, desired-state resources, runtime assets,
 schedule sources and skill provenance only after their inventory commands succeed. Failed empty or

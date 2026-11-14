@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercise the actual package gate with complete portable fixtures and declared resource paths.
+# Exercise the actual package gate with complete fixtures and declared resource paths.
 set -euo pipefail
 here=${PACKAGE_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 work=$(mktemp -d)
@@ -8,11 +8,10 @@ fail=0
 # Build matching manifests, a sourced skill, and a complete catalogue.
 fixture() {
   local root=$1
-  mkdir -p "$root/.github/plugin" "$root/.claude-plugin" "$root/scripts" "$root/docs" "$root/plugins/alpha/.claude-plugin" "$root/plugins/alpha/skills/example"
+  mkdir -p "$root/.claude-plugin" "$root/scripts" "$root/docs" "$root/plugins/alpha/.claude-plugin" "$root/plugins/alpha/skills/example"
   printf '%s\n' '{"name":"fixture","renames":{"old-alpha":"alpha"},"plugins":[{"name":"alpha","description":"Alpha","version":"1.0.0","source":"./plugins/alpha"}]}' > "$root/.claude-plugin/marketplace.json"
-  cp "$root/.claude-plugin/marketplace.json" "$root/.github/plugin/marketplace.json"
   printf '%s\n' '{"old-alpha":"alpha"}' > "$root/scripts/marketplace-rename-history.json"
-  printf '%s\n' '{"name":"alpha","description":"Alpha","version":"1.0.0"}' > "$root/plugins/alpha/plugin.json"
+  printf '%s\n' '{"name":"alpha","description":"Alpha","version":"1.0.0"}' > "$root/plugins/alpha/.claude-plugin/plugin.json"
   printf '%s\n' '---' 'name: example' 'description: Example.' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' '---' > "$root/plugins/alpha/skills/example/SKILL.md"
   # shellcheck disable=SC2016 # Literal catalogue markup.
   printf '| Plugin | Resources | Description |\n|---|---|---|\n| [`alpha`](plugins/alpha/) | `example` | Alpha |\n' > "$root/docs/plugins.md"
@@ -30,9 +29,9 @@ gate() {
   else printf 'FAIL %s exit=%s\n' "$name" "$rc"; cat "$root/out"; fail=$((fail+1)); fi
 }
 # Default discovery must apply the same packaged-resource fence as explicit paths.
-for scenario in healthy linked-skill linked-agent linked-mcp linked-plugin linked-strict-plugin linked-marketplace linked-strict-parent incomplete-skill orphan-plugin description-backslash selected-agent selected-empty mcp-underscore mcp-dot mcp-unicode mcp-space mcp-backtick mcp-pipe; do
+for scenario in healthy linked-skill linked-agent linked-mcp linked-plugin linked-marketplace linked-strict-parent incomplete-skill orphan-plugin description-backslash selected-agent selected-empty mcp-underscore mcp-dot mcp-unicode mcp-space mcp-backtick mcp-pipe; do
   root="$work/discovery-$scenario"; fixture "$root"
-  p="$root/plugins/alpha/plugin.json"; m="$root/.claude-plugin/marketplace.json"
+  p="$root/plugins/alpha/.claude-plugin/plugin.json"; m="$root/.claude-plugin/marketplace.json"
   case $scenario in
     linked-skill) mv "$root/plugins/alpha/skills/example/SKILL.md" "$root/outside.md"; printf 'body only\n' > "$root/outside.md"; ln -s "$root/outside.md" "$root/plugins/alpha/skills/example/SKILL.md" ;;
     linked-agent|selected-agent|selected-empty)
@@ -64,10 +63,8 @@ for scenario in healthy linked-skill linked-agent linked-mcp linked-plugin linke
       jq '.description="Use C:\\tools"' "$p" > "$root/new"; mv "$root/new" "$p"
       jq --slurpfile p "$p" '.plugins[0].description=$p[0].description' "$m" > "$root/new"; mv "$root/new" "$m" ;;
   esac
-  cp "$p" "$root/plugins/alpha/.claude-plugin/plugin.json"; cp "$m" "$root/.github/plugin/marketplace.json"
   case $scenario in
     linked-plugin) mv "$p" "$root/outside.json"; ln -s "$root/outside.json" "$p" ;;
-    linked-strict-plugin) path="$root/plugins/alpha/.claude-plugin/plugin.json"; mv "$path" "$root/outside.json"; ln -s "$root/outside.json" "$path" ;;
     linked-marketplace) mv "$m" "$root/outside.json"; ln -s "$root/outside.json" "$m" ;;
     linked-strict-parent) path="$root/plugins/alpha/.claude-plugin"; mv "$path" "$root/outside"; ln -s "$root/outside" "$path" ;;
   esac
@@ -77,10 +74,10 @@ for scenario in healthy linked-skill linked-agent linked-mcp linked-plugin linke
     linked-skill) diagnostic='plugins/alpha/skills/example: skill directory requires its own regular SKILL.md' ;;
     linked-agent) diagnostic='plugins/alpha/agents/sample.agent.md: agent must be a regular packaged file' ;;
     linked-mcp) diagnostic='plugins/alpha/.mcp.json: MCP configuration must be a regular packaged file' ;;
-    linked-plugin|linked-strict-plugin|linked-strict-parent) diagnostic='plugins/alpha: every package requires its own regular canonical manifests' ;;
+    linked-plugin|linked-strict-parent) diagnostic='plugins/alpha: every package requires its own regular canonical manifest .claude-plugin/plugin.json' ;;
     linked-marketplace) diagnostic='.claude-plugin/marketplace.json: manifest must be a regular packaged file' ;;
     incomplete-skill) diagnostic='plugins/alpha/skills/incomplete: skill directory requires its own regular SKILL.md' ;;
-    orphan-plugin) diagnostic='plugins/ghost: every package requires its own regular canonical manifests' ;;
+    orphan-plugin) diagnostic='plugins/ghost: every package requires its own regular canonical manifest .claude-plugin/plugin.json' ;;
     mcp-space|mcp-backtick|mcp-pipe) diagnostic='plugins/alpha/.mcp.json: MCP server names must be unambiguous catalogue tokens' ;;
   esac
   gate "$scenario" "$expected" "$root" "$diagnostic"
@@ -99,7 +96,6 @@ for scenario in listed ancillary; do
   fi
   # shellcheck disable=SC2016 # Literal catalogue markup.
   printf '| Plugin | Resources | Description |\n|---|---|---|\n| [`alpha`](plugins/alpha/) | `example`, `sample`%s | Alpha |\n' "$extra" > "$root/docs/plugins.md"
-  cp "$root/plugins/alpha/plugin.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
   expected=pass; [ "$scenario" != listed ] || expected=reject
   gate "agent-token-$scenario" "$expected" "$root" "docs/plugins.md Resources for 'alpha' (example invisible.txt sample) differ from on-disk resources (example sample)"
 done
@@ -107,7 +103,6 @@ done
 real_find=$(command -v find)
 for kind in packages skills agents desired-state provenance; do
   root="$work/unterminated-$kind"; fixture "$root"
-  cp "$root/plugins/alpha/plugin.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
   mkdir "$root/bin"
   cat > "$root/bin/find" <<'STUB'
 #!/usr/bin/env bash

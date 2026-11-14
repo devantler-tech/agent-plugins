@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercise the actual package gate with complete portable fixtures and declared resource paths.
+# Exercise the actual package gate with complete fixtures and declared resource paths.
 set -euo pipefail
 here=${PACKAGE_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 work=$(mktemp -d)
@@ -8,11 +8,10 @@ fail=0
 # Build matching manifests, a sourced skill, and a complete catalogue.
 fixture() {
   local root=$1
-  mkdir -p "$root/.github/plugin" "$root/.claude-plugin" "$root/scripts" "$root/docs" "$root/plugins/alpha/.claude-plugin" "$root/plugins/alpha/skills/example"
+  mkdir -p "$root/.claude-plugin" "$root/scripts" "$root/docs" "$root/plugins/alpha/.claude-plugin" "$root/plugins/alpha/skills/example"
   printf '%s\n' '{"name":"fixture","renames":{"old-alpha":"alpha"},"plugins":[{"name":"alpha","description":"Alpha","version":"1.0.0","source":"./plugins/alpha"}]}' > "$root/.claude-plugin/marketplace.json"
-  cp "$root/.claude-plugin/marketplace.json" "$root/.github/plugin/marketplace.json"
   printf '%s\n' '{"old-alpha":"alpha"}' > "$root/scripts/marketplace-rename-history.json"
-  printf '%s\n' '{"name":"alpha","description":"Alpha","version":"1.0.0"}' > "$root/plugins/alpha/plugin.json"
+  printf '%s\n' '{"name":"alpha","description":"Alpha","version":"1.0.0"}' > "$root/plugins/alpha/.claude-plugin/plugin.json"
   printf '%s\n' '---' 'name: example' 'description: Example.' 'metadata:' '  github-repo: https://github.com/example/fixture-skills' '---' > "$root/plugins/alpha/skills/example/SKILL.md"
   # shellcheck disable=SC2016 # Literal catalogue markup.
   printf '| Plugin | Resources | Description |\n|---|---|---|\n| [`alpha`](plugins/alpha/) | `example` | Alpha |\n' > "$root/docs/plugins.md"
@@ -28,7 +27,7 @@ gate() {
 }
 for scenario in healthy unicode-description marketplace-name-number marketplace-name-blank duplicate-entries numeric-description blank-description numeric-version unstable-version leading-zero-version oversized-version component-number component-blank component-outside component-absolute component-missing component-wrong-kind component-valid-root component-valid-skill component-symlink component-root-symlink component-nested-layout component-root-skill-layout duplicate-marketplace duplicate-plugin duplicate-renames nested-duplicate escaped-duplicate multiple-objects plugin-parent-symlink; do
   root="$work/$scenario"; fixture "$root"
-  m="$root/.claude-plugin/marketplace.json"; p="$root/plugins/alpha/plugin.json"
+  m="$root/.claude-plugin/marketplace.json"; p="$root/plugins/alpha/.claude-plugin/plugin.json"
   case $scenario in
     marketplace-name-number) jq '.name=7' "$m" > "$root/new"; mv "$root/new" "$m" ;;
     marketplace-name-blank) jq '.name=" "' "$m" > "$root/new"; mv "$root/new" "$m" ;;
@@ -56,7 +55,6 @@ for scenario in healthy unicode-description marketplace-name-number marketplace-
     escaped-duplicate) printf '%s\n' '{"name":"other","na\u006de":"alpha","description":"Alpha","version":"1.0.0"}' > "$p" ;;
     multiple-objects) cat "$m" "$m" > "$root/new"; mv "$root/new" "$m" ;;
   esac
-  cp "$m" "$root/.github/plugin/marketplace.json"; cp "$p" "$root/plugins/alpha/.claude-plugin/plugin.json"
   if [ "$scenario" = plugin-parent-symlink ]; then
     mv "$root/plugins/alpha" "$root/elsewhere"; ln -s "$root/elsewhere" "$root/plugins/alpha"
   fi
@@ -64,14 +62,14 @@ for scenario in healthy unicode-description marketplace-name-number marketplace-
   case $scenario in healthy|unicode-description|component-valid-*) expected=pass ;; esac
   gate "$scenario" "$expected" "$root"
 done
-# Agent declarations select regular files from the canonical portable layout.
+# Agent declarations select regular files from the canonical layout.
 for scenario in valid number missing outside directory empty invalid-frontmatter; do
   root="$work/agent-$scenario"; fixture "$root"
   mkdir -p "$root/plugins/alpha/agents"
   printf '%s\n' '---' 'name: sample' 'description: Example agent.' '---' > "$root/plugins/alpha/agents/sample.agent.md"
   case $scenario in valid|invalid-frontmatter) value='["./agents/sample.agent.md"]' ;; number) value='[7]' ;; missing) value='["./agents/absent.agent.md"]' ;; outside) value='["../sample.agent.md"]' ;; directory) value='["./agents/"]' ;; empty) value='[]' ;; esac
-  p="$root/plugins/alpha/plugin.json"
-  jq --argjson v "$value" '.agents=$v' "$p" > "$root/new"; mv "$root/new" "$p"; cp "$p" "$root/plugins/alpha/.claude-plugin/plugin.json"
+  p="$root/plugins/alpha/.claude-plugin/plugin.json"
+  jq --argjson v "$value" '.agents=$v' "$p" > "$root/new"; mv "$root/new" "$p"
   if [ "$scenario" != empty ]; then
     # shellcheck disable=SC2016 # Backticks are literal catalogue markup.
     sed 's/`example` |/`example`, `sample` |/' "$root/docs/plugins.md" > "$root/new"; mv "$root/new" "$root/docs/plugins.md"
@@ -93,7 +91,6 @@ for field in name description; do
     block-oversized-leading-blank block-leading-tab block-leading-tab-content block-small-tab-indent \
     block-continued-after-comment; do
     root="$work/yaml-$field-$scenario"; fixture "$root"
-    cp "$root/plugins/alpha/plugin.json" "$root/plugins/alpha/.claude-plugin/plugin.json"
     mkdir -p "$root/plugins/alpha/agents"
     value='' body='' expected=reject
     case "$scenario" in

@@ -1,5 +1,10 @@
 # Changelog — `ksail`
 
+## 1.0.3 — 2026-11-14
+
+**Changed** — remove the duplicate top-level `plugin.json`. Every supported tool reads
+`.claude-plugin/plugin.json` instead, so installs and updates need no action.
+
 ## 1.0.2 — 2026-11-07
 
 **Changed** — sync `ksail` from `https://github.com/devantler-tech/ksail` at `refs/tags/v7.212.9`.

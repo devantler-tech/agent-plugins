@@ -17,23 +17,20 @@ GUARD="$SCRIPT_DIR/check-plugin-version-bump.sh"
 pass=0
 fail=0
 
-# Write plugins/<name> with the strict Claude manifest, the portable manifest, and a skill.
+# Write plugins/<name> with its .claude-plugin/plugin.json manifest and a skill.
 make_plugin() {
   local root="$1" name="$2" version="$3" body="${4:-original body}"
   mkdir -p "$root/plugins/$name/.claude-plugin" "$root/plugins/$name/skills/example-skill"
   local pj
   pj=$(printf '{"name":"%s","description":"%s plugin","version":"%s"}' "$name" "$name" "$version")
-  printf '%s\n' "$pj" > "$root/plugins/$name/plugin.json"
   printf '%s\n' "$pj" > "$root/plugins/$name/.claude-plugin/plugin.json"
   printf -- '---\nname: example-skill\ndescription: Example\n---\n\n%s\n' "$body" \
     > "$root/plugins/$name/skills/example-skill/SKILL.md"
 }
 
 set_version() {
-  local root="$1" name="$2" version="$3" f
-  for f in "$root/plugins/$name/plugin.json" "$root/plugins/$name/.claude-plugin/plugin.json"; do
-    jq --arg v "$version" '.version = $v' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-  done
+  local root="$1" name="$2" version="$3" f="$1/plugins/$2/.claude-plugin/plugin.json"
+  jq --arg v "$version" '.version = $v' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 }
 
 # A repo whose main branch holds two plugins at 1.0.0, with a feature branch checked out.
@@ -135,8 +132,8 @@ check_fail "failure names the changed file" \
 d=$(fresh)
 make_plugin "$d" alpha "1.0.0" "edited body"
 commit_all "$d" "content, no bump"
-check_fail "failure names the marketplace manifests to bump" \
-  ".github/plugin/marketplace.json" "$d"
+check_fail "failure names the marketplace manifest to bump" \
+  ".claude-plugin/marketplace.json      (the 'alpha' entry)" "$d"
 
 # Catching only the first plugin would let a second stale plugin ship in the same change.
 d=$(fresh)

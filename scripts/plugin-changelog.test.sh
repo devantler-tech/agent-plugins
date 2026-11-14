@@ -13,8 +13,8 @@ fixture() {
   git -C "$dir" config user.email test@example.invalid
   git -C "$dir" config commit.gpgsign false
   for plugin in alpha beta; do
-    mkdir -p "$dir/plugins/$plugin/skills/example"
-    printf '{"version":"1.2.3"}\n' > "$dir/plugins/$plugin/plugin.json"
+    mkdir -p "$dir/plugins/$plugin/skills/example" "$dir/plugins/$plugin/.claude-plugin"
+    printf '{"version":"1.2.3"}\n' > "$dir/plugins/$plugin/.claude-plugin/plugin.json"
     cat > "$dir/plugins/$plugin/skills/example/SKILL.md" <<'MD'
 ---
 name: example
@@ -34,8 +34,8 @@ MD
   git -C "$dir" add -- plugins/alpha/skills/example/SKILL.md
   git -C "$dir" commit -qm sync
 }
-# Simulate the four-manifest helper's resulting portable version, which this tool reads.
-bump() { printf '{"version":"1.2.4"}\n' > "$dir/plugins/alpha/plugin.json"; }
+# Simulate the version helper's resulting plugin manifest version, which this tool reads.
+bump() { printf '{"version":"1.2.4"}\n' > "$dir/plugins/alpha/.claude-plugin/plugin.json"; }
 # The check reads committed output, matching its CI boundary.
 commit() { git -C "$dir" add -- plugins; git -C "$dir" commit -qm change; }
 # Run the real tool in the fixture and assert failure is never mistaken for a pass.
@@ -220,7 +220,7 @@ cmp "$work/before" "$dir/plugins/alpha/CHANGELOG.md"
 fixture
 git -C "$dir" checkout -qb feature
 git -C "$dir" checkout -qb advanced "$base"
-printf '{"version":"1.2.4"}\n' > "$dir/plugins/beta/plugin.json"
+printf '{"version":"1.2.4"}\n' > "$dir/plugins/beta/.claude-plugin/plugin.json"
 commit
 advanced=$(git -C "$dir" rev-parse HEAD)
 git -C "$dir" checkout -q feature
@@ -307,18 +307,18 @@ for kind in bullet ordered nested quote html; do
 done
 # The manifest is listed in the retained base tree, but its unique blob is missing.
 fixture
-jq '.identity="alpha"' "$dir/plugins/alpha/plugin.json" > "$work/manifest"
-cp "$work/manifest" "$dir/plugins/alpha/plugin.json"
+jq '.identity="alpha"' "$dir/plugins/alpha/.claude-plugin/plugin.json" > "$work/manifest"
+cp "$work/manifest" "$dir/plugins/alpha/.claude-plugin/plugin.json"
 commit
 base=$(git -C "$dir" rev-parse HEAD)
-blob=$(git -C "$dir" rev-parse "$base:plugins/alpha/plugin.json")
+blob=$(git -C "$dir" rev-parse "$base:plugins/alpha/.claude-plugin/plugin.json")
 printf '\nnew sync\n' >> "$dir/plugins/alpha/skills/example/SKILL.md"
 bump; commit
 cp "$dir/plugins/alpha/CHANGELOG.md" "$work/unchanged"
 rm "$dir/.git/objects/${blob:0:2}/${blob:2}"
 git -C "$dir" cat-file -e "$base^{commit}"
-[ -n "$(git -C "$dir" ls-tree "$base" -- plugins/alpha/plugin.json)" ]
-if git -C "$dir" show "$base:plugins/alpha/plugin.json" >/dev/null 2>&1; then exit 1; fi
+[ -n "$(git -C "$dir" ls-tree "$base" -- plugins/alpha/.claude-plugin/plugin.json)" ]
+if git -C "$dir" show "$base:plugins/alpha/.claude-plugin/plugin.json" >/dev/null 2>&1; then exit 1; fi
 refuse write "$base" 2026-10-02
 grep -q 'unreadable base manifest' "$work/out"
 cmp "$work/unchanged" "$dir/plugins/alpha/CHANGELOG.md"
@@ -335,7 +335,7 @@ passed=$((passed + 1))
 
 # Removing an authored skill retains its former source revision.
 base=$(git -C "$dir" rev-parse HEAD)
-printf '{"version":"1.2.5"}\n' > "$dir/plugins/alpha/plugin.json"
+printf '{"version":"1.2.5"}\n' > "$dir/plugins/alpha/.claude-plugin/plugin.json"
 rm "$dir/plugins/alpha/skills/example/SKILL.md"
 commit
 (cd "$dir" && bash "$script" write "$base" 2026-11-01)

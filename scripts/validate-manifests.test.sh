@@ -2,7 +2,7 @@
 # Self-test for validate-manifests.sh.
 #
 # Proves the guard PASSES a consistent fixture and FAILS each drift scenario it
-# exists to catch — malformed manifests, manifest desync, every plugin.json
+# exists to catch — malformed manifests, a second manifest copy, every plugin.json
 # completeness rule, and every manifest↔plugins lockstep rule — so a refactor
 # that silently weakens a check is caught here, not by a broken plugin reaching
 # consumers. Self-contained: builds throwaway fixtures, runs the REAL guard
@@ -53,7 +53,7 @@ sync_entrypoint_digest() {
 # Build a complete, valid fixture repo (two plugins) at $1.
 make_fixture() {
   local root="$1"
-  mkdir -p "$root/.github/plugin" "$root/.claude-plugin" "$root/scripts" "$root/docs"
+  mkdir -p "$root/.claude-plugin" "$root/scripts" "$root/docs"
   local manifest='{
   "name": "devantler-plugins",
   "renames": {
@@ -65,7 +65,6 @@ make_fixture() {
     { "name": "beta", "description": "Beta plugin", "version": "1.0.0", "source": "./plugins/beta" }
   ]
 }'
-  printf '%s\n' "$manifest" > "$root/.github/plugin/marketplace.json"
   printf '%s\n' "$manifest" > "$root/.claude-plugin/marketplace.json"
   printf '%s\n' '{"legacy-alpha":"alpha","retired-plugin":null}' \
     > "$root/scripts/marketplace-rename-history.json"
@@ -82,8 +81,7 @@ make_fixture() {
 EOF
 }
 
-# Write the portable plugins/<name>/plugin.json, its strict Claude manifest copy,
-# and one skill with a SKILL.md.
+# Write the canonical plugins/<name>/.claude-plugin/plugin.json and one skill with a SKILL.md.
 # The SKILL.md carries upstream provenance frontmatter (metadata.github-repo), exactly
 # as `gh skill install` records it, so the provenance guard passes on the happy path.
 make_plugin() {
@@ -102,20 +100,14 @@ Example skill.
 EOF
   # No "skills" field: skills are auto-discovered from the on-disk skills/ dir by both
   # Claude Code and Copilot CLI. Claude Code rejects the bare-string "skills": "skills/"
-  # form, so the portable manifest omits it — the fixture mirrors the real plugins.
-cat > "$root/plugins/$name/plugin.json" <<EOF
+  # form, so the manifest omits it — the fixture mirrors the real plugins.
+cat > "$root/plugins/$name/.claude-plugin/plugin.json" <<EOF
 {
   "name": "$name",
   "description": "$desc",
   "version": "$version"
 }
 EOF
-cp "$root/plugins/$name/plugin.json" "$root/plugins/$name/.claude-plugin/plugin.json"
-}
-
-sync_claude_plugin_manifest() {
-  local root="$1" name="$2"
-  cp "$root/plugins/$name/plugin.json" "$root/plugins/$name/.claude-plugin/plugin.json"
 }
 
 run_guard() { ( cd "$1" && bash "$GUARD" 2>&1 ); }
@@ -125,19 +117,17 @@ run_guard() { ( cd "$1" && bash "$GUARD" 2>&1 ); }
 # explicit test change that reviewers can see; changing both data files alone cannot rewrite
 # consumer history silently.
 validate_published_rename_contract() {
-  local root="$1" manifest
+  local root="$1"
   if ! jq -e --argjson expected "$PUBLISHED_RENAMES" '. == $expected' \
     "$root/scripts/marketplace-rename-history.json" > /dev/null 2>&1; then
     echo "must preserve every published plugin rename in the independent regression contract"
     return 1
   fi
-  for manifest in "$root/.github/plugin/marketplace.json" "$root/.claude-plugin/marketplace.json"; do
-    if ! jq -e --argjson expected "$PUBLISHED_RENAMES" '.renames == $expected' \
-      "$manifest" > /dev/null 2>&1; then
-      echo "must preserve every published plugin rename in the independent regression contract"
-      return 1
-    fi
-  done
+  if ! jq -e --argjson expected "$PUBLISHED_RENAMES" '.renames == $expected' \
+    "$root/.claude-plugin/marketplace.json" > /dev/null 2>&1; then
+    echo "must preserve every published plugin rename in the independent regression contract"
+    return 1
+  fi
 }
 
 # check_pass <description> <fixture-dir>
@@ -203,27 +193,40 @@ mv "$d/skill.tmp" "$d/plugins/alpha/skills/example-skill/SKILL.md"
 check_fail "Matt source without a distributed notice is refused" "Matt Pocock license" "$d"
 check_published_contract_pass "published plugin rename mappings are independently pinned" "$REPO_ROOT"
 
-# --- check 1: malformed marketplace manifests ---
-d=$(fresh); printf '%s\n' '{"name":"x"}' > "$d/.github/plugin/marketplace.json"
-check_fail "Copilot manifest missing .plugins fails" "Invalid .github/plugin/marketplace.json" "$d"
+# --- check 1: one manifest set ---
+# VS Code reads these copies before (or, for plugin.json, after) the canonical manifests, so a
+# reintroduced copy would either shadow the canonical one for that tool or drift beside it.
+for copy in marketplace.json .plugin/marketplace.json .github/plugin/marketplace.json; do
+  d=$(fresh); mkdir -p "$d/$(dirname "$copy")"
+  cp "$d/.claude-plugin/marketplace.json" "$d/$copy"
+  check_fail "a second marketplace manifest at $copy fails" \
+    "$copy: the marketplace has one manifest, .claude-plugin/marketplace.json" "$d"
+done
+for copy in plugin.json .plugin/plugin.json; do
+  d=$(fresh); mkdir -p "$d/plugins/alpha/$(dirname "$copy")"
+  cp "$d/plugins/alpha/.claude-plugin/plugin.json" "$d/plugins/alpha/$copy"
+  check_fail "a second plugin manifest at plugins/alpha/$copy fails" \
+    "plugins/alpha/$copy: a plugin has one manifest, plugins/alpha/.claude-plugin/plugin.json" "$d"
+done
+d=$(fresh); ln -s ../.claude-plugin/marketplace.json "$d/marketplace.json"
+check_fail "a linked second marketplace manifest fails" "marketplace.json: the marketplace has one manifest" "$d"
+
+# --- check 2: malformed marketplace manifest ---
+d=$(fresh); printf '%s\n' '{"name":"x"}' > "$d/.claude-plugin/marketplace.json"
+check_fail "manifest missing .plugins fails" "Invalid .claude-plugin/marketplace.json" "$d"
 
 d=$(fresh); printf '%s\n' '{"plugins":[]}' > "$d/.claude-plugin/marketplace.json"
 check_fail "Claude manifest missing .name fails" "Invalid .claude-plugin/marketplace.json" "$d"
 
-d=$(fresh); printf '%s\n' 'not json' > "$d/.github/plugin/marketplace.json"
-check_fail "non-JSON manifest fails" "Invalid .github/plugin/marketplace.json" "$d"
+d=$(fresh); printf '%s\n' 'not json' > "$d/.claude-plugin/marketplace.json"
+check_fail "non-JSON manifest fails" "Invalid .claude-plugin/marketplace.json" "$d"
 
-# --- check 2: manifest desync ---
-d=$(fresh)
-jq '.plugins[0].version = "9.9.9"' "$d/.claude-plugin/marketplace.json" > "$d/tmp" && mv "$d/tmp" "$d/.claude-plugin/marketplace.json"
-check_fail "out-of-sync manifests fail" "Marketplace manifests are out of sync" "$d"
-
-# A failed producer in process substitution must never become a successful diff
-# of two empty (or partial, matching) outputs. Exercise both manifest pairs using
-# the real guard; leave jq's other validation operations unchanged.
+# A failed producer in process substitution must never become a successful comparison
+# of two empty (or partial, matching) outputs. The Codex manifest section below uses this
+# stub against the real guard; it leaves jq's other validation operations unchanged.
 REAL_JQ=$(command -v jq)
 mkdir -p "$WORK/normalization-bin"
-cat > "$WORK/normalization-bin/jq" <<'EOF'
+cat > "$WORK/normalization-bin/jq" <<'STUB'
 #!/usr/bin/env bash
 if [ "${1:-}" = -S ] && [ "${2:-}" = . ]; then
   case "${3:-}" in
@@ -235,154 +238,98 @@ if [ "${1:-}" = -S ] && [ "${2:-}" = . ]; then
   esac
 fi
 exec "$REAL_JQ" "$@"
-EOF
+STUB
 chmod +x "$WORK/normalization-bin/jq"
-for scope in marketplace plugin; do
-  if [ "$scope" = marketplace ]; then
-    left=.github/plugin/marketplace.json
-    right=.claude-plugin/marketplace.json
-    both='*/marketplace.json'
-  else
-    left=plugins/alpha/plugin.json
-    right=plugins/alpha/.claude-plugin/plugin.json
-    both='plugins/alpha/*plugin.json'
-  fi
-  for side in left right both; do
-    case "$side" in
-      left) pattern=$left; expected=$left ;;
-      right) pattern=$right; expected=$right ;;
-      both) pattern=$both; expected=$left ;;
-    esac
-    for output in empty partial; do
-      d=$(fresh)
-      PATH="$WORK/normalization-bin:$PATH" REAL_JQ="$REAL_JQ" \
-        JQ_FAILURE_PATTERN="$pattern" JQ_FAILURE_OUTPUT="$output" \
-        check_fail "$scope $side normalization failure with $output output fails" \
-          "Could not normalize $expected" "$d"
-    done
-  done
-done
-
-d=$(fresh)
-jq 'to_entries | reverse | from_entries' "$d/.claude-plugin/marketplace.json" > "$d/tmp" \
-  && mv "$d/tmp" "$d/.claude-plugin/marketplace.json"
-jq 'to_entries | reverse | from_entries' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" \
-  && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
-check_pass "key order may differ in marketplace and plugin manifests" "$d"
 
 # --- check 3: append-only plugin rename history ---
 # Once a marketplace has renamed or retired a plugin, Claude Code needs the top-level
 # renames map forever so persisted enabledPlugins keys can migrate instead of becoming
 # orphaned. The guard must fail closed if that history disappears or stops resolving.
 d=$(fresh)
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq 'del(.renames)' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq 'del(.renames)' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 check_fail "missing plugin rename history fails" "must declare non-empty top-level 'renames' migration history" "$d"
 
 d=$(fresh)
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq '.renames = []' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq '.renames = []' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 check_fail "non-object plugin rename history fails" "must declare non-empty top-level 'renames' migration history" "$d"
 
 d=$(fresh)
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq 'del(.renames["legacy-alpha"])' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq 'del(.renames["legacy-alpha"])' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 check_fail "persisted plugin rename removal fails" "must preserve every persisted plugin rename" "$d"
 
 d=$(fresh)
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq 'del(.renames["retired-plugin"])' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq 'del(.renames["retired-plugin"])' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 check_fail "persisted null retirement removal fails" "must preserve every persisted plugin rename" "$d"
 
 d=$(mktemp -d "$WORK/published-contract-XXXXXX")
-mkdir -p "$d/.github/plugin" "$d/.claude-plugin" "$d/scripts"
-cp "$REPO_ROOT/.github/plugin/marketplace.json" "$d/.github/plugin/marketplace.json"
+mkdir -p "$d/.claude-plugin" "$d/scripts"
 cp "$REPO_ROOT/.claude-plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"
 cp "$REPO_ROOT/scripts/marketplace-rename-history.json" "$d/scripts/marketplace-rename-history.json"
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq 'del(.renames["automated-ai-engineer"])
-    | .renames["replacement-old"] = "agentic-engineering"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq 'del(.renames["automated-ai-engineer"])
+  | .renames["replacement-old"] = "agentic-engineering"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 jq 'del(.["automated-ai-engineer"])
   | .["replacement-old"] = "agentic-engineering"' "$d/scripts/marketplace-rename-history.json" \
   > "$d/tmp" && mv "$d/tmp" "$d/scripts/marketplace-rename-history.json"
 check_published_contract_fail "coordinated published rename replacement fails" "$d"
 
 d=$(fresh)
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq '.renames.alpha = "beta"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq '.renames.alpha = "beta"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 check_fail "current plugin cannot be a rename source" "rename sources must be retired kebab-case plugin names" "$d"
 
 d=$(fresh)
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq '.renames["dangling-plugin"] = "missing-plugin"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq '.renames["dangling-plugin"] = "missing-plugin"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 check_fail "dangling plugin rename target fails" "rename chains must terminate at a current plugin or null without cycles" "$d"
 
 d=$(fresh)
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq '.renames += {"old-alpha":"old-beta", "old-beta":"old-alpha"}' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq '.renames += {"old-alpha":"old-beta", "old-beta":"old-alpha"}' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 check_fail "cyclic plugin rename chain fails" "rename chains must terminate at a current plugin or null without cycles" "$d"
 
 # --- check 4: plugin.json completeness ---
-d=$(fresh); jq '.name = "Bad_Name"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq '.name = "Bad_Name"' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 # rename dir + manifest entry so only the kebab-case rule trips (keep lockstep intact)
 mv "$d/plugins/alpha" "$d/plugins/Bad_Name"
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq 'del(.renames["legacy-alpha"])
-    | (.plugins[] | select(.name=="alpha")) |= (.name="Bad_Name" | .source="./plugins/Bad_Name")' \
-    "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq 'del(.renames["legacy-alpha"])
+  | (.plugins[] | select(.name=="alpha")) |= (.name="Bad_Name" | .source="./plugins/Bad_Name")' \
+  "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 jq 'del(.["legacy-alpha"])' "$d/scripts/marketplace-rename-history.json" \
   > "$d/tmp" && mv "$d/tmp" "$d/scripts/marketplace-rename-history.json"
 check_fail "non-kebab plugin name fails" "must be kebab-case" "$d"
 
-d=$(fresh); jq 'del(.description)' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq 'del(.description)' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "missing plugin.json description fails" "missing or empty 'description'" "$d"
 
-d=$(fresh); jq 'del(.version)' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq 'del(.version)' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "missing plugin.json version fails" "missing or empty 'version'" "$d"
 
-# Claude Desktop's remote marketplace service validates sourced plugins strictly. Unlike
-# the local CLI, it requires .claude-plugin/plugin.json and rejects the whole marketplace
-# when only the portable top-level plugin.json exists. Keep both manifests semantically
-# identical so Claude and Copilot consume one plugin contract rather than drifting copies.
+# Claude Desktop's remote marketplace service validates sourced plugins strictly and requires
+# .claude-plugin/plugin.json, the one plugin manifest every supported tool reads.
 d=$(fresh); rm -f "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "missing strict Claude plugin manifest fails" \
-  "plugins/alpha: every package requires its own regular canonical manifests" "$d"
+  "plugins/alpha: every package requires its own regular canonical manifest .claude-plugin/plugin.json" "$d"
 
 d=$(fresh); printf '%s\n' 'not json' > "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "malformed strict Claude plugin manifest fails" \
   "Invalid plugins/alpha/.claude-plugin/plugin.json" "$d"
 
-d=$(fresh); jq '.description = "Drifted Claude copy"' \
-  "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" \
-  && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
-check_fail "strict Claude plugin manifest drift fails" \
-  "plugins/alpha/.claude-plugin/plugin.json differs from plugins/alpha/plugin.json" "$d"
-
 # The bare-string 'skills'/'agents' form is exactly what breaks 'claude plugin install'
 # ('skills: Invalid input'); the guard must reject it and demand the array-or-omitted form.
-d=$(fresh); jq '.skills = "skills/"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq '.skills = "skills/"' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "bare-string 'skills' field fails" "'skills' must be an array of paths" "$d"
 
-d=$(fresh); jq '.agents = "agents/"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq '.agents = "agents/"' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "bare-string 'agents' field fails" "'agents' must be an array of paths" "$d"
 
 # The array form is accepted (auto-discovery still finds the on-disk skills either way).
-d=$(fresh); jq '.skills = ["skills/example-skill"]' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq '.skills = ["skills/example-skill"]' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_pass "array 'skills' field passes" "$d"
 
 # A skills/ dir present but holding no <skill>/SKILL.md is a broken bundle.
@@ -395,24 +342,20 @@ check_fail "plugin with no resource fails" "must declare at least one resource" 
 
 # --- check 4: manifest <-> plugins lockstep ---
 d=$(fresh)
-for m in "$d/.github/plugin/marketplace.json" "$d/.claude-plugin/marketplace.json"; do
-  jq '(.plugins[] | select(.name=="alpha")).source = "./wrong/alpha"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
-done
+m="$d/.claude-plugin/marketplace.json"
+jq '(.plugins[] | select(.name=="alpha")).source = "./wrong/alpha"' "$m" > "$d/tmp" && mv "$d/tmp" "$m"
 check_fail "wrong manifest source fails" "must be './plugins/alpha'" "$d"
 
 d=$(fresh); rm -rf "$d/plugins/beta"
-check_fail "manifest entry with no plugin dir fails" "has no plugins/beta/plugin.json on disk" "$d"
+check_fail "manifest entry with no plugin dir fails" "has no plugins/beta/.claude-plugin/plugin.json on disk" "$d"
 
-d=$(fresh); jq '.description = "Drifted"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq '.description = "Drifted"' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "plugin.json description drift vs manifest fails" "description differs from manifest entry 'alpha'" "$d"
 
-d=$(fresh); jq '.version = "2.0.0"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq '.version = "2.0.0"' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "plugin.json version drift vs manifest fails" "version differs from manifest entry 'alpha'" "$d"
 
-d=$(fresh); jq '.name = "alpha2"' "$d/plugins/alpha/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/plugin.json"
-sync_claude_plugin_manifest "$d" alpha
+d=$(fresh); jq '.name = "alpha2"' "$d/plugins/alpha/.claude-plugin/plugin.json" > "$d/tmp" && mv "$d/tmp" "$d/plugins/alpha/.claude-plugin/plugin.json"
 check_fail "plugin.json name drift vs manifest fails" "name differs from manifest entry 'alpha'" "$d"
 
 d=$(fresh); make_plugin "$d" gamma "Orphan plugin" "1.0.0"
@@ -429,7 +372,7 @@ check_fail "a stale README cannot replace the missing catalogue" "docs/plugins.m
 d=$(fresh)
 # shellcheck disable=SC2016
 printf '| [`gamma`](plugins/gamma/) | `example-skill` | Ghost plugin |\n' >> "$d/docs/plugins.md"
-check_fail "README row for nonexistent plugin fails" "docs/plugins.md lists plugin 'gamma' with no plugins/gamma/plugin.json on disk" "$d"
+check_fail "README row for nonexistent plugin fails" "docs/plugins.md lists plugin 'gamma' with no plugins/gamma/.claude-plugin/plugin.json on disk" "$d"
 
 # A README row whose plugins/<name>/ exists but has no plugin.json (a stray dir the
 # orphan scan can't see) must be rejected, not silently accepted.
@@ -438,7 +381,7 @@ mkdir -p "$d/plugins/gamma/skills/example-skill"
 printf 'Ghost skill.\n' > "$d/plugins/gamma/skills/example-skill/SKILL.md"
 # shellcheck disable=SC2016
 printf '| [`gamma`](plugins/gamma/) | `example-skill` | Ghost plugin |\n' >> "$d/docs/plugins.md"
-check_fail "README row for dir without plugin.json fails" "plugins/gamma: every package requires its own regular canonical manifests" "$d"
+check_fail "README row for dir without plugin.json fails" "plugins/gamma: every package requires its own regular canonical manifest" "$d"
 
 # A stray skill directory must contain its own SKILL.md before catalogue parity.
 # Its absence cannot be hidden by adding the directory name to the catalogue.
@@ -699,7 +642,6 @@ make_catalogued_plugin() {
   make_plugin "$root" "$name" "Canonical fixture" "1.0.0"
   jq --arg name "$name" '.plugins += [{name:$name,description:"Canonical fixture",version:"1.0.0",source:("./plugins/"+$name)}]' "$root/.claude-plugin/marketplace.json" > "$root/new"
   mv "$root/new" "$root/.claude-plugin/marketplace.json"
-  cp "$root/.claude-plugin/marketplace.json" "$root/.github/plugin/marketplace.json"
   # shellcheck disable=SC2016 # Literal catalogue markup.
   printf '| [`%s`](plugins/%s/) | `example-skill` | Canonical fixture |\n' "$name" "$name" >> "$root/docs/plugins.md"
 }
@@ -1277,7 +1219,7 @@ check_fail "unsupported desired-state kind fails closed" \
 
 d=$(fresh); make_desired_state "$d" typo
 check_fail "desired-state resource outside a manifested plugin fails" \
-  "plugins/typo: every package requires its own regular canonical manifests" "$d"
+  "plugins/typo: every package requires its own regular canonical manifest .claude-plugin/plugin.json" "$d"
 
 d=$(fresh); make_catalogued_plugin "$d" agentic-engineering
 check_fail "missing canonical agentic desired-state resource fails" \
@@ -2308,14 +2250,14 @@ done
 
 # --- optional Codex manifest and the apps it offers ---
 # Codex reads .codex-plugin/plugin.json before .claude-plugin/plugin.json, so a Codex manifest must
-# repeat the portable manifest exactly, add only Codex's component paths and listing, and offer
+# repeat the canonical manifest exactly, add only Codex's component paths and listing, and offer
 # only optional apps.
 codex_fixture() {
   local d p
   d=$(fresh); p=$d/plugins/alpha
   mkdir -p "$p/.codex-plugin"
   jq '. + {skills: "./skills/", apps: "./.app.json", interface: {displayName: "Alpha"}}' \
-    "$p/plugin.json" > "$p/.codex-plugin/plugin.json"
+    "$p/.claude-plugin/plugin.json" > "$p/.codex-plugin/plugin.json"
   printf '%s\n' '{"apps":{"mail":{"id":"connector_abc123","required":false},"people":{"id":"asdk_app_def456","required":false}}}' \
     > "$p/.app.json"
   printf '%s' "$d"
@@ -2326,13 +2268,23 @@ codex_edit() { # dir jq-filter file-relative-to-alpha
 
 check_pass "a Codex manifest offering optional apps passes" "$(codex_fixture)"
 
+# The canonical side of the Codex comparison is a checked producer too: a failed or partial
+# normalization never compares equal to the Codex manifest.
+for output in empty partial; do
+  d=$(codex_fixture)
+  PATH="$WORK/normalization-bin:$PATH" REAL_JQ="$REAL_JQ" \
+    JQ_FAILURE_PATTERN=plugins/alpha/.claude-plugin/plugin.json JQ_FAILURE_OUTPUT="$output" \
+    check_fail "canonical manifest normalization failure with $output output fails the Codex comparison" \
+      "Could not normalize plugins/alpha/.codex-plugin/plugin.json" "$d"
+done
+
 d=$(codex_fixture); codex_edit "$d" '.version = "9.9.9"' .codex-plugin/plugin.json
 check_fail "Codex manifest version drift fails" \
-  "plugins/alpha/.codex-plugin/plugin.json differs from plugins/alpha/plugin.json" "$d"
+  "plugins/alpha/.codex-plugin/plugin.json differs from plugins/alpha/.claude-plugin/plugin.json" "$d"
 
 d=$(codex_fixture); codex_edit "$d" '.hooks = "./hooks.json"' .codex-plugin/plugin.json
 check_fail "a Codex manifest field beyond its component paths fails" \
-  "plugins/alpha/.codex-plugin/plugin.json differs from plugins/alpha/plugin.json" "$d"
+  "plugins/alpha/.codex-plugin/plugin.json differs from plugins/alpha/.claude-plugin/plugin.json" "$d"
 
 d=$(codex_fixture); codex_edit "$d" 'del(.skills)' .codex-plugin/plugin.json
 check_fail "a Codex manifest that hides the bundled skills fails" \

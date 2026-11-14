@@ -34,7 +34,7 @@ expect() {
 # and every case isolates the one surface under test.
 fixture() {
   local dir="${work}/$1"
-  mkdir -p "${dir}/plugins/p/agents"
+  mkdir -p "${dir}/plugins/p/agents" "${dir}/plugins/p/.claude-plugin"
   printf '%s\n' '`gh pr view <n> --json state,mergedAt`' > "${dir}/plugins/p/agents/baseline.md"
   printf '%s' "${dir}"
 }
@@ -116,16 +116,16 @@ done
 
 # JSON surfaces are decoded: a \u-escaped letter is still that letter, so an escaped field name is caught.
 dir="$(fixture bad-json-escaped-name)"
-printf '{"prompt":"gh pr view <n> --json state,\x5cu006derged,mergedAt"}\n' > "${dir}/plugins/p/plugin.json"
+printf '{"prompt":"gh pr view <n> --json state,\x5cu006derged,mergedAt"}\n' > "${dir}/plugins/p/.claude-plugin/plugin.json"
 expect 1 "JSON with an escaped field name" "${dir}"
 
 dir="$(fixture bad-json-escaped-space)"
-printf '{"prompt":"gh pr view <n> --json\x5cu0020state,merged,closed"}\n' > "${dir}/plugins/p/plugin.json"
+printf '{"prompt":"gh pr view <n> --json\x5cu0020state,merged,closed"}\n' > "${dir}/plugins/p/.claude-plugin/plugin.json"
 expect 1 "JSON with an escaped separator" "${dir}"
 
 # A command stored as an object KEY is scanned too.
 dir="$(fixture bad-json-key)"
-printf '%s\n' '{"gh pr view --json state,merged":"example to run"}' > "${dir}/plugins/p/plugin.json"
+printf '%s\n' '{"gh pr view --json state,merged":"example to run"}' > "${dir}/plugins/p/.claude-plugin/plugin.json"
 expect 1 "JSON with the request as an object key" "${dir}"
 
 # An argv array is one command, so `--json` and its next element are read together.
@@ -139,21 +139,21 @@ expect 0 "JSON argv array with valid fields" "${dir}"
 
 # Any OTHER array keeps its elements apart: two notes do not form a command.
 dir="$(fixture good-json-notes-array)"
-printf '%s\n' '{"notes":["The option is --json","merged is unavailable"]}' > "${dir}/plugins/p/plugin.json"
+printf '%s\n' '{"notes":["The option is --json","merged is unavailable"]}' > "${dir}/plugins/p/.claude-plugin/plugin.json"
 expect 0 "a non-argv string array is not joined" "${dir}"
 
 # A decoded NUL anywhere in the file must not make grep treat it as binary and print nothing.
 dir="$(fixture bad-json-nul)"
-printf '{"note":"a\x5cu0000b","prompt":"gh pr view <n> --json state,merged"}\n' > "${dir}/plugins/p/plugin.json"
+printf '{"note":"a\x5cu0000b","prompt":"gh pr view <n> --json state,merged"}\n' > "${dir}/plugins/p/.claude-plugin/plugin.json"
 expect 1 "JSON containing a NUL still has its request scanned" "${dir}"
 
 # Two unrelated values must not join into `--json merged`.
 dir="$(fixture good-json-boundary)"
-printf '%s\n' '{"label":"CLI option --json","description":"merged is not a valid field"}' > "${dir}/plugins/p/plugin.json"
+printf '%s\n' '{"label":"CLI option --json","description":"merged is not a valid field"}' > "${dir}/plugins/p/.claude-plugin/plugin.json"
 expect 0 "JSON values stay separate" "${dir}"
 
 dir="$(fixture good-json-prose-comma)"
-printf '%s\n' '{"prompt":"Run gh pr view <n> --json state, merged PRs need no polling."}' > "${dir}/plugins/p/plugin.json"
+printf '%s\n' '{"prompt":"Run gh pr view <n> --json state, merged PRs need no polling."}' > "${dir}/plugins/p/.claude-plugin/plugin.json"
 expect 0 "JSON comma-then-space is prose" "${dir}"
 
 # A skill file deep in the tree is scanned too — synced skills are the likeliest source.
@@ -543,7 +543,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 dir="$(fixture unknown-bad-json)"
-printf '%s\n' '{"prompt": "gh pr view --json state,merged"' > "${dir}/plugins/p/plugin.json"
+printf '%s\n' '{"prompt": "gh pr view --json state,merged"' > "${dir}/plugins/p/.claude-plugin/plugin.json"
 expect 2 "unparseable JSON is UNKNOWN, not clean" "${dir}"
 
 mkdir -p "${work}/unknown-no-plugins"

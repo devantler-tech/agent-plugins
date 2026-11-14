@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Bump a plugin's version across all the manifests that must agree.
 #
-# A plugin's version lives in four places — the portable manifest, the strict Claude manifest,
-# and one entry in each of the two marketplace manifests — plus a Codex manifest when the plugin
-# ships one, and validate-manifests.sh fails if they disagree. Doing that by hand is four edits and an easy way to ship a half-bumped plugin,
-# so this is the one supported way to move a version.
+# A plugin's version lives in its .claude-plugin/plugin.json and its entry in the
+# .claude-plugin/marketplace.json marketplace manifest, plus a Codex manifest when the plugin
+# ships one, and validate-manifests.sh fails if they disagree. Doing that by hand is an easy
+# way to ship a half-bumped plugin, so this is the one supported way to move a version.
 #
 # Consumers cache plugins by version, so a content change that leaves the version untouched
 # never reaches them; check-plugin-version-bump.sh is the gate that catches it, and this is the
@@ -20,7 +20,6 @@
 set -euo pipefail
 
 CLAUDE_MANIFEST=".claude-plugin/marketplace.json"
-COPILOT_MANIFEST=".github/plugin/marketplace.json"
 
 # shellcheck source=scripts/plugin-version.lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/plugin-version.lib.sh"
@@ -34,27 +33,25 @@ plugin_version_git_context
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 : > "$work/changes"
-for directory in .claude-plugin .github .github/plugin; do
-  if [ ! -d "$directory" ] || [ -L "$directory" ]; then
-    echo '::error::Manifest parent must be a real checkout directory.' >&2; exit 1
-  fi
-done
-for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
-  [ -f "$manifest" ] && [ ! -L "$manifest" ] || exit 1
-  snapshot="$work/$(basename "$(dirname "$manifest")").original"
-  cp "$manifest" "$snapshot"
-  json_object_unique "$snapshot" || { echo '::error::Marketplace declarations must be unambiguous; no manifests were changed.' >&2; exit 1; }
-  jq -es 'length==1 and (.[0] | type == "object" and (.plugins | type == "array"))' "$snapshot" >/dev/null || exit 1
-  cp "$snapshot" "$work/$(basename "$(dirname "$manifest")").json"
-done
+if [ ! -d .claude-plugin ] || [ -L .claude-plugin ]; then
+  echo '::error::Manifest parent must be a real checkout directory.' >&2; exit 1
+fi
+[ -f "$CLAUDE_MANIFEST" ] && [ ! -L "$CLAUDE_MANIFEST" ] || exit 1
+# The marketplace snapshot is the comparison original; the staged copy collects every increment.
+snapshot="$work/marketplace.original"
+staged_marketplace="$work/marketplace.json"
+cp "$CLAUDE_MANIFEST" "$snapshot"
+json_object_unique "$snapshot" || { echo '::error::Marketplace declarations must be unambiguous; no manifests were changed.' >&2; exit 1; }
+jq -es 'length==1 and (.[0] | type == "object" and (.plugins | type == "array"))' "$snapshot" >/dev/null || exit 1
+cp "$snapshot" "$staged_marketplace"
 
-# Validate one plugin's manifest parity and stage its increment without changing the checkout.
+# Validate one plugin's manifest agreement and stage its increment without changing the checkout.
 plan_one() {
-  local name="$1" level="$2" dir="plugins/$1" current='' new manifest staged entry observed original
+  local name="$1" level="$2" dir="plugins/$1" current='' new manifest entry observed original
   local -a manifests
   [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { echo '::error::Invalid plugin identity.' >&2; return 1; }
   plugin_version_local_parents "$name" || return 1
-  manifests=("$dir/plugin.json" "$dir/.claude-plugin/plugin.json")
+  manifests=("$dir/.claude-plugin/plugin.json")
   # Codex reads its own manifest before the Claude one when a plugin ships it, so it moves in step.
   if [ -e "$dir/.codex-plugin" ] || [ -L "$dir/.codex-plugin" ]; then
     if [ ! -d "$dir/.codex-plugin" ] || [ -L "$dir/.codex-plugin" ]; then
@@ -74,15 +71,12 @@ plan_one() {
       return 1
     }
   done
-  for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
-    staged="$work/$(basename "$(dirname "$manifest")").json"
-    jq -e --arg n "$name" --arg v "$current" '
+  jq -e --arg n "$name" --arg v "$current" '
       [.plugins[] | select(.name == $n)] | length == 1 and
-      (.[0] | .version == $v and .source == ("./plugins/" + $n))' "$staged" >/dev/null || {
-      echo "::error::$manifest: expected one matching plugin at the same version; no manifests were changed." >&2
-      return 1
-    }
-  done
+      (.[0] | .version == $v and .source == ("./plugins/" + $n))' "$staged_marketplace" >/dev/null || {
+    echo "::error::$CLAUDE_MANIFEST: expected one matching plugin at the same version; no manifests were changed." >&2
+    return 1
+  }
   # Changed-since must validate even a plugin already bumped on the branch.
   if [ "$level" = keep ]; then return 0; fi
   new=$(plugin_version_next "$current" "$level") || return 1
@@ -92,11 +86,8 @@ plan_one() {
     jq --arg v "$new" '.version = $v' "$original" > "$entry" || return 1
     printf '%s\0%s\0%s\0' "$manifest" "$entry" "$original" >> "$work/changes"
   done
-  for manifest in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
-    staged="$work/$(basename "$(dirname "$manifest")").json"
-    jq --arg n "$name" --arg v "$new" '.plugins |= map(if .name == $n then .version = $v else . end)' "$staged" > "$work/next" || return 1
-    mv "$work/next" "$staged"
-  done
+  jq --arg n "$name" --arg v "$new" '.plugins |= map(if .name == $n then .version = $v else . end)' "$staged_marketplace" > "$work/next" || return 1
+  mv "$work/next" "$staged_marketplace"
   echo "✓ $name $current → $new"
 }
 
@@ -171,11 +162,7 @@ main() {
     plan_one "$p" "$level"
   done
   # Only complete plans are installed; a bad later input cannot half-bump a plugin.
-  local destination staged
-  for destination in "$CLAUDE_MANIFEST" "$COPILOT_MANIFEST"; do
-    staged="$work/$(basename "$(dirname "$destination")").json"
-    printf '%s\0%s\0%s\0' "$destination" "$staged" "$work/$(basename "$(dirname "$destination")").original" >> "$work/changes"
-  done
+  printf '%s\0%s\0%s\0' "$CLAUDE_MANIFEST" "$staged_marketplace" "$snapshot" >> "$work/changes"
   atomic_write_batch "$work/changes"
 }
 

@@ -65,6 +65,6 @@ fork's branch to `devantler-tech/agent-plugins:main`, use the supplied PR templa
 for substantial work. Explain the reader problem, the outcome, and the checks you actually ran.
 Follow the [organization code of conduct](https://github.com/devantler-tech/.github/blob/main/.github/CODE_OF_CONDUCT.md),
 retain [license and attribution obligations](LICENSE), and disclose AI assistance when applicable.
-Respond to findings; CI and an exact-current-head review must pass before merge. Release preparation
-and publication are separate [maintainer operations](docs/marketplace-releases.md), not contribution
-setup steps.
+Respond to findings; CI and an exact-current-head review must pass before merge. Marketplace
+releases are cut separately by an [automated release PR](docs/marketplace-releases.md), not by
+contribution steps.

@@ -21,9 +21,7 @@ Copilot, and by Cursor, Codex, and Claude (via `CLAUDE.md` → `@AGENTS.md`).
 │   └── marketplace.json        # Copilot / VS Code marketplace manifest (kept in parity with the Claude one)
 └── workflows/
     ├── ci.yaml                 # Runs scripts/validate-manifests.sh + lint-scripts (shellcheck + self-test) + agentskills.io spec per skill
-    ├── prepare-marketplace-release.yaml # Manual, read-only release-candidate artifact
-    ├── propose-marketplace-release.yaml # Current-main assessment; separate opt-in signed draft creation
-    ├── publish-marketplace-release.yaml # Exact-main CI assessment; separate opt-in publication job
+    ├── release-please.yaml     # Release PR on each push to main; merging it tags vX.Y.Z and publishes the release
     └── update-agent-skills.yaml  # Daily gh skill update --all; one PR per drifted skill
 plugins/
 └── <plugin>/
@@ -42,7 +40,9 @@ README.md                       # Short introduction and getting started
 docs/plugins.md                 # Validated plugin catalogue and resource inventory
 docs/installation.md            # Per-tool installation instructions
 docs/resources.md               # Bundled servers, agents, and onboarding
-docs/marketplace-releases.md     # Opt-in candidate preparation and publication boundary
+docs/marketplace-releases.md    # How release-please cuts marketplace releases
+release-please-config.json      # release-please configuration (one root package, vX.Y.Z tags)
+.release-please-manifest.json   # Last released marketplace version
 docs/validation.md              # Every validation command, and how the CI gates behave
 docs/scripts.md                 # What each repository script is for
 ```
@@ -187,11 +187,10 @@ The daily updater still refreshes external skills independently with no lockfile
    it needs at the workflow or job level. Set `persist-credentials: false` on `actions/checkout` unless
    a job must push.
 7. **Conventional-commit messages** (`feat:`/`fix:`/`chore:`/`ci:`/`docs:`/`refactor:`). The repo is
-   consumed directly as a marketplace. The opt-in [release-preparation command](docs/marketplace-releases.md)
-   calculates a repository version proposal from commit history. Publication is a separate manual
-   command, read-only unless explicitly invoked with `--publish`; it never overwrites existing tags
-   or releases. Establish current-head readiness before enabling that operation.
-   Per-plugin versions are moved explicitly, per the next convention.
+   consumed directly as a marketplace. [release-please](docs/marketplace-releases.md) reads those
+   titles on `main`, keeps one release PR that moves the marketplace `.metadata.version`, and
+   tags `vX.Y.Z` and publishes the GitHub release when that PR merges. Never edit the marketplace
+   version by hand. Per-plugin versions are moved explicitly, per the next convention.
 8. **A plugin's version is its cache key — move it whenever its content changes.** Runtimes cache
    plugins by `<marketplace>/<plugin>/<version>`, so a content change that leaves the version alone is
    unreachable for every consumer that already installed it: the update command reports "already at the
@@ -270,15 +269,8 @@ row here rather than growing this file.
 
 ## Maintenance (autonomous AI engineer)
 
-**Feature flags:** release preparation is explicit and read-only. Publication uses the existing
-`--publish` CLI option or the Actions `publish` boolean input, both default-off. Automatic Actions
-publication requires `MARKETPLACE_AUTOPUBLISH` to be exactly `true`; missing, false or any other
-value disables it. Proposal creation uses `--propose` or the Actions `propose` boolean, both default-off;
-scheduled creation separately requires `MARKETPLACE_AUTOPROPOSE` to be exactly `true`. Assessment
-retains read-only permissions. Track rollout and eventual flag removal
-in [#277](https://github.com/devantler-tech/agent-plugins/issues/277).
-Historical content inspection requires the verifier's explicit `--inspect-existing` option. Its
-`INSPECTED` result supplies no proposal, publication, remote-state or readiness clearance.
+**Releases:** release-please keeps the marketplace release PR up to date on every push to `main`.
+Drive it like any other PR: merging it is the release decision, and it publishes `vX.Y.Z`.
 
 These conventions guide the autonomous **Agentic Engineer** — and any agentic tool — doing
 repository maintenance. The **shared** cross-repo conventions are defined centrally in the

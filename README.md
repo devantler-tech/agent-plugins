@@ -29,7 +29,7 @@ records which gaps to fill.
 
 Maintained first-party skills are authored in their plugins here; curated external skills retain their original authors and upstream update paths. To suggest a bundle or report a problem, [open an issue](https://github.com/devantler-tech/agent-plugins/issues). For a safe first repository change, start with [Contributing](CONTRIBUTING.md).
 
-Maintainers can [prepare and publish a marketplace release](docs/marketplace-releases.md) with a reviewed version proposal, matching manifests, and verified release notes. Actions can explicitly create a signed draft containing only the generated marketplace versions and start normal PR CI. Review and merge remain separate gates. Pull-request CI checks that a version update exactly matches its generated proposal; publication separately requires exact successful main CI. Scheduled proposal creation and publication are independently opt-in.
+Marketplace releases are cut by [release-please](docs/marketplace-releases.md): it keeps one reviewable release PR open, and merging it tags `vX.Y.Z` and publishes the GitHub release with its notes.
 
 If a pull-request recheck fails, follow the [recovery guide](docs/pr-recheck-recovery.md) to retrieve its saved merge settings and verify the current PR before restoring them.
 

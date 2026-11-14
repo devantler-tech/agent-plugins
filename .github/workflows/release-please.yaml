@@ -1,0 +1,66 @@
+name: 🚀 Release Please
+
+# Cuts marketplace releases with release-please (release-please-config.json and
+# .release-please-manifest.json). Each push to main updates one reviewable release PR that
+# bumps `.metadata.version` in both marketplace manifests. Merging that PR tags `vX.Y.Z` and
+# publishes the GitHub release with its notes. Per-plugin versions and changelogs stay
+# author-maintained and are enforced by CI, not by this workflow.
+
+on:
+  push:
+    branches: [main]
+
+# One release run at a time, and never cancel one in progress: a cancelled run could leave
+# a merged release PR untagged. A newer queued push replaces an older queued one, which is
+# safe because every run reads the current state of main.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release:
+    name: Tag and publish a merged release
+    runs-on: ubuntu-latest
+    # Creating the release creates the `vX.Y.Z` tag. Only GitHub Actions may create `v*`
+    # tags in this repository, so this step uses the workflow token, not the App token.
+    # `pull-requests: write` lets release-please relabel the merged release PR as
+    # `autorelease: tagged` and comment the release link; without it, the next run would
+    # find the PR still pending and try to release it again.
+    permissions:
+      contents: write # create the vX.Y.Z tag and the GitHub release
+      pull-requests: write # relabel and comment on the merged release PR
+    timeout-minutes: 10
+    steps:
+      - name: 🏷️ Tag and publish a merged release PR
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ github.token }}
+          skip-github-pull-request: true
+
+  release-pr:
+    name: Open or update the release PR
+    # Runs after the release job, because release-please refuses to open the next release PR
+    # while a merged release PR is still untagged.
+    needs: release
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 10
+    steps:
+      - name: 🔑 Generate GitHub App token
+        id: app-token
+        # A PR opened with the workflow token does not start CI, so the release PR could
+        # never pass its required checks. An App-authored PR does.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: 📝 Open or update the release PR
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          skip-github-release: true

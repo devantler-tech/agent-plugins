@@ -197,81 +197,6 @@ jobs:
       - name: 🧪 Verify signed skill metadata publication
         run: bash scripts/publish-skill-metadata.test.sh
 
-  test-marketplace:
-    name: Test marketplace automation
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: 📄 Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: 🔧 Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-
-      - name: 📦 Install the locked Markdown parser
-        run: npm ci --ignore-scripts --no-audit --no-fund
-
-      - name: 🔧 Set up the minimum supported Go toolchain
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: "1.22.12"
-          cache: false
-
-      - name: 🧪 Verify marketplace caller checkout isolation
-        run: bash scripts/marketplace-caller-context.test.sh
-
-      - name: 🧪 Self-test marketplace release preparation
-        run: bash scripts/prepare-marketplace-release.test.sh
-
-      - name: 🧪 Verify original release observations and reserved output writes
-        run: bash scripts/release-observation-boundaries.test.sh
-
-      - name: 🧪 Self-test marketplace release verification
-        run: bash scripts/verify-marketplace-release.test.sh
-
-      - name: 🧪 Self-test historical marketplace inspection
-        run: bash scripts/inspect-marketplace-release.test.sh
-
-      - name: 🧪 Self-test complete marketplace observations
-        run: bash scripts/marketplace-observation-completeness.test.sh
-
-      - name: 🧪 Self-test marketplace version proposals
-        run: bash scripts/check-marketplace-version.test.sh
-
-      - name: 🧪 Self-test remote marketplace release assessment
-        run: bash scripts/check-marketplace-release-remote.test.sh
-
-      - name: 🧪 Self-test marketplace publication
-        run: bash scripts/publish-marketplace-release.test.sh
-
-      - name: 🧪 Self-test merged marketplace preparation and exact main CI
-        run: bash scripts/prepare-merged-marketplace-release.test.sh
-
-      - name: 🧪 Self-test marketplace workflow authorization branches
-        run: bash scripts/marketplace-publication-workflow.test.sh
-
-      - name: 🧪 Self-test marketplace publication checkout identity
-        run: bash scripts/marketplace-publication-identity.test.sh
-
-      - name: 🧪 Self-test create-only marketplace proposals
-        run: bash scripts/propose-marketplace-release.test.sh
-
-      - name: 🧪 Self-test marketplace proposal workflow boundaries
-        run: bash scripts/marketplace-proposal-workflow.test.sh
-
-      - name: Verify the native Actions proposal identity
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api graphql --hostname github.com -f query='query { viewer { login } }' > "$RUNNER_TEMP/native-proposal-identity.json"
-          jq '{login: .data.viewer.login}' "$RUNNER_TEMP/native-proposal-identity.json"
-          jq -e '.data.viewer.login == "github-actions[bot]"' "$RUNNER_TEMP/native-proposal-identity.json"
-
   test-packages:
     name: Test packaged resources
     runs-on: ubuntu-latest
@@ -438,15 +363,6 @@ jobs:
           fi
           ./scripts/check-plugin-version-bump.sh "$BASE_SHA" HEAD
           bash scripts/plugin-changelog.sh check "$BASE_SHA" HEAD
-
-      - name: 🔢 Verify the marketplace version proposal
-        # A published tag occupies the version, so this prepublication gate belongs
-        # to PRs only. Use the actual head, never GitHub's synthetic merge commit.
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: bash scripts/check-marketplace-version.sh "$BASE_SHA" "$HEAD_SHA"
 
   check-bundled-skill-edits:
     name: Check bundled skill edits
@@ -626,7 +542,7 @@ jobs:
     permissions:
       actions: read
     timeout-minutes: 5
-    needs: [retired-repo-links, validate-manifests, lint-scripts, test-marketplace, test-packages, check-version-bump, check-bundled-skill-edits, validate-spec]
+    needs: [retired-repo-links, validate-manifests, lint-scripts, test-packages, check-version-bump, check-bundled-skill-edits, validate-spec]
     if: ${{ always() }}
     steps:
       - uses: devantler-tech/.github/actions/aggregate-job-checks@da5f0839b418626a8a0b69df1f04ba931a38e371 # v19.1.0
@@ -636,7 +552,6 @@ jobs:
             ${{ needs.retired-repo-links.result }}
             ${{ needs.validate-manifests.result }}
             ${{ needs.lint-scripts.result }}
-            ${{ needs.test-marketplace.result }}
             ${{ needs.test-packages.result }}
             ${{ needs.check-version-bump.result }}
             ${{ needs.check-bundled-skill-edits.result }}

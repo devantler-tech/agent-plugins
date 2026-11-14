@@ -21,12 +21,11 @@ job_block() {
 
 # Verify that every script-test command is assigned once to an independent required shard.
 check_workflow() {
-  local workflow=$1 lint marketplace packages required combined failures=0
+  local workflow=$1 lint packages required combined failures=0
   lint=$(job_block lint-scripts "$workflow")
-  marketplace=$(job_block test-marketplace "$workflow")
   packages=$(job_block test-packages "$workflow")
   required=$(job_block ci-required-checks "$workflow")
-  combined="$lint"$'\n'"$marketplace"$'\n'"$packages"
+  combined="$lint"$'\n'"$packages"
 
   # Record a failure when a fixed string occurs a different number of times than required.
   require_count() {
@@ -47,15 +46,13 @@ check_workflow() {
   }
 
   require_count 'static/core job exists once' '  lint-scripts:' 1 "$lint"
-  require_count 'marketplace job exists once' '  test-marketplace:' 1 "$marketplace"
   require_count 'package job exists once' '  test-packages:' 1 "$packages"
-  require_count 'each shard checks out independently' 'uses: actions/checkout@' 3 "$combined"
+  require_count 'each shard checks out independently' 'uses: actions/checkout@' 2 "$combined"
   require_count 'each shard installs the locked parser independently' \
-    'run: npm ci --ignore-scripts --no-audit --no-fund' 3 "$combined"
-  require_count 'each shard provisions Node independently' 'uses: actions/setup-node@' 3 "$combined"
-  require_count 'each shard provisions Go independently' 'uses: actions/setup-go@' 3 "$combined"
-  require_count 'each shard has read-only repository permission' 'contents: read' 3 "$combined"
-  require_count 'marketplace shard is required and aggregated' 'test-marketplace' 2 "$required"
+    'run: npm ci --ignore-scripts --no-audit --no-fund' 2 "$combined"
+  require_count 'each shard provisions Node independently' 'uses: actions/setup-node@' 2 "$combined"
+  require_count 'each shard provisions Go independently' 'uses: actions/setup-go@' 2 "$combined"
+  require_count 'each shard has read-only repository permission' 'contents: read' 2 "$combined"
   require_count 'package shard is required and aggregated' 'test-packages' 2 "$required"
 
   local expected_commands=(
@@ -74,21 +71,6 @@ check_workflow() {
     'bash scripts/ci-skill-validation-workflow.test.sh'
     'bash scripts/skill-spec-view.test.sh'
     'bash scripts/ci-script-test-sharding-workflow.test.sh'
-    'bash scripts/marketplace-caller-context.test.sh'
-    'bash scripts/prepare-marketplace-release.test.sh'
-    'bash scripts/release-observation-boundaries.test.sh'
-    'bash scripts/verify-marketplace-release.test.sh'
-    'bash scripts/inspect-marketplace-release.test.sh'
-    'bash scripts/marketplace-observation-completeness.test.sh'
-    'bash scripts/check-marketplace-version.test.sh'
-    'bash scripts/check-marketplace-release-remote.test.sh'
-    'bash scripts/publish-marketplace-release.test.sh'
-    'bash scripts/prepare-merged-marketplace-release.test.sh'
-    'bash scripts/marketplace-publication-workflow.test.sh'
-    'bash scripts/marketplace-publication-identity.test.sh'
-    'bash scripts/propose-marketplace-release.test.sh'
-    'bash scripts/marketplace-proposal-workflow.test.sh'
-    'jq -e '\''.data.viewer.login == "github-actions[bot]"'\'''
     './scripts/recheck-open-prs.test.sh'
     'bash scripts/recheck-open-prs-observations.test.sh'
     'uses: actions/upload-artifact@'
@@ -149,7 +131,7 @@ sed 's/bash scripts\/package-boundaries.test.sh/bash scripts\/package-discovery.
   "$WORKFLOW" >"$WORK/duplicate-command.yaml"
 expect_rejected duplicate-command "$WORK/duplicate-command.yaml"
 
-sed 's/bash scripts\/marketplace-caller-context.test.sh/bash scripts\/marketplace-caller-context.test.sh || true/' \
+sed 's/bash scripts\/plugin-changelog.test.sh/bash scripts\/plugin-changelog.test.sh || true/' \
   "$WORKFLOW" >"$WORK/tolerated-failure.yaml"
 expect_rejected tolerated-failure "$WORK/tolerated-failure.yaml"
 

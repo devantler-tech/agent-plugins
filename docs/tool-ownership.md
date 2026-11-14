@@ -39,7 +39,7 @@ Their documented interfaces are supported here; none establishes an independent 
 
 | Candidate | Observed caller and task | Ownership rationale |
 |---|---|---|
-| [`validate-manifests.sh`](../scripts/validate-manifests.sh) | CI, release preparation/publication workflows and maintainer instructions validate manifests, provenance and resource parity | Marketplace schema and consumer promises belong here. A generic schema checker does not replace the parity and provenance policy. |
+| [`validate-manifests.sh`](../scripts/validate-manifests.sh) | CI and maintainer instructions validate manifests, provenance and resource parity | Marketplace schema and consumer promises belong here. A generic schema checker does not replace the parity and provenance policy. |
 | [`bump-plugin-version.sh`](../scripts/bump-plugin-version.sh) | Skill-update workflow and maintainer invocation move four related manifests together | Keep version selection with the four manifests. The assessment found failed Git observations could be accepted; [#319](https://github.com/devantler-tech/agent-plugins/issues/319) tracks the repair. |
 | [`check-plugin-version-bump.sh`](../scripts/check-plugin-version-bump.sh) | CI compares a change with its merge base and requires changed plugin content to move version | The cache/version promise is marketplace policy. The same discovery failure is covered by #319; a language migration would not itself correct it. |
 | [`guard-bundled-skill-edits.sh`](../scripts/guard-bundled-skill-edits.sh) | PR CI checks changed paths against base provenance and the authorized sync writer | Retain the source-ownership and writer rules here. Skill installation transport cannot decide this repository's editing exemption. |
@@ -53,23 +53,12 @@ Their documented interfaces are supported here; none establishes an independent 
 
 ## Marketplace release tools
 
-These eight `scripts/` entrypoints also stay repository-local. GitHub CLI owns forge transport;
-the marketplace owns version occupancy, content reconstruction and create-only publication policy.
-Shared use of the release API does not make source-skill and marketplace publication interchangeable.
-
-| Candidate | Observed caller and responsibility |
-|---|---|
-| [`prepare-marketplace-release.sh`](../scripts/prepare-marketplace-release.sh) | Preparation workflow, proposal helper, publication helper and merged-proposal verifier reproduce a candidate from exact Git history. The assessment found an unchecked second worktree census and newline-trimming output boundary; [#323](https://github.com/devantler-tech/agent-plugins/pull/323) delivers the repair for #322. |
-| [`verify-marketplace-release.sh`](../scripts/verify-marketplace-release.sh) | Proposal, publication and merged-proposal helpers verify candidate contents and commit relationships. Its explicit historical-inspection option delegates to the inspector. |
-| [`inspect-marketplace-release.sh`](../scripts/inspect-marketplace-release.sh) | The verifier's opt-in historical path checks occupied releases without granting fresh publication readiness. |
-| [`check-marketplace-version.sh`](../scripts/check-marketplace-version.sh) | PR CI and merged-proposal preparation check the proposed marketplace version against reproduced content. |
-| [`check-marketplace-release-remote.sh`](../scripts/check-marketplace-release-remote.sh) | Publication helper and documented maintainer assessment inspect remote tag/release occupancy before a write. |
-| [`prepare-merged-marketplace-release.sh`](../scripts/prepare-merged-marketplace-release.sh) | Publication workflow reconstructs the selected merged release with exact successful main CI. |
-| [`propose-marketplace-release.sh`](../scripts/propose-marketplace-release.sh) | Proposal workflow assesses current main and separately opts into a signed, create-only draft proposal. |
-| [`publish-marketplace-release.sh`](../scripts/publish-marketplace-release.sh) | Publication workflow separately opts into create-only publication after reproducing local and remote evidence. |
-
-The distinct contracts separate read-only assessment from a separately authorized write.
-Collapsing those boundaries into one apparently generic publisher is not a behavior-preserving extraction.
+The eight release entrypoints this assessment recorded here (preparation, verification, historical
+inspection, version-proposal checking, remote assessment, merged-release preparation, proposal and
+publication) and their jq modules were retired in
+[#705](https://github.com/devantler-tech/agent-plugins/issues/705). Marketplace releases are now cut
+by release-please, as the [release guide](marketplace-releases.md) describes. ADRs 0008 to 0015 keep
+the history of that toolchain.
 
 ## Installed agent and skill helpers
 
@@ -88,10 +77,8 @@ owning plugin or upstream skill**, released and installed as that resource rathe
 
 ## Companion mechanisms and alternatives
 
-The five local jq modules (`marketplace-release`, `marketplace-remote-state`, `marketplace-publication`,
-`marketplace-proposal`, `marketplace-permissions`) are invoked by their release wrappers. They retain
-marketplace policy: candidate calculation, remote occupancy, native identity/capability joins and
-proposal/publication decisions. Keep them local. The CommonMark companion
+The local jq module `marketplace-release` now holds only the canonical stable-version predicates that
+the manifest validator and the cache-version tools share; keep it local. The CommonMark companion
 [`changelog-headings.cjs`](../scripts/changelog-headings.cjs) is invoked by the changelog wrapper and
 uses the locked existing parser; rewriting its grammar merely to change language is not a demonstrated
 benefit. This assessment grants no new embedded-language exception.

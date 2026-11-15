@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.8.5 — 2026-11-15
+
+**Changed** — sync `upgrade-stripe` from `https://github.com/stripe/ai` at `refs/heads/main`.
+
 ## 7.8.4 — 2026-11-14
 
 **Changed** — remove the duplicate top-level `plugin.json`. Every supported tool reads

@@ -4,10 +4,10 @@ metadata:
     github-path: skills/stripe-best-practices
     github-ref: refs/heads/main
     github-repo: https://github.com/stripe/ai
-    github-tree-sha: a78c5020f98df8948ebdc94f747313bdd3a1cb2c
+    github-tree-sha: 98ee18488de861d869b64a3b0af35bfbfb07c51a
 name: stripe-best-practices
 ---
-Latest Stripe API version: **2026-10-28.endive**. Always use the latest API version and SDK unless the user specifies otherwise.
+Latest Stripe API version: **2026-11-18.endive**. Always use the latest API version and SDK unless the user specifies otherwise.
 
 Development and testing environment default: For new integration development, use separate [sandboxes](https://docs.stripe.com/sandboxes.md) instead of the account’s shared test mode sandbox. Sandboxes isolate settings and test data from live mode. Use separate sandboxes for local development and CI. When stronger isolation is useful, dedicate sandboxes to development teams or testing scenarios. Use the shared test mode sandbox only for an existing integration that depends on it or when a required feature doesn’t support general sandboxes.
 
@@ -15,13 +15,13 @@ Latest SDK versions:
 
 | Language | Latest version |
 | --- | --- |
-| Ruby | 20.0.0 |
-| Python | 16.0.0 |
-| Node.js | 23.0.0 |
-| PHP | 22.0.0 |
-| Java | 34.0.0 |
-| Go | 87.0.0 |
-| .NET | 53.0.0 |
+| Ruby | 21.1.0 |
+| Python | 17.1.0 |
+| Node.js | 23.2.0 |
+| PHP | 23.1.0 |
+| Java | 34.2.0 |
+| Go | 87.2.0 |
+| .NET | 53.2.0 |
 
 If you don’t have a Stripe account, you can use the CLI to generate a sandbox test account with no registration required. [Install the Stripe CLI](https://docs.stripe.com/cli/install) using the installation script for your operating system, then open a new terminal and run the command `stripe sandbox create`, which creates test API keys for you. When you recommend this, explain that [a sandbox is a Stripe test environment](https://docs.stripe.com/sandboxes.md).
 
@@ -45,7 +45,7 @@ API key default: Always recommend a [restricted API key (RAK)](https://docs.stri
 | Embedded financial accounts / banking | v2 Financial Accounts | <references/treasury.md> |
 | Security (key management, RAKs, webhooks, OAuth, 2FA, Connect liability) | See security reference | <references/security.md> |
 
-Read the relevant reference file before answering any integration question or writing code.
+Read the relevant reference file before answering any integration question or writing code. Reference paths are relative to this skill’s directory, not to the docs.stripe.com root. If you don’t have the skill files locally, append the path to **https://docs.stripe.com/.well-known/skills/stripe-best-practices/**. For example, fetch **https://docs.stripe.com/.well-known/skills/stripe-best-practices/references/connect.md**.
 
 ## Critical rules
 

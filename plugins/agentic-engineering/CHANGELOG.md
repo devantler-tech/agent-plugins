@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.8.9 — 2026-11-21
+
+**Changed** — sync `stripe-best-practices` from `https://github.com/stripe/ai` at `refs/heads/main`.
+
 ## 7.8.8 — 2026-11-21
 
 **Changed** — sync `golang-pro` from `https://github.com/Jeffallan/claude-skills` at `refs/tags/v0.4.21`.

@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.8.10 — 2026-11-21
+
+**Changed** — sync `web-design-guidelines` from `https://github.com/vercel-labs/agent-skills` at `refs/tags/agent-skills-5a37a6329fbad3666c3207392a6a7c0110e92efb`.
+
 ## 7.8.9 — 2026-11-21
 
 **Changed** — sync `stripe-best-practices` from `https://github.com/stripe/ai` at `refs/heads/main`.

@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.8.11 — 2026-11-21
+
+**Changed** — sync `context7-mcp` from `https://github.com/upstash/context7` at `refs/tags/@upstash/context7-opencode@0.2.2`.
+
 ## 7.8.10 — 2026-11-21
 
 **Changed** — sync `web-design-guidelines` from `https://github.com/vercel-labs/agent-skills` at `refs/tags/agent-skills-5a37a6329fbad3666c3207392a6a7c0110e92efb`.

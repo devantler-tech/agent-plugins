@@ -4,6 +4,15 @@ Read this at operate rung 2 of the portfolio-maintenance run loop, on every run 
 promotes or merges a pull request, including a dependency update. It is the complete rung; the skill
 keeps only its summary.
 
+**Before you open or adopt a PR, make the working copy that holds its branch one of the session's
+folders.** A runtime that ties a PR to a session does so by the session's folders, not by where a
+checkout sits on disk. Claude desktop, for example, matches the PR's repository against the origin of
+each session folder. A product checkout nested inside another folder (a superproject's submodule, or
+a clone in a scratch directory) is therefore not a session folder. Its PR stays unmatched: the app
+refuses CI monitoring (Auto-fix) for it, and the PR never counts as the session's work, so the session
+is not archived when it merges. In Claude desktop, call `request_directory` with the checkout's
+absolute path as soon as the working copy exists.
+
 2. **Drive trusted-author PRs to merge — first priority, ahead of issues, every run.** For every
    trusted-author, non-draft PR whose current-head pentad is clear, merge it with the mechanics the
    **Trust gate** names for that author and repo (e.g. auto-merge arming for single-author bots,

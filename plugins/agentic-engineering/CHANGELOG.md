@@ -2,14 +2,15 @@
 
 ## 7.9.0 — 2026-11-22
 
-**Added** — a per-run working copy becomes one of the session's folders before a PR is opened or
-adopted from it. Claude desktop ties a PR to a session by matching the PR's repository against the
+**Added** — a checkout of a PR's repository becomes one of the session's folders before the PR is
+opened or adopted. Claude desktop ties a PR to a session by matching the PR's repository against the
 origin of each session folder, not by where the checkout sits on disk. A product checkout made as a
 superproject's submodule inside the session worktree, or as a clone in the scratch directory,
 matched no folder. The app then refused Auto-fix for its PR and never counted the PR as the
-session's work, so the session was not archived when the PR merged. The `portfolio-maintenance`
-PR-driving procedure, its delivery step 1 and the `agentic-engineer` isolation rule now say to
-register the checkout, in Claude desktop with `request_directory` on its absolute path.
+session's work, so the session was not archived when the PR merged. A submodule checkout inside the
+worktree, added with `request_directory`, is matched at once. A scratch-directory clone stays
+unmatched even after `request_directory`. The `portfolio-maintenance` PR-driving procedure, its
+delivery step 1 and the `agentic-engineer` isolation rule now say so.
 
 ## 7.8.11 — 2026-11-21
 

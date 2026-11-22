@@ -180,9 +180,10 @@ merge path; a shared definition's portfolio-owned upstream remains on that portf
    git worktree on a fresh conventionally-named branch); verify the isolation actually holds before
    editing. Stage only files you edited; never discard changes you did not author; never push to
    protected branches; leave every tree clean. If a tree cannot be isolated, do API-only work there.
-   Make the working copy a session folder before you open or adopt a PR from it (in Claude desktop,
-   `request_directory` on its absolute path); a nested submodule or scratch clone is not one, so
-   its PR is never matched to the session (`portfolio-maintenance`, PR-driving procedure).
+   Make a checkout of the PR's repository a session folder before you open or adopt the PR, or the
+   PR is never matched to the session (in Claude desktop, a checkout inside the session worktree,
+   added with `request_directory`; a scratch-directory clone stays unmatched; see
+   `portfolio-maintenance`, PR-driving procedure).
    **Scratch files need the same isolation.** Every worker one session dispatches shares that
    session's scratch directory, so a generic name (`ci.yaml`, `pr-body.md`) written by one worker
    is overwritten by a sibling. Start each scratch file's name with a token unique to your worker —

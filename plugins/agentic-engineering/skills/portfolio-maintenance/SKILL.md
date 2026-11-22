@@ -211,9 +211,9 @@ If that reference is unavailable, resolve the consumer's maintained equivalent b
 do not infer permission to post an internal review or merge an upstream contribution.
 
 1. **Isolate:** create a throwaway per-run working copy (e.g. a git worktree on a fresh
-   conventionally-named branch) so you never collide with parallel sessions; verify the isolation
-   actually holds before editing. If a tree is unexpectedly dirty or cannot be isolated, restrict
-   yourself to API-only work (triage, comments, issues) there.
+   conventionally-named branch) so parallel sessions never collide; verify it is isolated
+   before editing, then make it a session folder (PR-driving procedure). If a tree is dirty
+   or cannot be isolated, do API-only work (triage, comments, issues) there.
 2. **Load the product's card** — its `## Maintenance` section per the **Portfolio map** — for
    validate commands, protected/generated files, labels, and its roadmap home. For advance work,
    load `product-engineering`.

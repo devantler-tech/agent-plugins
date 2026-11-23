@@ -17,6 +17,11 @@ repository's [Apache-2.0 license](../LICENSE). A plugin that bundles third-party
 skill's copyright notice in its `resources/THIRD-PARTY-NOTICES.md`, with the license text or a link to the
 license file the plugin ships; keep both when you copy or redistribute those skills.
 
+The `unslop` entrypoint uses Apache-2.0. Its bundled review-passes reference adapts Damir
+Sokolovsky's Unslop under CC BY 4.0. [Bundled reference](../plugins/agentic-engineering/skills/unslop/references/review-passes.md)
+· [Upstream source](https://github.com/heydamir/unslop/tree/620163eedb3529d9cd23a3994ed8d287d06f760d/skills/unslop)
+· [CC BY 4.0 license](../plugins/agentic-engineering/skills/unslop/LICENSE-CC-BY-4.0.txt)
+
 | Skill | Plugin | Upstream | License |
 |-------|--------|----------|---------|
 | `accessibility-review` | `agentic-engineering` | anthropics/knowledge-work-plugins | Apache-2.0 |

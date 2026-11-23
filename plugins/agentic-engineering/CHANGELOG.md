@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.9.2 — 2026-11-23
+
+**Changed** — sync `numina-stripe` from `https://github.com/Numina-Technologies/mcp` at `refs/heads/main`.
+
 ## 7.9.1 — 2026-11-23
 
 **Fixed** — the `portfolio-surveyor` call-shape rule now says that `--jq` runs once per page. A

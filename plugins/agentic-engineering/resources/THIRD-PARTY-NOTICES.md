@@ -1524,7 +1524,7 @@ The repository has no `NOTICE` file. The text below is its `LICENSE` at the comm
 The [review-passes reference](../skills/unslop/references/review-passes.md) adapts **unslop** by
 Damir Sokolovsky ([@heydamir](https://x.com/heydamir)). It retains the audit and refinement order
 and adds checks for content, actions, keyboard access, and narrow layouts. The adaptation carries
-the [CC BY 4.0 license text](../skills/unslop/LICENSE-CC-BY-4.0).
+the [CC BY 4.0 license text](../skills/unslop/LICENSE-CC-BY-4.0.txt).
 
 [Reviewed source](https://github.com/heydamir/unslop/tree/620163eedb3529d9cd23a3994ed8d287d06f760d/skills/unslop).
 Skill tree `4cdf499cc970935529847a374846b3cb336e4c63`.

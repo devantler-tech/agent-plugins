@@ -20,4 +20,4 @@ For a broader pass, derive its character from the audience and task. Choose one 
 
 Review changes against the original checks before reporting the result. An intact destination or form can matter more than a visual difference. Leave already coherent areas alone.
 
-This reference is licensed under [CC BY 4.0](../LICENSE-CC-BY-4.0). [Original skill and author attribution](https://github.com/heydamir/unslop/tree/620163eedb3529d9cd23a3994ed8d287d06f760d/skills/unslop). Reviewed upstream skill tree `4cdf499cc970935529847a374846b3cb336e4c63`.
+This reference is licensed under [CC BY 4.0](../LICENSE-CC-BY-4.0.txt). [Original skill and author attribution](https://github.com/heydamir/unslop/tree/620163eedb3529d9cd23a3994ed8d287d06f760d/skills/unslop). Reviewed upstream skill tree `4cdf499cc970935529847a374846b3cb336e4c63`.

@@ -1191,7 +1191,7 @@ check_fail "portfolio surveyor must fail closed for incomplete ownership-unverif
   "portfolio-surveyor must preserve candidate-scoped fail-closed dispositions" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
-sed 's/ `gh` refuses `--slurp` together with `--jq`\.//' \
+sed 's/ .gh. refuses .--slurp. together with .--jq.\.//' \
   "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
   && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
 check_fail "portfolio surveyor must say gh refuses --slurp with --jq" \

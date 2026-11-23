@@ -1,5 +1,13 @@
 # Changelog — `agentic-engineering`
 
+## 7.9.1 — 2026-11-23
+
+**Fixed** — the `portfolio-surveyor` call-shape rule now says that `--jq` runs once per page. A
+result that needs every page at once pipes `--paginate --slurp` into the allowlisted `jq`, because
+`gh` refuses `--slurp` together with `--jq`. The rule told runs to reduce in-band with `--paginate`
+and `--jq` but never mentioned this, and runs that wanted one cross-page result kept sending the
+rejected combination: 98 failed calls in 33 of 54 sessions on 2026-11-22 alone.
+
 ## 7.9.0 — 2026-11-22
 
 **Added** — a checkout of a PR's repository becomes one of the session's folders before the PR is

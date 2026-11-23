@@ -1,5 +1,13 @@
 # Changelog — `agentic-engineering`
 
+## 7.10.0 — 2026-11-23
+
+**Added** — `unslop` refines rough drafts and existing screens through an audit and focused design
+passes. The maintained skill adapts the method from Damir Sokolovsky's CC BY 4.0
+[unslop](https://github.com/heydamir/unslop/tree/620163eedb3529d9cd23a3994ed8d287d06f760d/skills/unslop).
+It uses the host's existing tools for authorized visual checks. Screenshots, story rendering, and
+image-service setup have no bundled helper.
+
 ## 7.9.2 — 2026-11-23
 
 **Changed** — sync `numina-stripe` from `https://github.com/Numina-Technologies/mcp` at `refs/heads/main`.

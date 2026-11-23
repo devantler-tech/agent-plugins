@@ -124,13 +124,18 @@ are maintained here.
 | Payments (Stripe) | `stripe-best-practices`, `stripe-docs`, `upgrade-stripe` |
 | Bookkeeping (Numina) | `numina-stripe` (Stripe payouts as Numina drafts on their bank lines, split into sales per VAT group, refunds and fees, through the `numina` and `stripe` servers; adopted with known defects, so check its drafts before booking: see the 7.7.0 changelog entry) |
 | Engineering practices | `conventional-release`, `git-commit`, `refactor`, `test-driven-development`, `ways-of-working`, `write-contributing`, `write-docs-introduction`, `write-readme`, `architecture`, `debug`, `deploy-checklist`, `documentation`, `incident-response`, `standup`, `system-design`, `tech-debt`, `testing-strategy` |
-| Design | `accessibility-review`, `design-critique`, `design-handoff`, `design-system`, `research-synthesis`, `user-research`, `ux-copy` |
+| Design | `accessibility-review`, `design-critique`, `design-handoff`, `design-system`, `research-synthesis`, `unslop`, `user-research`, `ux-copy` |
 | Product management | `competitive-brief`, `metrics-review`, `product-brainstorming`, `roadmap-update`, `sprint-planning`, `stakeholder-update`, `synthesize-research`, `write-spec` |
 | Marketing | `brand-review`, `campaign-plan`, `content-creation`, `draft-content`, `email-sequence`, `performance-report`, `seo-audit` |
 | Finance | `audit-support`, `close-management`, `financial-statements`, `journal-entry`, `journal-entry-prep`, `reconciliation`, `sox-testing`, `variance-analysis` |
 | Productivity | `memory-management`, `start`, `task-management`, `update`, `workspace-conventions` (where their notes and tasks go) |
 | Connectors | `connector-setup` (which official mail, calendar, LinkedIn or security connector to ask for) |
 | Skills | `skill-lifecycle` (adopt, build, pin and update a skill; pairs with `find-skills` and `check-skills`) |
+
+Use `frontend-design` to establish a new interface, `design-critique` for feedback, and `unslop`
+to polish a rendered first draft or an existing screen. `unslop` uses the project's components and
+protects existing content, navigation, and keyboard behavior while improving the visible hierarchy.
+It can work from the code or a supplied screenshot when browser access is unavailable.
 
 `dependency-scanning` runs only when asked, and asks again before it downloads the Dependabot CLI or
 audits a whole repository. KSail has its own [`ksail`](../ksail/) plugin, made for KSail's users;

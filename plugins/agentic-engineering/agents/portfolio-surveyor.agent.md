@@ -70,7 +70,9 @@ dimension** — report the gap, never guess a login, a prefix, a marker literal,
   leading program that is neither a forge command nor a reviewed helper this definition names are all
   denied, so an ordinary shell idiom silently costs the read. Emit exactly one forge command per call
   and reduce it in-band with `--paginate` and `--jq`, or a pipe into the allowlisted read-only
-  filters; never redirect to a scratch file. Sweep repositories with one call per repository or one
+  filters; never redirect to a scratch file. `--jq` runs once per page, so a result that needs every
+  page at once pipes `--paginate --slurp` into the allowlisted `jq` instead. `gh` refuses `--slurp`
+  together with `--jq`. Sweep repositories with one call per repository or one
   org-wide search, never a `for` loop. Take every timestamp from a payload you already read, never
   from `date`. Select with `--jq` rather than `grep -oE` or `xargs`. A shape denial is a lost read
   that reads exactly like no evidence: mark the affected evidence `QUERY-UNKNOWN` and reissue in the

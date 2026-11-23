@@ -784,7 +784,7 @@ Authenticated maintainer controls are mandatory evidence, not optional enrichmen
 
 An incomplete candidate can never be classified clean: no `CLEAR`, `MERGE-READY`, `REVIEW-READY`, or "no signal".
 
-**Every forge read is one command in one call.** The read-only guard refuses on shape before it ever inspects intent: output redirection, `;`, `&`, `&&`, a newline, command substitution, and any leading program that is neither a forge command nor a reviewed helper this definition names are all denied, so an ordinary shell idiom silently costs the read. Emit exactly one forge command per call and reduce it in-band with `--paginate` and `--jq`, or a pipe into the allowlisted read-only filters; never redirect to a scratch file. Sweep repositories with one call per repository or one org-wide search, never a `for` loop. Take every timestamp from a payload you already read, never from `date`. Select with `--jq` rather than `grep -oE` or `xargs`. A shape denial is a lost read that reads exactly like no evidence: mark the affected evidence `QUERY-UNKNOWN` and reissue in the admitted shape — never work around the guard.
+**Every forge read is one command in one call.** The read-only guard refuses on shape before it ever inspects intent: output redirection, `;`, `&`, `&&`, a newline, command substitution, and any leading program that is neither a forge command nor a reviewed helper this definition names are all denied, so an ordinary shell idiom silently costs the read. Emit exactly one forge command per call and reduce it in-band with `--paginate` and `--jq`, or a pipe into the allowlisted read-only filters; never redirect to a scratch file. `--jq` runs once per page, so a result that needs every page at once pipes `--paginate --slurp` into the allowlisted `jq` instead. `gh` refuses `--slurp` together with `--jq`. Sweep repositories with one call per repository or one org-wide search, never a `for` loop. Take every timestamp from a payload you already read, never from `date`. Select with `--jq` rather than `grep -oE` or `xargs`. A shape denial is a lost read that reads exactly like no evidence: mark the affected evidence `QUERY-UNKNOWN` and reissue in the admitted shape — never work around the guard.
 
 **Invoke the classifier only in its flag form, by its resolved installed path:** `<installed plugin>/scripts/classify-default-branch-ci-runs.sh --repo OWNER/REPO --branch BRANCH --head-sha FULL_SHA`. The helper and the read-only guard accept nothing else: the guard admits only that exact installed sibling path — never a bare basename, a `PATH` lookup, or a relative `../scripts/` form — and a positional `OWNER/REPO BRANCH SHA` is denied as `not the guarded remote-mode shape` while the helper itself exits 2 on it, so every executable invocation must carry the resolved path and all three flags.
 EOF
@@ -1189,6 +1189,13 @@ sed 's/no .CLEAR., .MERGE-READY./no MERGE-READY/' \
   && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
 check_fail "portfolio surveyor must fail closed for incomplete ownership-unverified PRs" \
   "portfolio-surveyor must preserve candidate-scoped fail-closed dispositions" "$d"
+
+d=$(fresh); make_desired_state "$d" alpha
+sed 's/ .gh. refuses .--slurp. together with .--jq.\.//' \
+  "$d/plugins/alpha/agents/portfolio-surveyor.agent.md" > "$d/tmp" \
+  && mv "$d/tmp" "$d/plugins/alpha/agents/portfolio-surveyor.agent.md"
+check_fail "portfolio surveyor must say gh refuses --slurp with --jq" \
+  "portfolio-surveyor must state the guard's admitted call shape" "$d"
 
 d=$(fresh); make_desired_state "$d" alpha
 printf '\nSuccessful batches may be discarded and rerun.\n' \

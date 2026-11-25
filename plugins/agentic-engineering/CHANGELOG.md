@@ -1,5 +1,10 @@
 # Changelog — `agentic-engineering`
 
+## 7.10.1 — 2026-11-25
+
+**Fixed** — default-branch CI health excludes scheduled failures once GitHub confirms the workflow
+was deleted. A failed lifecycle read leaves health unknown.
+
 ## 7.10.0 — 2026-11-23
 
 **Added** — `unslop` refines rough drafts and existing screens through an audit and focused design

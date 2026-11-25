@@ -326,6 +326,10 @@ case "$*" in
   *'actions/workflows/'*'/runs'*)
     args="$*"; id=${args#*actions/workflows/}; id=${id%%/runs*}
     answer "success-$id.json" '{"total_count":0,"workflow_runs":[]}' ;;
+  *'actions/workflows/'*)
+    args="$*"; id=${args##*/}
+    [ ! -e "$SCHEDULE_CASE/fail-workflow-$id" ] || exit 1
+    answer "workflow-$id.json" "{\"id\":$id,\"state\":\"active\"}" ;;
   *status=failure*) answer failure.json '[{"total_count":0,"workflow_runs":[]}]' ;;
   *status=timed_out*) answer timed_out.json '[{"total_count":0,"workflow_runs":[]}]' ;;
   *status=startup_failure*) answer startup_failure.json '[{"total_count":0,"workflow_runs":[]}]' ;;
@@ -385,12 +389,13 @@ new_case advanced
 run_json 600 31 push success "$t_new" "$head_sha" CI | pages > "$SCHEDULE_CASE/head.json"
 run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
 expect_schedule 'a scheduled failure on an older head stays red after main advances' 0 "$nightly_red"
-if [ "$(grep -c . "$SCHEDULE_CASE/calls")" -eq 5 ] &&
+if [ "$(grep -c . "$SCHEDULE_CASE/calls")" -eq 6 ] &&
   grep -Fq 'repos/devantler-tech/example/actions/workflows/21/runs -f branch=main -f event=schedule -f status=success -F per_page=1' "$SCHEDULE_CASE/calls" &&
+  grep -Fxq 'api --method GET repos/devantler-tech/example/actions/workflows/21' "$SCHEDULE_CASE/calls" &&
   [ "$(grep -c -- '-f event=schedule -f status=[a-z_]* -f created=>=' "$SCHEDULE_CASE/calls")" -eq 3 ]; then
   pass=$((pass + 1))
 else
-  record_failure 'scheduled evidence costs three window reads plus one read per red workflow'
+  record_failure 'scheduled evidence uses the branch and window reads, one success read, and one lifecycle read for a classified red'
   sed 's/^/      call: /' "$SCHEDULE_CASE/calls" >&2
 fi
 
@@ -399,6 +404,40 @@ run_json 600 31 push success "$t_new" "$head_sha" CI | pages > "$SCHEDULE_CASE/h
 run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
 run_json 501 21 schedule success "$t_new" "$old_sha" | page > "$SCHEDULE_CASE/success-21.json"
 expect_schedule 'a later successful run of the same scheduled workflow clears it' 0 ''
+
+new_case deleted
+{
+  run_json 500 21 schedule failure "$t_old" "$old_sha"
+  run_json 502 22 schedule failure "$t_new" "$old_sha"
+  run_json 503 23 schedule failure "$t_new" "$head_sha"
+} | pages > "$SCHEDULE_CASE/failure.json"
+run_json 503 23 schedule failure "$t_new" "$head_sha" | pages > "$SCHEDULE_CASE/head.json"
+printf '%s\n' '{"id":22,"state":"deleted"}' > "$SCHEDULE_CASE/workflow-22.json"
+printf '%s\n' '{"id":23,"state":"deleted"}' > "$SCHEDULE_CASE/workflow-23.json"
+expect_schedule 'deleted scheduled failures on and off head drop out while the active failure stays' 0 "$nightly_red"
+
+new_case disabled
+run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
+printf '%s\n' '{"id":21,"state":"disabled_manually"}' > "$SCHEDULE_CASE/workflow-21.json"
+expect_schedule 'a disabled workflow stays red until it recovers or is deleted' 0 "$nightly_red"
+
+new_case lifecycle-failed
+{
+  run_json 500 21 schedule failure "$t_old" "$old_sha"
+  run_json 502 22 schedule failure "$t_new" "$old_sha"
+} | pages > "$SCHEDULE_CASE/failure.json"
+touch "$SCHEDULE_CASE/fail-workflow-22"
+expect_schedule 'an unreadable workflow lifecycle makes health unknown with no partial result' 2 ''
+
+new_case lifecycle-mismatched
+run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
+printf '%s\n' '{"id":22,"state":"deleted"}' > "$SCHEDULE_CASE/workflow-21.json"
+expect_schedule 'deletion evidence for a different workflow makes health unknown' 2 ''
+
+new_case lifecycle-ambiguous
+run_json 500 21 schedule failure "$t_old" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"
+printf '%s\n' '{"id":21,"state":"active","state":"deleted"}' > "$SCHEDULE_CASE/workflow-21.json"
+expect_schedule 'ambiguous deletion evidence makes health unknown' 2 ''
 
 new_case older-success
 run_json 500 21 schedule failure "$t_new" "$old_sha" | pages > "$SCHEDULE_CASE/failure.json"

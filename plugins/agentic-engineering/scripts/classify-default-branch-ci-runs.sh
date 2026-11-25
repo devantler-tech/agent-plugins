@@ -11,7 +11,9 @@
 # startup-failed scheduled runs of the last SCHEDULE_WINDOW_DAYS days; for each workflow found
 # there, one first-page read fetches its newest successful scheduled run. Those runs join the
 # current-head runs, so a scheduled workflow stays red until a later run of it succeeds.
-# Cost per repository: the head pages + 3 + one per workflow with a red scheduled run.
+# Remote mode then checks each remaining red schedule's lifecycle and omits confirmed deletions.
+# Cost per repository: the head pages + 3 + one success read per workflow with a red scheduled
+# run + one lifecycle read per scheduled failure that would otherwise be reported.
 # Blind spots: a scheduled workflow whose latest red run is older than the window, and
 # non-push events other than schedule (workflow_dispatch, dynamic), which keep current-head
 # semantics.
@@ -165,6 +167,25 @@ retained_read() {
   raw=$(gh api "$@" | json_stream_retain_raw) || return 2
   printf '%s\n' "$raw" | json_stream_unique || return 2
   printf '%s\n' "$raw"
+}
+
+# Read IDs from the classified evidence. A different ID, unknown state, or failed read
+# cannot establish that the requested workflow was deleted.
+collect_deleted_workflows() {
+  local workflow_id page state
+  while IFS= read -r workflow_id; do
+    page=$(retained_read --method GET "repos/${repo}/actions/workflows/${workflow_id}") || return 2
+    state=$(printf '%s\n' "$page" | jq -ers --argjson id "$workflow_id" '
+      if length != 1 or (.[0] | type != "object" or .id != $id) then
+        error("workflow lifecycle does not match the requested workflow")
+      else .[0].state end
+      | if IN("active", "deleted", "disabled_fork", "disabled_inactivity", "disabled_manually")
+        then . else error("unknown workflow lifecycle state") end
+    ') || return 2
+    if [ "$state" = deleted ]; then
+      printf '%s\n' "$workflow_id"
+    fi
+  done
 }
 
 collect_schedule_evidence() {
@@ -378,10 +399,6 @@ jq_filter='
     )
   | map(select(. != null and red))
   | sort_by([.workflow_id, (.name // "")])
-  | .[]
-  | [.workflow_id, .conclusion, (.html_url // ""), (.name // ""),
-     (.event // ""), (.path // ""), .created_at, .id, .run_attempt]
-  | @tsv
 ' 
 
 classification=""
@@ -395,7 +412,7 @@ if ! printf '%s\n' "$payload" | json_stream_unique; then
   echo 'classify-default-branch-ci-runs: ambiguous or incomplete raw observation; health is unknown' >&2
   exit 2
 fi
-if ! classification=$(printf '%s\n' "$payload" | jq -rs \
+if ! classification=$(printf '%s\n' "$payload" | jq -cs \
   --arg expected_head_sha "$head_sha" \
   --arg expected_branch "$branch" \
   --slurpfile schedule_evidence <(printf '%s\n' "$schedule_runs") \
@@ -404,6 +421,21 @@ if ! classification=$(printf '%s\n' "$payload" | jq -rs \
   exit 2
 fi
 
-if [ -n "$classification" ]; then
-  printf '%s\n' "$classification"
+deleted_workflows=""
+if [ -n "$repo" ]; then
+  if ! deleted_workflows=$(printf '%s\n' "$classification" |
+    jq -r '.[] | select(.event == "schedule") | .workflow_id' | collect_deleted_workflows); then
+    echo "classify-default-branch-ci-runs: scheduled workflow lifecycle is unknown; health is unknown" >&2
+    exit 2
+  fi
 fi
+
+printf '%s\n' "$classification" | jq -r \
+  --slurpfile deleted_workflows <(printf '%s\n' "$deleted_workflows") '
+  .[]
+  | . as $run
+  | select($run.event != "schedule" or ($deleted_workflows | index($run.workflow_id)) == null)
+  | [.workflow_id, .conclusion, (.html_url // ""), (.name // ""),
+     (.event // ""), (.path // ""), .created_at, .id, .run_attempt]
+  | @tsv
+' || exit 2

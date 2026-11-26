@@ -4,18 +4,21 @@ set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+expected_pin='plugins/agentic-engineering/skills/context7-mcp 7fe6e09cfa8ad9aba5768da2e37823ccd3837abb'
+expected_full=$'dir=plugins\nbranch=deps/agent-skills-update\npins='"$expected_pin"
 for event in schedule workflow_dispatch; do
   bash "$here/skill-update-scope.sh" "$event" >"$work/out"
-  [[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update\npins=' ]] || {
-    printf 'FAIL: full-catalogue update must hold no skill now that the git-commit hold (#598) ended\n' >&2
+  [[ $(cat "$work/out") == "$expected_full" ]] || {
+    printf 'FAIL: full-catalogue %s must pin only Context7 at the compatible revision (#745)\n' "$event" >&2
     exit 1
   }
 done
 bash "$here/skill-update-scope.sh" workflow_dispatch all >"$work/out"
-[[ $(cat "$work/out") == $'dir=plugins\nbranch=deps/agent-skills-update\npins=' ]]
+[[ $(cat "$work/out") == "$expected_full" ]]
 bash "$here/skill-update-scope.sh" workflow_dispatch agentic-engineering >"$work/out"
-[[ $(cat "$work/out") == $'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills\npins=' ]] || {
-  printf 'FAIL: the agentic-engineering scope must hold no skill now that the git-commit hold (#598) ended\n' >&2
+expected_scoped=$'dir=plugins/agentic-engineering/skills\nbranch=deps/agent-skills-update-agentic-engineering-skills\npins='"$expected_pin"
+[[ $(cat "$work/out") == "$expected_scoped" ]] || {
+  printf 'FAIL: the agentic-engineering scope must apply the same Context7 pin (#745)\n' >&2
   exit 1
 }
 # A scoped producer must still create the canonical per-skill branch accepted

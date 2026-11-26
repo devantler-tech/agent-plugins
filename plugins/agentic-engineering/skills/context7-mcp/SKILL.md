@@ -2,9 +2,9 @@
 description: This skill should be used when the user asks about libraries, frameworks, API references, or needs code examples. Activates for setup questions, code generation involving libraries, or mentions of specific frameworks like React, Vue, Next.js, Prisma, Supabase, etc.
 metadata:
     github-path: skills/context7-mcp
-    github-ref: refs/tags/@upstash/context7-opencode@0.2.2
+    github-ref: refs/tags/@upstash/context7-mcp@4.9.0
     github-repo: https://github.com/upstash/context7
-    github-tree-sha: 7269b47f33ca1c74e86c36aa5c6490aea1018ab4
+    github-tree-sha: 8ee3d998ed21b0b4afd1bf61c09bbe754ee53ef3
 name: context7-mcp
 ---
 When the user asks about libraries, frameworks, or needs code examples, use Context7 to fetch current documentation instead of relying on training data.
@@ -33,7 +33,7 @@ From the resolution results, choose based on:
 
 - Exact or closest name match to what the user asked for
 - Higher benchmark scores indicate better documentation quality
-- If the user mentioned a version (e.g., "React 19"), prefer version-specific IDs
+- If the user mentioned a version (e.g., "React 19") or the project pins one, keep it for `version` in Step 3
 
 ### Step 3: Fetch the Documentation
 
@@ -41,6 +41,7 @@ Call `query-docs` with:
 
 - `libraryId`: The selected Context7 library ID (e.g., `/vercel/next.js`)
 - `query`: What to look up in the library's documentation, scoped to a single concept
+- `version` (optional): The version the user's project uses or the question names, as written there (e.g., `15.4.3`, `^15.4.3`, `14`). Pass it here, not as a suffix of the library ID
 
 If the user's question spans multiple distinct concepts (e.g. routing and auth and caching), make a separate `query-docs` call per concept with the same library ID, unless the question is about how the concepts interact — combined queries dilute ranking and return shallow results for each topic.
 
@@ -56,5 +57,5 @@ Incorporate the fetched documentation into your response:
 
 - **Be specific**: Describe what to look up in the library's documentation, but keep each query to a single concept
 - **One topic per query**: Split multi-topic questions into separate `query-docs` calls — resolve the library ID once, then query per concept, unless the question is about how the concepts interact
-- **Version awareness**: When users mention versions ("Next.js 16", "React 19"), use version-specific library IDs if available from the resolution step
+- **Version awareness**: When users mention versions ("Next.js 16", "React 19") or the project pins one, pass it as `version` to `query-docs`; Context7 serves that version or the closest one it has
 - **Prefer official sources**: When multiple matches exist, prefer official/primary packages over community forks

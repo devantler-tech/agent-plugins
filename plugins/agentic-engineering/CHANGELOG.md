@@ -1,5 +1,9 @@
 # Changelog — `agentic-engineering`
 
+## 7.10.2 — 2026-11-26
+
+**Changed** — sync `context7-mcp` from `https://github.com/upstash/context7` at `refs/tags/@upstash/context7-mcp@4.9.0`.
+
 ## 7.10.1 — 2026-11-25
 
 **Fixed** — default-branch CI health excludes scheduled failures once GitHub confirms the workflow
